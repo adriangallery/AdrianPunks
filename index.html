@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Escala adecuada en dispositivos móviles -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Adrian Punks Mint - Debug</title>
+  <!-- Bootstrap CSS para estilos -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Ethers.js -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <style>
+    body {
+      background-color: #f7f7f7;
+      margin: 0;
+      padding: 0;
+    }
+    .mint-container {
+      max-width: 700px;
+      margin: 20px auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .mint-container img {
+      max-width: 100%;
+      border-radius: 10px;
+      margin-bottom: 15px;
+    }
+    #status, #timestampDebug {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #333;
+      word-wrap: break-word;
+    }
+    table {
+      width: 100%;
+      margin-top: 15px;
+    }
+    th, td {
+      padding: 5px;
+      text-align: center;
+    }
+    #connectWalletButton {
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="mint-container">
+    <!-- Botón para conectar la wallet -->
+    <button id="connectWalletButton" class="btn btn-primary">Connect Wallet</button>
+    
+    <h1>Adrian Punks Mint</h1>
+    <!-- Imagen actualizada -->
+    <img src="https://ipfs.io/ipfs/bafkreigid3xj2k2lhcnplpwob64sakbrrfg6b4fftj36k27svovl66waoq" alt="Adrian Punks" />
+    <p>
+      Mintea tu NFT usando tokens $ADRIAN.<br>
+      Consulta en qué tiers estás allowlisted, los tiempos de inicio, el precio, la cantidad permitida y tu estado en cada tier.
+    </p>
+    <!-- Sección para mostrar información de whitelist y tiers -->
+    <div id="whitelistInfo"></div>
+    <!-- Sección para debug de timestamps -->
+    <div id="timestampDebug"></div>
+    
+    <!-- Formulario para ingresar las cantidades a mintear por cada tier -->
+    <form id="mintForm">
+      <div class="mb-3">
+        <label for="tier0" class="form-label">Tier 0 Mint Quantity:</label>
+        <input type="number" class="form-control" id="tier0" value="0" min="0">
+      </div>
+      <div class="mb-3">
+        <label for="tier1" class="form-label">Tier 1 Mint Quantity:</label>
+        <input type="number" class="form-control" id="tier1" value="0" min="0">
+      </div>
+      <div class="mb-3">
+        <label for="tier2" class="form-label">Tier 2 Mint Quantity:</label>
+        <input type="number" class="form-control" id="tier2" value="0" min="0">
+      </div>
+      <div class="mb-3">
+        <label for="tier3" class="form-label">Tier 3 (Público) Mint Quantity:</label>
+        <input type="number" class="form-control" id="tier3" value="0" min="0">
+      </div>
+      <button type="button" id="mintButton" class="btn btn-primary">Mint Tokens</button>
+    </form>
+    <div id="status"></div>
+  </div>
+
+  <!-- Bootstrap JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Lógica del Frontend con Debugging -->
+  <script>
+    // Dirección del contrato ADRIANPunks
+    const adrianPunksAddress = "0xf7f61b4d7e29d479d284f3fda1fb46188940c3b9";
+    // ABI con las funciones necesarias: getAggregatedWhitelistInfo, salePhases y mint
+    const adrianPunksABI = [
+      "function getAggregatedWhitelistInfo(address user) view returns (uint256 totalAllowed, uint256 mintedByUser, uint256 totalRemaining, uint256[] memory prices, uint256[] memory saleStarts)",
+      "function salePhases(uint256) view returns (uint256 saleStart, uint256 price, uint256 allowed)",
+      "function getWhitelistInfo(uint256 tier, address user) view returns (bool isWhitelisted, uint256 allowed, uint256 minted, uint256 remaining, uint256 price)",
+      "function mint(uint256[] calldata tiers, uint256[] calldata amounts) external"
+    ];
+    // Dirección del token ADRIAN y su ABI ERC20 básica
+    const adrianTokenAddress = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const erc20ABI = [
+      "function approve(address spender, uint256 amount) external returns (bool)",
+      "function allowance(address owner, address spender) view returns (uint256)"
+    ];
+
+    let provider;
+    let signer;
+    let userAccount;
+    let adrianPunksContract;
+    let adrianTokenContract;
+
+    // Conectar la wallet
+    async function connectWallet() {
+      try {
+        if (!window.ethereum) {
+          document.getElementById("status").innerText = "Por favor, instala MetaMask.";
+          return;
+        }
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        userAccount = await signer.getAddress();
+        console.log("Wallet conectada:", userAccount);
+        document.getElementById("status").innerText = "Wallet connected: " + userAccount;
+        adrianPunksContract = new ethers.Contract(adrianPunksAddress, adrianPunksABI, signer);
+        adrianTokenContract = new ethers.Contract(adrianTokenAddress, erc20ABI, signer);
+        document.getElementById("connectWalletButton").disabled = true;
+        loadWhitelistInfo();
+      } catch (error) {
+        console.error("Error al conectar la wallet:", error);
+        document.getElementById("status").innerText = "Error connecting wallet: " + error.message;
+      }
+    }
+
+    // Cargar y mostrar la información de whitelist, tiers y debug de timestamps
+    async function loadWhitelistInfo() {
+      try {
+        // Obtener información agregada (totales)
+        const aggregatedInfo = await adrianPunksContract.getAggregatedWhitelistInfo(userAccount);
+        const totalAllowed = aggregatedInfo.totalAllowed.toString();
+        const mintedByUser = aggregatedInfo.mintedByUser.toString();
+        const totalRemaining = aggregatedInfo.totalRemaining.toString();
+
+        let html = `<h3>Your Whitelist Info (Aggregated)</h3>`;
+        html += `<p>Total Allowed: ${totalAllowed} | Already Minted: ${mintedByUser} | Remaining: ${totalRemaining}</p>`;
+        html += `<table class="table table-bordered">
+                    <thead>
+                      <tr>
+                        <th>Tier</th>
+                        <th>Sale Start</th>
+                        <th>Price ($ADRIAN)</th>
+                        <th>Allowed</th>
+                        <th>Whitelisted</th>
+                        <th>Tipo</th>
+                      </tr>
+                    </thead>
+                    <tbody>`;
+        // Variable para acumular info de debug de timestamps
+        let debugInfo = "";
+        // Timestamp actual del navegador (en segundos)
+        const currentTimestamp = Math.floor(Date.now() / 1000);
+        console.log("Current Timestamp:", currentTimestamp);
+        debugInfo += `<p>Current Timestamp (navegador): ${currentTimestamp}</p>`;
+        // Para cada tier, consultamos la información individual
+        for (let i = 0; i < 4; i++) {
+          // Obtener información de la fase (salePhases)
+          const phase = await adrianPunksContract.salePhases(i);
+          const saleStartTimestamp = phase.saleStart.toNumber();
+          const saleStartDate = new Date(saleStartTimestamp * 1000).toLocaleString();
+          const priceFormatted = ethers.utils.formatUnits(phase.price, 18);
+          const allowed = phase.allowed.toString();
+          // Obtener la info de whitelist para el tier actual
+          const whitelistInfo = await adrianPunksContract.getWhitelistInfo(i, userAccount);
+          const isWhitelisted = whitelistInfo[0];
+          const tipo = (i < 3) ? "Whitelist" : "Público";
+          html += `<tr>
+                     <td>Tier ${i}</td>
+                     <td>${saleStartDate}</td>
+                     <td>${priceFormatted}</td>
+                     <td>${allowed}</td>
+                     <td>${isWhitelisted ? "Sí" : "No"}</td>
+                     <td>${tipo}</td>
+                   </tr>`;
+          console.log(`Tier ${i}: saleStart = ${saleStartTimestamp} (current: ${currentTimestamp}), whitelisted: ${isWhitelisted}`);
+          debugInfo += `<p>Tier ${i}: saleStart = ${saleStartTimestamp} (current: ${currentTimestamp}), whitelisted: ${isWhitelisted}</p>`;
+        }
+        html += `</tbody></table>`;
+        document.getElementById("whitelistInfo").innerHTML = html;
+        document.getElementById("timestampDebug").innerHTML = debugInfo;
+      } catch (error) {
+        console.error("Error loading whitelist info:", error);
+        document.getElementById("whitelistInfo").innerText = "Error loading whitelist info.";
+      }
+    }
+
+    // Evento para el botón de mint
+    document.getElementById("mintButton").addEventListener("click", async () => {
+      const statusDiv = document.getElementById("status");
+      // Leer las cantidades ingresadas para cada tier
+      const tier0 = parseInt(document.getElementById("tier0").value) || 0;
+      const tier1 = parseInt(document.getElementById("tier1").value) || 0;
+      const tier2 = parseInt(document.getElementById("tier2").value) || 0;
+      const tier3 = parseInt(document.getElementById("tier3").value) || 0;
+      
+      // Construir arrays para tiers y cantidades (solo incluir si > 0)
+      let tiers = [];
+      let amounts = [];
+      if (tier0 > 0) { tiers.push(0); amounts.push(tier0); }
+      if (tier1 > 0) { tiers.push(1); amounts.push(tier1); }
+      if (tier2 > 0) { tiers.push(2); amounts.push(tier2); }
+      if (tier3 > 0) { tiers.push(3); amounts.push(tier3); }
+      
+      if (tiers.length === 0) {
+        statusDiv.innerText = "Ingresa al menos una cantidad para mintear.";
+        return;
+      }
+      
+      try {
+        statusDiv.innerText = "Calculando costo total...";
+        let totalCost = ethers.BigNumber.from("0");
+        for (let i = 0; i < tiers.length; i++) {
+          const phase = await adrianPunksContract.salePhases(tiers[i]);
+          totalCost = totalCost.add(phase.price.mul(amounts[i]));
+        }
+        
+        // Verificar allowance para ADRIAN token
+        const allowance = await adrianTokenContract.allowance(userAccount, adrianPunksAddress);
+        if (allowance.lt(totalCost)) {
+          statusDiv.innerText = "Aprobando tokens ADRIAN...";
+          const approveTx = await adrianTokenContract.approve(adrianPunksAddress, totalCost);
+          await approveTx.wait();
+        }
+        
+        statusDiv.innerText = "Enviando transacción de mint...";
+        const mintTx = await adrianPunksContract.mint(tiers, amounts);
+        statusDiv.innerText = "Transacción enviada. Esperando confirmación...";
+        await mintTx.wait();
+        statusDiv.innerText = "¡Mint exitoso! Tu NFT se encontrará en tu wallet.";
+        loadWhitelistInfo();
+      } catch (error) {
+        console.error("Error during mint:", error);
+        statusDiv.innerText = "Error: " + (error.data?.message || error.message);
+      }
+    });
+
+    // Agregar evento al botón "Connect Wallet"
+    document.getElementById("connectWalletButton").addEventListener("click", connectWallet);
+  </script>
+</body>
+</html>
