@@ -6,7 +6,7 @@
     <title>Adrian Punks Marketplace</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/sql-wasm.js"></script>
+    <script src="api/nfts.js"></script>
 </head>
 <body>
     <div class="container">
@@ -36,31 +36,17 @@
         let provider;
         let signer;
         let userAccount;
-        let db;
         let nfts = [];
 
-        // Initialize SQL.js
-        async function initDB() {
-            const SQL = await initSqlJs({
-                locateFile: file => `https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/${file}`
-            });
-            
-            const response = await fetch('nft_metadata.db');
-            const buffer = await response.arrayBuffer();
-            db = new SQL.Database(new Uint8Array(buffer));
-            
+        // Initialize marketplace
+        function initMarketplace() {
             loadNFTs();
             populateFilters();
         }
 
-        // Load NFTs from database
+        // Load NFTs from API
         function loadNFTs() {
-            const stmt = db.prepare('SELECT * FROM nfts');
-            nfts = [];
-            while (stmt.step()) {
-                nfts.push(stmt.getAsObject());
-            }
-            stmt.free();
+            nfts = window.nftAPI.getAllNFTs();
             displayNFTs(nfts);
         }
 
@@ -93,20 +79,11 @@
 
         // Populate filter dropdowns
         function populateFilters() {
-            const backgrounds = new Set();
-            const types = new Set();
-            const accessories = new Set();
-
-            nfts.forEach(nft => {
-                const attributes = JSON.parse(nft.attributes);
-                if (attributes.Background) backgrounds.add(attributes.Background);
-                if (attributes.Type) types.add(attributes.Type);
-                if (attributes.Accessory) accessories.add(attributes.Accessory);
-            });
-
-            populateFilter('backgroundFilter', backgrounds);
-            populateFilter('typeFilter', types);
-            populateFilter('accessoryFilter', accessories);
+            const attributes = window.nftAPI.getUniqueAttributes();
+            
+            populateFilter('backgroundFilter', attributes.backgrounds);
+            populateFilter('typeFilter', attributes.types);
+            populateFilter('accessoryFilter', attributes.accessories);
         }
 
         function populateFilter(filterId, values) {
@@ -125,11 +102,10 @@
             const type = document.getElementById('typeFilter').value;
             const accessory = document.getElementById('accessoryFilter').value;
 
-            const filteredNFTs = nfts.filter(nft => {
-                const attributes = JSON.parse(nft.attributes);
-                return (!background || attributes.Background === background) &&
-                       (!type || attributes.Type === type) &&
-                       (!accessory || attributes.Accessory === accessory);
+            const filteredNFTs = window.nftAPI.getFilteredNFTs({
+                background,
+                type,
+                accessory
             });
 
             displayNFTs(filteredNFTs);
@@ -163,7 +139,7 @@
         document.getElementById('accessoryFilter').addEventListener('change', filterNFTs);
 
         // Initialize the marketplace
-        initDB();
+        initMarketplace();
     </script>
 </body>
 </html>
