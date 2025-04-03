@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Adrian Punks Market</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .nft-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+        .nft-card {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .nft-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .nft-card img {
+            width: 100%;
+            aspect-ratio: 1/1;
+            object-fit: cover;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .nft-card h3 {
+            font-size: 1rem;
+            color: #333;
+            word-break: break-word;
+        }
+    </style>
+</head>
+<body>
+    <header class="container text-center my-4">
+        <h1>Adrian Punks Market</h1>
+    </header>
+    
+    <div class="container">
+        <div id="nftGrid" class="nft-grid"></div>
+    </div>
+
+    <script>
+        async function loadNFTs() {
+            try {
+                const response = await fetch('/api/nfts');
+                if (!response.ok) throw new Error('Error loading NFTs');
+                const nfts = await response.json();
+                displayNFTs(nfts);
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('nftGrid').innerHTML = '<div class="alert alert-danger">Error loading NFTs</div>';
+            }
+        }
+
+        function displayNFTs(nfts) {
+            const grid = document.getElementById('nftGrid');
+            grid.innerHTML = '';
+            nfts.forEach(nft => {
+                const card = document.createElement('div');
+                card.className = 'nft-card';
+                const img = document.createElement('img');
+                img.src = nft.image;
+                img.alt = nft.name;
+                img.loading = 'lazy';
+                const title = document.createElement('h3');
+                title.textContent = nft.name;
+                card.appendChild(img);
+                card.appendChild(title);
+                grid.appendChild(card);
+            });
+        }
+
+        // Cargar NFTs cuando la página esté lista
+        document.addEventListener('DOMContentLoaded', loadNFTs);
+    </script>
+</body>
+</html> 
