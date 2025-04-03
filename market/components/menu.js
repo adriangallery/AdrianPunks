@@ -1,9 +1,14 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Cargar el menú
-    fetch(`${window.appConfig.componentsBaseUrl}/menu.html`)
-        .then(response => response.text())
-        .then(html => {
-            document.querySelector('header').insertAdjacentHTML('afterbegin', html);
-        })
-        .catch(error => console.error('Error loading menu:', error));
+    const menuHTML = `
+        <nav class="menu">
+            <a href="/">Home</a>
+            <a href="/market">Marketplace</a>
+            <a href="/mint">Mint</a>
+        </nav>
+    `;
+    
+    const header = document.querySelector('header');
+    if (header) {
+        header.insertAdjacentHTML('afterbegin', menuHTML);
+    }
 }); 
