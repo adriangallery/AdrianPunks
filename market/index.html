@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adrian Punks Marketplace</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/sql-wasm.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Adrian Punks Marketplace</h1>
+            <button id="connectWallet" class="connect-wallet">Connect Wallet</button>
+        </header>
+
+        <div class="filters">
+            <select id="backgroundFilter" class="filter-select">
+                <option value="">Background</option>
+            </select>
+            <select id="typeFilter" class="filter-select">
+                <option value="">Type</option>
+            </select>
+            <select id="accessoryFilter" class="filter-select">
+                <option value="">Accessory</option>
+            </select>
+        </div>
+
+        <div id="nftGrid" class="nft-grid">
+            <!-- NFTs will be loaded here -->
+        </div>
+    </div>
+
+    <script>
+        let provider;
+        let signer;
+        let userAccount;
+        let db;
+        let nfts = [];
+
+        // Initialize SQL.js
+        async function initDB() {
+            const SQL = await initSqlJs({
+                locateFile: file => `https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/${file}`
+            });
+            
+            const response = await fetch('nft_metadata.db');
+            const buffer = await response.arrayBuffer();
+            db = new SQL.Database(new Uint8Array(buffer));
+            
+            loadNFTs();
+            populateFilters();
+        }
+
+        // Load NFTs from database
+        function loadNFTs() {
+            const stmt = db.prepare('SELECT * FROM nfts');
+            nfts = [];
+            while (stmt.step()) {
+                nfts.push(stmt.getAsObject());
+            }
+            stmt.free();
+            displayNFTs(nfts);
+        }
+
+        // Display NFTs in the grid
+        function displayNFTs(nftsToDisplay) {
+            const grid = document.getElementById('nftGrid');
+            grid.innerHTML = '';
+            
+            nftsToDisplay.forEach(nft => {
+                const card = document.createElement('div');
+                card.className = 'nft-card';
+                
+                const attributes = JSON.parse(nft.attributes);
+                
+                card.innerHTML = `
+                    <img src="${nft.image_url}" alt="Adrian Punk ${nft.token_id}" class="nft-image">
+                    <div class="nft-info">
+                        <div class="nft-name">Adrian Punk #${nft.token_id}</div>
+                        <div class="nft-attributes">
+                            ${Object.entries(attributes).map(([key, value]) => 
+                                `<span class="attribute">${key}: ${value}</span>`
+                            ).join('')}
+                        </div>
+                    </div>
+                `;
+                
+                grid.appendChild(card);
+            });
+        }
+
+        // Populate filter dropdowns
+        function populateFilters() {
+            const backgrounds = new Set();
+            const types = new Set();
+            const accessories = new Set();
+
+            nfts.forEach(nft => {
+                const attributes = JSON.parse(nft.attributes);
+                if (attributes.Background) backgrounds.add(attributes.Background);
+                if (attributes.Type) types.add(attributes.Type);
+                if (attributes.Accessory) accessories.add(attributes.Accessory);
+            });
+
+            populateFilter('backgroundFilter', backgrounds);
+            populateFilter('typeFilter', types);
+            populateFilter('accessoryFilter', accessories);
+        }
+
+        function populateFilter(filterId, values) {
+            const select = document.getElementById(filterId);
+            values.forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                select.appendChild(option);
+            });
+        }
+
+        // Filter NFTs based on selected attributes
+        function filterNFTs() {
+            const background = document.getElementById('backgroundFilter').value;
+            const type = document.getElementById('typeFilter').value;
+            const accessory = document.getElementById('accessoryFilter').value;
+
+            const filteredNFTs = nfts.filter(nft => {
+                const attributes = JSON.parse(nft.attributes);
+                return (!background || attributes.Background === background) &&
+                       (!type || attributes.Type === type) &&
+                       (!accessory || attributes.Accessory === accessory);
+            });
+
+            displayNFTs(filteredNFTs);
+        }
+
+        // Connect wallet function
+        async function connectWallet() {
+            try {
+                if (!window.ethereum) {
+                    alert('Please install MetaMask!');
+                    return;
+                }
+
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                signer = provider.getSigner();
+                userAccount = await signer.getAddress();
+                
+                document.getElementById('connectWallet').textContent = 
+                    `${userAccount.substring(0, 6)}...${userAccount.substring(38)}`;
+            } catch (error) {
+                console.error('Error connecting wallet:', error);
+                alert('Error connecting wallet. Please try again.');
+            }
+        }
+
+        // Event listeners
+        document.getElementById('connectWallet').addEventListener('click', connectWallet);
+        document.getElementById('backgroundFilter').addEventListener('change', filterNFTs);
+        document.getElementById('typeFilter').addEventListener('change', filterNFTs);
+        document.getElementById('accessoryFilter').addEventListener('change', filterNFTs);
+
+        // Initialize the marketplace
+        initDB();
+    </script>
+</body>
+</html>
