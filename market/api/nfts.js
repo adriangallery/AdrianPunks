@@ -4,51 +4,152 @@ const path = require('path');
 // API para manejar los NFTs
 const nftAPI = {
     getAllNFTs: function() {
-        // Aquí iría la lógica para obtener todos los NFTs
-        // Por ahora retornamos datos de ejemplo
-        return [
-            {
-                token_id: "1",
-                image_url: "https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/1.gif",
-                attributes: JSON.stringify({
-                    background: "Blue",
-                    type: "Punk",
-                    accessory: "None"
-                })
-            }
-            // Agrega más NFTs según sea necesario
-        ];
+        return new Promise((resolve, reject) => {
+            const db = new sqlite3.Database(path.join(__dirname, '..', 'nfts.db'));
+            
+            db.all(`
+                SELECT n.*, 
+                       GROUP_CONCAT(a.trait_type || ':' || a.value) as attributes_str
+                FROM nfts n
+                LEFT JOIN attributes a ON n.token_id = a.token_id
+                GROUP BY n.token_id
+            `, [], (err, rows) => {
+                if (err) {
+                    console.error('Error loading NFTs:', err);
+                    reject(err);
+                    return;
+                }
+                
+                const nfts = rows.map(row => ({
+                    token_id: row.token_id,
+                    name: row.name,
+                    image_url: row.image_url,
+                    attributes: row.attributes_str ? row.attributes_str.split(',').map(attr => {
+                        const [trait_type, value] = attr.split(':');
+                        return { trait_type, value };
+                    }) : [],
+                    description: row.description,
+                    external_url: row.external_url,
+                    rarity: row.rarity
+                }));
+                
+                resolve(nfts);
+                db.close();
+            });
+        });
     },
 
     getUniqueAttributes: function() {
-        const nfts = this.getAllNFTs();
-        const attributes = {
-            backgrounds: new Set(),
-            types: new Set(),
-            accessories: new Set()
-        };
-
-        nfts.forEach(nft => {
-            const attr = JSON.parse(nft.attributes);
-            attributes.backgrounds.add(attr.background);
-            attributes.types.add(attr.type);
-            attributes.accessories.add(attr.accessory);
+        return new Promise((resolve, reject) => {
+            const db = new sqlite3.Database(path.join(__dirname, '..', 'nfts.db'));
+            
+            db.all(`
+                SELECT DISTINCT trait_type, value
+                FROM attributes
+                ORDER BY trait_type, value
+            `, [], (err, rows) => {
+                if (err) {
+                    console.error('Error getting unique attributes:', err);
+                    reject(err);
+                    return;
+                }
+                
+                const attributes = {
+                    backgrounds: new Set(),
+                    types: new Set(),
+                    accessories: new Set()
+                };
+                
+                rows.forEach(row => {
+                    if (row.trait_type === 'Background') {
+                        attributes.backgrounds.add(row.value);
+                    } else if (row.trait_type === 'Type') {
+                        attributes.types.add(row.value);
+                    } else if (row.trait_type === 'Accessory') {
+                        attributes.accessories.add(row.value);
+                    }
+                });
+                
+                resolve({
+                    backgrounds: Array.from(attributes.backgrounds),
+                    types: Array.from(attributes.types),
+                    accessories: Array.from(attributes.accessories)
+                });
+                
+                db.close();
+            });
         });
-
-        return {
-            backgrounds: Array.from(attributes.backgrounds),
-            types: Array.from(attributes.types),
-            accessories: Array.from(attributes.accessories)
-        };
     },
 
     getFilteredNFTs: function(filters) {
-        const nfts = this.getAllNFTs();
-        return nfts.filter(nft => {
-            const attr = JSON.parse(nft.attributes);
-            return (!filters.background || attr.background === filters.background) &&
-                   (!filters.type || attr.type === filters.type) &&
-                   (!filters.accessory || attr.accessory === filters.accessory);
+        return new Promise((resolve, reject) => {
+            const db = new sqlite3.Database(path.join(__dirname, '..', 'nfts.db'));
+            
+            let query = `
+                SELECT n.*, 
+                       GROUP_CONCAT(a.trait_type || ':' || a.value) as attributes_str
+                FROM nfts n
+                LEFT JOIN attributes a ON n.token_id = a.token_id
+                WHERE 1=1
+            `;
+            
+            const params = [];
+            
+            if (filters.background) {
+                query += ` AND EXISTS (
+                    SELECT 1 FROM attributes a2 
+                    WHERE a2.token_id = n.token_id 
+                    AND a2.trait_type = 'Background' 
+                    AND a2.value = ?
+                )`;
+                params.push(filters.background);
+            }
+            
+            if (filters.type) {
+                query += ` AND EXISTS (
+                    SELECT 1 FROM attributes a2 
+                    WHERE a2.token_id = n.token_id 
+                    AND a2.trait_type = 'Type' 
+                    AND a2.value = ?
+                )`;
+                params.push(filters.type);
+            }
+            
+            if (filters.accessory) {
+                query += ` AND EXISTS (
+                    SELECT 1 FROM attributes a2 
+                    WHERE a2.token_id = n.token_id 
+                    AND a2.trait_type = 'Accessory' 
+                    AND a2.value = ?
+                )`;
+                params.push(filters.accessory);
+            }
+            
+            query += ` GROUP BY n.token_id`;
+            
+            db.all(query, params, (err, rows) => {
+                if (err) {
+                    console.error('Error filtering NFTs:', err);
+                    reject(err);
+                    return;
+                }
+                
+                const nfts = rows.map(row => ({
+                    token_id: row.token_id,
+                    name: row.name,
+                    image_url: row.image_url,
+                    attributes: row.attributes_str ? row.attributes_str.split(',').map(attr => {
+                        const [trait_type, value] = attr.split(':');
+                        return { trait_type, value };
+                    }) : [],
+                    description: row.description,
+                    external_url: row.external_url,
+                    rarity: row.rarity
+                }));
+                
+                resolve(nfts);
+                db.close();
+            });
         });
     }
 };

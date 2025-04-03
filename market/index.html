@@ -274,27 +274,42 @@
 
     async function loadNFTData() {
       try {
-        // Usar la URL definida en config.js para la API de NFTs
-        const response = await fetch(`${window.appConfig.apiBaseUrl}/nfts`);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        nftData = await response.json();
-        traitMapping = {};
-        nftData.forEach(nft => {
-          if(getTokenNumber(nft.name) <= 0) return;
-          try {
-            JSON.parse(nft.attributes).forEach(attr => {
-              if (!traitMapping[attr.trait_type]) {
-                traitMapping[attr.trait_type] = new Set();
-              }
-              traitMapping[attr.trait_type].add(attr.value);
-            });
-          } catch(e) {
-            console.error('Error parsing attributes for ' + nft.name, e);
-          }
+        // Usar la API de NFTs que ahora devuelve promesas
+        const nfts = await window.nftAPI.getAllNFTs();
+        nftData = nfts;
+        
+        // Obtener atributos únicos
+        const uniqueAttributes = await window.nftAPI.getUniqueAttributes();
+        
+        // Actualizar los filtros
+        const backgroundFilter = document.getElementById('backgroundFilter');
+        backgroundFilter.innerHTML = '<option value="">All Backgrounds</option>';
+        uniqueAttributes.backgrounds.forEach(background => {
+          const option = document.createElement('option');
+          option.value = background;
+          option.textContent = background;
+          backgroundFilter.appendChild(option);
         });
-        populateDropdown();
+
+        const typeFilter = document.getElementById('typeFilter');
+        typeFilter.innerHTML = '<option value="">All Types</option>';
+        uniqueAttributes.types.forEach(type => {
+          const option = document.createElement('option');
+          option.value = type;
+          option.textContent = type;
+          typeFilter.appendChild(option);
+        });
+
+        const accessoryFilter = document.getElementById('accessoryFilter');
+        accessoryFilter.innerHTML = '<option value="">All Accessories</option>';
+        uniqueAttributes.accessories.forEach(accessory => {
+          const option = document.createElement('option');
+          option.value = accessory;
+          option.textContent = accessory;
+          accessoryFilter.appendChild(option);
+        });
+
+        // Mostrar los NFTs
         displayNFTs(nftData);
       } catch (error) {
         console.error('Error loading NFT data:', error);
@@ -307,24 +322,20 @@
       }
     }
 
-    function filterNFTs() {
-      const dropdown = document.getElementById('traitValueSelect');
-      const selectedValue = dropdown.value;
-      const filtered = nftData.filter(nft => {
-        if(getTokenNumber(nft.name) <= 0) return false;
-        if (!selectedValue) return true;
-        let attributes = [];
-        try {
-          attributes = JSON.parse(nft.attributes);
-        } catch(e) {
-          console.error('Error parsing attributes for ' + nft.name, e);
-        }
-        return attributes.some(attr => {
-          const pair = attr.trait_type + ' - ' + attr.value;
-          return pair === selectedValue;
-        });
-      });
-      displayNFTs(filtered);
+    async function filterNFTs() {
+      const filters = {
+        background: document.getElementById('backgroundFilter').value,
+        type: document.getElementById('typeFilter').value,
+        accessory: document.getElementById('accessoryFilter').value
+      };
+
+      try {
+        const filteredNFTs = await window.nftAPI.getFilteredNFTs(filters);
+        displayNFTs(filteredNFTs);
+      } catch (error) {
+        console.error('Error filtering NFTs:', error);
+        alert('Error filtering NFTs. Please try again.');
+      }
     }
 
     document.getElementById('traitValueSelect').addEventListener('change', filterNFTs);
