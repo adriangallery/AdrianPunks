@@ -1,81 +1,210 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Adrian Punks Market</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdrianPunks Market</title>
     <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
         .nft-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
             gap: 20px;
             padding: 20px;
         }
         .nft-card {
             background: white;
-            border: 1px solid #ddd;
             border-radius: 10px;
-            padding: 10px;
-            text-align: center;
-            cursor: pointer;
-            transition: transform 0.2s;
+            padding: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
         }
         .nft-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
-        .nft-card img {
+        .nft-image {
             width: 100%;
-            aspect-ratio: 1/1;
+            height: 250px;
             object-fit: cover;
             border-radius: 5px;
             margin-bottom: 10px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
         }
-        .nft-card h3 {
-            font-size: 1rem;
+        .nft-image.loaded {
+            opacity: 1;
+        }
+        .nft-title {
+            font-size: 1.2em;
+            margin: 10px 0;
             color: #333;
-            word-break: break-word;
+        }
+        .nft-info {
+            color: #666;
+            font-size: 0.9em;
+        }
+        .attributes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        .attribute {
+            background: #f0f0f0;
+            padding: 3px 8px;
+            border-radius: 15px;
+            font-size: 0.8em;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+        }
+        .modal-content {
+            position: relative;
+            max-width: 800px;
+            margin: 50px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        .close-button {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        .modal-image {
+            max-width: 100%;
+            max-height: 70vh;
+            display: block;
+            margin: 0 auto;
         }
     </style>
 </head>
 <body>
-    <header class="container text-center my-4">
-        <h1>Adrian Punks Market</h1>
-    </header>
-    
     <div class="container">
-        <div id="nftGrid" class="nft-grid"></div>
+        <h1>AdrianPunks Market</h1>
+        <div class="nft-grid" id="nftGrid"></div>
+    </div>
+
+    <div id="nftModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeModal()">&times;</span>
+            <img id="modalImage" class="modal-image">
+            <h2 id="modalTitle"></h2>
+            <div id="modalAttributes" class="attributes"></div>
+            <p id="modalCompiler"></p>
+            <p id="modalMasterminds"></p>
+            <p id="modalRarity"></p>
+        </div>
     </div>
 
     <script>
         async function loadNFTs() {
             try {
-                const response = await fetch('/api/nfts');
-                if (!response.ok) throw new Error('Error loading NFTs');
+                const response = await fetch('http://localhost:3001/api/nfts');
                 const nfts = await response.json();
                 displayNFTs(nfts);
             } catch (error) {
-                console.error('Error:', error);
-                document.getElementById('nftGrid').innerHTML = '<div class="alert alert-danger">Error loading NFTs</div>';
+                console.error('Error cargando NFTs:', error);
             }
         }
 
         function displayNFTs(nfts) {
             const grid = document.getElementById('nftGrid');
             grid.innerHTML = '';
+
             nfts.forEach(nft => {
                 const card = document.createElement('div');
                 card.className = 'nft-card';
+
                 const img = document.createElement('img');
+                img.className = 'nft-image';
                 img.src = nft.image;
                 img.alt = nft.name;
-                img.loading = 'lazy';
-                const title = document.createElement('h3');
+                img.onload = () => img.classList.add('loaded');
+                img.onerror = () => {
+                    img.src = 'placeholder.png';
+                    img.classList.add('loaded');
+                };
+
+                const title = document.createElement('h2');
+                title.className = 'nft-title';
                 title.textContent = nft.name;
+
+                const attributes = document.createElement('div');
+                attributes.className = 'attributes';
+                const parsedAttributes = JSON.parse(nft.attributes);
+                parsedAttributes.slice(0, 3).forEach(attr => {
+                    const span = document.createElement('span');
+                    span.className = 'attribute';
+                    span.textContent = `${attr.trait_type}: ${attr.value}`;
+                    attributes.appendChild(span);
+                });
+
                 card.appendChild(img);
                 card.appendChild(title);
+                card.appendChild(attributes);
+
+                card.onclick = () => openModal(nft);
                 grid.appendChild(card);
             });
+        }
+
+        function openModal(nft) {
+            const modal = document.getElementById('nftModal');
+            const modalImg = document.getElementById('modalImage');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalAttributes = document.getElementById('modalAttributes');
+            const modalCompiler = document.getElementById('modalCompiler');
+            const modalMasterminds = document.getElementById('modalMasterminds');
+            const modalRarity = document.getElementById('modalRarity');
+
+            modalImg.src = nft.image;
+            modalTitle.textContent = nft.name;
+            
+            modalAttributes.innerHTML = '';
+            const parsedAttributes = JSON.parse(nft.attributes);
+            parsedAttributes.forEach(attr => {
+                const span = document.createElement('span');
+                span.className = 'attribute';
+                span.textContent = `${attr.trait_type}: ${attr.value}`;
+                modalAttributes.appendChild(span);
+            });
+
+            modalCompiler.textContent = `Compiler: ${nft.compiler}`;
+            modalMasterminds.textContent = `Masterminds: ${JSON.parse(nft.masterminds).join(', ')}`;
+            modalRarity.textContent = `Rarity: ${nft.rarity.toFixed(2)}`;
+
+            modal.style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('nftModal').style.display = 'none';
+        }
+
+        // Cerrar modal al hacer clic fuera de él
+        window.onclick = function(event) {
+            const modal = document.getElementById('nftModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
         }
 
         // Cargar NFTs cuando la página esté lista

@@ -23,20 +23,23 @@ db.serialize(() => {
         image TEXT,
         external_url TEXT,
         attributes TEXT,
+        compiler TEXT,
+        masterminds TEXT,
         rarity REAL
     )`);
 
     // Leer el archivo JSON
-    const jsonData = JSON.parse(fs.readFileSync(path.join(__dirname, 'nft_metadata.json'), 'utf8'));
+    const jsonData = JSON.parse(fs.readFileSync(path.join(__dirname, 'adrianpunks.json'), 'utf8'));
 
     // Preparar la sentencia de inserción
     const stmt = db.prepare(`INSERT OR REPLACE INTO nfts 
-        (token_id, name, description, image, external_url, attributes, rarity) 
-        VALUES (?, ?, ?, ?, ?, ?, ?)`);
+        (token_id, name, description, image, external_url, attributes, compiler, masterminds, rarity) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
 
     // Insertar cada NFT
-    jsonData.forEach(nft => {
-        const tokenId = parseInt(nft.name.split('#')[1]);
+    jsonData.collection.forEach((nft, index) => {
+        const tokenId = index + 1; // El token_id es el índice + 1
+        
         stmt.run(
             tokenId,
             nft.name,
@@ -44,7 +47,9 @@ db.serialize(() => {
             nft.image,
             nft.external_url,
             JSON.stringify(nft.attributes),
-            nft.rarity || null
+            nft.compiler,
+            JSON.stringify(nft.masterminds),
+            nft.rarity
         );
     });
 
