@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Responsive scaling for mobile devices -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Adrian Punks - Mint Page</title>
+  <!-- Favicon -->
+  <link rel="icon" href="/adrian1.ico" type="image/x-icon">
+  <!-- Bootstrap CSS for styling -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Google Font for retro console look -->
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+  <!-- Ethers.js -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <style>
+    body {
+      background-color: #f7f7f7;
+      margin: 0;
+      padding: 0;
+      font-family: 'VT323', monospace;
+    }
+    h1 {
+      font-size: 3rem; /* Título más grande */
+    }
+    .container {
+      max-width: 700px;
+      margin: 20px auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .container img {
+      max-width: 100%;
+      border-radius: 10px;
+      margin-bottom: 15px;
+    }
+    #status {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #333;
+      word-wrap: break-word;
+    }
+    table {
+      width: 100%;
+      margin-top: 15px;
+    }
+    th, td {
+      padding: 5px;
+      text-align: center;
+    }
+    #connectWalletButton, #mintButton, #maxMintButton {
+      margin-top: 15px;
+      margin-bottom: 20px;
+    }
+    /* Responsive adjustments for mobile devices */
+    @media (max-width: 768px) {
+      .container {
+        margin: 10px;
+        padding: 15px;
+      }
+      h1 {
+        font-size: 2.5rem;
+      }
+      #status, table, th, td {
+        font-size: 0.9rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Título con cuadrados de colores (rojo y azul) -->
+    <h1>Adrian Punks <span style="color: red;">&#9632;</span><span style="color: blue;">&#9632;</span></h1>
+    <!-- Imagen -->
+    <img src="https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/1.gif" alt="Adrian Punks">
+    <!-- Botón para conectar wallet -->
+    <button id="connectWalletButton" class="btn btn-primary">Connect Wallet</button>
+    
+    <!-- Sección para mostrar la información del allowlist -->
+    <div id="whitelistInfo"></div>
+    <!-- Sección de debug de timestamps -->
+    <div id="timestampDebug"></div>
+    
+    <!-- Formulario de mint (oculto hasta conectar wallet) -->
+    <form id="mintForm" style="display: none;">
+      <div class="mb-3">
+        <label for="mintQuantity" class="form-label">Mint Quantity:</label>
+        <input type="number" class="form-control" id="mintQuantity" value="1" min="1">
+      </div>
+      <button type="button" id="mintButton" class="btn btn-primary">Mint</button>
+      <!-- Botón para max mint -->
+      <button type="button" id="maxMintButton" class="btn btn-secondary">Max Mint</button>
+    </form>
+    
+    <div id="status"></div>
+  </div>
+
+  <!-- Bootstrap JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <!-- Ethers.js code para conexión de wallet, allowlist, mint y max mint -->
+  <script>
+    // Nuevo contrato y ABI (ahora con 8 fases: tiers 0-6 allowlist, tier 7 public mint)
+    const adrianPunksAddress = "0x79be8acdd339c7b92918fcc3fd3875b5aaad7566";
+    const adrianPunksABI = [
+      "function getAggregatedWhitelistInfo(address user) view returns (uint256 totalAllowed, uint256 mintedByUser, uint256 totalRemaining, uint256[] memory prices, uint256[] memory saleStarts)",
+      "function salePhases(uint256) view returns (uint256 saleStart, uint256 price, uint256 allowed)",
+      "function getWhitelistInfo(uint256 tier, address user) view returns (bool isWhitelisted, uint256 allowed, uint256 minted, uint256 remaining, uint256 price)",
+      "function mint(uint256[] calldata tiers, uint256[] calldata amounts) external"
+    ];
+    
+    // ADRIAN token para aprobación
+    const adrianTokenAddress = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const erc20ABI = [
+      "function approve(address spender, uint256 amount) external returns (bool)",
+      "function allowance(address owner, address spender) view returns (uint256)"
+    ];
+    
+    let provider;
+    let signer;
+    let userAccount;
+    let adrianPunksContract;
+    let adrianTokenContract;
+    
+    async function connectWallet() {
+      try {
+        if (!window.ethereum) {
+          document.getElementById("status").innerText = "Please install MetaMask.";
+          return;
+        }
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        userAccount = await signer.getAddress();
+        document.getElementById("status").innerText = "Wallet connected: " + userAccount;
+        adrianPunksContract = new ethers.Contract(adrianPunksAddress, adrianPunksABI, signer);
+        adrianTokenContract = new ethers.Contract(adrianTokenAddress, erc20ABI, signer);
+        document.getElementById("connectWalletButton").disabled = true;
+        document.getElementById("mintForm").style.display = "block";
+        loadWhitelistInfo();
+      } catch (error) {
+        console.error("Error connecting wallet:", error);
+        document.getElementById("status").innerText = "Error connecting wallet: " + error.message;
+      }
+    }
+    
+    async function loadWhitelistInfo() {
+      try {
+        const aggregatedInfo = await adrianPunksContract.getAggregatedWhitelistInfo(userAccount);
+        const totalAllowed = aggregatedInfo.totalAllowed.toString();
+        const mintedByUser = aggregatedInfo.mintedByUser.toString();
+        const totalRemaining = aggregatedInfo.totalRemaining.toString();
+        
+        let html = `<h3>Your Allowlist Info (Stackable)</h3>`;
+        html += `<p>Total Allowed: ${totalAllowed} | Already Minted: ${mintedByUser} | Remaining: ${totalRemaining}</p>`;
+        html += `<table class="table table-bordered">
+                  <thead>
+                    <tr>
+                      <th>Tier</th>
+                      <th>Sale Start</th>
+                      <th>Price ($ADRIAN)</th>
+                      <th>Allowed</th>
+                      <th>Tier Type</th>
+                    </tr>
+                  </thead>
+                  <tbody>`;
+        let debugInfo = "";
+        const currentTimestamp = Math.floor(Date.now() / 1000);
+        debugInfo += `<p>Current Timestamp: ${currentTimestamp}</p>`;
+        
+        // Iterar sobre 8 tiers: 0 a 6 = Allowlist, 7 = Public Mint
+        for (let i = 0; i < 8; i++) {
+          const phase = await adrianPunksContract.salePhases(i);
+          const saleStartTimestamp = phase.saleStart.toNumber();
+          const saleStartDate = new Date(saleStartTimestamp * 1000).toLocaleString();
+          const priceFormatted = ethers.utils.formatUnits(phase.price, 18);
+          const allowed = phase.allowed.toString();
+          const tierType = (i < 7) ? "Allowlist" : "Public Mint";
+          html += `<tr>
+                    <td>Tier ${i}</td>
+                    <td>${saleStartDate}</td>
+                    <td>${priceFormatted}</td>
+                    <td>${allowed}</td>
+                    <td>${tierType}</td>
+                  </tr>`;
+          debugInfo += `<p>Tier ${i}: saleStart = ${saleStartTimestamp} (current: ${currentTimestamp})</p>`;
+        }
+        html += `</tbody></table>`;
+        document.getElementById("whitelistInfo").innerHTML = html;
+        document.getElementById("timestampDebug").innerHTML = debugInfo;
+      } catch (error) {
+        console.error("Error loading allowlist info:", error);
+        document.getElementById("whitelistInfo").innerText = "Error loading allowlist info.";
+      }
+    }
+    
+    async function mintTokens() {
+      const statusDiv = document.getElementById("status");
+      const desiredQuantity = parseInt(document.getElementById("mintQuantity").value);
+      if (desiredQuantity <= 0) {
+        statusDiv.innerText = "Please enter a valid mint quantity.";
+        return;
+      }
+      try {
+        let tiers = [];
+        let amounts = [];
+        let remainingToMint = desiredQuantity;
+        
+        // Recorrer los 8 tiers (0 a 7)
+        for (let i = 0; i < 8 && remainingToMint > 0; i++) {
+          const info = await adrianPunksContract.getWhitelistInfo(i, userAccount);
+          let available = 0;
+          // Para tiers 0 a 6, se requiere que el usuario esté allowlisted
+          if (i < 7) {
+            if (info[0]) {
+              available = parseInt(info[3].toString());
+            }
+          } else {
+            // Tier 7 es public mint, sin requerir allowlist
+            available = parseInt(info[3].toString());
+          }
+          if (available > 0) {
+            const mintThisTier = Math.min(remainingToMint, available);
+            tiers.push(i);
+            amounts.push(mintThisTier);
+            remainingToMint -= mintThisTier;
+          }
+        }
+        if (remainingToMint > 0) {
+          statusDiv.innerText = "Mint quantity exceeds allowed amount in your allowlist.";
+          return;
+        }
+        
+        let totalCost = ethers.BigNumber.from("0");
+        for (let j = 0; j < tiers.length; j++) {
+          const phase = await adrianPunksContract.salePhases(tiers[j]);
+          totalCost = totalCost.add(phase.price.mul(amounts[j]));
+        }
+        
+        statusDiv.innerText = "Checking token allowance...";
+        const allowance = await adrianTokenContract.allowance(userAccount, adrianPunksAddress);
+        if (allowance.lt(totalCost)) {
+          statusDiv.innerText = "Approving tokens for minting...";
+          const approveTx = await adrianTokenContract.approve(adrianPunksAddress, totalCost);
+          await approveTx.wait();
+        }
+        
+        statusDiv.innerText = "Sending mint transaction...";
+        const mintTx = await adrianPunksContract.mint(tiers, amounts);
+        statusDiv.innerText = "Transaction sent. Waiting for confirmation...";
+        await mintTx.wait();
+        statusDiv.innerText = "Mint successful!";
+        loadWhitelistInfo();
+      } catch (error) {
+        console.error("Error during mint:", error);
+        statusDiv.innerText = "Error: " + (error.data?.message || error.message);
+      }
+    }
+    
+    async function maxMintTokens() {
+      const statusDiv = document.getElementById("status");
+      try {
+        let tiers = [];
+        let amounts = [];
+        const currentTimestamp = Math.floor(Date.now() / 1000);
+        for (let i = 0; i < 8; i++) {
+          const phase = await adrianPunksContract.salePhases(i);
+          const saleStartTimestamp = phase.saleStart.toNumber();
+          if (currentTimestamp >= saleStartTimestamp) {
+            const info = await adrianPunksContract.getWhitelistInfo(i, userAccount);
+            let available = 0;
+            if (i < 7) {
+              if (info[0]) {
+                available = parseInt(info[3].toString());
+              }
+            } else {
+              available = parseInt(info[3].toString());
+            }
+            if (available > 0) {
+              tiers.push(i);
+              amounts.push(available);
+            }
+          }
+        }
+        if (tiers.length === 0) {
+          statusDiv.innerText = "No available mints at this time (sale not open or no allowlist available).";
+          return;
+        }
+        
+        let totalCost = ethers.BigNumber.from("0");
+        for (let j = 0; j < tiers.length; j++) {
+          const phase = await adrianPunksContract.salePhases(tiers[j]);
+          totalCost = totalCost.add(phase.price.mul(amounts[j]));
+        }
+        
+        statusDiv.innerText = "Checking token allowance for max mint...";
+        const allowance = await adrianTokenContract.allowance(userAccount, adrianPunksAddress);
+        if (allowance.lt(totalCost)) {
+          statusDiv.innerText = "Approving tokens for max minting...";
+          const approveTx = await adrianTokenContract.approve(adrianPunksAddress, totalCost);
+          await approveTx.wait();
+        }
+        
+        statusDiv.innerText = "Sending max mint transaction...";
+        const mintTx = await adrianPunksContract.mint(tiers, amounts);
+        statusDiv.innerText = "Transaction sent. Waiting for confirmation...";
+        await mintTx.wait();
+        statusDiv.innerText = "Max Mint successful!";
+        loadWhitelistInfo();
+      } catch (error) {
+        console.error("Error during max mint:", error);
+        statusDiv.innerText = "Error: " + (error.data?.message || error.message);
+      }
+    }
+    
+    document.getElementById("connectWalletButton").addEventListener("click", connectWallet);
+    document.getElementById("mintButton").addEventListener("click", mintTokens);
+    document.getElementById("maxMintButton").addEventListener("click", maxMintTokens);
+  </script>
+</body>
+</html>

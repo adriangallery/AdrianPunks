@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Responsive scaling for mobile devices -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Adrian Punks - Allowlist Info</title>
+  <!-- Favicon -->
+  <link rel="icon" href="/adrian1.ico" type="image/x-icon">
+  <!-- Bootstrap CSS for styling -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Google Font for retro console look -->
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+  <!-- Ethers.js -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <style>
+    body {
+      background-color: #f7f7f7;
+      margin: 0;
+      padding: 0;
+      font-family: 'VT323', monospace;
+    }
+    h1 {
+      font-size: 3rem;
+    }
+    .container {
+      max-width: 700px;
+      margin: 20px auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .container img {
+      max-width: 100%;
+      border-radius: 10px;
+      margin-bottom: 15px;
+    }
+    #status {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #333;
+      word-wrap: break-word;
+    }
+    table {
+      width: 100%;
+      margin-top: 15px;
+    }
+    th, td {
+      padding: 5px;
+      text-align: center;
+    }
+    #connectWalletButton {
+      margin-top: 15px;
+      margin-bottom: 20px;
+    }
+    #totalCounter {
+      font-size: 4rem;
+      margin-bottom: 20px;
+    }
+    /* Responsive adjustments for mobile devices */
+    @media (max-width: 768px) {
+      .container {
+        margin: 10px;
+        padding: 15px;
+      }
+      h1 {
+        font-size: 2.5rem;
+      }
+      #status, table, th, td {
+        font-size: 0.9rem;
+      }
+      #totalCounter {
+        font-size: 3rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Título con cuadrados de colores (rojo y azul) -->
+    <h1>Adrian Punks <span style="color: red;">&#9632;</span><span style="color: blue;">&#9632;</span></h1>
+    <!-- Imagen -->
+    <img src="https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/1.gif" alt="Adrian Punks">
+    <!-- Botón para conectar wallet -->
+    <button id="connectWalletButton" class="btn btn-primary">Connect Wallet</button>
+    
+    <!-- Contador grande: muestra el total remaining de allowlists sin contar public mint -->
+    <div id="totalCounter"></div>
+    
+    <!-- Sección para mostrar la información detallada del allowlist -->
+    <div id="whitelistInfo"></div>
+    <!-- Sección de debug de timestamps -->
+    <div id="timestampDebug"></div>
+    
+    <div id="status"></div>
+  </div>
+
+  <!-- Bootstrap JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <!-- Ethers.js code para conexión de wallet y allowlist -->
+  <script>
+    // Contrato y ABI (solo allowlist)
+    const adrianPunksAddress = "0x79be8acdd339c7b92918fcc3fd3875b5aaad7566";
+    const adrianPunksABI = [
+      "function getAggregatedWhitelistInfo(address user) view returns (uint256 totalAllowed, uint256 mintedByUser, uint256 totalRemaining, uint256[] memory prices, uint256[] memory saleStarts)",
+      "function salePhases(uint256) view returns (uint256 saleStart, uint256 price, uint256 allowed)",
+      "function getWhitelistInfo(uint256 tier, address user) view returns (bool isWhitelisted, uint256 allowed, uint256 minted, uint256 remaining, uint256 price)"
+    ];
+    
+    let provider;
+    let signer;
+    let userAccount;
+    let adrianPunksContract;
+    
+    async function connectWallet() {
+      try {
+        if (!window.ethereum) {
+          document.getElementById("status").innerText = "Please install MetaMask.";
+          return;
+        }
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        userAccount = await signer.getAddress();
+        document.getElementById("status").innerText = "Wallet connected: " + userAccount;
+        adrianPunksContract = new ethers.Contract(adrianPunksAddress, adrianPunksABI, signer);
+        document.getElementById("connectWalletButton").disabled = true;
+        loadWhitelistInfo();
+      } catch (error) {
+        console.error("Error connecting wallet:", error);
+        document.getElementById("status").innerText = "Error connecting wallet: " + error.message;
+      }
+    }
+    
+    /* 
+      Función para asignar nombres a los tiers desplazados:
+      salePhases[0] -> "OWNER"
+      salePhases[1] -> "GENESIS"
+      salePhases[2] -> "COLLABS"
+      salePhases[3], [4] y [5] -> "LOTTERY"
+      salePhases[6] -> "ARTIST"
+      salePhases[7] -> "PUBLIC"
+    */
+    function getTierName(i) {
+      if(i === 0) return "OWNER";
+      if(i === 1) return "GENESIS";
+      if(i === 2) return "COLLABS";
+      if(i === 3 || i === 4 || i === 5) return "LOTTERY";
+      if(i === 6) return "ARTIST";
+      if(i === 7) return "PUBLIC";
+    }
+    
+    async function loadWhitelistInfo() {
+      try {
+        // Variables para agrupar la información específica de la wallet
+        let totalAllowedSum = ethers.BigNumber.from("0");
+        let totalMintedSum = ethers.BigNumber.from("0");
+        let totalRemainingSum = ethers.BigNumber.from("0");
+        let publicMintAllowed = ethers.BigNumber.from("0"); // Guardamos el allowed del public mint
+        
+        // Construir la tabla de información
+        let html = `<h3>Your Allowlist Info (Stackable)</h3>`;
+        
+        html += `<table class="table table-bordered">
+                  <thead>
+                    <tr>
+                      <th>Tier</th>
+                      <th>Sale Start</th>
+                      <th>Price (ADRIAN)</th>
+                      <th>Allowed</th>
+                      <th>Tier Type</th>
+                    </tr>
+                  </thead>
+                  <tbody>`;
+        let debugInfo = "";
+        const currentTimestamp = Math.floor(Date.now() / 1000);
+        debugInfo += `<p>Current Timestamp: ${currentTimestamp}</p>`;
+        
+        // Recorrer los 8 tiers (índices 0 a 7)
+        for (let i = 0; i < 8; i++) {
+          // Obtener datos de la fase de venta
+          const phase = await adrianPunksContract.salePhases(i);
+          const saleStartTimestamp = phase.saleStart.toNumber();
+          const saleStartDate = new Date(saleStartTimestamp * 1000).toLocaleString();
+          const priceFormatted = ethers.utils.formatUnits(phase.price, 18);
+          let priceNumber = parseFloat(priceFormatted);
+          let priceDisplay = priceNumber >= 1000 ? (priceNumber / 1000).toFixed(0) + "K" : priceFormatted;
+          
+          // Obtener información específica de la wallet para este tier
+          const walletInfo = await adrianPunksContract.getWhitelistInfo(i, userAccount);
+          // walletInfo devuelve: [isWhitelisted, allowed, minted, remaining, price]
+          let allowedForWallet = walletInfo[0] ? walletInfo[1] : ethers.BigNumber.from("0");
+          let mintedForWallet = walletInfo[0] ? walletInfo[2] : ethers.BigNumber.from("0");
+          let remainingForWallet = walletInfo[0] ? walletInfo[3] : ethers.BigNumber.from("0");
+          
+          // Sumar siempre si está whitelisted
+          if (walletInfo[0]) {
+            totalAllowedSum = totalAllowedSum.add(allowedForWallet);
+            totalMintedSum = totalMintedSum.add(mintedForWallet);
+            totalRemainingSum = totalRemainingSum.add(remainingForWallet);
+            // Si es el tier 7 (PUBLIC), guardamos el allowed para restarlo después
+            if(i === 7) {
+              publicMintAllowed = allowedForWallet;
+            }
+          }
+          
+          const tierType = (i < 7) ? "Allowlist" : "Public Mint";
+          html += `<tr>
+                    <td>${getTierName(i)}</td>
+                    <td>${saleStartDate}</td>
+                    <td>${priceDisplay}</td>
+                    <td>${allowedForWallet.toString()}</td>
+                    <td>${tierType}</td>
+                  </tr>`;
+          debugInfo += `<p>Tier ${i} (${getTierName(i)}): saleStart = ${saleStartTimestamp} (current: ${currentTimestamp})</p>`;
+        }
+        html += `</tbody></table>`;
+        
+        // Mostrar los totales calculados
+        let totalsHtml = `<p>Total Allowed: ${totalAllowedSum.toString()} | Already Minted: ${totalMintedSum.toString()} | Remaining: ${totalRemainingSum.toString()}</p>`;
+        document.getElementById("whitelistInfo").innerHTML = totalsHtml + html;
+        document.getElementById("timestampDebug").innerHTML = debugInfo;
+        
+        // Mostrar el contador grande con el total remaining sin contar el allowed del public mint
+        const displayRemaining = totalRemainingSum.sub(publicMintAllowed);
+        document.getElementById("totalCounter").innerText = displayRemaining.toString();
+      } catch (error) {
+        console.error("Error loading allowlist info:", error);
+        document.getElementById("whitelistInfo").innerText = "Error loading allowlist info.";
+      }
+    }
+    
+    document.getElementById("connectWalletButton").addEventListener("click", connectWallet);
+  </script>
+</body>
+</html>
