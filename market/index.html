@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Adrian Punks Marketplace</title>
-  <!-- Configuración: asegúrate de tener un archivo config.js si se requiere -->
+  <!-- Cargar configuración: define appConfig en config.js -->
   <script src="config.js"></script>
   <!-- Favicon -->
   <link rel="icon" href="/adrian1.ico" type="image/x-icon">
@@ -15,7 +15,7 @@
   <!-- ethers.js UMD -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <!-- ethcall UMD -->
-  <script src="https://cdn.jsdelivr.net/npm/ethcall@0.1.0/dist/ethcall.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethcall@2.2.0/dist/ethcall.min.js"></script>
   <script>
     // Verificar que ethers se cargó y asignar ethcall a la variable global
     window.addEventListener('load', function() {
@@ -24,6 +24,7 @@
         return;
       }
       console.log('ethers.js loaded correctly');
+      // Asignar ethcall (se usa versión 2.2.0 para mayor compatibilidad)
       window.ethcall = window.EthCall || window.ethcall;
       if (typeof window.ethcall === 'undefined') {
         console.error('Error: ethcall did not load correctly');
@@ -32,16 +33,18 @@
       console.log("EthCall loaded correctly:", window.ethcall);
     });
   </script>
+  <!-- Cargar menú (se usará config.js para base URL si se requiere) -->
   <script src="components/menu.js"></script>
+  <!-- Cargar API de NFTs -->
   <script src="api/nfts.js"></script>
 </head>
 <body>
-  <!-- Menu -->
+  <!-- Menú -->
   <div id="menuContainer">
     <div id="menuPlaceholder"></div>
   </div>
   <script>
-    // Cargar menú usando rutas relativas para entorno online
+    // Cargar menú usando rutas relativas
     fetch('components/menu.html')
       .then(response => {
         if (!response.ok) {
@@ -51,7 +54,7 @@
       })
       .then(html => {
         document.getElementById('menuPlaceholder').innerHTML = html;
-        // Cargar el script del menú
+        // Cargar script del menú
         const menuScript = document.createElement('script');
         menuScript.src = 'components/menu.js';
         menuScript.onerror = () => console.error('Error loading menu.js');
@@ -161,7 +164,7 @@
 
   <!-- Bootstrap JS Bundle -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <!-- Cargar menú: asegúrate de usar rutas relativas -->
+  <!-- Cargar menú: usar rutas relativas -->
   <script src="components/menu.js"></script>
   
   <!-- Funciones Helper -->
@@ -181,7 +184,7 @@
     let traitMapping = [];
     let provider, signer, userAccount;
     let tokenContract, nftContract, marketplaceContract;
-    // Direcciones (actualizadas para entorno online)
+    // Rutas actualizadas para entorno online
     const tokenAddress = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     const nftCollectionAddress = "0x4b9afc775d3D1969F727e81BA970B19b9e8054EF";
     const marketplaceAddress = "0xcef57f12a949586ec2d7bbf9ee8a4b3a7e7abc73";
@@ -271,7 +274,7 @@
 
     async function loadNFTData() {
       try {
-        // Usar ruta correcta para la API online (ajustar si es necesario)
+        // Usar la URL definida en config.js para la API de NFTs
         const response = await fetch(`${window.appConfig.apiBaseUrl}/nfts`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -422,7 +425,6 @@
     };
 
     // --- Funciones de Marketplace (Acciones y Aprobaciones) ---
-
     function openTraitOfferForm(traitType, traitValue) {
       const modalBody = document.getElementById('modalBody');
       modalBody.innerHTML += `
