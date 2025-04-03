@@ -38,7 +38,7 @@ app.get('/api/nfts', (req, res) => {
             tokenId: row.token_id,
             name: row.name,
             description: row.description,
-            image: row.image_url,
+            image_url: row.image_url,
             external_url: row.external_url,
             attributes: row.attributes_str ? row.attributes_str.split(',').map(attr => {
                 const [trait_type, value] = attr.split(':');
@@ -150,7 +150,7 @@ app.get('/api/nfts/filter', (req, res) => {
             tokenId: row.token_id,
             name: row.name,
             description: row.description,
-            image: row.image_url,
+            image_url: row.image_url,
             external_url: row.external_url,
             attributes: row.attributes_str ? row.attributes_str.split(',').map(attr => {
                 const [trait_type, value] = attr.split(':');
