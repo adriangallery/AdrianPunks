@@ -44,115 +44,70 @@
             })
             .catch(error => console.error('Error loading menu:', error));
 
+        // Cargar NFTs desde el archivo JSON
         async function loadNFTs() {
             try {
-                console.log('Cargando NFTs desde:', window.AdrianPunksConfig.DB_URL);
-                const response = await fetch(window.AdrianPunksConfig.DB_URL, {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    mode: 'cors'
-                });
-                
+                const response = await fetch('adrianpunks.json');
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    throw new Error('Error al cargar los NFTs');
                 }
-                
-                const nfts = await response.json();
-                console.log('NFTs recibidos:', nfts.length);
-                displayNFTs(nfts);
+                const data = await response.json();
+                const nftGrid = document.getElementById('nftGrid');
+                nftGrid.innerHTML = '';
+
+                if (data.nfts && data.nfts.length > 0) {
+                    data.nfts.forEach(nft => {
+                        const nftElement = document.createElement('div');
+                        nftElement.className = 'nft-item';
+                        nftElement.innerHTML = `
+                            <img src="${nft.image}" alt="${nft.name}" onerror="this.src='https://via.placeholder.com/300'">
+                            <h3>${nft.name}</h3>
+                            <p>Rareza: ${nft.rarity}</p>
+                            <button onclick="showNFTDetails(${nft.id})">Ver detalles</button>
+                        `;
+                        nftElement.onclick = () => showNFTDetails(nft.id);
+                        nftGrid.appendChild(nftElement);
+                    });
+                } else {
+                    nftGrid.innerHTML = '<p>No se encontraron NFTs</p>';
+                }
             } catch (error) {
-                console.error('Error cargando NFTs:', error);
-                const grid = document.getElementById('nftGrid');
-                grid.innerHTML = `
-                    <div class="alert alert-danger" role="alert">
-                        Error al cargar los NFTs. Por favor, inténtalo de nuevo más tarde.
-                        <br>
-                        Detalles del error: ${error.message}
-                    </div>
-                `;
+                console.error('Error:', error);
+                const nftGrid = document.getElementById('nftGrid');
+                nftGrid.innerHTML = `<p>Error al cargar los NFTs: ${error.message}</p>`;
             }
         }
 
-        function displayNFTs(nfts) {
-            const grid = document.getElementById('nftGrid');
-            grid.innerHTML = '';
-
-            if (!nfts || nfts.length === 0) {
-                console.log('No hay NFTs para mostrar');
-                grid.innerHTML = '<p class="text-center">No se encontraron NFTs</p>';
-                return;
-            }
-
-            console.log('Mostrando', nfts.length, 'NFTs');
-            nfts.forEach(nft => {
-                const card = document.createElement('div');
-                card.className = 'nft-card';
-
-                const img = document.createElement('img');
-                img.className = 'nft-image';
-                const imageUrl = window.getImageUrl(nft.image);
-                console.log('URL de imagen procesada:', imageUrl);
-                img.src = imageUrl;
-                img.alt = nft.name;
-                img.onload = () => img.classList.add('loaded');
-                img.onerror = () => {
-                    console.error('Error cargando imagen:', imageUrl);
-                    img.src = 'placeholder.png';
-                    img.classList.add('loaded');
-                };
-
-                const title = document.createElement('h2');
-                title.className = 'nft-title';
-                title.textContent = nft.name;
-
-                const attributes = document.createElement('div');
-                attributes.className = 'attributes';
-                nft.attributes.slice(0, 3).forEach(attr => {
-                    const span = document.createElement('span');
-                    span.className = 'attribute';
-                    span.textContent = `${attr.trait_type}: ${attr.value}`;
-                    attributes.appendChild(span);
+        // Mostrar detalles del NFT
+        function showNFTDetails(nftId) {
+            fetch('adrianpunks.json')
+                .then(response => response.json())
+                .then(data => {
+                    const nft = data.nfts.find(n => n.id === nftId);
+                    if (nft) {
+                        const modal = document.getElementById('nftModal');
+                        const modalContent = document.getElementById('nftModalContent');
+                        modalContent.innerHTML = `
+                            <span class="close">&times;</span>
+                            <img src="${nft.image}" alt="${nft.name}" onerror="this.src='https://via.placeholder.com/300'">
+                            <h2>${nft.name}</h2>
+                            <p>Compilador: ${nft.compiler}</p>
+                            <p>Masterminds: ${nft.masterminds.join(', ')}</p>
+                            <p>Rareza: ${nft.rarity}</p>
+                            <h3>Atributos:</h3>
+                            <ul>
+                                ${nft.attributes.map(attr => 
+                                    `<li>${attr.trait_type}: ${attr.value}</li>`
+                                ).join('')}
+                            </ul>
+                        `;
+                        modal.style.display = 'block';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error al cargar los detalles del NFT');
                 });
-
-                card.appendChild(img);
-                card.appendChild(title);
-                card.appendChild(attributes);
-
-                card.onclick = () => openModal(nft);
-                grid.appendChild(card);
-            });
-        }
-
-        function openModal(nft) {
-            const modal = document.getElementById('nftModal');
-            const modalImg = document.getElementById('modalImage');
-            const modalTitle = document.getElementById('modalTitle');
-            const modalAttributes = document.getElementById('modalAttributes');
-            const modalCompiler = document.getElementById('modalCompiler');
-            const modalMasterminds = document.getElementById('modalMasterminds');
-            const modalRarity = document.getElementById('modalRarity');
-
-            const imageUrl = window.getImageUrl(nft.image);
-            console.log('Modal - URL de imagen:', imageUrl);
-            modalImg.src = imageUrl;
-            modalTitle.textContent = nft.name;
-            
-            modalAttributes.innerHTML = '';
-            nft.attributes.forEach(attr => {
-                const span = document.createElement('span');
-                span.className = 'attribute';
-                span.textContent = `${attr.trait_type}: ${attr.value}`;
-                modalAttributes.appendChild(span);
-            });
-
-            modalCompiler.textContent = `Compiler: ${nft.compiler}`;
-            modalMasterminds.textContent = `Masterminds: ${nft.masterminds.join(', ')}`;
-            modalRarity.textContent = `Rarity: ${nft.rarity.toFixed(2)}`;
-
-            modal.style.display = 'block';
         }
 
         function closeModal() {
