@@ -1098,7 +1098,70 @@
         alert("Error cancelling floor offer: " + error.message);
       }
     }
-    
+
+    // Función para abrir el formulario de trait offer
+    function openTraitOfferForm(traitType, traitValue) {
+      const modalBody = document.querySelector('.modal-body');
+      const existingForm = document.querySelector('.trait-offer-form');
+      if (existingForm) existingForm.remove();
+
+      const offerForm = document.createElement('div');
+      offerForm.className = 'trait-offer-form mt-4 border-top pt-3';
+      offerForm.innerHTML = `
+        <h5 class="mb-3">Make Trait Offer</h5>
+        <div class="form-group mb-3">
+          <div class="trait-info mb-3">
+            <span class="badge bg-primary me-2">${traitType}</span>
+            <span class="badge bg-secondary">${traitValue}</span>
+          </div>
+          <label class="mb-2">Offer Amount (in $ADRIAN):</label>
+          <input type="text" id="traitOfferAmount_${traitType}_${traitValue}" value="5000" class="form-control">
+        </div>
+        <div class="d-flex justify-content-between">
+          <button class="btn btn-primary" onclick="makeTraitOffer('${traitType}', '${traitValue}')">
+            Submit Trait Offer
+          </button>
+          <button class="btn btn-outline-secondary" onclick="closeTraitOfferForm()">
+            Cancel
+          </button>
+        </div>
+      `;
+      modalBody.appendChild(offerForm);
+      
+      // Hacer scroll al formulario
+      offerForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // Función para cerrar el formulario de trait offer
+    function closeTraitOfferForm() {
+      const form = document.querySelector('.trait-offer-form');
+      if (form) form.remove();
+    }
+
+    // Función para hacer una trait offer
+    async function makeTraitOffer(traitType, traitValue) {
+      try {
+        const offerAmount = document.getElementById(`traitOfferAmount_${traitType}_${traitValue}`).value;
+        const offerAmountWei = ethers.utils.parseUnits(offerAmount, 18);
+
+        // Verificar y aprobar tokens si es necesario
+        const allowance = await tokenContract.allowance(userAccount, MARKET_ADDRESS);
+        if (allowance.lt(offerAmountWei)) {
+          const txApprove = await tokenContract.approve(MARKET_ADDRESS, offerAmountWei);
+          await txApprove.wait();
+          console.log("Approved tokens for trait offer");
+        }
+
+        const tx = await marketplaceContract.setTraitOffer(traitType, traitValue, offerAmountWei, { gasLimit: 1000000 });
+        await tx.wait();
+        alert("Trait offer created successfully!");
+        closeTraitOfferForm();
+      } catch (error) {
+        console.error("Error creating trait offer:", error);
+        alert("Error creating trait offer: " + error.message);
+      }
+    }
+
     // Initialize contracts and load NFTs on page load
     document.addEventListener('DOMContentLoaded', async () => {
       await initContracts();
