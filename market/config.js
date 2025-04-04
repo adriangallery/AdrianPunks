@@ -1,11 +1,7 @@
 // Configuración de URLs base
 const config = {
-    API_BASE_URL: window.location.hostname === 'localhost' 
-        ? 'http://localhost:3001' 
-        : 'https://marketplace-adrians-projects-43090263.vercel.app',
-    DB_URL: window.location.hostname === 'localhost'
-        ? 'http://localhost:3001/api/nfts'
-        : 'https://raw.githubusercontent.com/adriangallery/AdrianPunks/main/market/nft_metadata.json',
+    API_BASE_URL: 'https://marketplace-adrians-projects-43090263.vercel.app',
+    DB_URL: 'https://marketplace-adrians-projects-43090263.vercel.app/api/nfts',
     IPFS_GATEWAY: 'https://ipfs.io/ipfs/'
 };
 
@@ -13,9 +9,6 @@ const config = {
 function getImageUrl(imagePath) {
     if (imagePath.includes('ipfs://')) {
         return imagePath.replace('ipfs://', config.IPFS_GATEWAY);
-    }
-    if (imagePath.includes('localhost')) {
-        return imagePath.replace('http://localhost:3001', config.API_BASE_URL);
     }
     return imagePath;
 }
