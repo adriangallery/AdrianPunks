@@ -2,7 +2,7 @@
 const config = {
     API_BASE_URL: window.location.hostname === 'localhost' 
         ? 'http://localhost:3001' 
-        : 'https://adrianpunks-market.vercel.app',
+        : 'https://marketplace-adrians-projects-43090263.vercel.app',
     IPFS_GATEWAY: 'https://ipfs.io/ipfs/'
 };
 
