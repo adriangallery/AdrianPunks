@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AdrianPunks Market</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js" type="application/javascript"></script>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -11,9 +12,112 @@
             padding: 20px;
             background: #f0f0f0;
         }
+        .navbar {
+            position: fixed;
+            width: 100%;
+            z-index: 100;
+            top: 0;
+            left: 0;
+            background: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        .nav-links {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        .nav-links a {
+            color: #333;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+        .nav-links a:hover {
+            color: #2081e2;
+        }
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 5px;
+            cursor: pointer;
+            padding: 10px;
+        }
+        .hamburger span {
+            width: 25px;
+            height: 3px;
+            background: #333;
+            transition: all 0.3s ease;
+        }
+        .connect-wallet {
+            background: #2081e2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        .connect-wallet:hover {
+            background: #1a6fc0;
+            transform: translateY(-2px);
+        }
+        .wallet-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .wallet-address {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            .hamburger {
+                display: flex;
+            }
+            .nav-links {
+                display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                width: 100%;
+                background: white;
+                flex-direction: column;
+                padding: 20px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            }
+            .nav-links.active {
+                display: flex;
+            }
+            .navbar {
+                padding: 10px 20px;
+            }
+            .nav-brand {
+                gap: 10px;
+            }
+            .wallet-info {
+                gap: 10px;
+            }
+            .wallet-address {
+                display: none;
+            }
+        }
+
         .container {
             max-width: 1200px;
-            margin: 0 auto;
+            margin: 80px auto 0;
+            padding: 20px;
         }
         .nft-grid {
             display: grid;
@@ -98,8 +202,28 @@
     </style>
 </head>
 <body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <div class="hamburger" onclick="toggleMenu()">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            <h2>AdrianPunks</h2>
+        </div>
+        <div class="nav-links" id="navLinks">
+            <a href="/">Inicio</a>
+            <a href="/market.html">Marketplace</a>
+            <a href="/mint.html">Mint</a>
+            <a href="https://twitter.com/adrianpunks" target="_blank">Twitter</a>
+        </div>
+        <div class="wallet-info">
+            <span id="walletAddress" class="wallet-address"></span>
+            <button id="connectWallet" class="connect-wallet">Conectar Wallet</button>
+        </div>
+    </nav>
+
     <div class="container">
-        <h1>AdrianPunks Market</h1>
         <div class="nft-grid" id="nftGrid"></div>
     </div>
 
@@ -116,6 +240,52 @@
     </div>
 
     <script>
+        let provider;
+        let signer;
+
+        function toggleMenu() {
+            const navLinks = document.getElementById('navLinks');
+            navLinks.classList.toggle('active');
+            const hamburger = document.querySelector('.hamburger');
+            hamburger.classList.toggle('active');
+        }
+
+        async function connectWallet() {
+            try {
+                if (typeof window.ethereum !== 'undefined') {
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                    await provider.send("eth_requestAccounts", []);
+                    signer = provider.getSigner();
+                    const address = await signer.getAddress();
+                    document.getElementById('walletAddress').textContent = `${address.substring(0, 6)}...${address.substring(38)}`;
+                    document.getElementById('connectWallet').textContent = 'Conectada';
+                } else {
+                    alert('Por favor, instala MetaMask para usar esta función');
+                }
+            } catch (error) {
+                console.error('Error al conectar wallet:', error);
+                alert('Error al conectar wallet');
+            }
+        }
+
+        document.getElementById('connectWallet').addEventListener('click', connectWallet);
+
+        // Cerrar el menú al hacer clic en un enlace
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', () => {
+                document.getElementById('navLinks').classList.remove('active');
+            });
+        });
+
+        // Cerrar el menú al hacer clic fuera de él
+        document.addEventListener('click', (e) => {
+            const navLinks = document.getElementById('navLinks');
+            const hamburger = document.querySelector('.hamburger');
+            if (!navLinks.contains(e.target) && !hamburger.contains(e.target) && navLinks.classList.contains('active')) {
+                navLinks.classList.remove('active');
+            }
+        });
+
         async function loadNFTs() {
             try {
                 const response = await fetch('http://localhost:3001/api/nfts');
@@ -199,7 +369,6 @@
             document.getElementById('nftModal').style.display = 'none';
         }
 
-        // Cerrar modal al hacer clic fuera de él
         window.onclick = function(event) {
             const modal = document.getElementById('nftModal');
             if (event.target == modal) {
@@ -207,7 +376,6 @@
             }
         }
 
-        // Cargar NFTs cuando la página esté lista
         document.addEventListener('DOMContentLoaded', loadNFTs);
     </script>
 </body>
