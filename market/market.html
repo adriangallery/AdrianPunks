@@ -33,11 +33,13 @@
       padding-right: 0 !important;
     }
     .offer-form {
-      transition: opacity 0.3s ease;
+      transition: all 0.3s ease;
       opacity: 1;
+      transform: translateY(0);
     }
     .offer-form.hiding {
       opacity: 0;
+      transform: translateY(-10px);
     }
     .modal-body {
       max-height: 80vh;
@@ -443,22 +445,28 @@
     
     /*********** Nuevas Funciones Adicionales ***********/
     
+    // Función auxiliar para cerrar cualquier formulario abierto
+    function closeAllOfferForms() {
+      const existingForms = document.querySelectorAll('.offer-form');
+      existingForms.forEach(form => {
+        form.style.opacity = '0';
+        setTimeout(() => form.remove(), 300);
+      });
+    }
+    
     // --- Funciones para Trait Offers ---
     function openTraitOfferForm(traitType, traitValue) {
+      // Cerrar cualquier formulario existente
+      closeAllOfferForms();
+
       const modalBody = document.querySelector('.modal-body');
       const offerFormId = `traitOfferForm_${traitType}_${traitValue}`;
       
-      // Si el formulario ya existe, solo hacemos scroll
-      if (document.getElementById(offerFormId)) {
-        document.getElementById(offerFormId).scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
-      }
-
       // Crear el formulario
       const offerForm = document.createElement('div');
       offerForm.id = offerFormId;
       offerForm.className = 'offer-form mt-4';
-      offerForm.style.display = 'none'; // Inicialmente oculto
+      offerForm.style.display = 'none';
       offerForm.innerHTML = `
         <div class="border-top pt-3">
           <h5 class="mb-3">Make Trait Offer</h5>
@@ -472,29 +480,16 @@
           </div>
           <div class="d-flex justify-content-between align-items-center">
             <button class="btn btn-primary" onclick="makeTraitOffer('${traitType}', '${traitValue}')">Submit Trait Offer</button>
-            <button class="btn btn-outline-secondary" onclick="closeTraitOfferForm('${traitType}', '${traitValue}')">Cancel</button>
+            <button class="btn btn-outline-secondary" onclick="closeAllOfferForms()">Cancel</button>
           </div>
         </div>
       `;
 
-      // Agregar el formulario al final del modal body
       modalBody.appendChild(offerForm);
-
-      // Mostrar el formulario con animación y scroll
       setTimeout(() => {
         offerForm.style.display = 'block';
         offerForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 100);
-    }
-    
-    function closeTraitOfferForm(traitType, traitValue) {
-      const formElement = document.getElementById(`traitOfferForm_${traitType}_${traitValue}`);
-      if (formElement) {
-        formElement.style.opacity = '0';
-        setTimeout(() => {
-          formElement.remove();
-        }, 300);
-      }
     }
     
     async function makeTraitOffer(traitType, traitValue) {
@@ -510,7 +505,7 @@
         const tx = await marketplaceContract.setTraitOffer(traitType, traitValue, offerAmountWei);
         await tx.wait();
         alert("Trait offer created successfully!");
-        closeTraitOfferForm(traitType, traitValue);
+        closeAllOfferForms();
       } catch (error) {
         console.error("Error creating trait offer:", error);
         alert("Error creating trait offer: " + error.message);
@@ -545,20 +540,16 @@
     
     // --- Funciones para Token Offers ---
     function openMakeTokenOfferForm(tokenId) {
+      // Cerrar cualquier formulario existente
+      closeAllOfferForms();
+
       const modalBody = document.querySelector('.modal-body');
       const offerFormId = `tokenOfferForm_${tokenId}`;
       
-      // Si el formulario ya existe, solo hacemos scroll
-      if (document.getElementById(offerFormId)) {
-        document.getElementById(offerFormId).scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
-      }
-
-      // Crear el formulario
       const offerForm = document.createElement('div');
       offerForm.id = offerFormId;
       offerForm.className = 'offer-form mt-4';
-      offerForm.style.display = 'none'; // Inicialmente oculto
+      offerForm.style.display = 'none';
       offerForm.innerHTML = `
         <div class="border-top pt-3">
           <h5 class="mb-3">Make Token Offer for Token #${tokenId}</h5>
@@ -568,29 +559,16 @@
           </div>
           <div class="d-flex justify-content-between align-items-center">
             <button class="btn btn-primary" onclick="makeTokenOffer('${tokenId}')">Submit Token Offer</button>
-            <button class="btn btn-outline-secondary" onclick="closeTokenOfferForm('${tokenId}')">Cancel</button>
+            <button class="btn btn-outline-secondary" onclick="closeAllOfferForms()">Cancel</button>
           </div>
         </div>
       `;
 
-      // Agregar el formulario al final del modal body
       modalBody.appendChild(offerForm);
-
-      // Mostrar el formulario con animación y scroll
       setTimeout(() => {
         offerForm.style.display = 'block';
         offerForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 100);
-    }
-    
-    function closeTokenOfferForm(tokenId) {
-      const formElement = document.getElementById(`tokenOfferForm_${tokenId}`);
-      if (formElement) {
-        formElement.style.opacity = '0';
-        setTimeout(() => {
-          formElement.remove();
-        }, 300);
-      }
     }
     
     async function makeTokenOffer(tokenId) {
@@ -604,7 +582,7 @@
         const tx = await marketplaceContract.makeTokenOffer(tokenId, offerAmountWei);
         await tx.wait();
         alert("Token offer created successfully!");
-        closeTokenOfferForm(tokenId);
+        closeAllOfferForms();
       } catch (error) {
         console.error("Error creating token offer:", error);
         alert("Error creating token offer: " + error.message);
