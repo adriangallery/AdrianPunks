@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AdrianPunks Market v3.3</title>
+  <title>AdrianPunks Market v3.5</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/market/styles.css">
@@ -80,21 +80,35 @@
   <div class="container">
     <h2 id="tokenBalance">Balance: Loading...</h2>
     
-    <!-- Trait Filter Dropdown -->
-    <div class="trait-filters mb-4">
-      <div class="dropdown d-inline-block me-2 mb-2">
-        <button class="btn btn-secondary dropdown-toggle" type="button" id="traitFilterButton" data-bs-toggle="dropdown" aria-expanded="false">
-          Filter by Traits 🎭
-        </button>
-        <div class="dropdown-menu p-3" id="traitFilterMenu" style="width: 300px;">
-          <div id="activeFilters" class="mb-2"></div>
-          <div class="trait-categories" id="traitCategories">
-            <!-- Categorías de traits se cargarán dinámicamente -->
+    <!-- Trait Filter Dropdown y Filtros de Listado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div class="trait-filters">
+        <div class="dropdown d-inline-block me-2">
+          <button class="btn btn-secondary dropdown-toggle" type="button" id="traitFilterButton" data-bs-toggle="dropdown" aria-expanded="false">
+            Filter by Traits ��
+          </button>
+          <div class="dropdown-menu p-3" id="traitFilterMenu" style="width: 300px;">
+            <div id="activeFilters" class="mb-2"></div>
+            <div class="trait-categories" id="traitCategories">
+              <!-- Categorías de traits se cargarán dinámicamente -->
+            </div>
+            <div class="d-flex justify-content-between mt-2">
+              <button class="btn btn-sm btn-danger" onclick="clearTraitFilters()">Clear Filters</button>
+              <span class="text-muted" id="filteredCount"></span>
+            </div>
           </div>
-          <div class="d-flex justify-content-between mt-2">
-            <button class="btn btn-sm btn-danger" onclick="clearTraitFilters()">Clear Filters</button>
-            <span class="text-muted" id="filteredCount"></span>
-          </div>
+        </div>
+      </div>
+
+      <!-- Filtros de Listado -->
+      <div class="listing-filters">
+        <div class="btn-group">
+          <button class="btn btn-outline-primary" onclick="filterByActiveListings()">
+            Show Listed Only 📊
+          </button>
+          <button class="btn btn-outline-primary" onclick="sortByFloorPrice()">
+            Sort by Floor Price ��
+          </button>
         </div>
       </div>
     </div>
@@ -454,6 +468,26 @@
       displayNFTs(filteredNFTs);
     }
 
+    // Variables globales
+    let activeListingsData = [];
+    let currentSortOrder = 'asc';
+
+    // Función para cargar y almacenar listings activos
+    async function loadActiveListings() {
+      try {
+        activeListingsData = await marketplaceContract.getActiveListingsDetailed();
+        // Filtrar solo los listings que no han expirado
+        activeListingsData = activeListingsData.filter(listing => 
+          listing.expirationTime > Math.floor(Date.now() / 1000)
+        );
+        console.log("Active listings loaded:", activeListingsData);
+      } catch (error) {
+        console.error("Error loading active listings:", error);
+        activeListingsData = [];
+      }
+    }
+
+    // Modificar la función loadNFTs para incluir la carga de listings
     async function loadNFTs() {
       try {
         const response = await fetch('adrianpunks.json');
@@ -462,6 +496,9 @@
         }
         const data = await response.json();
         nftData = data.collection || [];
+        
+        // Cargar listings activos
+        await loadActiveListings();
         
         // Extraer y renderizar los filtros
         extractTraits(nftData);
@@ -475,7 +512,72 @@
           `<div class="alert alert-danger">Error loading NFTs: ${error.message}</div>`;
       }
     }
-    
+
+    // Función para filtrar por tokens listados
+    async function filterByActiveListings() {
+      const button = document.querySelector('button[onclick="filterByActiveListings()"]');
+      const isActive = button.classList.contains('active');
+      
+      if (!isActive) {
+        // Activar filtro
+        button.classList.remove('btn-outline-primary');
+        button.classList.add('btn-primary', 'active');
+        
+        // Filtrar NFTs que tienen listings activos
+        const listedNFTs = nftData.filter(nft => {
+          const tokenId = parseInt(nft.name.split('#')[1]);
+          return activeListingsData.some(listing => 
+            listing.tokenId.toString() === tokenId.toString()
+          );
+        });
+        
+        displayNFTs(listedNFTs);
+      } else {
+        // Desactivar filtro
+        button.classList.remove('btn-primary', 'active');
+        button.classList.add('btn-outline-primary');
+        filterAndDisplayNFTs(); // Mostrar todos los NFTs
+      }
+    }
+
+    // Función para ordenar por precio
+    async function sortByFloorPrice() {
+      const button = document.querySelector('button[onclick="sortByFloorPrice()"]');
+      
+      // Cambiar el orden de clasificación
+      currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+      
+      // Actualizar el texto del botón
+      button.classList.remove('btn-outline-primary');
+      button.classList.add('btn-primary');
+      button.innerHTML = `Sort by Floor Price ${currentSortOrder === 'asc' ? '↑' : '↓'} 💰`;
+      
+      // Crear un mapa de precios para acceso rápido
+      const priceMap = new Map();
+      activeListingsData.forEach(listing => {
+        const currentPrice = priceMap.get(listing.tokenId.toString());
+        const thisPrice = parseFloat(ethers.utils.formatUnits(listing.price, 18));
+        if (!currentPrice || thisPrice < currentPrice) {
+          priceMap.set(listing.tokenId.toString(), thisPrice);
+        }
+      });
+      
+      // Ordenar NFTs
+      const sortedNFTs = [...nftData].sort((a, b) => {
+        const tokenIdA = a.name.split('#')[1];
+        const tokenIdB = b.name.split('#')[1];
+        const priceA = priceMap.get(tokenIdA) || Number.MAX_VALUE;
+        const priceB = priceMap.get(tokenIdB) || Number.MAX_VALUE;
+        
+        return currentSortOrder === 'asc' 
+          ? priceA - priceB 
+          : priceB - priceA;
+      });
+      
+      displayNFTs(sortedNFTs);
+    }
+
+    // Modificar displayNFTs para mostrar el precio si está listado
     function displayNFTs(nfts) {
       const grid = document.getElementById('nftGrid');
       grid.innerHTML = '';
@@ -486,6 +588,12 @@
       }
     
       nfts.forEach(nft => {
+        const tokenId = nft.name.split('#')[1];
+        const listing = activeListingsData.find(l => 
+          l.tokenId.toString() === tokenId &&
+          l.expirationTime > Math.floor(Date.now() / 1000)
+        );
+
         const card = document.createElement('div');
         card.className = 'card nft-card';
         card.style.cursor = 'pointer';
@@ -495,6 +603,11 @@
           <div class="card-body">
             <h5 class="card-title">${nft.name}</h5>
             <p class="card-text">Rarity: ${nft.rarity.toFixed(2)}</p>
+            ${listing ? `
+              <div class="price-tag alert alert-info py-1 px-2 mb-0">
+                <small>Listed: ${ethers.utils.formatUnits(listing.price, 18)} $ADRIAN</small>
+              </div>
+            ` : ''}
           </div>
         `;
         grid.appendChild(card);
