@@ -29,8 +29,7 @@
 
   <!-- Main Container for NFT Grid and additional info -->
   <div class="container">
-    <!-- You can add additional header elements here (e.g., token balance, floor offer) -->
-    <h2 id="tokenBalance" style="margin-top:90px;">Balance: Loading...</h2>
+    <h2 id="tokenBalance" style="margin-top:60px;">Balance: Loading...</h2>
     <div id="floorOfferSection" style="cursor:pointer; margin-bottom:20px;">
       <span id="floorOfferText">Highest floor offer: -- $ADRIAN</span>
     </div>
@@ -216,12 +215,23 @@
       }
     }
     
-    // Update token balance display
+    // Update token balance display with formatted number
     async function updateTokenBalance() {
       try {
         const balanceRaw = await tokenContract.balanceOf(userAccount);
-        const balance = ethers.utils.formatUnits(balanceRaw, 18);
-        document.getElementById("tokenBalance").innerText = `Balance: ${balance} $ADRIAN`;
+        const balance = parseFloat(ethers.utils.formatUnits(balanceRaw, 18));
+        
+        // Format the number
+        let formattedBalance;
+        if (balance >= 1000000) {
+          formattedBalance = (balance / 1000000).toFixed(1) + 'M';
+        } else if (balance >= 1000) {
+          formattedBalance = (balance / 1000).toFixed(1) + 'K';
+        } else {
+          formattedBalance = balance.toFixed(1);
+        }
+        
+        document.getElementById("tokenBalance").innerText = `Balance: ${formattedBalance} $ADRIAN`;
       } catch (error) {
         console.error("Error fetching token balance:", error);
         document.getElementById("tokenBalance").innerText = "Balance: Error";
