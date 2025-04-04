@@ -126,14 +126,67 @@
 
   <!-- Modal for My Offers -->
   <div class="modal fade" id="myOffersModal" tabindex="-1" aria-labelledby="myOffersModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="myOffersModalLabel">My Offers</h5>
+          <h5 class="modal-title" id="myOffersModalLabel">My Active Offers</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="modal-body" id="myOffersContent">
-          <!-- Lista de ofertas se inyecta aquí -->
+        <div class="modal-body">
+          <!-- Tabs para diferentes tipos de ofertas -->
+          <ul class="nav nav-tabs mb-3" id="offersTab" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="listing-offers-tab" data-bs-toggle="tab" data-bs-target="#listing-offers" type="button" role="tab">
+                Listing Offers 📝
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="token-offers-tab" data-bs-toggle="tab" data-bs-target="#token-offers" type="button" role="tab">
+                Token Offers 🎯
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="trait-offers-tab" data-bs-toggle="tab" data-bs-target="#trait-offers" type="button" role="tab">
+                Trait Offers 🎨
+              </button>
+            </li>
+          </ul>
+          
+          <!-- Contenido de los tabs -->
+          <div class="tab-content" id="offersTabContent">
+            <!-- Listing Offers -->
+            <div class="tab-pane fade show active" id="listing-offers" role="tabpanel">
+              <div id="listingOffersContent">
+                <div class="text-center">
+                  <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Token Offers -->
+            <div class="tab-pane fade" id="token-offers" role="tabpanel">
+              <div id="tokenOffersContent">
+                <div class="text-center">
+                  <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Trait Offers -->
+            <div class="tab-pane fade" id="trait-offers" role="tabpanel">
+              <div id="traitOffersContent">
+                <div class="text-center">
+                  <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -635,204 +688,143 @@
     
     // Function to open the "My Offers" modal (combining listing and token offers)
     async function openMyOffersModal() {
-      if (!marketplaceContract) {
+      if (!marketplaceContract || !userAccount) {
         alert("Please connect your wallet first.");
         return;
       }
+
+      const modal = new bootstrap.Modal(document.getElementById('myOffersModal'));
+      modal.show();
+
+      // Cargar datos cuando se muestra el modal
+      loadMyOffers();
+
+      // Agregar event listeners para los tabs
+      document.querySelectorAll('#offersTab button').forEach(button => {
+        button.addEventListener('click', (e) => {
+          const tabId = e.target.getAttribute('data-bs-target').substring(1);
+          if (tabId === 'listing-offers') loadListingOffers();
+          else if (tabId === 'token-offers') loadTokenOffers();
+          else if (tabId === 'trait-offers') loadTraitOffers();
+        });
+      });
+    }
+
+    // Función para cargar todas las ofertas
+    async function loadMyOffers() {
+      loadListingOffers();
+      loadTokenOffers();
+      loadTraitOffers();
+    }
+
+    // Función para cargar ofertas de listings
+    async function loadListingOffers() {
+      const container = document.getElementById('listingOffersContent');
       try {
-        const listingOffers = await marketplaceContract.getMyListingOffers(userAccount);
-        const tokenOffers = await marketplaceContract.getMyTokenOffers(userAccount);
-        let contentHtml = "";
-        if (listingOffers.length === 0 && tokenOffers.length === 0) {
-          contentHtml = "<p class='text-center'>No active offers yet. Go make one!</p>";
-        } else {
-          if (listingOffers.length > 0) {
-            contentHtml += "<h6>Listing Offers:</h6><ul class='list-group mb-3'>";
-            listingOffers.forEach(offer => {
-              contentHtml += `<li class="list-group-item">
-                Offer #${offer.id.toString()} on Listing #${offer.listingId.toString()} - Token #${offer.tokenId.toString()} - Offer: ${ethers.utils.formatUnits(offer.offerAmount, 18)} $ADRIAN - Qty: ${offer.quantity.toString()}
-                <div class="mt-2">
-                  <button class="btn btn-sm btn-danger" onclick="cancelOffer(${offer.listingId})">Cancel Offer</button>
-                  <button class="btn btn-sm btn-primary" onclick="promptModifyOffer(${offer.listingId}, ${offer.offerAmount.toString()}, ${offer.tokenId})">Modify Offer</button>
-                </div>
-              </li>`;
-            });
-            contentHtml += "</ul>";
-          }
-          if (tokenOffers.length > 0) {
-            contentHtml += "<h6>Token Offers (Non-listed):</h6><ul class='list-group'>";
-            tokenOffers.forEach(offer => {
-              contentHtml += `<li class="list-group-item">
-                Token Offer #${offer.id.toString()} on Token #${offer.tokenId.toString()} - Offer: ${ethers.utils.formatUnits(offer.offerAmount, 18)} $ADRIAN - Qty: ${offer.quantity.toString()}
-                <div class="mt-2">
-                  <button class="btn btn-sm btn-danger" onclick="cancelTokenOffer('${offer.collection}', ${offer.tokenId})">Cancel Token Offer</button>
-                </div>
-              </li>`;
-            });
-            contentHtml += "</ul>";
-          }
+        const offers = await marketplaceContract.getMyListingOffers(userAccount);
+        
+        if (offers.length === 0) {
+          container.innerHTML = '<p class="text-center text-muted">No active listing offers found</p>';
+          return;
         }
-        document.getElementById("myOffersContent").innerHTML = contentHtml;
-        let modal = new bootstrap.Modal(document.getElementById('myOffersModal'));
-        modal.show();
+
+        let html = '<div class="list-group">';
+        for (const offer of offers) {
+          if (!offer.exists) continue;
+          
+          const offerAmount = ethers.utils.formatUnits(offer.offerAmount, 18);
+          html += `
+            <div class="list-group-item">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 class="mb-1">Offer on Listing #${offer.listingId.toString()}</h6>
+                  <p class="mb-1">Token #${offer.tokenId.toString()} - ${offerAmount} $ADRIAN</p>
+                  <small class="text-muted">Quantity: ${offer.quantity.toString()}</small>
+                </div>
+                <button class="btn btn-danger btn-sm" onclick="cancelListingOffer(${offer.listingId})">
+                  Cancel Offer
+                </button>
+              </div>
+            </div>
+          `;
+        }
+        html += '</div>';
+        container.innerHTML = html;
       } catch (error) {
-        console.error(error);
-        alert("Error loading your offers. Please try again later.");
+        console.error("Error loading listing offers:", error);
+        container.innerHTML = '<div class="alert alert-danger">Error loading listing offers</div>';
       }
     }
-    
-    async function cancelOffer(listingId) {
+
+    // Función para cargar ofertas de tokens
+    async function loadTokenOffers() {
+      const container = document.getElementById('tokenOffersContent');
+      try {
+        const offers = await marketplaceContract.getMyTokenOffers(userAccount);
+        
+        if (offers.length === 0) {
+          container.innerHTML = '<p class="text-center text-muted">No active token offers found</p>';
+          return;
+        }
+
+        let html = '<div class="list-group">';
+        for (const offer of offers) {
+          if (!offer.exists) continue;
+          
+          const offerAmount = ethers.utils.formatUnits(offer.offerAmount, 18);
+          html += `
+            <div class="list-group-item">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 class="mb-1">Offer on Token #${offer.tokenId.toString()}</h6>
+                  <p class="mb-1">${offerAmount} $ADRIAN</p>
+                  <small class="text-muted">Quantity: ${offer.quantity.toString()}</small>
+                </div>
+                <button class="btn btn-danger btn-sm" onclick="cancelTokenOffer('${offer.collection}', ${offer.tokenId})">
+                  Cancel Offer
+                </button>
+              </div>
+            </div>
+          `;
+        }
+        html += '</div>';
+        container.innerHTML = html;
+      } catch (error) {
+        console.error("Error loading token offers:", error);
+        container.innerHTML = '<div class="alert alert-danger">Error loading token offers</div>';
+      }
+    }
+
+    // Función para cargar ofertas de traits
+    async function loadTraitOffers() {
+      const container = document.getElementById('traitOffersContent');
+      // Por ahora mostraremos un mensaje ya que necesitamos implementar la función en el contrato
+      container.innerHTML = '<p class="text-center text-muted">Trait offers coming soon...</p>';
+    }
+
+    // Función para cancelar una oferta de listing
+    async function cancelListingOffer(listingId) {
       try {
         const tx = await marketplaceContract.withdrawOffer(listingId, { gasLimit: 1000000 });
         await tx.wait();
-        alert("Offer canceled.");
-        openMyOffersModal();
+        alert("Offer cancelled successfully!");
+        loadListingOffers(); // Recargar las ofertas
       } catch (error) {
-        console.error("Error canceling offer:", error);
-        alert("Error canceling your offer: " + error.message);
+        console.error("Error cancelling listing offer:", error);
+        alert("Error cancelling offer: " + error.message);
       }
     }
-    
-    async function promptModifyOffer(listingId, currentOfferAmount, tokenId) {
-      const newOfferAmountStr = prompt("Enter new offer amount:", ethers.utils.formatUnits(currentOfferAmount, 18));
-      if (newOfferAmountStr != null) {
-        try {
-          const newOfferAmountWei = ethers.utils.parseUnits(newOfferAmountStr, 18);
-          const tx = await marketplaceContract.modifyOffer(listingId, newOfferAmountWei, { gasLimit: 1000000 });
-          await tx.wait();
-          alert("Offer updated!");
-          openMyOffersModal();
-        } catch (error) {
-          console.error("Error modifying offer:", error);
-          alert("Could not update your offer: " + error.message);
-        }
-      }
-    }
-    
-    // ----- Functions for Token Offers (Non-listed tokens) -----
-    function openMakeTokenOfferForm(tokenId) {
-      closeAllOfferForms();
-      const modalBody = document.querySelector('.modal-body');
-      const offerFormId = `tokenOfferForm_${tokenId}`;
-      const offerForm = document.createElement('div');
-      offerForm.id = offerFormId;
-      offerForm.className = 'offer-form mt-4';
-      offerForm.style.display = 'none';
-      offerForm.innerHTML = `
-        <div class="border-top pt-3">
-          <h5 class="mb-3">Make Token Offer for Token #${tokenId}</h5>
-          <div class="form-group">
-            <label class="mb-2">Offer Amount (in $ADRIAN):</label>
-            <input type="text" id="tokenOfferAmount_${tokenId}" value="10000" class="form-control mb-3">
-          </div>
-          <div class="form-group">
-            <label class="mb-2">Quantity:</label>
-            <input type="text" id="tokenOfferQuantity_${tokenId}" value="1" class="form-control mb-3">
-          </div>
-          <div class="d-flex justify-content-between align-items-center">
-            <button class="btn btn-primary" onclick="makeTokenOffer('${tokenId}')">Submit Token Offer</button>
-            <button class="btn btn-outline-secondary" onclick="closeAllOfferForms()">Cancel</button>
-          </div>
-        </div>
-      `;
-      modalBody.appendChild(offerForm);
-      setTimeout(() => {
-        offerForm.style.display = 'block';
-        offerForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 100);
-    }
-    
-    async function makeTokenOffer(tokenId) {
-      if (!tokenId) {
-        alert("Error: Invalid Token ID");
-        return;
-      }
-      const offerAmount = document.getElementById(`tokenOfferAmount_${tokenId}`).value;
-      const quantity = document.getElementById(`tokenOfferQuantity_${tokenId}`).value;
-      const offerAmountWei = ethers.utils.parseUnits(offerAmount, 18);
-      const qty = parseInt(quantity);
-      try {
-        const tx = await marketplaceContract.makeTokenOffer(NFT_ADDRESS, tokenId, qty, offerAmountWei);
-        await tx.wait();
-        alert("Token offer created successfully!");
-        closeAllOfferForms();
-      } catch (error) {
-        console.error("Error creating token offer:", error);
-        alert("Error creating token offer: " + error.message);
-      }
-    }
-    
+
+    // Función para cancelar una oferta de token
     async function cancelTokenOffer(collection, tokenId) {
       try {
         const tx = await marketplaceContract.withdrawTokenOffer(collection, tokenId, { gasLimit: 1000000 });
         await tx.wait();
-        alert("Token offer canceled.");
-        openMyOffersModal();
+        alert("Token offer cancelled successfully!");
+        loadTokenOffers(); // Recargar las ofertas
       } catch (error) {
-        console.error("Error canceling token offer:", error);
-        alert("Error canceling token offer: " + error.message);
-      }
-    }
-    
-    // Function to close any open offer forms
-    function closeAllOfferForms() {
-      const existingForms = document.querySelectorAll('.offer-form');
-      existingForms.forEach(form => {
-        form.style.opacity = '0';
-        setTimeout(() => form.remove(), 300);
-      });
-    }
-    
-    // ----- Functions for Trait Offers remain unchanged -----
-    function openTraitOfferForm(traitType, traitValue) {
-      closeAllOfferForms();
-      const modalBody = document.querySelector('.modal-body');
-      const offerFormId = `traitOfferForm_${traitType}_${traitValue}`;
-      const offerForm = document.createElement('div');
-      offerForm.id = offerFormId;
-      offerForm.className = 'offer-form mt-4';
-      offerForm.style.display = 'none';
-      offerForm.innerHTML = `
-        <div class="border-top pt-3">
-          <h5 class="mb-3">Make Trait Offer</h5>
-          <div class="form-group mb-3">
-            <div class="trait-info mb-3">
-              <span class="badge bg-primary me-2">${traitType}</span>
-              <span class="badge bg-secondary">${traitValue}</span>
-            </div>
-            <label class="mb-2">Offer Amount (in $ADRIAN):</label>
-            <input type="text" id="traitOfferAmount_${traitType}_${traitValue}" value="5000" class="form-control">
-          </div>
-          <div class="d-flex justify-content-between align-items-center">
-            <button class="btn btn-primary" onclick="makeTraitOffer('${traitType}', '${traitValue}')">Submit Trait Offer</button>
-            <button class="btn btn-outline-secondary" onclick="closeAllOfferForms()">Cancel</button>
-          </div>
-        </div>
-      `;
-      modalBody.appendChild(offerForm);
-      setTimeout(() => {
-        offerForm.style.display = 'block';
-        offerForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 100);
-    }
-    
-    async function makeTraitOffer(traitType, traitValue) {
-      const offerAmount = document.getElementById(`traitOfferAmount_${traitType}_${traitValue}`).value;
-      const offerAmountWei = ethers.utils.parseUnits(offerAmount, 18);
-      try {
-        const allowance = await tokenContract.allowance(userAccount, MARKET_ADDRESS);
-        if (allowance.lt(offerAmountWei)) {
-          const txApprove = await tokenContract.approve(MARKET_ADDRESS, offerAmountWei);
-          await txApprove.wait();
-          alert("Approved " + ethers.utils.formatUnits(offerAmountWei, 18) + " $ADRIAN tokens for trait offer.");
-        }
-        const tx = await marketplaceContract.setTraitOffer(traitType, traitValue, offerAmountWei);
-        await tx.wait();
-        alert("Trait offer created successfully!");
-        closeAllOfferForms();
-      } catch (error) {
-        console.error("Error creating trait offer:", error);
-        alert("Error creating trait offer: " + error.message);
+        console.error("Error cancelling token offer:", error);
+        alert("Error cancelling token offer: " + error.message);
       }
     }
     
