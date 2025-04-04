@@ -24,41 +24,49 @@ function ensureEthers(callback) {
 }
 
 async function connectWallet() {
-  if (!isConnected) {
+  ensureEthers(async () => {
     try {
       if (!window.ethereum) {
         alert("Please install MetaMask!");
         return;
       }
 
-      provider = new ethers.providers.Web3Provider(window.ethereum);
-      await provider.send("eth_requestAccounts", []);
-      signer = provider.getSigner();
-      const address = await signer.getAddress();
-      
-      // Actualizar ambas versiones del botón (mobile y desktop)
-      updateWalletDisplay(address, true);
-      isConnected = true;
-
-      // Escuchar eventos de cambio de cuenta
-      window.ethereum.on('accountsChanged', handleAccountsChanged);
+      if (!isConnected) {
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        const address = await signer.getAddress();
+        
+        // Actualizar botones con la dirección truncada
+        const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
+        document.getElementById('connectWalletButton').innerHTML = `Connected: ${shortAddress}`;
+        document.getElementById('connectWalletButtonMobile').innerHTML = shortAddress;
+        
+        isConnected = true;
+        
+        // Escuchar cambios de cuenta
+        window.ethereum.on('accountsChanged', handleAccountsChanged);
+      } else {
+        // Desconectar
+        disconnectWallet();
+      }
     } catch (error) {
       console.error("Error connecting wallet:", error);
       alert("Error connecting wallet: " + error.message);
     }
-  } else {
-    // Desconectar wallet
-    disconnectWallet();
-  }
+  });
 }
 
 function disconnectWallet() {
   isConnected = false;
   provider = null;
   signer = null;
-  updateWalletDisplay('', false);
   
-  // Remover listener de eventos
+  // Restaurar texto de los botones
+  document.getElementById('connectWalletButton').innerHTML = "Connect Wallet";
+  document.getElementById('connectWalletButtonMobile').innerHTML = "Connect";
+  
+  // Remover listener
   if (window.ethereum) {
     window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
   }
@@ -66,62 +74,50 @@ function disconnectWallet() {
 
 function handleAccountsChanged(accounts) {
   if (accounts.length === 0) {
-    // Usuario desconectó manualmente desde MetaMask
+    // Usuario desconectó desde MetaMask
     disconnectWallet();
   } else {
     // Actualizar con la nueva dirección
-    updateWalletDisplay(accounts[0], true);
+    const shortAddress = `${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`;
+    document.getElementById('connectWalletButton').innerHTML = `Connected: ${shortAddress}`;
+    document.getElementById('connectWalletButtonMobile').innerHTML = shortAddress;
   }
 }
 
-function updateWalletDisplay(address, connected) {
-  // Elementos Desktop
-  const connectButton = document.getElementById('connectWalletButton');
-  // Elementos Mobile
-  const connectButtonMobile = document.getElementById('connectWalletButtonMobile');
-
-  if (connected) {
-    // Formatear la dirección
-    const shortAddress = `${address.substring(0, 6)}...${address.substring(38)}`;
-    
-    // Actualizar Desktop
-    connectButton.innerHTML = `Connected: ${shortAddress}`;
-    
-    // Actualizar Mobile
-    connectButtonMobile.innerHTML = shortAddress;
-  } else {
-    // Resetear Desktop
-    connectButton.innerHTML = 'Connect Wallet';
-    
-    // Resetear Mobile
-    connectButtonMobile.innerHTML = 'Connect';
-  }
-}
-
-// Verificar si ya hay una wallet conectada al cargar la página
-window.addEventListener('load', async () => {
-  if (window.ethereum) {
-    provider = new ethers.providers.Web3Provider(window.ethereum);
-    try {
-      const accounts = await provider.listAccounts();
-      if (accounts.length > 0) {
-        signer = provider.getSigner();
-        updateWalletDisplay(accounts[0], true);
-        isConnected = true;
-        // Escuchar eventos de cambio de cuenta
-        window.ethereum.on('accountsChanged', handleAccountsChanged);
+// Verificar conexión al cargar la página
+window.addEventListener('load', () => {
+  ensureEthers(async () => {
+    if (window.ethereum) {
+      provider = new ethers.providers.Web3Provider(window.ethereum);
+      try {
+        const accounts = await provider.listAccounts();
+        if (accounts.length > 0) {
+          signer = provider.getSigner();
+          const shortAddress = `${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`;
+          document.getElementById('connectWalletButton').innerHTML = `Connected: ${shortAddress}`;
+          document.getElementById('connectWalletButtonMobile').innerHTML = shortAddress;
+          isConnected = true;
+          
+          // Escuchar cambios de cuenta
+          window.ethereum.on('accountsChanged', handleAccountsChanged);
+        }
+      } catch (error) {
+        console.error("Error checking wallet connection:", error);
       }
-    } catch (error) {
-      console.error("Error checking wallet connection:", error);
     }
-  }
+  });
 });
 
-// Al hacer clic en el botón se alterna entre conectar y "desconectar"
-document.getElementById('connectWalletButton').addEventListener('click', function () {
-  if (isConnected) {
-    disconnectWallet();
-  } else {
-    connectWallet();
+// Agregar event listeners a ambos botones
+document.addEventListener('DOMContentLoaded', () => {
+  const desktopButton = document.getElementById('connectWalletButton');
+  const mobileButton = document.getElementById('connectWalletButtonMobile');
+  
+  if (desktopButton) {
+    desktopButton.addEventListener('click', connectWallet);
+  }
+  
+  if (mobileButton) {
+    mobileButton.addEventListener('click', connectWallet);
   }
 });
