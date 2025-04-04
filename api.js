@@ -6,16 +6,29 @@ const app = express();
 // Middleware
 app.use(express.json());
 
-// Configuración de CORS
+// Configuración de CORS más permisiva
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    res.header('Access-Control-Allow-Headers', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
     next();
 });
 
 // Ruta a la base de datos
 const dbPath = path.join(process.cwd(), 'adrianpunks.db');
 console.log('Ruta de la base de datos:', dbPath);
+
+// Middleware de autenticación básica
+app.use((req, res, next) => {
+    // Permitir todas las peticiones GET sin autenticación
+    if (req.method === 'GET') {
+        return next();
+    }
+    next();
+});
 
 // Endpoint para obtener todos los NFTs
 app.get('/api/nfts', (req, res) => {
