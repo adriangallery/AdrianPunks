@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,110 +7,122 @@
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <!-- Cargar ethers.js -->
+  <!-- Load ethers.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
-  <!-- Incluir el menú -->
+  <!-- Include the menu (unchanged from your preferred version) -->
   <div id="menu-container"></div>
 
+  <!-- Main Container for NFT Grid and additional info -->
   <div class="container">
+    <!-- You can add additional header elements here (e.g., token balance, floor offer) -->
+    <h2 id="tokenBalance" style="margin-top:90px;">Balance: Loading...</h2>
+    <div id="floorOfferSection" style="cursor:pointer; margin-bottom:20px;">
+      <span id="floorOfferText">Highest floor offer: -- $ADRIAN</span>
+    </div>
     <div class="nft-grid" id="nftGrid"></div>
   </div>
 
-  <!-- Modal para mostrar detalles del NFT -->
+  <!-- Modal to show NFT details and actions -->
   <div class="modal" id="nftModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content" id="nftModalContent">
-        <!-- El contenido del modal se llenará dinámicamente -->
+        <!-- Modal content will be dynamically inserted -->
       </div>
     </div>
   </div>
 
-  <!-- Scripts del menú y Bootstrap -->
+  <!-- Scripts for Menu and Bootstrap -->
   <script src="components/menu.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   
-  <!-- Script principal: carga de NFTs e interacciones con contratos -->
+  <!-- Main Script: NFT loading and Contract Interactions -->
   <script>
-    /*********** Configuración e Interacción con Contratos ***********/
-    // Direcciones de contratos (reemplaza con las direcciones reales si es necesario)
-    const MARKET_ADDRESS = "0xcef57f12a949586ec2d7bbf9ee8a4b3a7e7abc73";
-    const PUNKS_ADDRESS = "0x4b9afc775d3D1969F727e81BA970B19b9e8054EF";
+    /*********** Global Variables and Contract Setup ***********/
+    let nftData = [];
+    let provider, signer, userAccount;
+    let tokenContract, nftContract, marketplaceContract;
+    
+    // Contract addresses and ABIs (update these if needed)
     const TOKEN_ADDRESS  = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
-
-    // ABIs mínimas para interactuar con cada contrato
-    const MARKET_ABI = [
-      "function buyNFT(uint256 tokenId) external",
-      "function getNFTPrice(uint256 tokenId) view returns (uint256)"
-    ];
-    const PUNKS_ABI = [
-      "function tokenURI(uint256 tokenId) view returns (string)"
-    ];
+    const NFT_ADDRESS    = "0x4b9afc775d3D1969F727e81BA970B19b9e8054EF";
+    const MARKET_ADDRESS = "0xcef57f12a949586ec2d7bbf9ee8a4b3a7e7abc73";
+    
     const TOKEN_ABI = [
       "function balanceOf(address account) view returns (uint256)",
       "function approve(address spender, uint256 amount) external returns (bool)",
       "function allowance(address owner, address spender) view returns (uint256)"
     ];
-
-    let marketContract, punksContract, tokenContract, signer;
-
+    const NFT_ABI = [
+      "function tokenURI(uint256 tokenId) view returns (string)"
+    ];
+    const MARKET_ABI = [
+      "function buyNFT(uint256 tokenId) external",
+      "function getNFTPrice(uint256 tokenId) view returns (uint256)",
+      "function setFloorOffer(address collection, uint256 offerAmount) external",
+      "function floorOffers(address) view returns (uint256 offerAmount, address buyer, bool active)",
+      // Additional functions can be added here for offers, listings, etc.
+      "function getActiveListings() view returns (uint256[])",
+      "function listings(uint256) external view returns (uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime)"
+    ];
+    
     async function initContracts() {
       if (window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        provider = new ethers.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
-        marketContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
-        punksContract  = new ethers.Contract(PUNKS_ADDRESS, PUNKS_ABI, provider);
-        tokenContract   = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+        userAccount = await signer.getAddress();
+        tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+        nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
+        marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
+        updateTokenBalance();
+        loadFloorOffer();
       } else {
-        console.error("Proveedor de Ethereum no encontrado");
+        console.error("Ethereum provider not found.");
       }
     }
-
-    /*********** Carga y Visualización de NFTs ***********/
+    
+    /*********** NFT Data Loading and Display ***********/
     async function loadNFTs() {
       try {
         const response = await fetch('adrianpunks.json');
         if (!response.ok) {
-          throw new Error('Error al cargar los NFTs');
+          throw new Error('Error loading NFTs');
         }
         const data = await response.json();
-        displayNFTs(data.collection);
+        nftData = data.collection || [];
+        displayNFTs(nftData);
       } catch (error) {
         console.error('Error:', error);
         document.getElementById('nftGrid').innerHTML = 
-          `<div class="alert alert-danger">Error al cargar los NFTs: ${error.message}</div>`;
+          `<div class="alert alert-danger">Error loading NFTs: ${error.message}</div>`;
       }
     }
-
+    
     function displayNFTs(nfts) {
       const grid = document.getElementById('nftGrid');
       grid.innerHTML = '';
-
+    
       if (!nfts || nfts.length === 0) {
-        grid.innerHTML = '<div class="alert alert-info">No se encontraron NFTs</div>';
+        grid.innerHTML = '<div class="alert alert-info">No NFTs found</div>';
         return;
       }
-
+    
       nfts.forEach(nft => {
         const card = document.createElement('div');
         card.className = 'card nft-card';
         card.innerHTML = `
-          <img src="${nft.image}" class="card-img-top" 
-               alt="${nft.name}" 
-               onerror="this.src='placeholder.png'">
+          <img src="${nft.image}" class="card-img-top" alt="${nft.name}" onerror="this.src='placeholder.png'">
           <div class="card-body">
               <h5 class="card-title">${nft.name}</h5>
-              <p class="card-text">Rareza: ${nft.rarity.toFixed(2)}</p>
-              <button class="btn btn-primary" onclick="showNFTDetails('${nft.name}')">
-                  Ver detalles
-              </button>
+              <p class="card-text">Rarity: ${nft.rarity.toFixed(2)}</p>
+              <button class="btn btn-primary" onclick="showNFTDetails('${nft.name}')">View Details</button>
           </div>
         `;
         grid.appendChild(card);
       });
     }
-
+    
     function showNFTDetails(nftName) {
       fetch('adrianpunks.json')
         .then(response => response.json())
@@ -124,25 +136,21 @@
                   <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
               </div>
               <div class="modal-body">
-                  <img src="${nft.image}" class="img-fluid mb-3" 
-                       alt="${nft.name}" 
-                       onerror="this.src='placeholder.png'">
+                  <img src="${nft.image}" class="img-fluid mb-3" alt="${nft.name}" onerror="this.src='placeholder.png'">
                   <div class="nft-details">
-                      <p><strong>Descripción:</strong> ${nft.description}</p>
-                      <p><strong>Compilador:</strong> ${nft.compiler}</p>
+                      <p><strong>Description:</strong> ${nft.description}</p>
+                      <p><strong>Compiler:</strong> ${nft.compiler}</p>
                       <p><strong>Masterminds:</strong> ${nft.masterminds.join(', ')}</p>
-                      <p><strong>Rareza:</strong> ${nft.rarity.toFixed(2)}</p>
-                      <h6>Atributos:</h6>
+                      <p><strong>Rarity:</strong> ${nft.rarity.toFixed(2)}</p>
+                      <h6>Attributes:</h6>
                       <ul class="list-group">
-                          ${nft.attributes.map(attr => 
-                            `<li class="list-group-item">
-                              <strong>${attr.trait_type}:</strong> ${attr.value}
-                            </li>`
-                          ).join('')}
+                        ${nft.attributes.map(attr => 
+                          `<li class="list-group-item">
+                             <strong>${attr.trait_type}:</strong> ${attr.value}
+                           </li>`
+                        ).join('')}
                       </ul>
-                      <button class="btn btn-success mt-3" onclick="comprarNFT('${nft.name}')">
-                          Comprar NFT
-                      </button>
+                      <button class="btn btn-success mt-3" onclick="buyNFT('${nft.name}')">Buy NFT</button>
                   </div>
               </div>
             `;
@@ -152,48 +160,131 @@
         })
         .catch(error => {
           console.error('Error:', error);
-          alert('Error al cargar los detalles del NFT');
+          alert('Error loading NFT details');
         });
     }
-
-    /*********** Función para Comprar NFT (interacción con contratos) ***********/
-    async function comprarNFT(nftName) {
+    
+    /*********** Contract Interaction Functions ***********/
+    
+    // Purchase NFT using Adrian Token
+    async function buyNFT(nftName) {
       try {
-        // Verificar que los contratos estén inicializados
-        if (!marketContract || !tokenContract) {
-          alert("Conecta tu wallet para continuar.");
+        if (!marketplaceContract || !tokenContract) {
+          alert("Please connect your wallet to continue.");
           return;
         }
-        // Obtener el NFT por nombre
+        // Retrieve NFT info from JSON
         const response = await fetch('adrianpunks.json');
         const data = await response.json();
         const nft = data.collection.find(n => n.name === nftName);
         if (!nft) {
-          alert("NFT no encontrado.");
+          alert("NFT not found.");
           return;
         }
-        // Extraer tokenId del nombre (ej. "AdrianPunks#1")
+        // Extract tokenId from NFT name (e.g. "AdrianPunks#1")
         const tokenId = parseInt(nft.name.split("#")[1]);
-        // Obtener el precio del NFT desde el contrato de mercado
-        const precio = await marketContract.getNFTPrice(tokenId);
-        console.log("Precio del NFT:", precio.toString());
-        // Revisar el allowance; si es menor al precio, aprobar el gasto
-        const allowance = await tokenContract.allowance(await signer.getAddress(), MARKET_ADDRESS);
-        if (allowance.lt(precio)) {
-          const txAprobar = await tokenContract.approve(MARKET_ADDRESS, precio);
-          await txAprobar.wait();
+        // Get NFT price from the marketplace contract
+        const price = await marketplaceContract.getNFTPrice(tokenId);
+        console.log("NFT Price:", price.toString());
+    
+        // Check allowance and approve if necessary
+        const currentAllowance = await tokenContract.allowance(userAccount, MARKET_ADDRESS);
+        if (currentAllowance.lt(price)) {
+          const txApprove = await tokenContract.approve(MARKET_ADDRESS, price);
+          await txApprove.wait();
         }
-        // Ejecutar la compra
-        const txCompra = await marketContract.buyNFT(tokenId);
-        await txCompra.wait();
-        alert("¡Compra realizada con éxito!");
+    
+        // Execute the purchase
+        const txPurchase = await marketplaceContract.buyNFT(tokenId);
+        await txPurchase.wait();
+        alert("Purchase successful!");
       } catch (error) {
-        console.error("Error al comprar el NFT:", error);
-        alert("Error al comprar el NFT: " + error.message);
+        console.error("Error purchasing NFT:", error);
+        alert("Error purchasing NFT: " + error.message);
       }
     }
-
-    // Inicializar contratos y cargar NFTs cuando la página esté lista
+    
+    // Update token balance display
+    async function updateTokenBalance() {
+      try {
+        const balanceRaw = await tokenContract.balanceOf(userAccount);
+        const balance = ethers.utils.formatUnits(balanceRaw, 18);
+        document.getElementById("tokenBalance").innerText = `Balance: ${balance} $ADRIAN`;
+      } catch (error) {
+        console.error("Error fetching token balance:", error);
+        document.getElementById("tokenBalance").innerText = "Balance: Error";
+      }
+    }
+    
+    // Load floor offer and update display text
+    async function loadFloorOffer() {
+      try {
+        const floorOffer = await marketplaceContract.floorOffers(NFT_ADDRESS);
+        const offerAmount = floorOffer.offerAmount;
+        const floorSection = document.getElementById("floorOfferSection");
+        if (floorOffer.active && offerAmount.gt(0)) {
+          document.getElementById("floorOfferText").innerText = 
+            `Highest floor offer: ${ethers.utils.formatUnits(offerAmount, 18)} $ADRIAN`;
+          floorSection.classList.remove("no-offer");
+        } else {
+          document.getElementById("floorOfferText").innerText = "No floor offer set";
+          floorSection.classList.add("no-offer");
+        }
+      } catch (error) {
+        console.error("Error loading floor offer:", error);
+      }
+    }
+    
+    // Example: Sweep floor function (buy multiple cheapest NFTs)
+    async function sweepFloor() {
+      if (!marketplaceContract) {
+        alert("Please connect your wallet first.");
+        return;
+      }
+      const countStr = prompt("How many tokens do you want to purchase from the floor?");
+      const numTokens = parseInt(countStr);
+      if (isNaN(numTokens) || numTokens <= 0) {
+        alert("Invalid number. Please try again.");
+        return;
+      }
+      try {
+        const activeListings = await marketplaceContract.getActiveListings();
+        let listingsArr = [];
+        for (let i = 0; i < activeListings.length; i++) {
+          const listing = await marketplaceContract.listings(activeListings[i]);
+          // Check if listing is still active (using expirationTime)
+          if (listing.expirationTime > Math.floor(Date.now() / 1000)) {
+            listingsArr.push(listing);
+          }
+        }
+        // Sort listings by price (lowest first)
+        listingsArr.sort((a, b) => Number(a.price) - Number(b.price));
+        let tokensBought = 0;
+        for (let listing of listingsArr) {
+          if (tokensBought >= numTokens) break;
+          try {
+            const requiredAmount = listing.price.div(listing.quantity);
+            const currentAllowance = await tokenContract.allowance(userAccount, MARKET_ADDRESS);
+            if (currentAllowance.lt(requiredAmount)) {
+              const txApprove = await tokenContract.approve(MARKET_ADDRESS, requiredAmount);
+              await txApprove.wait();
+            }
+            const txBuy = await marketplaceContract.buyNFT(listing.id, { gasLimit: 1000000 });
+            await txBuy.wait();
+            tokensBought++;
+            console.log(`Token purchased from listing ${listing.id}`);
+          } catch (err) {
+            console.error("Error purchasing listing " + listing.id, err);
+          }
+        }
+        alert(`Sweep Floor complete! You purchased ${tokensBought} token(s).`);
+      } catch (error) {
+        console.error("Error during Sweep Floor:", error);
+        alert("Error during Sweep Floor: " + error.message);
+      }
+    }
+    
+    // Initialize contracts and load NFTs when page loads
     document.addEventListener('DOMContentLoaded', async () => {
       await initContracts();
       loadNFTs();
