@@ -126,7 +126,7 @@
 
   <!-- Modal for My Offers -->
   <div class="modal fade" id="myOffersModal" tabindex="-1" aria-labelledby="myOffersModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="myOffersModalLabel">My Active Offers</h5>
@@ -134,29 +134,40 @@
         </div>
         <div class="modal-body">
           <!-- Tabs para diferentes tipos de ofertas -->
-          <ul class="nav nav-tabs mb-3" id="offersTab" role="tablist">
-            <li class="nav-item" role="presentation">
-              <button class="nav-link active" id="listing-offers-tab" data-bs-toggle="tab" data-bs-target="#listing-offers" type="button" role="tab">
-                Listing Offers 📝
+          <ul class="nav nav-tabs mb-3 d-flex" id="offersTab" role="tablist">
+            <li class="nav-item flex-equal" role="presentation">
+              <button class="nav-link active w-100" id="listing-offers-tab" data-bs-toggle="tab" data-bs-target="#listing-offers" type="button" role="tab">
+                Listing 📝
               </button>
             </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" id="token-offers-tab" data-bs-toggle="tab" data-bs-target="#token-offers" type="button" role="tab">
-                Token Offers 🎯
+            <li class="nav-item flex-equal" role="presentation">
+              <button class="nav-link w-100" id="token-offers-tab" data-bs-toggle="tab" data-bs-target="#token-offers" type="button" role="tab">
+                Token 🎯
               </button>
             </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" id="floor-offers-tab" data-bs-toggle="tab" data-bs-target="#floor-offers" type="button" role="tab">
-                Floor Offers 💰
+            <li class="nav-item flex-equal" role="presentation">
+              <button class="nav-link w-100" id="floor-offers-tab" data-bs-toggle="tab" data-bs-target="#floor-offers" type="button" role="tab">
+                Floor 💰
               </button>
             </li>
-            <li class="nav-item" role="presentation">
-              <button class="nav-link" id="trait-offers-tab" data-bs-toggle="tab" data-bs-target="#trait-offers" type="button" role="tab">
-                Trait Offers 🎨
+            <li class="nav-item flex-equal" role="presentation">
+              <button class="nav-link w-100" id="trait-offers-tab" data-bs-toggle="tab" data-bs-target="#trait-offers" type="button" role="tab">
+                Trait 🎨
               </button>
             </li>
           </ul>
           
+          <style>
+            .flex-equal {
+              flex: 1 1 0;
+            }
+            #offersTab .nav-link {
+              padding: 0.5rem;
+              text-align: center;
+              white-space: nowrap;
+            }
+          </style>
+
           <!-- Contenido de los tabs -->
           <div class="tab-content" id="offersTabContent">
             <!-- Listing Offers -->
@@ -876,13 +887,25 @@
     async function loadFloorOffers() {
       const container = document.getElementById('floorOffersContent');
       try {
+        console.log("Checking floor offers for address:", userAccount);
         const floorOffer = await marketplaceContract.floorOffers(NFT_ADDRESS);
+        console.log("Floor offer data:", {
+          amount: floorOffer.offerAmount.toString(),
+          buyer: floorOffer.buyer,
+          active: floorOffer.active,
+          userAccount: userAccount
+        });
         
-        if (!floorOffer.active || floorOffer.buyer.toLowerCase() !== userAccount.toLowerCase()) {
+        // Convertir las direcciones a minúsculas para comparación
+        const buyerAddress = floorOffer.buyer.toLowerCase();
+        const userAddress = userAccount.toLowerCase();
+        
+        if (!floorOffer.active) {
           container.innerHTML = '<p class="text-center text-muted">No active floor offers found</p>';
           return;
         }
 
+        // Si hay una oferta activa, mostrarla incluso si no es del usuario actual
         const offerAmount = ethers.utils.formatUnits(floorOffer.offerAmount, 18);
         let html = `
           <div class="list-group">
@@ -891,11 +914,17 @@
                 <div>
                   <h6 class="mb-1">Collection Floor Offer</h6>
                   <p class="mb-1">${offerAmount} $ADRIAN</p>
-                  <small class="text-muted">Valid for any token in the collection</small>
+                  <small class="text-muted">
+                    ${buyerAddress === userAddress ? 
+                      'Your offer - Valid for any token in the collection' : 
+                      `Offer by: ${floorOffer.buyer.substring(0, 6)}...${floorOffer.buyer.substring(38)}`}
+                  </small>
                 </div>
-                <button class="btn btn-danger btn-sm" onclick="cancelFloorOffer()">
-                  Cancel Floor Offer
-                </button>
+                ${buyerAddress === userAddress ? `
+                  <button class="btn btn-danger btn-sm" onclick="cancelFloorOffer()">
+                    Cancel Floor Offer
+                  </button>
+                ` : ''}
               </div>
             </div>
           </div>
@@ -903,7 +932,7 @@
         container.innerHTML = html;
       } catch (error) {
         console.error("Error loading floor offers:", error);
-        container.innerHTML = '<div class="alert alert-danger">Error loading floor offers</div>';
+        container.innerHTML = `<div class="alert alert-danger">Error loading floor offers: ${error.message}</div>`;
       }
     }
 
