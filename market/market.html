@@ -24,6 +24,14 @@
       margin: 0 auto;
       display: block;
     }
+    /* Asegurar que el backdrop se elimine correctamente */
+    .modal-backdrop {
+      opacity: 0.5;
+    }
+    body.modal-open {
+      overflow: auto !important;
+      padding-right: 0 !important;
+    }
   </style>
   <!-- Load ethers.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -63,8 +71,8 @@
   </div>
 
   <!-- Modal to show NFT details and actions -->
-  <div class="modal fade" id="nftModal" tabindex="-1" aria-labelledby="nftModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+  <div class="modal fade" id="nftModal" tabindex="-1" aria-labelledby="nftModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content" id="nftModalContent">
         <!-- Modal content will be dynamically inserted -->
       </div>
@@ -259,6 +267,19 @@
               </div>
             `;
             const modal = new bootstrap.Modal(document.getElementById('nftModal'));
+            
+            // Manejar el evento de cierre del modal
+            const modalElement = document.getElementById('nftModal');
+            modalElement.addEventListener('hidden.bs.modal', function () {
+              document.body.classList.remove('modal-open');
+              const backdrop = document.querySelector('.modal-backdrop');
+              if (backdrop) {
+                backdrop.remove();
+              }
+              // Limpiar cualquier contenido adicional
+              modalContent.innerHTML = '';
+            });
+
             modal.show();
           }
         })
