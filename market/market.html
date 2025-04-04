@@ -146,6 +146,11 @@
               </button>
             </li>
             <li class="nav-item" role="presentation">
+              <button class="nav-link" id="floor-offers-tab" data-bs-toggle="tab" data-bs-target="#floor-offers" type="button" role="tab">
+                Floor Offers 💰
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
               <button class="nav-link" id="trait-offers-tab" data-bs-toggle="tab" data-bs-target="#trait-offers" type="button" role="tab">
                 Trait Offers 🎨
               </button>
@@ -168,6 +173,17 @@
             <!-- Token Offers -->
             <div class="tab-pane fade" id="token-offers" role="tabpanel">
               <div id="tokenOffersContent">
+                <div class="text-center">
+                  <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Floor Offers -->
+            <div class="tab-pane fade" id="floor-offers" role="tabpanel">
+              <div id="floorOffersContent">
                 <div class="text-center">
                   <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden">Loading...</span>
@@ -705,6 +721,7 @@
           const tabId = e.target.getAttribute('data-bs-target').substring(1);
           if (tabId === 'listing-offers') loadListingOffers();
           else if (tabId === 'token-offers') loadTokenOffers();
+          else if (tabId === 'floor-offers') loadFloorOffers();
           else if (tabId === 'trait-offers') loadTraitOffers();
         });
       });
@@ -714,6 +731,7 @@
     async function loadMyOffers() {
       loadListingOffers();
       loadTokenOffers();
+      loadFloorOffers();
       loadTraitOffers();
     }
 
@@ -851,6 +869,54 @@
       } catch (error) {
         console.error("Error creating floor offer:", error);
         alert("Error creating floor offer: " + error.message);
+      }
+    }
+
+    // Función para cargar floor offers
+    async function loadFloorOffers() {
+      const container = document.getElementById('floorOffersContent');
+      try {
+        const floorOffer = await marketplaceContract.floorOffers(NFT_ADDRESS);
+        
+        if (!floorOffer.active || floorOffer.buyer.toLowerCase() !== userAccount.toLowerCase()) {
+          container.innerHTML = '<p class="text-center text-muted">No active floor offers found</p>';
+          return;
+        }
+
+        const offerAmount = ethers.utils.formatUnits(floorOffer.offerAmount, 18);
+        let html = `
+          <div class="list-group">
+            <div class="list-group-item">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 class="mb-1">Collection Floor Offer</h6>
+                  <p class="mb-1">${offerAmount} $ADRIAN</p>
+                  <small class="text-muted">Valid for any token in the collection</small>
+                </div>
+                <button class="btn btn-danger btn-sm" onclick="cancelFloorOffer()">
+                  Cancel Floor Offer
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+        container.innerHTML = html;
+      } catch (error) {
+        console.error("Error loading floor offers:", error);
+        container.innerHTML = '<div class="alert alert-danger">Error loading floor offers</div>';
+      }
+    }
+
+    // Función para cancelar floor offer
+    async function cancelFloorOffer() {
+      try {
+        const tx = await marketplaceContract.setFloorOffer(NFT_ADDRESS, 0, { gasLimit: 1000000 });
+        await tx.wait();
+        alert("Floor offer cancelled successfully!");
+        loadFloorOffers(); // Recargar las floor offers
+      } catch (error) {
+        console.error("Error cancelling floor offer:", error);
+        alert("Error cancelling floor offer: " + error.message);
       }
     }
     
