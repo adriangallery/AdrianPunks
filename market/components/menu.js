@@ -77,37 +77,24 @@ function handleAccountsChanged(accounts) {
 function updateWalletDisplay(address, connected) {
   // Elementos Desktop
   const connectButton = document.getElementById('connectWalletButton');
-  const walletInfo = document.getElementById('walletInfo');
-  const walletAddress = walletInfo.querySelector('.wallet-address');
-
   // Elementos Mobile
   const connectButtonMobile = document.getElementById('connectWalletButtonMobile');
-  const walletInfoMobile = document.getElementById('walletInfoMobile');
-  const walletAddressMobile = walletInfoMobile.querySelector('.wallet-address');
 
   if (connected) {
     // Formatear la dirección
     const shortAddress = `${address.substring(0, 6)}...${address.substring(38)}`;
     
     // Actualizar Desktop
-    connectButton.style.display = 'none';
-    walletInfo.style.display = 'block';
-    walletAddress.textContent = shortAddress;
+    connectButton.innerHTML = `Connected: ${shortAddress}`;
     
     // Actualizar Mobile
-    connectButtonMobile.style.display = 'none';
-    walletInfoMobile.style.display = 'block';
-    walletAddressMobile.textContent = shortAddress;
+    connectButtonMobile.innerHTML = shortAddress;
   } else {
     // Resetear Desktop
-    connectButton.style.display = 'block';
-    connectButton.innerHTML = '<span>Connect Wallet</span>';
-    walletInfo.style.display = 'none';
+    connectButton.innerHTML = 'Connect Wallet';
     
     // Resetear Mobile
-    connectButtonMobile.style.display = 'block';
-    connectButtonMobile.innerHTML = '<span>Connect</span>';
-    walletInfoMobile.style.display = 'none';
+    connectButtonMobile.innerHTML = 'Connect';
   }
 }
 
