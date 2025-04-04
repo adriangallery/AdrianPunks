@@ -3,6 +3,9 @@ const config = {
     API_BASE_URL: window.location.hostname === 'localhost' 
         ? 'http://localhost:3001' 
         : 'https://marketplace-adrians-projects-43090263.vercel.app',
+    DB_URL: window.location.hostname === 'localhost'
+        ? 'http://localhost:3001/api/nfts'
+        : 'https://raw.githubusercontent.com/adriangallery/AdrianPunks/main/market/nft_metadata.json',
     IPFS_GATEWAY: 'https://ipfs.io/ipfs/'
 };
 
