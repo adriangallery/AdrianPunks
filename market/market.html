@@ -46,11 +46,25 @@
 
         async function loadNFTs() {
             try {
+                console.log('Cargando NFTs desde:', window.AdrianPunksConfig.API_BASE_URL);
                 const response = await fetch(`${window.AdrianPunksConfig.API_BASE_URL}/api/nfts`);
+                console.log('Respuesta de la API:', response);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const nfts = await response.json();
+                console.log('NFTs recibidos:', nfts.length);
                 displayNFTs(nfts);
             } catch (error) {
                 console.error('Error cargando NFTs:', error);
+                // Intentar cargar desde localhost si falla
+                if (window.AdrianPunksConfig.API_BASE_URL !== 'http://localhost:3001') {
+                    console.log('Intentando cargar desde localhost...');
+                    window.AdrianPunksConfig.API_BASE_URL = 'http://localhost:3001';
+                    loadNFTs();
+                }
             }
         }
 
@@ -58,16 +72,26 @@
             const grid = document.getElementById('nftGrid');
             grid.innerHTML = '';
 
+            if (!nfts || nfts.length === 0) {
+                console.log('No hay NFTs para mostrar');
+                grid.innerHTML = '<p class="text-center">No se encontraron NFTs</p>';
+                return;
+            }
+
+            console.log('Mostrando', nfts.length, 'NFTs');
             nfts.forEach(nft => {
                 const card = document.createElement('div');
                 card.className = 'nft-card';
 
                 const img = document.createElement('img');
                 img.className = 'nft-image';
-                img.src = window.getImageUrl(nft.image);
+                const imageUrl = window.getImageUrl(nft.image);
+                console.log('URL de imagen procesada:', imageUrl);
+                img.src = imageUrl;
                 img.alt = nft.name;
                 img.onload = () => img.classList.add('loaded');
                 img.onerror = () => {
+                    console.error('Error cargando imagen:', imageUrl);
                     img.src = 'placeholder.png';
                     img.classList.add('loaded');
                 };
@@ -78,13 +102,17 @@
 
                 const attributes = document.createElement('div');
                 attributes.className = 'attributes';
-                const parsedAttributes = JSON.parse(nft.attributes);
-                parsedAttributes.slice(0, 3).forEach(attr => {
-                    const span = document.createElement('span');
-                    span.className = 'attribute';
-                    span.textContent = `${attr.trait_type}: ${attr.value}`;
-                    attributes.appendChild(span);
-                });
+                try {
+                    const parsedAttributes = JSON.parse(nft.attributes);
+                    parsedAttributes.slice(0, 3).forEach(attr => {
+                        const span = document.createElement('span');
+                        span.className = 'attribute';
+                        span.textContent = `${attr.trait_type}: ${attr.value}`;
+                        attributes.appendChild(span);
+                    });
+                } catch (error) {
+                    console.error('Error parsing attributes:', error);
+                }
 
                 card.appendChild(img);
                 card.appendChild(title);
@@ -104,21 +132,27 @@
             const modalMasterminds = document.getElementById('modalMasterminds');
             const modalRarity = document.getElementById('modalRarity');
 
-            modalImg.src = window.getImageUrl(nft.image);
+            const imageUrl = window.getImageUrl(nft.image);
+            console.log('Modal - URL de imagen:', imageUrl);
+            modalImg.src = imageUrl;
             modalTitle.textContent = nft.name;
             
             modalAttributes.innerHTML = '';
-            const parsedAttributes = JSON.parse(nft.attributes);
-            parsedAttributes.forEach(attr => {
-                const span = document.createElement('span');
-                span.className = 'attribute';
-                span.textContent = `${attr.trait_type}: ${attr.value}`;
-                modalAttributes.appendChild(span);
-            });
+            try {
+                const parsedAttributes = JSON.parse(nft.attributes);
+                parsedAttributes.forEach(attr => {
+                    const span = document.createElement('span');
+                    span.className = 'attribute';
+                    span.textContent = `${attr.trait_type}: ${attr.value}`;
+                    modalAttributes.appendChild(span);
+                });
 
-            modalCompiler.textContent = `Compiler: ${nft.compiler}`;
-            modalMasterminds.textContent = `Masterminds: ${JSON.parse(nft.masterminds).join(', ')}`;
-            modalRarity.textContent = `Rarity: ${nft.rarity.toFixed(2)}`;
+                modalCompiler.textContent = `Compiler: ${nft.compiler}`;
+                modalMasterminds.textContent = `Masterminds: ${JSON.parse(nft.masterminds).join(', ')}`;
+                modalRarity.textContent = `Rarity: ${nft.rarity.toFixed(2)}`;
+            } catch (error) {
+                console.error('Error parsing NFT data in modal:', error);
+            }
 
             modal.style.display = 'block';
         }
