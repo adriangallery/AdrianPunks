@@ -517,8 +517,12 @@
         );
 
         // Obtener ofertas activas para este token
-        const tokenOffers = await marketplaceContract.getTokenOffers(NFT_ADDRESS, tokenId);
-        
+        const tokenOffers = await marketplaceContract.getMyTokenOffers(NFT_ADDRESS);
+        const relevantOffers = tokenOffers.filter(offer => 
+          offer.exists && 
+          offer.tokenId.toString() === tokenId.toString()
+        );
+
         // Obtener floor offer
         const floorOffer = await marketplaceContract.floorOffers(NFT_ADDRESS);
 
@@ -555,9 +559,9 @@
               <!-- Sección de Ofertas -->
               <div class="offers-section mt-3">
                 <h6>Active Offers</h6>
-                ${tokenOffers && tokenOffers.length > 0 ? `
+                ${relevantOffers && relevantOffers.length > 0 ? `
                   <div class="list-group">
-                    ${tokenOffers.map(offer => `
+                    ${relevantOffers.map(offer => `
                       <div class="list-group-item">
                         <p class="mb-1">Offer: ${ethers.utils.formatUnits(offer.offerAmount, 18)} $ADRIAN</p>
                         <small>By: ${offer.buyer.substring(0, 6)}...${offer.buyer.substring(38)}</small>
