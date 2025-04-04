@@ -20,37 +20,61 @@ const dbPath = path.join(__dirname, 'adrianpunks.db');
 // Endpoint para obtener todos los NFTs
 app.get('/api/nfts', (req, res) => {
     const db = new sqlite3.Database(dbPath);
-    db.all('SELECT * FROM nfts ORDER BY token_id', [], (err, rows) => {
+    db.all('SELECT * FROM nfts ORDER BY id', [], (err, rows) => {
         if (err) {
+            console.error('Error al consultar la base de datos:', err);
             res.status(500).json({ error: err.message });
             return;
         }
-        res.json(rows);
+        
+        try {
+            // Procesar los resultados
+            const nfts = rows.map(row => ({
+                ...row,
+                attributes: JSON.parse(row.attributes),
+                masterminds: JSON.parse(row.masterminds)
+            }));
+            res.json(nfts);
+        } catch (error) {
+            console.error('Error al procesar los datos:', error);
+            res.status(500).json({ error: 'Error al procesar los datos' });
+        }
     });
     db.close();
 });
 
 // Endpoint para obtener un NFT específico
-app.get('/api/nfts/:tokenId', (req, res) => {
+app.get('/api/nfts/:id', (req, res) => {
     const db = new sqlite3.Database(dbPath);
-    db.get('SELECT * FROM nfts WHERE token_id = ?', [req.params.tokenId], (err, row) => {
+    db.get('SELECT * FROM nfts WHERE id = ?', [req.params.id], (err, row) => {
         if (err) {
+            console.error('Error al consultar la base de datos:', err);
             res.status(500).json({ error: err.message });
             return;
         }
         if (!row) {
-            res.status(404).json({ error: 'NFT not found' });
+            res.status(404).json({ error: 'NFT no encontrado' });
             return;
         }
-        res.json(row);
+        
+        try {
+            // Procesar el resultado
+            const nft = {
+                ...row,
+                attributes: JSON.parse(row.attributes),
+                masterminds: JSON.parse(row.masterminds)
+            };
+            res.json(nft);
+        } catch (error) {
+            console.error('Error al procesar los datos:', error);
+            res.status(500).json({ error: 'Error al procesar los datos' });
+        }
     });
     db.close();
 });
 
-// Servir el archivo market.html
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'market.html'));
-});
+// Servir archivos estáticos
+app.use(express.static(path.join(__dirname)));
 
 // Iniciar el servidor
 const PORT = process.env.PORT || 3001;
