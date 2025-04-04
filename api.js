@@ -5,7 +5,6 @@ const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
 // Configuración de CORS
 app.use((req, res, next) => {
@@ -15,7 +14,8 @@ app.use((req, res, next) => {
 });
 
 // Ruta a la base de datos
-const dbPath = path.join(__dirname, 'adrianpunks.db');
+const dbPath = path.join(process.cwd(), 'adrianpunks.db');
+console.log('Ruta de la base de datos:', dbPath);
 
 // Endpoint para obtener todos los NFTs
 app.get('/api/nfts', (req, res) => {
@@ -73,8 +73,13 @@ app.get('/api/nfts/:id', (req, res) => {
     db.close();
 });
 
-// Servir archivos estáticos
-app.use(express.static(path.join(__dirname)));
+// Servir archivos estáticos desde la carpeta market
+app.use(express.static(path.join(process.cwd(), 'market')));
+
+// Ruta principal que sirve market.html
+app.get('/', (req, res) => {
+    res.sendFile(path.join(process.cwd(), 'market', 'market.html'));
+});
 
 // Iniciar el servidor
 const PORT = process.env.PORT || 3001;
