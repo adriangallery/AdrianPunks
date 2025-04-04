@@ -1,7 +1,7 @@
 // Configuración de URLs base
 const config = {
-    API_BASE_URL: 'https://marketplace-adrians-projects-43090263.vercel.app',
-    DB_URL: 'https://marketplace-adrians-projects-43090263.vercel.app/api/db/nfts',
+    API_BASE_URL: 'https://marketplace-ks4ktpit5-adrians-projects-43090263.vercel.app',
+    DB_URL: 'https://marketplace-ks4ktpit5-adrians-projects-43090263.vercel.app/api/nfts',
     IPFS_GATEWAY: 'https://ipfs.io/ipfs/'
 };
 
