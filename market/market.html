@@ -235,37 +235,50 @@
     let tokenContract, nftContract, marketplaceContract;
     let activityLoggerContract, offerManagerContract;
 
-    // Contract addresses
-    const TOKEN_ADDRESS  = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
-    const NFT_ADDRESS    = "0x4b9afc775d3D1969F727e81BA970B19b9e8054EF";
-    const MARKET_ADDRESS = "0xe746999546e65c44543a443cc1e9b5fe168ede5d";
+    // Direcciones de contratos
+    const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const NFT_ADDRESS = "0x4b9afc775d3D1969F727e81BA970B19b9e8054EF";
+    const MARKET_ADDRESS = "0x8260f06f90bcbef371c46a082f23afa7bdbffd2c";
     const ACTIVITY_LOGGER_ADDRESS = "0xf545dec0a5f4fe134757c56dfd85f1dbc274dba1";
     const OFFER_MANAGER_ADDRESS = "0xf688069e3e78bdd6980f53f2061222dd1b3117b2";
 
-    // ABI de AdrianMarket (simplificado)
+    // ABIs de los contratos
     const MARKET_ABI = [
+      // Funciones de listings
       "function createListing(address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 duration, uint8 nftTypeParam) external",
       "function cancelListing(uint256 listingId) external",
       "function buyListing(uint256 listingId, uint256 purchaseQuantity) external",
       "function editListing(uint256 listingId, uint256 newPrice, uint256 newDuration) external",
       "function getActiveListingsDetailed() external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)[])",
-      "function getMyListings(address seller) external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)[])",
-      // Para floor offers, se mantiene alguna función de lectura si fuese necesaria
-      "function floorOffers(address) external view returns (uint256 offerAmount, address buyer, bool active)",
-      // Para trait offers, etc.
-      "function setTraitOffer(string traitType, string traitValue, uint256 offerAmount) external"
+      "function getMyListings(address seller) external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)[])"
     ];
 
-    // ABI de ActivityLogger
-    const ACTIVITY_LOGGER_ABI = [
-      "function getActivities(uint256 start, uint256 count) view returns (tuple(uint256 timestamp, uint8 activityType, uint256 listingId, uint256 offerId, address user, string details)[])"
-    ];
-
-    // ABI de OfferManager (simplificado, agrega funciones necesarias)
     const OFFER_MANAGER_ABI = [
-      "function getMyListingOffers(address buyer) view returns (tuple(uint256 id, uint256 listingId, address buyer, uint256 tokenId, uint256 quantity, uint256 offerAmount, bool exists)[])",
-      "function getMyTokenOffers(address buyer) view returns (tuple(uint256 id, address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount, address buyer, bool exists)[])",
-      "function getMyTraitOffers(address buyer) view returns (tuple(uint256 id, string traitType, string traitValue, uint256 offerAmount, address buyer, bool active)[])"
+      // Floor offers
+      "function floorOffers(address) external view returns (uint256 offerAmount, address buyer, bool active)",
+      "function setFloorOffer(address collection, uint256 offerAmount) external",
+      "function acceptFloorOffer(address collection, uint256 tokenId, uint8 nftTypeParam) external",
+      // Listing Offers
+      "function makeOffer(uint256 listingId, uint256 quantity, uint256 offerAmount) external",
+      "function withdrawOffer(uint256 listingId) external",
+      "function acceptOffer(uint256 listingId, address buyer) external",
+      "function getMyListingOffers(address buyer) external view returns (tuple(uint256 id, uint256 listingId, address buyer, uint256 tokenId, uint256 quantity, uint256 offerAmount, bool exists)[])",
+      // Token offers
+      "function makeTokenOffer(address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount) external",
+      "function withdrawTokenOffer(address collection, uint256 tokenId) external",
+      "function acceptTokenOffer(address collection, uint256 tokenId, uint256 offerId, uint8 nftTypeParam) external",
+      "function getMyTokenOffers(address buyer) external view returns (tuple(uint256 id, address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount, address buyer, bool exists)[])",
+      // Trait offers
+      "function setTraitOffer(string traitType, string traitValue, uint256 offerAmount) external",
+      "function cancelTraitOffer(string traitType, string traitValue) external",
+      "function acceptTraitOffer(string traitType, string traitValue, uint256 tokenId, address collection, uint8 nftTypeParam) external"
+    ];
+
+    const ACTIVITY_LOGGER_ABI = [
+      // Read admin values
+      "function commissionPercentage() external view returns (uint256)",
+      "function commissionWallet() external view returns (address)",
+      "function paymentToken() external view returns (address)"
     ];
 
     // ABI de token y NFT (no modificadas)
@@ -285,11 +298,13 @@
         provider = new ethers.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
         userAccount = await signer.getAddress();
+        
         tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
         nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
         marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
-        activityLoggerContract = new ethers.Contract(ACTIVITY_LOGGER_ADDRESS, ACTIVITY_LOGGER_ABI, signer);
         offerManagerContract = new ethers.Contract(OFFER_MANAGER_ADDRESS, OFFER_MANAGER_ABI, signer);
+        activityLoggerContract = new ethers.Contract(ACTIVITY_LOGGER_ADDRESS, ACTIVITY_LOGGER_ABI, signer);
+        
         updateTokenBalance();
         loadFloorOffer();
       } else {
@@ -645,11 +660,12 @@
     
     async function loadFloorOffer() {
       try {
-        const floorOffer = await marketplaceContract.floorOffers(NFT_ADDRESS);
+        const floorOffer = await offerManagerContract.floorOffers(NFT_ADDRESS);
         const offerAmount = floorOffer.offerAmount;
         const floorSection = document.getElementById("floorOfferSection");
         if (floorOffer.active && offerAmount.gt(0)) {
-          document.getElementById("floorOfferText").innerText = `Highest floor offer: ${ethers.utils.formatUnits(offerAmount, 18)} $ADRIAN`;
+          document.getElementById("floorOfferText").innerText = 
+            `Highest floor offer: ${ethers.utils.formatUnits(offerAmount, 18)} $ADRIAN`;
           floorSection.classList.remove("no-offer");
         } else {
           document.getElementById("floorOfferText").innerText = "No floor offer set";
@@ -860,16 +876,16 @@
       const offerAmount = document.getElementById("popupOfferAmount").value;
       const offerAmountWei = ethers.utils.parseUnits(offerAmount, 18);
       try {
-        const allowance = await tokenContract.allowance(userAccount, MARKET_ADDRESS);
+        const allowance = await tokenContract.allowance(userAccount, OFFER_MANAGER_ADDRESS);
         if (allowance.lt(offerAmountWei)) {
-          const txApprove = await tokenContract.approve(MARKET_ADDRESS, offerAmountWei);
+          const txApprove = await tokenContract.approve(OFFER_MANAGER_ADDRESS, offerAmountWei);
           await txApprove.wait();
           alert("Approved " + ethers.utils.formatUnits(offerAmountWei, 18) + " $ADRIAN tokens.");
         }
-        const tx = await marketplaceContract.setFloorOffer(NFT_ADDRESS, offerAmountWei);
+        const tx = await offerManagerContract.setFloorOffer(NFT_ADDRESS, offerAmountWei);
         await tx.wait();
         alert("Floor offer created successfully!");
-        loadFloorOffers();
+        loadFloorOffer();
       } catch (error) {
         console.error("Error creating floor offer:", error);
         alert("Error creating floor offer: " + error.message);
@@ -881,7 +897,7 @@
         const tx = await marketplaceContract.setFloorOffer(NFT_ADDRESS, 0, { gasLimit: 1000000 });
         await tx.wait();
         alert("Floor offer cancelled successfully!");
-        loadFloorOffers();
+        loadFloorOffer();
       } catch (error) {
         console.error("Error cancelling floor offer:", error);
         alert("Error cancelling floor offer: " + error.message);
@@ -923,13 +939,15 @@
       try {
         const offerAmount = document.getElementById(`traitOfferAmount_${traitType}_${traitValue}`).value;
         const offerAmountWei = ethers.utils.parseUnits(offerAmount, 18);
-        const allowance = await tokenContract.allowance(userAccount, MARKET_ADDRESS);
+
+        const allowance = await tokenContract.allowance(userAccount, OFFER_MANAGER_ADDRESS);
         if (allowance.lt(offerAmountWei)) {
-          const txApprove = await tokenContract.approve(MARKET_ADDRESS, offerAmountWei);
+          const txApprove = await tokenContract.approve(OFFER_MANAGER_ADDRESS, offerAmountWei);
           await txApprove.wait();
           console.log("Approved tokens for trait offer");
         }
-        const tx = await marketplaceContract.setTraitOffer(traitType, traitValue, offerAmountWei, { gasLimit: 1000000 });
+
+        const tx = await offerManagerContract.setTraitOffer(traitType, traitValue, offerAmountWei);
         await tx.wait();
         alert("Trait offer created successfully!");
         closeTraitOfferForm();
