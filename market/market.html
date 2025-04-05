@@ -373,20 +373,19 @@
     let adrianPunksContract;
 
     async function initContracts() {
-      if (window.ethereum) {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-        userAccount = await signer.getAddress();
-        tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        
         nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
-        marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
+        marketContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
         activityLoggerContract = new ethers.Contract(ACTIVITY_LOGGER_ADDRESS, ACTIVITY_LOGGER_ABI, signer);
         offerManagerContract = new ethers.Contract(OFFER_MANAGER_ADDRESS, OFFER_MANAGER_ABI, signer);
         adrianPunksContract = new ethers.Contract(NFT_ADDRESS, ADRIAN_PUNKS_ABI, signer);
         updateTokenBalance();
         loadFloorOffer();
-      } else {
-        console.error("Ethereum provider not found.");
+      } catch (error) {
+        console.error("Error initializing contracts:", error);
       }
     }
     
