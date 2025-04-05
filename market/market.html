@@ -236,61 +236,107 @@
     let tokenContract, nftContract, marketplaceContract;
     let activityLoggerContract, offerManagerContract;
 
-    // Contrato addresses
-    const TOKEN_ADDRESS  = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
-    const NFT_ADDRESS    = "0x4b9afc775d3D1969F727e81BA970B19b9e8054EF";
+    // Direcciones de contratos
+    const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const NFT_ADDRESS = "0x4b9afc775d3D1969F727e81BA970B19b9e8054EF";
     const MARKET_ADDRESS = "0x8260f06f90bcbef371c46a082f23afa7bdbffd2c";
     const ACTIVITY_LOGGER_ADDRESS = "0xf545dec0a5f4fe134757c56dfd85f1dbc274dba1";
     const OFFER_MANAGER_ADDRESS = "0xf688069e3e78bdd6980f53f2061222dd1b3117b2";
 
-    // ABIs
-    const MARKET_ABI = [
-      "function createListing(address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 duration, uint8 nftTypeParam) external",
-      "function cancelListing(uint256 listingId) external",
-      "function buyListing(uint256 listingId, uint256 purchaseQuantity) external",
-      "function editListing(uint256 listingId, uint256 newPrice, uint256 newDuration) external",
-      "function getActiveListingsDetailed() external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)[])",
-      "function getMyListings(address seller) external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)[])",
-      "function floorOffers(address) external view returns (uint256 offerAmount, address buyer, bool active)"
-    ];
-    const OFFER_MANAGER_ABI = [
-      "function getMyListingOffers(address buyer) external view returns (tuple(uint256 id, uint256 listingId, address buyer, uint256 tokenId, uint256 quantity, uint256 offerAmount, bool exists)[])",
-      "function getMyTokenOffers(address buyer) external view returns (tuple(uint256 id, address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount, address buyer, bool exists)[])",
-      "function getMyTraitOffers(address buyer) external view returns (tuple(uint256 id, string traitType, string traitValue, uint256 offerAmount, address buyer, bool active)[])"
-    ];
-    const ACTIVITY_LOGGER_ABI = [
-      "function getActivities(uint256 start, uint256 count) view returns (tuple(uint256 timestamp, uint8 activityType, uint256 listingId, uint256 offerId, address user, string details)[])"
-    ];
     const TOKEN_ABI = [
       "function balanceOf(address account) view returns (uint256)",
       "function approve(address spender, uint256 amount) external returns (bool)",
       "function allowance(address owner, address spender) view returns (uint256)"
     ];
+
     const NFT_ABI = [
       "function tokenURI(uint256 tokenId) view returns (string)",
       "function isApprovedForAll(address owner, address operator) view returns (bool)",
       "function setApprovalForAll(address operator, bool approved) external"
     ];
 
+    // ABIs de los contratos
+    const MARKET_ABI = [
+      // Funciones de listings
+      "function createListing(address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 duration, uint8 nftTypeParam) external",
+      "function cancelListing(uint256 listingId) external",
+      "function buyListing(uint256 listingId, uint256 purchaseQuantity) external",
+      "function editListing(uint256 listingId, uint256 newPrice, uint256 newDuration) external",
+      "function getActiveListingsDetailed() external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)[])",
+      "function getMyListings(address seller) external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)[])"
+    ];
+
+    const OFFER_MANAGER_ABI = [
+      // Floor offers
+      "function floorOffers(address collection) external view returns (tuple(uint256 offerAmount, address buyer, bool active))",
+      "function setFloorOffer(address collection, uint256 offerAmount) external",
+      "function acceptFloorOffer(address collection, uint256 tokenId, uint8 nftTypeParam) external",
+      // Listing Offers
+      "function makeOffer(uint256 listingId, uint256 quantity, uint256 offerAmount) external",
+      "function withdrawOffer(uint256 listingId) external",
+      "function acceptOffer(uint256 listingId, address buyer) external",
+      "function getMyListingOffers(address buyer) external view returns (tuple(uint256 id, uint256 listingId, address buyer, uint256 tokenId, uint256 quantity, uint256 offerAmount, bool exists)[])",
+      // Token offers
+      "function makeTokenOffer(address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount) external",
+      "function withdrawTokenOffer(address collection, uint256 tokenId) external",
+      "function acceptTokenOffer(address collection, uint256 tokenId, uint256 offerId, uint8 nftTypeParam) external",
+      "function getMyTokenOffers(address buyer) external view returns (tuple(uint256 id, address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount, address buyer, bool exists)[])",
+      // Trait offers
+      "function setTraitOffer(string traitType, string traitValue, uint256 offerAmount) external",
+      "function cancelTraitOffer(string traitType, string traitValue) external",
+      "function acceptTraitOffer(string traitType, string traitValue, uint256 tokenId, address collection, uint8 nftTypeParam) external"
+    ];
+
+    const ACTIVITY_LOGGER_ABI = [
+      "function getActivities(uint256 start, uint256 count) external view returns (tuple(uint256 timestamp, uint8 activityType, uint256 listingId, uint256 offerId, address user, string details)[])",
+      "function getActivityCount() external view returns (uint256)"
+    ];
+
+    // Variables globales para los contratos
+    let activeListingsData = [];
+    let currentSortOrder = 'asc';
+
+    // Inicializar contratos
     async function initContracts() {
       if (window.ethereum) {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-        userAccount = await signer.getAddress();
-        tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
-        nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
-        marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
-        offerManagerContract = new ethers.Contract(OFFER_MANAGER_ADDRESS, OFFER_MANAGER_ABI, signer);
-        activityLoggerContract = new ethers.Contract(ACTIVITY_LOGGER_ADDRESS, ACTIVITY_LOGGER_ABI, signer);
-        updateTokenBalance();
-        loadFloorOffer();
-        // Se elimina la llamada a loadActiveListings para evitar el error
-        activeListingsData = []; 
+        try {
+          provider = new ethers.providers.Web3Provider(window.ethereum);
+          await provider.send("eth_requestAccounts", []);
+          signer = provider.getSigner();
+          userAccount = await signer.getAddress();
+          
+          tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+          nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
+          marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
+          offerManagerContract = new ethers.Contract(OFFER_MANAGER_ADDRESS, OFFER_MANAGER_ABI, signer);
+          activityLoggerContract = new ethers.Contract(ACTIVITY_LOGGER_ADDRESS, ACTIVITY_LOGGER_ABI, signer);
+          
+          await loadActiveListings();
+          await updateTokenBalance();
+          await loadFloorOffer();
+        } catch (error) {
+          console.error("Error initializing contracts:", error);
+        }
       } else {
         console.error("Ethereum provider not found.");
       }
     }
-    
+
+    // Cargar listings activos
+    async function loadActiveListings() {
+      try {
+        activeListingsData = await marketplaceContract.getActiveListingsDetailed();
+        // Filtrar solo los listings que no han expirado
+        activeListingsData = activeListingsData.filter(listing => 
+          listing.expirationTime > Math.floor(Date.now() / 1000)
+        );
+        console.log("Active listings loaded:", activeListingsData);
+      } catch (error) {
+        console.error("Error loading active listings:", error);
+        activeListingsData = [];
+      }
+    }
+
     /*********** NFT Data Loading and Display ***********/
     let activeFilters = new Map();
     let allTraits = new Map();
@@ -371,17 +417,12 @@
       filterAndDisplayNFTs();
     }
 
-    // Se elimina la función loadActiveListings y se deja activeListingsData vacía
-    let activeListingsData = [];
-    let currentSortOrder = 'asc';
-
     async function loadNFTs() {
       try {
         const response = await fetch('adrianpunks.json');
         if (!response.ok) throw new Error('Error loading NFTs');
         const data = await response.json();
         nftData = data.collection || [];
-        // No se carga active listings, activeListingsData queda vacía
         extractTraits(nftData);
         renderTraitFilters();
         filterAndDisplayNFTs();
@@ -414,7 +455,6 @@
       }
       nfts.forEach(nft => {
         const tokenId = nft.name.split('#')[1];
-        // Al no haber active listings, no se mostrará información de listing
         const card = document.createElement('div');
         card.className = 'card nft-card';
         card.style.cursor = 'pointer';
@@ -436,7 +476,6 @@
         const nft = data.collection.find(n => n.name === nftName);
         if (!nft) throw new Error("NFT not found");
         const tokenId = parseInt(nft.name.split('#')[1]);
-        // Como active listings no se cargan, tokenListing se quedará indefinido
         const tokenListing = null;
         const listingOffers = await offerManagerContract.getMyListingOffers(userAccount);
         const tokenOffers = await offerManagerContract.getMyTokenOffers(userAccount);
@@ -647,7 +686,6 @@
         return;
       }
       try {
-        // Con activeListingsData vacía, no se realizarán compras por floor
         alert("Floor sweep functionality is temporarily disabled.");
       } catch (error) {
         console.error("Error during Sweep Floor:", error);
@@ -886,6 +924,71 @@
       } catch (error) {
         console.error("Error creating trait offer:", error);
         alert("Error creating trait offer: " + error.message);
+      }
+    }
+    
+    // Función para ordenar por precio
+    async function sortByFloorPrice() {
+      const button = document.querySelector('button[onclick="sortByFloorPrice()"]');
+      
+      // Cambiar el orden de clasificación
+      currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+      
+      // Actualizar el texto del botón
+      button.classList.remove('btn-outline-primary');
+      button.classList.add('btn-primary');
+      const arrowDirection = currentSortOrder === 'asc' ? '↑' : '↓';
+      button.innerHTML = `<span class="d-none d-md-inline">Sort by FP</span><span class="d-md-none">Sort FP</span> ${arrowDirection}`;
+      
+      // Crear un mapa de precios para acceso rápido
+      const priceMap = new Map();
+      activeListingsData.forEach(listing => {
+        const currentPrice = priceMap.get(listing.tokenId.toString());
+        const thisPrice = parseFloat(ethers.utils.formatUnits(listing.price, 18));
+        if (!currentPrice || thisPrice < currentPrice) {
+          priceMap.set(listing.tokenId.toString(), thisPrice);
+        }
+      });
+      
+      // Ordenar NFTs
+      const sortedNFTs = [...nftData].sort((a, b) => {
+        const tokenIdA = a.name.split('#')[1];
+        const tokenIdB = b.name.split('#')[1];
+        const priceA = priceMap.get(tokenIdA) || Number.MAX_VALUE;
+        const priceB = priceMap.get(tokenIdB) || Number.MAX_VALUE;
+        
+        return currentSortOrder === 'asc' 
+          ? priceA - priceB 
+          : priceB - priceA;
+      });
+      
+      displayNFTs(sortedNFTs);
+    }
+
+    // Función para filtrar por tokens listados
+    async function filterByActiveListings() {
+      const button = document.querySelector('button[onclick="filterByActiveListings()"]');
+      const isActive = button.classList.contains('active');
+      
+      if (!isActive) {
+        // Activar filtro
+        button.classList.remove('btn-outline-primary');
+        button.classList.add('btn-primary', 'active');
+        
+        // Filtrar NFTs que tienen listings activos
+        const listedNFTs = nftData.filter(nft => {
+          const tokenId = parseInt(nft.name.split('#')[1]);
+          return activeListingsData.some(listing => 
+            listing.tokenId.toString() === tokenId.toString()
+          );
+        });
+        
+        displayNFTs(listedNFTs);
+      } else {
+        // Desactivar filtro
+        button.classList.remove('btn-primary', 'active');
+        button.classList.add('btn-outline-primary');
+        filterAndDisplayNFTs(); // Mostrar todos los NFTs
       }
     }
     
