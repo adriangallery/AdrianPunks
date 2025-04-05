@@ -1219,13 +1219,15 @@
       const offerAmount = document.getElementById("popupOfferAmount").value;
       const offerAmountWei = ethers.utils.parseUnits(offerAmount, 18);
       try {
-        const allowance = await tokenContract.allowance(userAccount, MARKET_ADDRESS);
+        // Verificar y aprobar tokens en el nuevo contrato
+        const allowance = await tokenContract.allowance(userAccount, NEW_MARKET_ADDRESS);
         if (allowance.lt(offerAmountWei)) {
-          const txApprove = await tokenContract.approve(MARKET_ADDRESS, offerAmountWei);
+          const txApprove = await tokenContract.approve(NEW_MARKET_ADDRESS, offerAmountWei);
           await txApprove.wait();
           alert("Approved " + ethers.utils.formatUnits(offerAmountWei, 18) + " $ADRIAN tokens.");
         }
-        const tx = await marketplaceContract.setFloorOffer(NFT_ADDRESS, offerAmountWei);
+        // Usar el nuevo contrato para crear la floor offer
+        const tx = await newMarketplaceContract.setFloorOffer(NFT_ADDRESS, offerAmountWei);
         await tx.wait();
         alert("Floor offer created successfully!");
         loadFloorOffer();
