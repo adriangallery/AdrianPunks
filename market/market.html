@@ -1280,6 +1280,75 @@
       }
     }
 
+    // Función para abrir el formulario de token offer
+    function openMakeTokenOfferForm(tokenId) {
+      const modalBody = document.querySelector('.modal-body');
+      const existingForm = document.querySelector('.token-offer-form');
+      if (existingForm) existingForm.remove();
+
+      const offerForm = document.createElement('div');
+      offerForm.className = 'token-offer-form mt-4 border-top pt-3';
+      offerForm.innerHTML = `
+        <h5 class="mb-3">Make Token Offer</h5>
+        <div class="form-group mb-3">
+          <div class="token-info mb-3">
+            <span class="badge bg-primary">Token #${tokenId}</span>
+          </div>
+          <label class="mb-2">Offer Amount (in $ADRIAN):</label>
+          <input type="text" id="tokenOfferAmount_${tokenId}" value="5000" class="form-control">
+        </div>
+        <div class="d-flex justify-content-between">
+          <button class="btn btn-primary" onclick="makeTokenOffer('${tokenId}')">
+            Submit Token Offer
+          </button>
+          <button class="btn btn-outline-secondary" onclick="closeTokenOfferForm()">
+            Cancel
+          </button>
+        </div>
+      `;
+      modalBody.appendChild(offerForm);
+      
+      // Hacer scroll al formulario
+      offerForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // Función para cerrar el formulario de token offer
+    function closeTokenOfferForm() {
+      const form = document.querySelector('.token-offer-form');
+      if (form) form.remove();
+    }
+
+    // Función para hacer una token offer
+    async function makeTokenOffer(tokenId) {
+      try {
+        const offerAmount = document.getElementById(`tokenOfferAmount_${tokenId}`).value;
+        const offerAmountWei = ethers.utils.parseUnits(offerAmount, 18);
+
+        // Verificar y aprobar tokens si es necesario
+        const allowance = await tokenContract.allowance(userAccount, MARKET_ADDRESS);
+        if (allowance.lt(offerAmountWei)) {
+          const txApprove = await tokenContract.approve(MARKET_ADDRESS, offerAmountWei);
+          await txApprove.wait();
+          console.log("Approved tokens for token offer");
+        }
+
+        const tx = await marketplaceContract.makeTokenOffer(
+          NFT_ADDRESS,
+          tokenId,
+          1, // quantity
+          offerAmountWei,
+          { gasLimit: 1000000 }
+        );
+        await tx.wait();
+        alert("Token offer created successfully!");
+        closeTokenOfferForm();
+        loadTokenOffers(); // Recargar las ofertas
+      } catch (error) {
+        console.error("Error creating token offer:", error);
+        alert("Error creating token offer: " + error.message);
+      }
+    }
+
     // Initialize contracts and load NFTs on page load
     document.addEventListener('DOMContentLoaded', async () => {
       await initContracts();
