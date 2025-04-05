@@ -836,11 +836,12 @@
         const price = ethers.utils.parseUnits(document.getElementById('listingPrice').value, 18);
         const duration = document.getElementById('listingDuration').value * 24 * 60 * 60; // Convertir días a segundos
         
-        // Primero aprobar el NFT si es necesario
-        const isApproved = await nftContract.isApprovedForAll(userAccount, MARKET_ADDRESS);
-        if (!isApproved) {
-          const txApprove = await nftContract.setApprovalForAll(MARKET_ADDRESS, true);
+        // Verificar y aprobar el NFT específico si es necesario
+        const approvedAddress = await nftContract.getApproved(tokenId);
+        if (approvedAddress.toLowerCase() !== MARKET_ADDRESS.toLowerCase()) {
+          const txApprove = await nftContract.approve(MARKET_ADDRESS, tokenId);
           await txApprove.wait();
+          console.log("NFT específico aprobado para el marketplace");
         }
 
         const tx = await marketplaceContract.createListing(
