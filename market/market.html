@@ -478,7 +478,7 @@
     let activeListingsData = [];
     let currentSortOrder = 'asc';
 
-    // Función para cargar y almacenar listings activos
+    // Función para cargar listings activos
     async function loadActiveListings() {
       try {
         activeListingsData = await marketplaceContract.getActiveListingsDetailed();
@@ -488,7 +488,7 @@
         );
         console.log("Active listings loaded:", activeListingsData);
       } catch (error) {
-        console.error("Error loading active listings:", error);
+        console.log("No active listings found or error loading listings:", error);
         activeListingsData = [];
       }
     }
@@ -907,6 +907,7 @@
       }
     }
     
+    // Función para cargar floor offer
     async function loadFloorOffer() {
       try {
         const floorOffer = await marketplaceContract.floorOffers(NFT_ADDRESS);
@@ -921,7 +922,9 @@
           floorSection.classList.add("no-offer");
         }
       } catch (error) {
-        console.error("Error loading floor offer:", error);
+        console.log("No floor offer found or error loading floor offer:", error);
+        document.getElementById("floorOfferText").innerText = "No floor offer set";
+        document.getElementById("floorOfferSection").classList.add("no-offer");
       }
     }
     
@@ -1064,7 +1067,7 @@
       try {
         const offers = await marketplaceContract.getMyListingOffers(userAccount);
         
-        if (offers.length === 0) {
+        if (!offers || offers.length === 0) {
           container.innerHTML = '<p class="text-center text-muted">No active listing offers found</p>';
           return;
         }
@@ -1092,8 +1095,8 @@
         html += '</div>';
         container.innerHTML = html;
       } catch (error) {
-        console.error("Error loading listing offers:", error);
-        container.innerHTML = '<div class="alert alert-danger">Error loading listing offers</div>';
+        console.log("No listing offers found or error loading offers:", error);
+        container.innerHTML = '<p class="text-center text-muted">No active listing offers found</p>';
       }
     }
 
@@ -1103,7 +1106,7 @@
       try {
         const offers = await marketplaceContract.getMyTokenOffers(userAccount);
         
-        if (offers.length === 0) {
+        if (!offers || offers.length === 0) {
           container.innerHTML = '<p class="text-center text-muted">No active token offers found</p>';
           return;
         }
@@ -1131,8 +1134,8 @@
         html += '</div>';
         container.innerHTML = html;
       } catch (error) {
-        console.error("Error loading token offers:", error);
-        container.innerHTML = '<div class="alert alert-danger">Error loading token offers</div>';
+        console.log("No token offers found or error loading offers:", error);
+        container.innerHTML = '<p class="text-center text-muted">No active token offers found</p>';
       }
     }
 
@@ -1199,25 +1202,13 @@
     async function loadFloorOffers() {
       const container = document.getElementById('floorOffersContent');
       try {
-        console.log("Checking floor offers for address:", userAccount);
         const floorOffer = await marketplaceContract.floorOffers(NFT_ADDRESS);
-        console.log("Floor offer data:", {
-          amount: floorOffer.offerAmount.toString(),
-          buyer: floorOffer.buyer,
-          active: floorOffer.active,
-          userAccount: userAccount
-        });
-        
-        // Convertir las direcciones a minúsculas para comparación
-        const buyerAddress = floorOffer.buyer.toLowerCase();
-        const userAddress = userAccount.toLowerCase();
         
         if (!floorOffer.active) {
           container.innerHTML = '<p class="text-center text-muted">No active floor offers found</p>';
           return;
         }
 
-        // Si hay una oferta activa, mostrarla incluso si no es del usuario actual
         const offerAmount = ethers.utils.formatUnits(floorOffer.offerAmount, 18);
         let html = `
           <div class="list-group">
@@ -1227,12 +1218,12 @@
                   <h6 class="mb-1">Collection Floor Offer</h6>
                   <p class="mb-1">${offerAmount} $ADRIAN</p>
                   <small class="text-muted">
-                    ${buyerAddress === userAddress ? 
+                    ${floorOffer.buyer.toLowerCase() === userAccount.toLowerCase() ? 
                       'Your offer - Valid for any token in the collection' : 
                       `Offer by: ${floorOffer.buyer.substring(0, 6)}...${floorOffer.buyer.substring(38)}`}
                   </small>
                 </div>
-                ${buyerAddress === userAddress ? `
+                ${floorOffer.buyer.toLowerCase() === userAccount.toLowerCase() ? `
                   <button class="btn btn-danger btn-sm" onclick="cancelFloorOffer()">
                     Cancel Floor Offer
                   </button>
@@ -1243,8 +1234,8 @@
         `;
         container.innerHTML = html;
       } catch (error) {
-        console.error("Error loading floor offers:", error);
-        container.innerHTML = `<div class="alert alert-danger">Error loading floor offers: ${error.message}</div>`;
+        console.log("No floor offers found or error loading offers:", error);
+        container.innerHTML = '<p class="text-center text-muted">No active floor offers found</p>';
       }
     }
 
