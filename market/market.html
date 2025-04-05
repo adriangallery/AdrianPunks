@@ -467,14 +467,27 @@
         const data = await fetch('adrianpunks.json').then(response => response.json());
         const nft = data.collection.find(n => n.name === nftName);
         if (!nft) throw new Error("NFT not found");
+
         const tokenId = parseInt(nft.name.split('#')[1]);
+        
+        // Obtener listings activos para este token
         const activeListings = await marketplaceContract.getActiveListingsDetailed();
-        const tokenListing = activeListings.find(listing => listing.tokenId.toString() === tokenId.toString() && listing.expirationTime > Math.floor(Date.now() / 1000));
-        // Cargar ofertas usando OfferManager
-        const listingOffers = await offerManagerContract.getMyListingOffers(userAccount);
-        const tokenOffers = await offerManagerContract.getMyTokenOffers(userAccount);
-        const traitOffers = await offerManagerContract.getMyTraitOffers(userAccount);
-        const floorOffer = await marketplaceContract.floorOffers(NFT_ADDRESS);
+        const tokenListing = activeListings.find(listing => 
+          listing.tokenId.toString() === tokenId.toString() &&
+          listing.expirationTime > Math.floor(Date.now() / 1000)
+        );
+
+        // Obtener ofertas activas para este token
+        const tokenOffers = await offerManagerContract.getMyTokenOffers(NFT_ADDRESS);
+        const relevantOffers = tokenOffers.filter(offer => 
+          offer.exists && 
+          offer.tokenId.toString() === tokenId.toString()
+        );
+
+        // Obtener floor offer
+        const floorOffer = await offerManagerContract.floorOffers(NFT_ADDRESS);
+
+        // Construir el contenido del modal
         const modalContent = document.getElementById('nftModalContent');
         modalContent.innerHTML = `
           <div class="modal-header">
@@ -488,6 +501,8 @@
               <p><strong>Compiler:</strong> ${nft.compiler}</p>
               <p><strong>Masterminds:</strong> ${nft.masterminds.join(', ')}</p>
               <p><strong>Rarity:</strong> ${nft.rarity.toFixed(2)}</p>
+
+              <!-- Sección de Listing Activo -->
               ${tokenListing ? `
                 <div class="listing-info alert alert-info">
                   <h6>Active Listing</h6>
@@ -501,18 +516,27 @@
                   `}
                 </div>
               ` : ''}
+
+              <!-- Sección de Ofertas -->
               <div class="offers-section mt-3">
                 <h6>Active Offers</h6>
-                <!-- Aquí se muestran las ofertas según su tipo -->
-                <div id="listingOffersDisplay">
-                  <!-- Listing offers will be loaded here via loadListingOffers() -->
-                </div>
-                <div id="tokenOffersDisplay">
-                  <!-- Token offers will be loaded here via loadTokenOffers() -->
-                </div>
-                <div id="traitOffersDisplay">
-                  <!-- Trait offers will be loaded here via loadTraitOffers() -->
-                </div>
+                ${relevantOffers && relevantOffers.length > 0 ? `
+                  <div class="list-group">
+                    ${relevantOffers.map(offer => `
+                      <div class="list-group-item">
+                        <p class="mb-1">Offer: ${ethers.utils.formatUnits(offer.offerAmount, 18)} $ADRIAN</p>
+                        <small>By: ${offer.buyer.substring(0, 6)}...${offer.buyer.substring(38)}</small>
+                        ${offer.buyer.toLowerCase() === userAccount.toLowerCase() ? `
+                          <button class="btn btn-danger btn-sm float-end" 
+                            onclick="cancelTokenOffer('${NFT_ADDRESS}', ${tokenId})">
+                            Cancel Offer
+                          </button>
+                        ` : ''}
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : '<p class="text-muted">No direct offers for this token</p>'}
+
                 ${floorOffer && floorOffer.active ? `
                   <div class="floor-offer-info mt-2">
                     <p class="mb-1">Floor Offer: ${ethers.utils.formatUnits(floorOffer.offerAmount, 18)} $ADRIAN</p>
@@ -520,6 +544,8 @@
                   </div>
                 ` : ''}
               </div>
+
+              <!-- Sección de Atributos -->
               <h6 class="mt-3">Attributes:</h6>
               <ul class="list-group">
                 ${nft.attributes.map(attr => 
@@ -527,17 +553,27 @@
                     <div>
                       <strong>${attr.trait_type}:</strong> ${attr.value}
                     </div>
-                    <button class="btn btn-sm btn-outline-primary" onclick="openTraitOfferForm('${attr.trait_type}', '${attr.value}')" title="Make Trait Offer">💰</button>
+                    <button class="btn btn-sm btn-outline-primary" 
+                      onclick="openTraitOfferForm('${attr.trait_type}', '${attr.value}')" 
+                      title="Make Trait Offer">
+                      💰
+                    </button>
                   </li>`
                 ).join('')}
               </ul>
+
               <div class="text-center mt-3">
-                ${!tokenListing ? `<button class="btn btn-primary" onclick="openListingForm('${nft.name}')">List for Sale</button>` : ''}
-                <button class="btn btn-secondary" onclick="openMakeTokenOfferForm('${nft.name.split('#')[1]}')">Make Token Offer</button>
+                ${!tokenListing ? `
+                  <button class="btn btn-primary" onclick="openListingForm('${nft.name}')">List for Sale</button>
+                ` : ''}
+                <button class="btn btn-secondary" onclick="openMakeTokenOfferForm('${nft.name.split('#')[1]}')">
+                  Make Token Offer
+                </button>
               </div>
             </div>
           </div>
         `;
+
         const modal = new bootstrap.Modal(document.getElementById('nftModal'));
         const modalElement = document.getElementById('nftModal');
         modalElement.addEventListener('hidden.bs.modal', function () {
