@@ -1394,7 +1394,7 @@
         // Verificar si hay una floor offer activa
         const floorOffer = await marketplaceContract.floorOffers(NFT_ADDRESS);
         if (!floorOffer.active) {
-          alert("No hay una floor offer activa");
+          alert("No hay una floor offer activa para esta colección");
           return;
         }
 
@@ -1410,9 +1410,11 @@
         if (!isApproved) {
           const txApprove = await nftContract.setApprovalForAll(MARKET_ADDRESS, true);
           await txApprove.wait();
+          console.log("NFT aprobado para el marketplace");
         }
 
         // Aceptar la floor offer
+        console.log("Aceptando floor offer para token:", tokenId);
         const tx = await marketplaceContract.acceptFloorOffer(
           NFT_ADDRESS,
           tokenId,
@@ -1420,7 +1422,7 @@
           { gasLimit: 1000000 }
         );
         await tx.wait();
-        alert("Floor offer aceptada exitosamente!");
+        alert("¡Floor offer aceptada exitosamente!");
         
         // Cerrar el modal y recargar la vista
         const modal = bootstrap.Modal.getInstance(document.getElementById('nftModal'));
@@ -1428,7 +1430,11 @@
         loadNFTs();
       } catch (error) {
         console.error("Error aceptando floor offer:", error);
-        alert("Error aceptando floor offer: " + error.message);
+        if (error.message.includes("revert")) {
+          alert("Error: La transacción fue revertida. Verifica que el token esté aprobado y que seas el propietario.");
+        } else {
+          alert("Error aceptando floor offer: " + error.message);
+        }
       }
     }
 
