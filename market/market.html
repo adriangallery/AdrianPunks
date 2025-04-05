@@ -627,9 +627,10 @@
         
         // Verificar si el usuario es propietario del token usando el contrato AdrianPunks
         let ownershipStatus = '';
+        let isOwner = false;
         try {
           const owner = await nftContract.ownerOf(tokenId);
-          const isOwner = owner.toLowerCase() === userAccount.toLowerCase();
+          isOwner = owner.toLowerCase() === userAccount.toLowerCase();
           ownershipStatus = isOwner ? 
             `<div class="alert alert-success">Eres el propietario de este token</div>` : 
             `<div class="alert alert-info">No eres el propietario de este token</div>`;
@@ -644,7 +645,7 @@
           listing.expirationTime > Math.floor(Date.now() / 1000)
         );
 
-        // Obtener ofertas activas para este token - CORREGIDO: usar userAccount en lugar de NFT_ADDRESS
+        // Obtener ofertas activas para este token
         const tokenOffers = await marketplaceContract.getMyTokenOffers(userAccount);
         const relevantOffers = tokenOffers.filter(offer => 
           offer.exists && 
@@ -694,6 +695,12 @@
                       <div class="list-group-item">
                         <p class="mb-1">Offer: ${ethers.utils.formatUnits(offer.offerAmount, 18)} $ADRIAN</p>
                         <small>By: ${offer.buyer.substring(0, 6)}...${offer.buyer.substring(38)}</small>
+                        ${isOwner ? `
+                          <button class="btn btn-success btn-sm float-end" 
+                            onclick="acceptTokenOffer('${NFT_ADDRESS}', ${tokenId}, ${offer.id})">
+                            Accept Offer
+                          </button>
+                        ` : ''}
                         ${offer.buyer.toLowerCase() === userAccount.toLowerCase() ? `
                           <button class="btn btn-danger btn-sm float-end" 
                             onclick="cancelTokenOffer('${NFT_ADDRESS}', ${tokenId})">
@@ -709,6 +716,11 @@
                   <div class="floor-offer-info mt-2">
                     <p class="mb-1">Floor Offer: ${ethers.utils.formatUnits(floorOffer.offerAmount, 18)} $ADRIAN</p>
                     <small>By: ${floorOffer.buyer.substring(0, 6)}...${floorOffer.buyer.substring(38)}</small>
+                    ${isOwner ? `
+                      <button class="btn btn-success btn-sm" onclick="acceptFloorOffer(${tokenId})">
+                        Accept Floor Offer
+                      </button>
+                    ` : ''}
                   </div>
                 ` : ''}
               </div>
@@ -731,8 +743,18 @@
               </ul>
 
               <div class="text-center mt-3">
-                ${!tokenListing ? `
-                  <button class="btn btn-primary" onclick="openListingForm('${nft.name}')">List for Sale</button>
+                ${isOwner ? `
+                  ${!tokenListing ? `
+                    <div class="dropdown mb-2">
+                      <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        List for Sale
+                      </button>
+                      <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" onclick="openListingForm('${nft.name}', 'AdrianMarket')">AdrianMarket</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="openListingForm('${nft.name}', 'OtherMarket')">Other Market</a></li>
+                      </ul>
+                    </div>
+                  ` : ''}
                 ` : ''}
                 <button class="btn btn-secondary" onclick="openMakeTokenOfferForm('${nft.name.split('#')[1]}')">
                   Make Token Offer
