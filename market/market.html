@@ -289,7 +289,7 @@
         "function getActivityCount() external view returns (uint256)"
       ];
       
-      let activeListingsData = []; // Se elimina la carga de listings activos (por ahora)
+      let activeListingsData = []; // Por ahora, se mantiene como array vacío
       let currentSortOrder = 'asc';
       
       async function initContracts() {
@@ -306,7 +306,7 @@
             offerManagerContract = new ethers.Contract(OFFER_MANAGER_ADDRESS, OFFER_MANAGER_ABI, signer);
             activityLoggerContract = new ethers.Contract(ACTIVITY_LOGGER_ADDRESS, ACTIVITY_LOGGER_ABI, signer);
             
-            // Se elimina la carga de active listings para evitar el error
+            // Se mantiene activeListingsData vacío para evitar errores en llamadas a listings
             activeListingsData = [];
             await updateTokenBalance();
             await loadFloorOffer();
@@ -456,11 +456,18 @@
           const nft = data.collection.find(n => n.name === nftName);
           if (!nft) throw new Error("NFT not found");
           const tokenId = parseInt(nft.name.split('#')[1]);
+          // tokenListing se deja como null por ahora
           const tokenListing = null;
           const listingOffers = await offerManagerContract.getMyListingOffers(userAccount);
           const tokenOffers = await offerManagerContract.getMyTokenOffers(userAccount);
           const traitOffers = await offerManagerContract.getMyTraitOffers(userAccount);
-          const floorOffer = await offerManagerContract.floorOffers(NFT_ADDRESS);
+          let floorOffer;
+          try {
+            floorOffer = await offerManagerContract.floorOffers(NFT_ADDRESS);
+          } catch (err) {
+            console.error("Floor offer call error:", err);
+            floorOffer = { active: false };
+          }
           const modalContent = document.getElementById('nftModalContent');
           modalContent.innerHTML = `
             <div class="modal-header">
@@ -650,6 +657,7 @@
           }
         } catch (error) {
           console.error("Error loading floor offer:", error);
+          // Mostrar mensaje genérico para el usuario en caso de error
           document.getElementById("floorOfferText").innerText = "No floor offer available";
           document.getElementById("floorOfferSection").classList.add("no-offer");
         }
