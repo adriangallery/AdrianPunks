@@ -76,7 +76,7 @@
             </div>
           </ul>
         </div>
-        <!-- Se elimina la función de filtrado por listings activos -->
+        <!-- Se mantiene el botón aunque activeListingsData esté vacío -->
         <button class="action-btn outline" onclick="filterByActiveListings()">
           <span class="d-none d-md-inline">Show Listed</span><span class="d-md-none">Listed</span>
         </button>
@@ -230,773 +230,731 @@
   
   <!-- Main Script: NFT loading and Contract Interactions -->
   <script>
-    /*********** Global Variables and Contract Setup ***********/
-    let nftData = [];
-    let provider, signer, userAccount;
-    let tokenContract, nftContract, marketplaceContract;
-    let activityLoggerContract, offerManagerContract;
-
-    // Direcciones de contratos
-    const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
-    const NFT_ADDRESS = "0x4b9afc775d3D1969F727e81BA970B19b9e8054EF";
-    const MARKET_ADDRESS = "0x8260f06f90bcbef371c46a082f23afa7bdbffd2c";
-    const ACTIVITY_LOGGER_ADDRESS = "0xf545dec0a5f4fe134757c56dfd85f1dbc274dba1";
-    const OFFER_MANAGER_ADDRESS = "0xf688069e3e78bdd6980f53f2061222dd1b3117b2";
-
-    const TOKEN_ABI = [
-      "function balanceOf(address account) view returns (uint256)",
-      "function approve(address spender, uint256 amount) external returns (bool)",
-      "function allowance(address owner, address spender) view returns (uint256)"
-    ];
-
-    const NFT_ABI = [
-      "function tokenURI(uint256 tokenId) view returns (string)",
-      "function isApprovedForAll(address owner, address operator) view returns (bool)",
-      "function setApprovalForAll(address operator, bool approved) external"
-    ];
-
-    // ABIs de los contratos
-    const MARKET_ABI = [
-      // Funciones de listings
-      "function createListing(address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 duration, uint8 nftTypeParam) external",
-      "function cancelListing(uint256 listingId) external",
-      "function buyListing(uint256 listingId, uint256 purchaseQuantity) external",
-      "function editListing(uint256 listingId, uint256 newPrice, uint256 newDuration) external",
-      "function getActiveListingsDetailed() external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)[])",
-      "function getMyListings(address seller) external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)[])"
-    ];
-
-    const OFFER_MANAGER_ABI = [
-      // Floor offers
-      "function floorOffers(address collection) external view returns (tuple(uint256 offerAmount, address buyer, bool active))",
-      "function setFloorOffer(address collection, uint256 offerAmount) external",
-      "function acceptFloorOffer(address collection, uint256 tokenId, uint8 nftTypeParam) external",
-      // Listing Offers
-      "function makeOffer(uint256 listingId, uint256 quantity, uint256 offerAmount) external",
-      "function withdrawOffer(uint256 listingId) external",
-      "function acceptOffer(uint256 listingId, address buyer) external",
-      "function getMyListingOffers(address buyer) external view returns (tuple(uint256 id, uint256 listingId, address buyer, uint256 tokenId, uint256 quantity, uint256 offerAmount, bool exists)[])",
-      // Token offers
-      "function makeTokenOffer(address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount) external",
-      "function withdrawTokenOffer(address collection, uint256 tokenId) external",
-      "function acceptTokenOffer(address collection, uint256 tokenId, uint256 offerId, uint8 nftTypeParam) external",
-      "function getMyTokenOffers(address buyer) external view returns (tuple(uint256 id, address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount, address buyer, bool exists)[])",
-      // Trait offers
-      "function setTraitOffer(string traitType, string traitValue, uint256 offerAmount) external",
-      "function cancelTraitOffer(string traitType, string traitValue) external",
-      "function acceptTraitOffer(string traitType, string traitValue, uint256 tokenId, address collection, uint8 nftTypeParam) external"
-    ];
-
-    const ACTIVITY_LOGGER_ABI = [
-      "function getActivities(uint256 start, uint256 count) external view returns (tuple(uint256 timestamp, uint8 activityType, uint256 listingId, uint256 offerId, address user, string details)[])",
-      "function getActivityCount() external view returns (uint256)"
-    ];
-
-    // Variables globales para los contratos
-    let activeListingsData = [];
-    let currentSortOrder = 'asc';
-
-    // Inicializar contratos
-    async function initContracts() {
-      if (window.ethereum) {
-        try {
-          provider = new ethers.providers.Web3Provider(window.ethereum);
-          await provider.send("eth_requestAccounts", []);
-          signer = provider.getSigner();
-          userAccount = await signer.getAddress();
-          
-          tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
-          nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
-          marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
-          offerManagerContract = new ethers.Contract(OFFER_MANAGER_ADDRESS, OFFER_MANAGER_ABI, signer);
-          activityLoggerContract = new ethers.Contract(ACTIVITY_LOGGER_ADDRESS, ACTIVITY_LOGGER_ABI, signer);
-          
-          await loadActiveListings();
-          await updateTokenBalance();
-          await loadFloorOffer();
-        } catch (error) {
-          console.error("Error initializing contracts:", error);
+    (function(){
+      /*********** Global Variables and Contract Setup ***********/
+      let nftData = [];
+      let provider, signer, userAccount;
+      let tokenContract, nftContract, marketplaceContract;
+      let activityLoggerContract, offerManagerContract;
+      
+      // Contrato addresses
+      const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+      const NFT_ADDRESS = "0x4b9afc775d3D1969F727e81BA970B19b9e8054EF";
+      const MARKET_ADDRESS = "0x8260f06f90bcbef371c46a082f23afa7bdbffd2c";
+      const ACTIVITY_LOGGER_ADDRESS = "0xf545dec0a5f4fe134757c56dfd85f1dbc274dba1";
+      const OFFER_MANAGER_ADDRESS = "0xf688069e3e78bdd6980f53f2061222dd1b3117b2";
+      
+      const TOKEN_ABI = [
+        "function balanceOf(address account) view returns (uint256)",
+        "function approve(address spender, uint256 amount) external returns (bool)",
+        "function allowance(address owner, address spender) view returns (uint256)"
+      ];
+      
+      const NFT_ABI = [
+        "function tokenURI(uint256 tokenId) view returns (string)",
+        "function isApprovedForAll(address owner, address operator) view returns (bool)",
+        "function setApprovalForAll(address operator, bool approved) external"
+      ];
+      
+      const MARKET_ABI = [
+        "function createListing(address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 duration, uint8 nftTypeParam) external",
+        "function cancelListing(uint256 listingId) external",
+        "function buyListing(uint256 listingId, uint256 purchaseQuantity) external",
+        "function editListing(uint256 listingId, uint256 newPrice, uint256 newDuration) external",
+        "function getActiveListingsDetailed() external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)[])",
+        "function getMyListings(address seller) external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)[])",
+        "function floorOffers(address) external view returns (tuple(uint256 offerAmount, address buyer, bool active))"
+      ];
+      
+      const OFFER_MANAGER_ABI = [
+        "function floorOffers(address collection) external view returns (tuple(uint256 offerAmount, address buyer, bool active))",
+        "function setFloorOffer(address collection, uint256 offerAmount) external",
+        "function acceptFloorOffer(address collection, uint256 tokenId, uint8 nftTypeParam) external",
+        "function makeOffer(uint256 listingId, uint256 quantity, uint256 offerAmount) external",
+        "function withdrawOffer(uint256 listingId) external",
+        "function acceptOffer(uint256 listingId, address buyer) external",
+        "function getMyListingOffers(address buyer) external view returns (tuple(uint256 id, uint256 listingId, address buyer, uint256 tokenId, uint256 quantity, uint256 offerAmount, bool exists)[])",
+        "function makeTokenOffer(address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount) external",
+        "function withdrawTokenOffer(address collection, uint256 tokenId) external",
+        "function acceptTokenOffer(address collection, uint256 tokenId, uint256 offerId, uint8 nftTypeParam) external",
+        "function getMyTokenOffers(address buyer) external view returns (tuple(uint256 id, address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount, address buyer, bool exists)[])",
+        "function setTraitOffer(string traitType, string traitValue, uint256 offerAmount) external",
+        "function cancelTraitOffer(string traitType, string traitValue) external",
+        "function acceptTraitOffer(string traitType, string traitValue, uint256 tokenId, address collection, uint8 nftTypeParam) external",
+        "function getMyTraitOffers(address buyer) external view returns (tuple(uint256 id, string traitType, string traitValue, uint256 offerAmount, address buyer, bool active)[])"
+      ];
+      
+      const ACTIVITY_LOGGER_ABI = [
+        "function getActivities(uint256 start, uint256 count) external view returns (tuple(uint256 timestamp, uint8 activityType, uint256 listingId, uint256 offerId, address user, string details)[])",
+        "function getActivityCount() external view returns (uint256)"
+      ];
+      
+      let activeListingsData = []; // Se elimina la carga de listings activos (por ahora)
+      let currentSortOrder = 'asc';
+      
+      async function initContracts() {
+        if (window.ethereum) {
+          try {
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            signer = provider.getSigner();
+            userAccount = await signer.getAddress();
+            
+            tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+            nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
+            marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
+            offerManagerContract = new ethers.Contract(OFFER_MANAGER_ADDRESS, OFFER_MANAGER_ABI, signer);
+            activityLoggerContract = new ethers.Contract(ACTIVITY_LOGGER_ADDRESS, ACTIVITY_LOGGER_ABI, signer);
+            
+            // Se elimina la carga de active listings para evitar el error
+            activeListingsData = [];
+            await updateTokenBalance();
+            await loadFloorOffer();
+          } catch (error) {
+            console.error("Error initializing contracts:", error);
+          }
+        } else {
+          console.error("Ethereum provider not found.");
         }
-      } else {
-        console.error("Ethereum provider not found.");
       }
-    }
-
-    // Cargar listings activos
-    async function loadActiveListings() {
-      try {
-        activeListingsData = await marketplaceContract.getActiveListingsDetailed();
-        // Filtrar solo los listings que no han expirado
-        activeListingsData = activeListingsData.filter(listing => 
-          listing.expirationTime > Math.floor(Date.now() / 1000)
-        );
-        console.log("Active listings loaded:", activeListingsData);
-      } catch (error) {
-        console.error("Error loading active listings:", error);
-        activeListingsData = [];
+      
+      /*********** NFT Data Loading and Display ***********/
+      let activeFilters = new Map();
+      let allTraits = new Map();
+      
+      function extractTraits(nfts) {
+        allTraits.clear();
+        nfts.forEach(nft => {
+          if (nft.attributes) {
+            nft.attributes.forEach(attr => {
+              if (!allTraits.has(attr.trait_type)) {
+                allTraits.set(attr.trait_type, new Set());
+              }
+              allTraits.get(attr.trait_type).add(attr.value);
+            });
+          }
+        });
+        return allTraits;
       }
-    }
-
-    /*********** NFT Data Loading and Display ***********/
-    let activeFilters = new Map();
-    let allTraits = new Map();
-
-    function extractTraits(nfts) {
-      allTraits.clear();
-      nfts.forEach(nft => {
-        if (nft.attributes) {
-          nft.attributes.forEach(attr => {
-            if (!allTraits.has(attr.trait_type)) {
-              allTraits.set(attr.trait_type, new Set());
-            }
-            allTraits.get(attr.trait_type).add(attr.value);
-          });
+      
+      function renderTraitFilters() {
+        const container = document.getElementById('traitCategories');
+        container.innerHTML = '';
+        allTraits.forEach((values, traitType) => {
+          const categoryDiv = document.createElement('div');
+          categoryDiv.className = 'trait-category mb-2';
+          categoryDiv.innerHTML = `
+            <h6 class="trait-category-title mb-2">${traitType}</h6>
+            <div class="trait-values" style="max-height: 150px; overflow-y: auto;">
+              ${Array.from(values).map(value => `
+                <div class="trait-value-item">
+                  <button class="btn btn-sm ${activeFilters.get(traitType) === value ? 'btn-primary' : 'btn-outline-secondary'} w-100 text-start mb-1"
+                    onclick="toggleTraitFilter('${traitType}', '${value}')">
+                    ${value}
+                  </button>
+                </div>
+              `).join('')}
+            </div>
+          `;
+          container.appendChild(categoryDiv);
+        });
+        updateActiveFiltersDisplay();
+      }
+      
+      function updateActiveFiltersDisplay() {
+        const container = document.getElementById('activeFilters');
+        if (activeFilters.size === 0) {
+          container.innerHTML = '<small class="text-muted">No active filters</small>';
+          return;
         }
-      });
-      return allTraits;
-    }
-
-    function renderTraitFilters() {
-      const container = document.getElementById('traitCategories');
-      container.innerHTML = '';
-      allTraits.forEach((values, traitType) => {
-        const categoryDiv = document.createElement('div');
-        categoryDiv.className = 'trait-category mb-2';
-        categoryDiv.innerHTML = `
-          <h6 class="trait-category-title mb-2">${traitType}</h6>
-          <div class="trait-values" style="max-height: 150px; overflow-y: auto;">
-            ${Array.from(values).map(value => `
-              <div class="trait-value-item">
-                <button class="btn btn-sm ${activeFilters.get(traitType) === value ? 'btn-primary' : 'btn-outline-secondary'} w-100 text-start mb-1"
-                  onclick="toggleTraitFilter('${traitType}', '${value}')">
-                  ${value}
-                </button>
-              </div>
-            `).join('')}
-          </div>
-        `;
-        container.appendChild(categoryDiv);
-      });
-      updateActiveFiltersDisplay();
-    }
-
-    function updateActiveFiltersDisplay() {
-      const container = document.getElementById('activeFilters');
-      if (activeFilters.size === 0) {
-        container.innerHTML = '<small class="text-muted">No active filters</small>';
-        return;
+        container.innerHTML = Array.from(activeFilters.entries()).map(([type, value]) => `
+          <span class="badge bg-primary me-1 mb-1">
+            ${type}: ${value}
+            <button type="button" class="btn-close btn-close-white" style="font-size: 0.5em;" onclick="removeTraitFilter('${type}')"></button>
+          </span>
+        `).join('');
       }
-      container.innerHTML = Array.from(activeFilters.entries()).map(([type, value]) => `
-        <span class="badge bg-primary me-1 mb-1">
-          ${type}: ${value}
-          <button type="button" class="btn-close btn-close-white" style="font-size: 0.5em;" 
-            onclick="removeTraitFilter('${type}')"></button>
-        </span>
-      `).join('');
-    }
-
-    function toggleTraitFilter(traitType, value) {
-      if (activeFilters.get(traitType) === value) {
-        activeFilters.delete(traitType);
-      } else {
-        activeFilters.set(traitType, value);
-      }
-      renderTraitFilters();
-      filterAndDisplayNFTs();
-    }
-
-    function removeTraitFilter(traitType) {
-      activeFilters.delete(traitType);
-      renderTraitFilters();
-      filterAndDisplayNFTs();
-    }
-
-    function clearTraitFilters() {
-      activeFilters.clear();
-      renderTraitFilters();
-      filterAndDisplayNFTs();
-    }
-
-    async function loadNFTs() {
-      try {
-        const response = await fetch('adrianpunks.json');
-        if (!response.ok) throw new Error('Error loading NFTs');
-        const data = await response.json();
-        nftData = data.collection || [];
-        extractTraits(nftData);
+      
+      function toggleTraitFilter(traitType, value) {
+        if (activeFilters.get(traitType) === value) {
+          activeFilters.delete(traitType);
+        } else {
+          activeFilters.set(traitType, value);
+        }
         renderTraitFilters();
         filterAndDisplayNFTs();
-      } catch (error) {
-        console.error('Error:', error);
-        document.getElementById('nftGrid').innerHTML = `<div class="alert alert-danger">Error loading NFTs: ${error.message}</div>`;
       }
-    }
-
-    function filterAndDisplayNFTs() {
-      if (!nftData) return;
-      let filteredNFTs = nftData;
-      if (activeFilters.size > 0) {
-        filteredNFTs = nftData.filter(nft => {
-          return Array.from(activeFilters.entries()).every(([type, value]) => {
-            return nft.attributes.some(attr => attr.trait_type === type && attr.value === value);
+      
+      function removeTraitFilter(traitType) {
+        activeFilters.delete(traitType);
+        renderTraitFilters();
+        filterAndDisplayNFTs();
+      }
+      
+      function clearTraitFilters() {
+        activeFilters.clear();
+        renderTraitFilters();
+        filterAndDisplayNFTs();
+      }
+      
+      async function loadNFTs() {
+        try {
+          const response = await fetch('adrianpunks.json');
+          if (!response.ok) throw new Error('Error loading NFTs');
+          const data = await response.json();
+          nftData = data.collection || [];
+          extractTraits(nftData);
+          renderTraitFilters();
+          filterAndDisplayNFTs();
+        } catch (error) {
+          console.error('Error:', error);
+          document.getElementById('nftGrid').innerHTML = `<div class="alert alert-danger">Error loading NFTs: ${error.message}</div>`;
+        }
+      }
+      
+      function filterAndDisplayNFTs() {
+        if (!nftData) return;
+        let filteredNFTs = nftData;
+        if (activeFilters.size > 0) {
+          filteredNFTs = nftData.filter(nft => {
+            return Array.from(activeFilters.entries()).every(([type, value]) => {
+              return nft.attributes.some(attr => attr.trait_type === type && attr.value === value);
+            });
           });
+        }
+        document.getElementById('filteredCount').textContent = `Showing ${filteredNFTs.length} of ${nftData.length}`;
+        displayNFTs(filteredNFTs);
+      }
+      
+      function displayNFTs(nfts) {
+        const grid = document.getElementById('nftGrid');
+        grid.innerHTML = '';
+        if (!nfts || nfts.length === 0) {
+          grid.innerHTML = '<div class="alert alert-info">No NFTs found</div>';
+          return;
+        }
+        nfts.forEach(nft => {
+          const tokenId = nft.name.split('#')[1];
+          const card = document.createElement('div');
+          card.className = 'card nft-card';
+          card.style.cursor = 'pointer';
+          card.onclick = () => showNFTDetails(nft.name);
+          card.innerHTML = `
+            <img src="${nft.image}" class="card-img-top" alt="${nft.name}" onerror="this.src='placeholder.png'">
+            <div class="card-body">
+              <h5 class="card-title">${nft.name}</h5>
+              <p class="card-text">Rarity: ${nft.rarity.toFixed(2)}</p>
+            </div>
+          `;
+          grid.appendChild(card);
         });
       }
-      document.getElementById('filteredCount').textContent = `Showing ${filteredNFTs.length} of ${nftData.length}`;
-      displayNFTs(filteredNFTs);
-    }
-
-    function displayNFTs(nfts) {
-      const grid = document.getElementById('nftGrid');
-      grid.innerHTML = '';
-      if (!nfts || nfts.length === 0) {
-        grid.innerHTML = '<div class="alert alert-info">No NFTs found</div>';
-        return;
-      }
-      nfts.forEach(nft => {
-        const tokenId = nft.name.split('#')[1];
-        const card = document.createElement('div');
-        card.className = 'card nft-card';
-        card.style.cursor = 'pointer';
-        card.onclick = () => showNFTDetails(nft.name);
-        card.innerHTML = `
-          <img src="${nft.image}" class="card-img-top" alt="${nft.name}" onerror="this.src='placeholder.png'">
-          <div class="card-body">
-            <h5 class="card-title">${nft.name}</h5>
-            <p class="card-text">Rarity: ${nft.rarity.toFixed(2)}</p>
-          </div>
-        `;
-        grid.appendChild(card);
-      });
-    }
-
-    async function showNFTDetails(nftName) {
-      try {
-        const data = await fetch('adrianpunks.json').then(response => response.json());
-        const nft = data.collection.find(n => n.name === nftName);
-        if (!nft) throw new Error("NFT not found");
-        const tokenId = parseInt(nft.name.split('#')[1]);
-        const tokenListing = null;
-        const listingOffers = await offerManagerContract.getMyListingOffers(userAccount);
-        const tokenOffers = await offerManagerContract.getMyTokenOffers(userAccount);
-        const traitOffers = await offerManagerContract.getMyTraitOffers(userAccount);
-        const floorOffer = await offerManagerContract.floorOffers(NFT_ADDRESS);
-        const modalContent = document.getElementById('nftModalContent');
-        modalContent.innerHTML = `
-          <div class="modal-header">
-            <h5 class="modal-title">${nft.name}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body text-center">
-            <img src="${nft.image}" class="img-fluid rounded mb-3" alt="${nft.name}" onerror="this.src='placeholder.png'">
-            <div class="nft-details text-start">
-              <p><strong>Description:</strong> ${nft.description}</p>
-              <p><strong>Compiler:</strong> ${nft.compiler}</p>
-              <p><strong>Masterminds:</strong> ${nft.masterminds.join(', ')}</p>
-              <p><strong>Rarity:</strong> ${nft.rarity.toFixed(2)}</p>
-              ${tokenListing ? `
-                <div class="listing-info alert alert-info">
-                  <h6>Active Listing</h6>
-                  <p>Price: ${ethers.utils.formatUnits(tokenListing.price, 18)} $ADRIAN</p>
-                  <p>Seller: ${tokenListing.seller.substring(0, 6)}...${tokenListing.seller.substring(38)}</p>
-                  <p>Expires: ${new Date(tokenListing.expirationTime * 1000).toLocaleString()}</p>
-                  ${tokenListing.seller.toLowerCase() !== userAccount.toLowerCase() ? `
-                    <button class="btn btn-success btn-sm" onclick="buyNFT('${nft.name}')">Buy NFT</button>
-                  ` : `
-                    <button class="btn btn-danger btn-sm" onclick="cancelListing(${tokenListing.id})">Cancel Listing</button>
-                  `}
-                </div>
-              ` : ''}
-              <div class="offers-section mt-3">
-                <h6>Active Offers</h6>
-                <div id="listingOffersDisplay"></div>
-                <div id="tokenOffersDisplay"></div>
-                <div id="traitOffersDisplay"></div>
-                ${floorOffer && floorOffer.active ? `
-                  <div class="floor-offer-info mt-2">
-                    <p class="mb-1">Floor Offer: ${ethers.utils.formatUnits(floorOffer.offerAmount, 18)} $ADRIAN</p>
-                    <small>By: ${floorOffer.buyer.substring(0, 6)}...${floorOffer.buyer.substring(38)}</small>
+      
+      async function showNFTDetails(nftName) {
+        try {
+          const data = await fetch('adrianpunks.json').then(response => response.json());
+          const nft = data.collection.find(n => n.name === nftName);
+          if (!nft) throw new Error("NFT not found");
+          const tokenId = parseInt(nft.name.split('#')[1]);
+          const tokenListing = null;
+          const listingOffers = await offerManagerContract.getMyListingOffers(userAccount);
+          const tokenOffers = await offerManagerContract.getMyTokenOffers(userAccount);
+          const traitOffers = await offerManagerContract.getMyTraitOffers(userAccount);
+          const floorOffer = await offerManagerContract.floorOffers(NFT_ADDRESS);
+          const modalContent = document.getElementById('nftModalContent');
+          modalContent.innerHTML = `
+            <div class="modal-header">
+              <h5 class="modal-title">${nft.name}</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+              <img src="${nft.image}" class="img-fluid rounded mb-3" alt="${nft.name}" onerror="this.src='placeholder.png'">
+              <div class="nft-details text-start">
+                <p><strong>Description:</strong> ${nft.description}</p>
+                <p><strong>Compiler:</strong> ${nft.compiler}</p>
+                <p><strong>Masterminds:</strong> ${nft.masterminds.join(', ')}</p>
+                <p><strong>Rarity:</strong> ${nft.rarity.toFixed(2)}</p>
+                ${tokenListing ? `
+                  <div class="listing-info alert alert-info">
+                    <h6>Active Listing</h6>
+                    <p>Price: ${ethers.utils.formatUnits(tokenListing.price, 18)} $ADRIAN</p>
+                    <p>Seller: ${tokenListing.seller.substring(0, 6)}...${tokenListing.seller.substring(38)}</p>
+                    <p>Expires: ${new Date(tokenListing.expirationTime * 1000).toLocaleString()}</p>
+                    ${tokenListing.seller.toLowerCase() !== userAccount.toLowerCase() ? `
+                      <button class="btn btn-success btn-sm" onclick="buyNFT('${nft.name}')">Buy NFT</button>
+                    ` : `
+                      <button class="btn btn-danger btn-sm" onclick="cancelListing(${tokenListing.id})">Cancel Listing</button>
+                    `}
                   </div>
                 ` : ''}
-              </div>
-              <h6 class="mt-3">Attributes:</h6>
-              <ul class="list-group">
-                ${nft.attributes.map(attr => 
-                  `<li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div>
-                      <strong>${attr.trait_type}:</strong> ${attr.value}
+                <div class="offers-section mt-3">
+                  <h6>Active Offers</h6>
+                  <div id="listingOffersDisplay"></div>
+                  <div id="tokenOffersDisplay"></div>
+                  <div id="traitOffersDisplay"></div>
+                  ${floorOffer && floorOffer.active ? `
+                    <div class="floor-offer-info mt-2">
+                      <p class="mb-1">Floor Offer: ${ethers.utils.formatUnits(floorOffer.offerAmount, 18)} $ADRIAN</p>
+                      <small>By: ${floorOffer.buyer.substring(0, 6)}...${floorOffer.buyer.substring(38)}</small>
                     </div>
-                    <button class="btn btn-sm btn-outline-primary" onclick="openTraitOfferForm('${attr.trait_type}', '${attr.value}')" title="Make Trait Offer">💰</button>
-                  </li>`
-                ).join('')}
-              </ul>
-              <div class="text-center mt-3">
-                ${!tokenListing ? `<button class="btn btn-primary" onclick="openListingForm('${nft.name}')">List for Sale</button>` : ''}
-                <button class="btn btn-secondary" onclick="openMakeTokenOfferForm('${nft.name.split('#')[1]}')">Make Token Offer</button>
+                  ` : ''}
+                </div>
+                <h6 class="mt-3">Attributes:</h6>
+                <ul class="list-group">
+                  ${nft.attributes.map(attr => 
+                    `<li class="list-group-item d-flex justify-content-between align-items-center">
+                      <div>
+                        <strong>${attr.trait_type}:</strong> ${attr.value}
+                      </div>
+                      <button class="btn btn-sm btn-outline-primary" onclick="openTraitOfferForm('${attr.trait_type}', '${attr.value}')" title="Make Trait Offer">💰</button>
+                    </li>`
+                  ).join('')}
+                </ul>
+                <div class="text-center mt-3">
+                  ${!tokenListing ? `<button class="btn btn-primary" onclick="openListingForm('${nft.name}')">List for Sale</button>` : ''}
+                  <button class="btn btn-secondary" onclick="openMakeTokenOfferForm('${nft.name.split('#')[1]}')">Make Token Offer</button>
+                </div>
               </div>
             </div>
+          `;
+          const modal = new bootstrap.Modal(document.getElementById('nftModal'));
+          const modalElement = document.getElementById('nftModal');
+          modalElement.addEventListener('hidden.bs.modal', function () {
+            document.body.classList.remove('modal-open');
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) { backdrop.remove(); }
+            modalContent.innerHTML = '';
+          });
+          modal.show();
+        } catch (error) {
+          console.error('Error:', error);
+          alert('Error loading NFT details: ' + error.message);
+        }
+      }
+      
+      async function cancelListing(listingId) {
+        try {
+          const tx = await marketplaceContract.cancelListing(listingId, { gasLimit: 1000000 });
+          await tx.wait();
+          alert("Listing cancelled successfully!");
+          const modal = bootstrap.Modal.getInstance(document.getElementById('nftModal'));
+          modal.hide();
+          loadNFTs();
+        } catch (error) {
+          console.error("Error cancelling listing:", error);
+          alert("Error cancelling listing: " + error.message);
+        }
+      }
+      
+      function openListingForm(nftName) {
+        const tokenId = nftName.split('#')[1];
+        const modalBody = document.querySelector('.modal-body');
+        const listingForm = document.createElement('div');
+        listingForm.className = 'listing-form mt-4 border-top pt-3';
+        listingForm.innerHTML = `
+          <h5 class="mb-3">List Token #${tokenId} for Sale</h5>
+          <div class="form-group mb-3">
+            <label class="mb-2">Price (in $ADRIAN):</label>
+            <input type="text" id="listingPrice" class="form-control" value="10000">
+          </div>
+          <div class="form-group mb-3">
+            <label class="mb-2">Duration (in days):</label>
+            <input type="number" id="listingDuration" class="form-control" value="7" min="1">
+          </div>
+          <div class="d-flex justify-content-between">
+            <button class="btn btn-primary" onclick="createListing('${tokenId}')">Create Listing</button>
+            <button class="btn btn-outline-secondary" onclick="closeListingForm()">Cancel</button>
           </div>
         `;
-        const modal = new bootstrap.Modal(document.getElementById('nftModal'));
-        const modalElement = document.getElementById('nftModal');
-        modalElement.addEventListener('hidden.bs.modal', function () {
-          document.body.classList.remove('modal-open');
-          const backdrop = document.querySelector('.modal-backdrop');
-          if (backdrop) { backdrop.remove(); }
-          modalContent.innerHTML = '';
-        });
+        modalBody.appendChild(listingForm);
+        listingForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      
+      function closeListingForm() {
+        const form = document.querySelector('.listing-form');
+        if (form) form.remove();
+      }
+      
+      async function createListing(tokenId) {
+        try {
+          const price = ethers.utils.parseUnits(document.getElementById('listingPrice').value, 18);
+          const duration = document.getElementById('listingDuration').value * 24 * 60 * 60;
+          const isApproved = await nftContract.isApprovedForAll(userAccount, MARKET_ADDRESS);
+          if (!isApproved) {
+            const txApprove = await nftContract.setApprovalForAll(MARKET_ADDRESS, true);
+            await txApprove.wait();
+          }
+          const tx = await marketplaceContract.createListing(NFT_ADDRESS, tokenId, 1, price, duration, 0, { gasLimit: 1000000 });
+          await tx.wait();
+          alert("Listing created successfully!");
+          const modal = bootstrap.Modal.getInstance(document.getElementById('nftModal'));
+          modal.hide();
+          loadNFTs();
+        } catch (error) {
+          console.error("Error creating listing:", error);
+          alert("Error creating listing: " + error.message);
+        }
+      }
+      
+      async function buyNFT(nftName) {
+        try {
+          if (!marketplaceContract || !tokenContract) {
+            alert("Please connect your wallet to continue.");
+            return;
+          }
+          const response = await fetch('adrianpunks.json');
+          const data = await response.json();
+          const nft = data.collection.find(n => n.name === nftName);
+          if (!nft) { alert("NFT not found."); return; }
+          const tokenId = parseInt(nft.name.split("#")[1]);
+          const price = await marketplaceContract.buyListing(tokenId, 1);
+          console.log("NFT Price:", price.toString());
+          const currentAllowance = await tokenContract.allowance(userAccount, MARKET_ADDRESS);
+          if (currentAllowance.lt(price)) {
+            const txApprove = await tokenContract.approve(MARKET_ADDRESS, price);
+            await txApprove.wait();
+          }
+          const txPurchase = await marketplaceContract.buyListing(tokenId, 1);
+          await txPurchase.wait();
+          alert("Purchase successful!");
+        } catch (error) {
+          console.error("Error purchasing NFT:", error);
+          alert("Error purchasing NFT: " + error.message);
+        }
+      }
+      
+      async function updateTokenBalance() {
+        try {
+          const balanceRaw = await tokenContract.balanceOf(userAccount);
+          const balance = parseFloat(ethers.utils.formatUnits(balanceRaw, 18));
+          let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
+                                balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
+                                balance.toFixed(1);
+          document.getElementById("tokenBalance").innerText = `Balance: ${formattedBalance} $ADRIAN`;
+        } catch (error) {
+          console.error("Error fetching token balance:", error);
+          document.getElementById("tokenBalance").innerText = "Balance: Error";
+        }
+      }
+      
+      async function loadFloorOffer() {
+        try {
+          const floorOffer = await offerManagerContract.floorOffers(NFT_ADDRESS);
+          const offerAmount = floorOffer.offerAmount;
+          const floorSection = document.getElementById("floorOfferSection");
+          if (floorOffer.active && offerAmount.gt(0)) {
+            document.getElementById("floorOfferText").innerText = `Highest floor offer: ${ethers.utils.formatUnits(offerAmount, 18)} $ADRIAN`;
+            floorSection.classList.remove("no-offer");
+          } else {
+            document.getElementById("floorOfferText").innerText = "No floor offer set";
+            floorSection.classList.add("no-offer");
+          }
+        } catch (error) {
+          console.error("Error loading floor offer:", error);
+        }
+      }
+      
+      async function sweepFloor() {
+        if (!marketplaceContract) {
+          alert("Please connect your wallet first.");
+          return;
+        }
+        const countStr = prompt("How many tokens do you want to purchase from the floor?");
+        const numTokens = parseInt(countStr);
+        if (isNaN(numTokens) || numTokens <= 0) {
+          alert("Invalid number. Please try again.");
+          return;
+        }
+        try {
+          alert("Floor sweep functionality is temporarily disabled.");
+        } catch (error) {
+          console.error("Error during Sweep Floor:", error);
+          alert("Error during Sweep Floor: " + error.message);
+        }
+      }
+      
+      /*********** New Functions for Frontend Reads from OfferManager and ActivityLogger ***********/
+      
+      async function loadListingOffers() {
+        const container = document.getElementById('listingOffersContent');
+        try {
+          const offers = await offerManagerContract.getMyListingOffers(userAccount);
+          if (offers.length === 0) {
+            container.innerHTML = '<p class="text-center text-muted">No active listing offers found</p>';
+            return;
+          }
+          let html = '<div class="list-group">';
+          offers.forEach(offer => {
+            if (!offer.exists) return;
+            const offerAmount = ethers.utils.formatUnits(offer.offerAmount, 18);
+            html += `
+              <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 class="mb-1">Offer on Listing #${offer.listingId}</h6>
+                    <p class="mb-1">Token #${offer.tokenId} - ${offerAmount} $ADRIAN</p>
+                    <small class="text-muted">Quantity: ${offer.quantity}</small>
+                  </div>
+                  <button class="btn btn-danger btn-sm" onclick="cancelListingOffer(${offer.listingId})">Cancel Offer</button>
+                </div>
+              </div>
+            `;
+          });
+          html += '</div>';
+          container.innerHTML = html;
+        } catch (error) {
+          console.error("Error loading listing offers:", error);
+          container.innerHTML = '<div class="alert alert-danger">Error loading listing offers</div>';
+        }
+      }
+      
+      async function loadTokenOffers() {
+        const container = document.getElementById('tokenOffersContent');
+        try {
+          const offers = await offerManagerContract.getMyTokenOffers(userAccount);
+          if (offers.length === 0) {
+            container.innerHTML = '<p class="text-center text-muted">No active token offers found</p>';
+            return;
+          }
+          let html = '<div class="list-group">';
+          offers.forEach(offer => {
+            if (!offer.exists) return;
+            const offerAmount = ethers.utils.formatUnits(offer.offerAmount, 18);
+            html += `
+              <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 class="mb-1">Offer on Token #${offer.tokenId}</h6>
+                    <p class="mb-1">${offerAmount} $ADRIAN</p>
+                    <small class="text-muted">Quantity: ${offer.quantity}</small>
+                  </div>
+                  <button class="btn btn-danger btn-sm" onclick="cancelTokenOffer('${offer.collection}', ${offer.tokenId})">Cancel Offer</button>
+                </div>
+              </div>
+            `;
+          });
+          html += '</div>';
+          container.innerHTML = html;
+        } catch (error) {
+          console.error("Error loading token offers:", error);
+          container.innerHTML = '<div class="alert alert-danger">Error loading token offers</div>';
+        }
+      }
+      
+      async function loadTraitOffers() {
+        const container = document.getElementById('traitOffersContent');
+        try {
+          const offers = await offerManagerContract.getMyTraitOffers(userAccount);
+          if (offers.length === 0) {
+            container.innerHTML = '<p class="text-center text-muted">No active trait offers found</p>';
+            return;
+          }
+          let html = '<div class="list-group">';
+          offers.forEach(offer => {
+            if (!offer.active) return;
+            const offerAmount = ethers.utils.formatUnits(offer.offerAmount, 18);
+            html += `
+              <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h6 class="mb-1">Trait Offer: ${offer.traitType} - ${offer.traitValue}</h6>
+                    <p class="mb-1">${offerAmount} $ADRIAN</p>
+                  </div>
+                  <button class="btn btn-danger btn-sm" onclick="cancelTraitOffer(${offer.id})">Cancel Offer</button>
+                </div>
+              </div>
+            `;
+          });
+          html += '</div>';
+          container.innerHTML = html;
+        } catch (error) {
+          console.error("Error loading trait offers:", error);
+          container.innerHTML = '<div class="alert alert-danger">Error loading trait offers</div>';
+        }
+      }
+      
+      async function openRecentActivityModal() {
+        if (!activityLoggerContract) {
+          alert("Activity logger not connected.");
+          return;
+        }
+        try {
+          const activities = await activityLoggerContract.getActivities(0, 10);
+          let contentHtml = "<ul class='list-group'>";
+          activities.forEach(act => {
+            contentHtml += `<li class="list-group-item">
+              [${new Date(act.timestamp * 1000).toLocaleString()}] Type: ${act.activityType} - ${act.details}
+            </li>`;
+          });
+          contentHtml += "</ul>";
+          document.getElementById("recentActivityContent").innerHTML = contentHtml;
+          let modal = new bootstrap.Modal(document.getElementById('recentActivityModal'));
+          modal.show();
+        } catch (error) {
+          console.error("Error loading activities:", error);
+          alert("Error loading activities: " + error.message);
+        }
+      }
+      
+      async function cancelListingOffer(listingId) {
+        try {
+          const tx = await marketplaceContract.withdrawOffer(listingId, { gasLimit: 1000000 });
+          await tx.wait();
+          alert("Offer cancelled successfully!");
+          loadListingOffers();
+        } catch (error) {
+          console.error("Error cancelling listing offer:", error);
+          alert("Error cancelling offer: " + error.message);
+        }
+      }
+      
+      async function cancelTokenOffer(collection, tokenId) {
+        try {
+          const tx = await marketplaceContract.withdrawTokenOffer(collection, tokenId, { gasLimit: 1000000 });
+          await tx.wait();
+          alert("Token offer cancelled successfully!");
+          loadTokenOffers();
+        } catch (error) {
+          console.error("Error cancelling token offer:", error);
+          alert("Error cancelling token offer: " + error.message);
+        }
+      }
+      
+      async function openFloorOfferPopup() {
+        const modal = new bootstrap.Modal(document.getElementById('floorOfferPopupModal'));
         modal.show();
-      } catch (error) {
-        console.error('Error:', error);
-        alert('Error loading NFT details: ' + error.message);
       }
-    }
-
-    async function cancelListing(listingId) {
-      try {
-        const tx = await marketplaceContract.cancelListing(listingId, { gasLimit: 1000000 });
-        await tx.wait();
-        alert("Listing cancelled successfully!");
-        const modal = bootstrap.Modal.getInstance(document.getElementById('nftModal'));
-        modal.hide();
-        loadNFTs();
-      } catch (error) {
-        console.error("Error cancelling listing:", error);
-        alert("Error cancelling listing: " + error.message);
-      }
-    }
-
-    function openListingForm(nftName) {
-      const tokenId = nftName.split('#')[1];
-      const modalBody = document.querySelector('.modal-body');
-      const listingForm = document.createElement('div');
-      listingForm.className = 'listing-form mt-4 border-top pt-3';
-      listingForm.innerHTML = `
-        <h5 class="mb-3">List Token #${tokenId} for Sale</h5>
-        <div class="form-group mb-3">
-          <label class="mb-2">Price (in $ADRIAN):</label>
-          <input type="text" id="listingPrice" class="form-control" value="10000">
-        </div>
-        <div class="form-group mb-3">
-          <label class="mb-2">Duration (in days):</label>
-          <input type="number" id="listingDuration" class="form-control" value="7" min="1">
-        </div>
-        <div class="d-flex justify-content-between">
-          <button class="btn btn-primary" onclick="createListing('${tokenId}')">Create Listing</button>
-          <button class="btn btn-outline-secondary" onclick="closeListingForm()">Cancel</button>
-        </div>
-      `;
-      modalBody.appendChild(listingForm);
-      listingForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-
-    function closeListingForm() {
-      const form = document.querySelector('.listing-form');
-      if (form) form.remove();
-    }
-
-    async function createListing(tokenId) {
-      try {
-        const price = ethers.utils.parseUnits(document.getElementById('listingPrice').value, 18);
-        const duration = document.getElementById('listingDuration').value * 24 * 60 * 60;
-        const isApproved = await nftContract.isApprovedForAll(userAccount, MARKET_ADDRESS);
-        if (!isApproved) {
-          const txApprove = await nftContract.setApprovalForAll(MARKET_ADDRESS, true);
-          await txApprove.wait();
-        }
-        const tx = await marketplaceContract.createListing(NFT_ADDRESS, tokenId, 1, price, duration, 0, { gasLimit: 1000000 });
-        await tx.wait();
-        alert("Listing created successfully!");
-        const modal = bootstrap.Modal.getInstance(document.getElementById('nftModal'));
-        modal.hide();
-        loadNFTs();
-      } catch (error) {
-        console.error("Error creating listing:", error);
-        alert("Error creating listing: " + error.message);
-      }
-    }
-
-    async function buyNFT(nftName) {
-      try {
-        if (!marketplaceContract || !tokenContract) {
-          alert("Please connect your wallet to continue.");
-          return;
-        }
-        const response = await fetch('adrianpunks.json');
-        const data = await response.json();
-        const nft = data.collection.find(n => n.name === nftName);
-        if (!nft) { alert("NFT not found."); return; }
-        const tokenId = parseInt(nft.name.split("#")[1]);
-        const price = await marketplaceContract.buyListing(tokenId, 1);
-        console.log("NFT Price:", price.toString());
-        const currentAllowance = await tokenContract.allowance(userAccount, MARKET_ADDRESS);
-        if (currentAllowance.lt(price)) {
-          const txApprove = await tokenContract.approve(MARKET_ADDRESS, price);
-          await txApprove.wait();
-        }
-        const txPurchase = await marketplaceContract.buyListing(tokenId, 1);
-        await txPurchase.wait();
-        alert("Purchase successful!");
-      } catch (error) {
-        console.error("Error purchasing NFT:", error);
-        alert("Error purchasing NFT: " + error.message);
-      }
-    }
-
-    async function updateTokenBalance() {
-      try {
-        const balanceRaw = await tokenContract.balanceOf(userAccount);
-        const balance = parseFloat(ethers.utils.formatUnits(balanceRaw, 18));
-        let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
-                              balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
-                              balance.toFixed(1);
-        document.getElementById("tokenBalance").innerText = `Balance: ${formattedBalance} $ADRIAN`;
-      } catch (error) {
-        console.error("Error fetching token balance:", error);
-        document.getElementById("tokenBalance").innerText = "Balance: Error";
-      }
-    }
-
-    async function loadFloorOffer() {
-      try {
-        const floorOffer = await offerManagerContract.floorOffers(NFT_ADDRESS);
-        const offerAmount = floorOffer.offerAmount;
-        const floorSection = document.getElementById("floorOfferSection");
-        if (floorOffer.active && offerAmount.gt(0)) {
-          document.getElementById("floorOfferText").innerText = `Highest floor offer: ${ethers.utils.formatUnits(offerAmount, 18)} $ADRIAN`;
-          floorSection.classList.remove("no-offer");
-        } else {
-          document.getElementById("floorOfferText").innerText = "No floor offer set";
-          floorSection.classList.add("no-offer");
-        }
-      } catch (error) {
-        console.error("Error loading floor offer:", error);
-      }
-    }
-
-    async function sweepFloor() {
-      if (!marketplaceContract) {
-        alert("Please connect your wallet first.");
-        return;
-      }
-      const countStr = prompt("How many tokens do you want to purchase from the floor?");
-      const numTokens = parseInt(countStr);
-      if (isNaN(numTokens) || numTokens <= 0) {
-        alert("Invalid number. Please try again.");
-        return;
-      }
-      try {
-        alert("Floor sweep functionality is temporarily disabled.");
-      } catch (error) {
-        console.error("Error during Sweep Floor:", error);
-        alert("Error during Sweep Floor: " + error.message);
-      }
-    }
-    
-    /*********** New Functions for Frontend Reads from OfferManager and ActivityLogger ***********/
-    
-    async function loadListingOffers() {
-      const container = document.getElementById('listingOffersContent');
-      try {
-        const offers = await offerManagerContract.getMyListingOffers(userAccount);
-        if (offers.length === 0) {
-          container.innerHTML = '<p class="text-center text-muted">No active listing offers found</p>';
-          return;
-        }
-        let html = '<div class="list-group">';
-        offers.forEach(offer => {
-          if (!offer.exists) return;
-          const offerAmount = ethers.utils.formatUnits(offer.offerAmount, 18);
-          html += `
-            <div class="list-group-item">
-              <div class="d-flex justify-content-between align-items-center">
-                <div>
-                  <h6 class="mb-1">Offer on Listing #${offer.listingId}</h6>
-                  <p class="mb-1">Token #${offer.tokenId} - ${offerAmount} $ADRIAN</p>
-                  <small class="text-muted">Quantity: ${offer.quantity}</small>
-                </div>
-                <button class="btn btn-danger btn-sm" onclick="cancelListingOffer(${offer.listingId})">Cancel Offer</button>
-              </div>
-            </div>
-          `;
-        });
-        html += '</div>';
-        container.innerHTML = html;
-      } catch (error) {
-        console.error("Error loading listing offers:", error);
-        container.innerHTML = '<div class="alert alert-danger">Error loading listing offers</div>';
-      }
-    }
-    
-    async function loadTokenOffers() {
-      const container = document.getElementById('tokenOffersContent');
-      try {
-        const offers = await offerManagerContract.getMyTokenOffers(userAccount);
-        if (offers.length === 0) {
-          container.innerHTML = '<p class="text-center text-muted">No active token offers found</p>';
-          return;
-        }
-        let html = '<div class="list-group">';
-        offers.forEach(offer => {
-          if (!offer.exists) return;
-          const offerAmount = ethers.utils.formatUnits(offer.offerAmount, 18);
-          html += `
-            <div class="list-group-item">
-              <div class="d-flex justify-content-between align-items-center">
-                <div>
-                  <h6 class="mb-1">Offer on Token #${offer.tokenId}</h6>
-                  <p class="mb-1">${offerAmount} $ADRIAN</p>
-                  <small class="text-muted">Quantity: ${offer.quantity}</small>
-                </div>
-                <button class="btn btn-danger btn-sm" onclick="cancelTokenOffer('${offer.collection}', ${offer.tokenId})">Cancel Offer</button>
-              </div>
-            </div>
-          `;
-        });
-        html += '</div>';
-        container.innerHTML = html;
-      } catch (error) {
-        console.error("Error loading token offers:", error);
-        container.innerHTML = '<div class="alert alert-danger">Error loading token offers</div>';
-      }
-    }
-    
-    async function loadTraitOffers() {
-      const container = document.getElementById('traitOffersContent');
-      try {
-        const offers = await offerManagerContract.getMyTraitOffers(userAccount);
-        if (offers.length === 0) {
-          container.innerHTML = '<p class="text-center text-muted">No active trait offers found</p>';
-          return;
-        }
-        let html = '<div class="list-group">';
-        offers.forEach(offer => {
-          if (!offer.active) return;
-          const offerAmount = ethers.utils.formatUnits(offer.offerAmount, 18);
-          html += `
-            <div class="list-group-item">
-              <div class="d-flex justify-content-between align-items-center">
-                <div>
-                  <h6 class="mb-1">Trait Offer: ${offer.traitType} - ${offer.traitValue}</h6>
-                  <p class="mb-1">${offerAmount} $ADRIAN</p>
-                </div>
-                <button class="btn btn-danger btn-sm" onclick="cancelTraitOffer(${offer.id})">Cancel Offer</button>
-              </div>
-            </div>
-          `;
-        });
-        html += '</div>';
-        container.innerHTML = html;
-      } catch (error) {
-        console.error("Error loading trait offers:", error);
-        container.innerHTML = '<div class="alert alert-danger">Error loading trait offers</div>';
-      }
-    }
-    
-    async function openRecentActivityModal() {
-      if (!activityLoggerContract) {
-        alert("Activity logger not connected.");
-        return;
-      }
-      try {
-        const activities = await activityLoggerContract.getActivities(0, 10);
-        let contentHtml = "<ul class='list-group'>";
-        activities.forEach(act => {
-          contentHtml += `<li class="list-group-item">
-            [${new Date(act.timestamp * 1000).toLocaleString()}] Type: ${act.activityType} - ${act.details}
-          </li>`;
-        });
-        contentHtml += "</ul>";
-        document.getElementById("recentActivityContent").innerHTML = contentHtml;
-        let modal = new bootstrap.Modal(document.getElementById('recentActivityModal'));
-        modal.show();
-      } catch (error) {
-        console.error("Error loading activities:", error);
-        alert("Error loading activities: " + error.message);
-      }
-    }
-    
-    async function cancelListingOffer(listingId) {
-      try {
-        const tx = await marketplaceContract.withdrawOffer(listingId, { gasLimit: 1000000 });
-        await tx.wait();
-        alert("Offer cancelled successfully!");
-        loadListingOffers();
-      } catch (error) {
-        console.error("Error cancelling listing offer:", error);
-        alert("Error cancelling offer: " + error.message);
-      }
-    }
-    
-    async function cancelTokenOffer(collection, tokenId) {
-      try {
-        const tx = await marketplaceContract.withdrawTokenOffer(collection, tokenId, { gasLimit: 1000000 });
-        await tx.wait();
-        alert("Token offer cancelled successfully!");
-        loadTokenOffers();
-      } catch (error) {
-        console.error("Error cancelling token offer:", error);
-        alert("Error cancelling token offer: " + error.message);
-      }
-    }
-    
-    async function openFloorOfferPopup() {
-      const modal = new bootstrap.Modal(document.getElementById('floorOfferPopupModal'));
-      modal.show();
-    }
-    
-    async function makeFloorOfferPopup() {
-      const offerAmount = document.getElementById("popupOfferAmount").value;
-      const offerAmountWei = ethers.utils.parseUnits(offerAmount, 18);
-      try {
-        const allowance = await tokenContract.allowance(userAccount, OFFER_MANAGER_ADDRESS);
-        if (allowance.lt(offerAmountWei)) {
-          const txApprove = await tokenContract.approve(OFFER_MANAGER_ADDRESS, offerAmountWei);
-          await txApprove.wait();
-          alert("Approved " + ethers.utils.formatUnits(offerAmountWei, 18) + " $ADRIAN tokens.");
-        }
-        const tx = await offerManagerContract.setFloorOffer(NFT_ADDRESS, offerAmountWei);
-        await tx.wait();
-        alert("Floor offer created successfully!");
-        loadFloorOffer();
-      } catch (error) {
-        console.error("Error creating floor offer:", error);
-        alert("Error creating floor offer: " + error.message);
-      }
-    }
-    
-    async function cancelFloorOffer() {
-      try {
-        const tx = await marketplaceContract.setFloorOffer(NFT_ADDRESS, 0, { gasLimit: 1000000 });
-        await tx.wait();
-        alert("Floor offer cancelled successfully!");
-        loadFloorOffer();
-      } catch (error) {
-        console.error("Error cancelling floor offer:", error);
-        alert("Error cancelling floor offer: " + error.message);
-      }
-    }
-    
-    function openTraitOfferForm(traitType, traitValue) {
-      const modalBody = document.querySelector('.modal-body');
-      const existingForm = document.querySelector('.trait-offer-form');
-      if (existingForm) existingForm.remove();
-      const offerForm = document.createElement('div');
-      offerForm.className = 'trait-offer-form mt-4 border-top pt-3';
-      offerForm.innerHTML = `
-        <h5 class="mb-3">Make Trait Offer</h5>
-        <div class="form-group mb-3">
-          <div class="trait-info mb-3">
-            <span class="badge bg-primary me-2">${traitType}</span>
-            <span class="badge bg-secondary">${traitValue}</span>
-          </div>
-          <label class="mb-2">Offer Amount (in $ADRIAN):</label>
-          <input type="text" id="traitOfferAmount_${traitType}_${traitValue}" value="5000" class="form-control">
-        </div>
-        <div class="d-flex justify-content-between">
-          <button class="btn btn-primary" onclick="makeTraitOffer('${traitType}', '${traitValue}')">Submit Trait Offer</button>
-          <button class="btn btn-outline-secondary" onclick="closeTraitOfferForm()">Cancel</button>
-        </div>
-      `;
-      modalBody.appendChild(offerForm);
-      offerForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-    
-    function closeTraitOfferForm() {
-      const form = document.querySelector('.trait-offer-form');
-      if (form) form.remove();
-    }
-    
-    async function makeTraitOffer(traitType, traitValue) {
-      try {
-        const offerAmount = document.getElementById(`traitOfferAmount_${traitType}_${traitValue}`).value;
+      
+      async function makeFloorOfferPopup() {
+        const offerAmount = document.getElementById("popupOfferAmount").value;
         const offerAmountWei = ethers.utils.parseUnits(offerAmount, 18);
-        const allowance = await tokenContract.allowance(userAccount, OFFER_MANAGER_ADDRESS);
-        if (allowance.lt(offerAmountWei)) {
-          const txApprove = await tokenContract.approve(OFFER_MANAGER_ADDRESS, offerAmountWei);
-          await txApprove.wait();
-          console.log("Approved tokens for trait offer");
+        try {
+          const allowance = await tokenContract.allowance(userAccount, OFFER_MANAGER_ADDRESS);
+          if (allowance.lt(offerAmountWei)) {
+            const txApprove = await tokenContract.approve(OFFER_MANAGER_ADDRESS, offerAmountWei);
+            await txApprove.wait();
+            alert("Approved " + ethers.utils.formatUnits(offerAmountWei, 18) + " $ADRIAN tokens.");
+          }
+          const tx = await offerManagerContract.setFloorOffer(NFT_ADDRESS, offerAmountWei);
+          await tx.wait();
+          alert("Floor offer created successfully!");
+          loadFloorOffer();
+        } catch (error) {
+          console.error("Error creating floor offer:", error);
+          alert("Error creating floor offer: " + error.message);
         }
-        const tx = await offerManagerContract.setTraitOffer(traitType, traitValue, offerAmountWei);
-        await tx.wait();
-        alert("Trait offer created successfully!");
-        closeTraitOfferForm();
-      } catch (error) {
-        console.error("Error creating trait offer:", error);
-        alert("Error creating trait offer: " + error.message);
       }
-    }
-    
-    // Función para ordenar por precio
-    async function sortByFloorPrice() {
-      const button = document.querySelector('button[onclick="sortByFloorPrice()"]');
       
-      // Cambiar el orden de clasificación
-      currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
-      
-      // Actualizar el texto del botón
-      button.classList.remove('btn-outline-primary');
-      button.classList.add('btn-primary');
-      const arrowDirection = currentSortOrder === 'asc' ? '↑' : '↓';
-      button.innerHTML = `<span class="d-none d-md-inline">Sort by FP</span><span class="d-md-none">Sort FP</span> ${arrowDirection}`;
-      
-      // Crear un mapa de precios para acceso rápido
-      const priceMap = new Map();
-      activeListingsData.forEach(listing => {
-        const currentPrice = priceMap.get(listing.tokenId.toString());
-        const thisPrice = parseFloat(ethers.utils.formatUnits(listing.price, 18));
-        if (!currentPrice || thisPrice < currentPrice) {
-          priceMap.set(listing.tokenId.toString(), thisPrice);
+      async function cancelFloorOffer() {
+        try {
+          const tx = await marketplaceContract.setFloorOffer(NFT_ADDRESS, 0, { gasLimit: 1000000 });
+          await tx.wait();
+          alert("Floor offer cancelled successfully!");
+          loadFloorOffer();
+        } catch (error) {
+          console.error("Error cancelling floor offer:", error);
+          alert("Error cancelling floor offer: " + error.message);
         }
-      });
+      }
       
-      // Ordenar NFTs
-      const sortedNFTs = [...nftData].sort((a, b) => {
-        const tokenIdA = a.name.split('#')[1];
-        const tokenIdB = b.name.split('#')[1];
-        const priceA = priceMap.get(tokenIdA) || Number.MAX_VALUE;
-        const priceB = priceMap.get(tokenIdB) || Number.MAX_VALUE;
-        
-        return currentSortOrder === 'asc' 
-          ? priceA - priceB 
-          : priceB - priceA;
-      });
+      function openTraitOfferForm(traitType, traitValue) {
+        const modalBody = document.querySelector('.modal-body');
+        const existingForm = document.querySelector('.trait-offer-form');
+        if (existingForm) existingForm.remove();
+        const offerForm = document.createElement('div');
+        offerForm.className = 'trait-offer-form mt-4 border-top pt-3';
+        offerForm.innerHTML = `
+          <h5 class="mb-3">Make Trait Offer</h5>
+          <div class="form-group mb-3">
+            <div class="trait-info mb-3">
+              <span class="badge bg-primary me-2">${traitType}</span>
+              <span class="badge bg-secondary">${traitValue}</span>
+            </div>
+            <label class="mb-2">Offer Amount (in $ADRIAN):</label>
+            <input type="text" id="traitOfferAmount_${traitType}_${traitValue}" value="5000" class="form-control">
+          </div>
+          <div class="d-flex justify-content-between">
+            <button class="btn btn-primary" onclick="makeTraitOffer('${traitType}', '${traitValue}')">Submit Trait Offer</button>
+            <button class="btn btn-outline-secondary" onclick="closeTraitOfferForm()">Cancel</button>
+          </div>
+        `;
+        modalBody.appendChild(offerForm);
+        offerForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       
-      displayNFTs(sortedNFTs);
-    }
-
-    // Función para filtrar por tokens listados
-    async function filterByActiveListings() {
-      const button = document.querySelector('button[onclick="filterByActiveListings()"]');
-      const isActive = button.classList.contains('active');
+      function closeTraitOfferForm() {
+        const form = document.querySelector('.trait-offer-form');
+        if (form) form.remove();
+      }
       
-      if (!isActive) {
-        // Activar filtro
+      async function makeTraitOffer(traitType, traitValue) {
+        try {
+          const offerAmount = document.getElementById(`traitOfferAmount_${traitType}_${traitValue}`).value;
+          const offerAmountWei = ethers.utils.parseUnits(offerAmount, 18);
+          const allowance = await tokenContract.allowance(userAccount, OFFER_MANAGER_ADDRESS);
+          if (allowance.lt(offerAmountWei)) {
+            const txApprove = await tokenContract.approve(OFFER_MANAGER_ADDRESS, offerAmountWei);
+            await txApprove.wait();
+            console.log("Approved tokens for trait offer");
+          }
+          const tx = await offerManagerContract.setTraitOffer(traitType, traitValue, offerAmountWei);
+          await tx.wait();
+          alert("Trait offer created successfully!");
+          closeTraitOfferForm();
+        } catch (error) {
+          console.error("Error creating trait offer:", error);
+          alert("Error creating trait offer: " + error.message);
+        }
+      }
+      
+      async function sortByFloorPrice() {
+        const button = document.querySelector('button[onclick="sortByFloorPrice()"]');
+        currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
         button.classList.remove('btn-outline-primary');
-        button.classList.add('btn-primary', 'active');
-        
-        // Filtrar NFTs que tienen listings activos
-        const listedNFTs = nftData.filter(nft => {
-          const tokenId = parseInt(nft.name.split('#')[1]);
-          return activeListingsData.some(listing => 
-            listing.tokenId.toString() === tokenId.toString()
-          );
+        button.classList.add('btn-primary');
+        const arrowDirection = currentSortOrder === 'asc' ? '↑' : '↓';
+        button.innerHTML = `<span class="d-none d-md-inline">Sort by FP</span><span class="d-md-none">Sort FP</span> ${arrowDirection}`;
+        const priceMap = new Map();
+        activeListingsData.forEach(listing => {
+          const currentPrice = priceMap.get(listing.tokenId.toString());
+          const thisPrice = parseFloat(ethers.utils.formatUnits(listing.price, 18));
+          if (!currentPrice || thisPrice < currentPrice) {
+            priceMap.set(listing.tokenId.toString(), thisPrice);
+          }
         });
-        
-        displayNFTs(listedNFTs);
-      } else {
-        // Desactivar filtro
-        button.classList.remove('btn-primary', 'active');
-        button.classList.add('btn-outline-primary');
-        filterAndDisplayNFTs(); // Mostrar todos los NFTs
+        const sortedNFTs = [...nftData].sort((a, b) => {
+          const tokenIdA = a.name.split('#')[1];
+          const tokenIdB = b.name.split('#')[1];
+          const priceA = priceMap.get(tokenIdA) || Number.MAX_VALUE;
+          const priceB = priceMap.get(tokenIdB) || Number.MAX_VALUE;
+          return currentSortOrder === 'asc' ? priceA - priceB : priceB - priceA;
+        });
+        displayNFTs(sortedNFTs);
       }
-    }
-    
-    /*********** Initialize Contracts on DOMContentLoaded ***********/
-    document.addEventListener('DOMContentLoaded', async () => {
-      await initContracts();
-      loadNFTs();
-    });
+      
+      async function filterByActiveListings() {
+        const button = document.querySelector('button[onclick="filterByActiveListings()"]');
+        const isActive = button.classList.contains('active');
+        if (!isActive) {
+          button.classList.remove('btn-outline-primary');
+          button.classList.add('btn-primary', 'active');
+          const listedNFTs = nftData.filter(nft => {
+            const tokenId = parseInt(nft.name.split('#')[1]);
+            return activeListingsData.some(listing => listing.tokenId.toString() === tokenId.toString());
+          });
+          displayNFTs(listedNFTs);
+        } else {
+          button.classList.remove('btn-primary', 'active');
+          button.classList.add('btn-outline-primary');
+          filterAndDisplayNFTs();
+        }
+      }
+      
+      document.addEventListener('DOMContentLoaded', async () => {
+        await initContracts();
+        loadNFTs();
+      });
+    })();
   </script>
 </body>
 </html>
