@@ -1388,6 +1388,50 @@
       }
     }
 
+    // Función para aceptar una floor offer
+    async function acceptFloorOffer(tokenId) {
+      try {
+        // Verificar si hay una floor offer activa
+        const floorOffer = await marketplaceContract.floorOffers(NFT_ADDRESS);
+        if (!floorOffer.active) {
+          alert("No hay una floor offer activa");
+          return;
+        }
+
+        // Verificar si el usuario es el propietario del token
+        const owner = await nftContract.ownerOf(tokenId);
+        if (owner.toLowerCase() !== userAccount.toLowerCase()) {
+          alert("No eres el propietario de este token");
+          return;
+        }
+
+        // Verificar y aprobar el NFT si es necesario
+        const isApproved = await nftContract.isApprovedForAll(userAccount, MARKET_ADDRESS);
+        if (!isApproved) {
+          const txApprove = await nftContract.setApprovalForAll(MARKET_ADDRESS, true);
+          await txApprove.wait();
+        }
+
+        // Aceptar la floor offer
+        const tx = await marketplaceContract.acceptFloorOffer(
+          NFT_ADDRESS,
+          tokenId,
+          0, // nftType
+          { gasLimit: 1000000 }
+        );
+        await tx.wait();
+        alert("Floor offer aceptada exitosamente!");
+        
+        // Cerrar el modal y recargar la vista
+        const modal = bootstrap.Modal.getInstance(document.getElementById('nftModal'));
+        modal.hide();
+        loadNFTs();
+      } catch (error) {
+        console.error("Error aceptando floor offer:", error);
+        alert("Error aceptando floor offer: " + error.message);
+      }
+    }
+
     // Initialize contracts and load NFTs on page load
     document.addEventListener('DOMContentLoaded', async () => {
       await initContracts();
