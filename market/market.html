@@ -342,8 +342,8 @@
     const NFT_ABI = [
       "function tokenURI(uint256 tokenId) view returns (string)",
       "function ownerOf(uint256 tokenId) view returns (address)",
-      "function isApprovedForAll(address owner, address operator) view returns (bool)",
-      "function setApprovalForAll(address operator, bool approved) external"
+      "function getApproved(uint256 tokenId) view returns (address)",
+      "function approve(address to, uint256 tokenId) external"
     ];
     
     async function initContracts() {
@@ -1407,12 +1407,12 @@
           return;
         }
 
-        // Verificar y aprobar el NFT si es necesario
-        const isApproved = await nftContract.isApprovedForAll(userAccount, MARKET_ADDRESS);
-        if (!isApproved) {
-          const txApprove = await nftContract.setApprovalForAll(MARKET_ADDRESS, true);
+        // Verificar y aprobar el NFT específico si es necesario
+        const approvedAddress = await nftContract.getApproved(tokenId);
+        if (approvedAddress.toLowerCase() !== MARKET_ADDRESS.toLowerCase()) {
+          const txApprove = await nftContract.approve(MARKET_ADDRESS, tokenId);
           await txApprove.wait();
-          console.log("NFT aprobado para el marketplace");
+          console.log("NFT específico aprobado para el marketplace");
         }
 
         // Aceptar la floor offer
