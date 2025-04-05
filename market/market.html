@@ -696,8 +696,14 @@
           offer.tokenId.toString() === tokenId.toString()
         );
 
-        // Obtener floor offer
-        const floorOffer = await newMarketplaceContract.floorOffers(NFT_ADDRESS);
+        // Obtener floor offer de forma segura
+        let floorOffer;
+        try {
+          floorOffer = await newMarketplaceContract.floorOffers(NFT_ADDRESS);
+        } catch (e) {
+          console.error("Error retrieving floor offer, defaulting to no active offer:", e);
+          floorOffer = { offerAmount: ethers.BigNumber.from(0), buyer: "", active: false };
+        }
 
         // Construir el contenido del modal
         const modalContent = document.getElementById('nftModalContent');
