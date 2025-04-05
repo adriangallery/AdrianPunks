@@ -625,12 +625,15 @@
         const tokenId = parseInt(nft.name.split('#')[1]);
         
         // Verificar si el usuario es propietario del token usando el contrato AdrianPunks
+        let ownershipStatus = '';
         try {
           const owner = await nftContract.ownerOf(tokenId);
           const isOwner = owner.toLowerCase() === userAccount.toLowerCase();
-          console.log(`Debug: User ${userAccount} ${isOwner ? 'is' : 'is not'} the owner of token ${tokenId}`);
+          ownershipStatus = isOwner ? 
+            `<div class="alert alert-success">Eres el propietario de este token</div>` : 
+            `<div class="alert alert-info">No eres el propietario de este token</div>`;
         } catch (error) {
-          console.log(`Debug: Error checking ownership for token ${tokenId}:`, error);
+          ownershipStatus = `<div class="alert alert-warning">No se pudo verificar la propiedad del token</div>`;
         }
         
         // Obtener listings activos para este token
@@ -660,6 +663,7 @@
           <div class="modal-body text-center">
             <img src="${nft.image}" class="img-fluid rounded mb-3" alt="${nft.name}" onerror="this.src='placeholder.png'">
             <div class="nft-details text-start">
+              ${ownershipStatus}
               <p><strong>Description:</strong> ${nft.description}</p>
               <p><strong>Compiler:</strong> ${nft.compiler}</p>
               <p><strong>Masterminds:</strong> ${nft.masterminds.join(', ')}</p>
