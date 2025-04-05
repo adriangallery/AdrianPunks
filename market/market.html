@@ -481,9 +481,14 @@
     // Función para cargar listings activos
     async function loadActiveListings() {
       try {
-        activeListingsData = await marketplaceContract.getActiveListingsDetailed();
+        const listings = await marketplaceContract.getActiveListingsDetailed();
+        if (!listings || listings.length === 0) {
+          console.log("No hay listings activos en el contrato");
+          activeListingsData = [];
+          return;
+        }
         // Filtrar solo los listings que no han expirado
-        activeListingsData = activeListingsData.filter(listing => 
+        activeListingsData = listings.filter(listing => 
           listing.expirationTime > Math.floor(Date.now() / 1000)
         );
         console.log("Active listings loaded:", activeListingsData);
@@ -911,6 +916,12 @@
     async function loadFloorOffer() {
       try {
         const floorOffer = await marketplaceContract.floorOffers(NFT_ADDRESS);
+        if (!floorOffer) {
+          console.log("No hay floor offer en el contrato");
+          document.getElementById("floorOfferText").innerText = "No floor offer set";
+          document.getElementById("floorOfferSection").classList.add("no-offer");
+          return;
+        }
         const offerAmount = floorOffer.offerAmount;
         const floorSection = document.getElementById("floorOfferSection");
         if (floorOffer.active && offerAmount.gt(0)) {
@@ -1066,7 +1077,6 @@
       const container = document.getElementById('listingOffersContent');
       try {
         const offers = await marketplaceContract.getMyListingOffers(userAccount);
-        
         if (!offers || offers.length === 0) {
           container.innerHTML = '<p class="text-center text-muted">No active listing offers found</p>';
           return;
@@ -1105,7 +1115,6 @@
       const container = document.getElementById('tokenOffersContent');
       try {
         const offers = await marketplaceContract.getMyTokenOffers(userAccount);
-        
         if (!offers || offers.length === 0) {
           container.innerHTML = '<p class="text-center text-muted">No active token offers found</p>';
           return;
@@ -1203,6 +1212,10 @@
       const container = document.getElementById('floorOffersContent');
       try {
         const floorOffer = await marketplaceContract.floorOffers(NFT_ADDRESS);
+        if (!floorOffer) {
+          container.innerHTML = '<p class="text-center text-muted">No active floor offers found</p>';
+          return;
+        }
         
         if (!floorOffer.active) {
           container.innerHTML = '<p class="text-center text-muted">No active floor offers found</p>';
