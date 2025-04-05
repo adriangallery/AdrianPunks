@@ -295,9 +295,10 @@
     
     // Direcciones de contratos y ABIs
     const TOKEN_ADDRESS  = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
-    const NFT_ADDRESS    = "0x4b9afc775d3D1969F727e81BA970B19b9e8054EF";
-    // Nueva dirección de AdrianMarket
-    const MARKET_ADDRESS = "0xe746999546e65c44543a443cc1e9b5fe168ede5d";
+    const NFT_ADDRESS    = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
+    const MARKET_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
+    const ACTIVITY_LOGGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
+    const OFFER_MANAGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
 
     // ABI actualizado del contrato AdrianMarket (se incluyen las funciones nuevas)
     const MARKET_ABI = [
@@ -342,6 +343,35 @@
       "function tokenURI(uint256 tokenId) view returns (string)"
     ];
     
+    // Definir el ABI del contrato AdrianPunks
+    const ADRIAN_PUNKS_ABI = [
+        {
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "tokenId",
+                    "type": "uint256"
+                }
+            ],
+            "name": "ownerOf",
+            "outputs": [
+                {
+                    "internalType": "address",
+                    "name": "",
+                    "type": "address"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        }
+    ];
+
+    // Inicializar contratos
+    let marketContract;
+    let activityLoggerContract;
+    let offerManagerContract;
+    let adrianPunksContract;
+
     async function initContracts() {
       if (window.ethereum) {
         provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -350,6 +380,9 @@
         tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
         nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
         marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
+        activityLoggerContract = new ethers.Contract(ACTIVITY_LOGGER_ADDRESS, ACTIVITY_LOGGER_ABI, signer);
+        offerManagerContract = new ethers.Contract(OFFER_MANAGER_ADDRESS, OFFER_MANAGER_ABI, signer);
+        adrianPunksContract = new ethers.Contract(NFT_ADDRESS, ADRIAN_PUNKS_ABI, signer);
         updateTokenBalance();
         loadFloorOffer();
       } else {
@@ -626,8 +659,8 @@
         // Verificar si el usuario posee el token
         let userOwnsToken = false;
         if (userAccount) {
-          const balance = await nftContract.balanceOf(userAccount, tokenId);
-          userOwnsToken = balance.gt(0);
+          const owner = await adrianPunksContract.ownerOf(tokenId);
+          userOwnsToken = owner.toLowerCase() === userAccount.toLowerCase();
         }
         
         // Obtener listings activos para este token
