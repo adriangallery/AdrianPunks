@@ -655,13 +655,6 @@
 
         const tokenId = parseInt(nft.name.split('#')[1]);
         
-        // Verificar si el usuario posee el token
-        let userOwnsToken = false;
-        if (userAccount) {
-          const owner = await adrianPunksContract.ownerOf(tokenId);
-          userOwnsToken = owner.toLowerCase() === userAccount.toLowerCase();
-        }
-        
         // Obtener listings activos para este token
         const activeListings = await marketplaceContract.getActiveListingsDetailed();
         const tokenListing = activeListings.find(listing => 
@@ -721,28 +714,20 @@
                 <div class="offer">
                   <p>Amount: ${ethers.utils.formatUnits(offer.offerAmount, 18)} $ADRIAN</p>
                   <p>From: ${offer.offerer.slice(0, 6)}...${offer.offerer.slice(-4)}</p>
-                  ${userOwnsToken ? `<button onclick="acceptOffer(${tokenId}, '${offer.offerer}', ${offer.offerAmount})">Accept Offer</button>` : ''}
+                  <button onclick="acceptOffer(${tokenId}, '${offer.offerer}', ${offer.offerAmount})">Accept Offer</button>
                 </div>
               `).join('')}
             </div>
           `;
         }
 
-        // Agregar botones de acción si el usuario es el propietario
-        if (userOwnsToken) {
-          modalContent += `
-            <div class="owner-actions mt-3">
-              <button class="btn btn-primary me-2" onclick="openListTokenForm(${tokenId})">List Token</button>
-              <button class="btn btn-success" onclick="openMakeTokenOfferForm(${tokenId})">Make Offer</button>
-            </div>
-          `;
-        } else {
-          modalContent += `
-            <div class="visitor-actions mt-3">
-              <button class="btn btn-success" onclick="openMakeTokenOfferForm(${tokenId})">Make Offer</button>
-            </div>
-          `;
-        }
+        // Agregar botones de acción
+        modalContent += `
+          <div class="actions mt-3">
+            <button class="btn btn-primary me-2" onclick="openListTokenForm(${tokenId})">List Token</button>
+            <button class="btn btn-success" onclick="openMakeTokenOfferForm(${tokenId})">Make Offer</button>
+          </div>
+        `;
 
         // Mostrar el modal
         const modal = document.getElementById('nftDetailsModal');
