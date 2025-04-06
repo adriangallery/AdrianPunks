@@ -696,10 +696,10 @@
           offer.tokenId.toString() === tokenId.toString()
         );
 
-        // Obtener floor offer de forma segura usando el nuevo contrato
+        // Obtener floor offer de forma segura usando el nuevo contrato con callStatic
         let floorOffer;
         try {
-          floorOffer = await newMarketplaceContract.floorOffers(NFT_ADDRESS);
+          floorOffer = await newMarketplaceContract.callStatic.floorOffers(NFT_ADDRESS);
         } catch (e) {
           console.error("Error retrieving floor offer, defaulting to no active offer:", e);
           floorOffer = { offerAmount: ethers.BigNumber.from(0), buyer: "", active: false };
@@ -955,7 +955,8 @@
     
     async function loadFloorOffer() {
       try {
-        const floorOffer = await newMarketplaceContract.floorOffers(NFT_ADDRESS);
+        // Usar callStatic para obtener la floor offer desde el nuevo contrato
+        const floorOffer = await newMarketplaceContract.callStatic.floorOffers(NFT_ADDRESS);
         const offerAmount = floorOffer.offerAmount;
         const floorSection = document.getElementById("floorOfferSection");
         if (offerAmount.gt(0)) {
@@ -1380,8 +1381,8 @@
     // Función para aceptar una floor offer (usando el nuevo contrato y comprobando solo si offerAmount > 0)
     async function acceptFloorOffer(tokenId) {
       try {
-        // Obtener floor offer desde el nuevo contrato
-        const floorOffer = await newMarketplaceContract.floorOffers(NFT_ADDRESS);
+        // Obtener floor offer desde el nuevo contrato con callStatic
+        const floorOffer = await newMarketplaceContract.callStatic.floorOffers(NFT_ADDRESS);
         if (floorOffer.offerAmount.eq(0)) {
           alert("No hay una floor offer activa para esta colección");
           return;
@@ -1432,7 +1433,8 @@
       const container = document.getElementById('floorOffersContent');
       try {
         console.log("Checking floor offers for address:", userAccount);
-        const floorOffer = await newMarketplaceContract.floorOffers(NFT_ADDRESS);
+        // Usar callStatic para leer la floor offer del nuevo contrato
+        const floorOffer = await newMarketplaceContract.callStatic.floorOffers(NFT_ADDRESS);
         console.log("Floor offer data:", {
           amount: floorOffer.offerAmount.toString(),
           buyer: floorOffer.buyer,
