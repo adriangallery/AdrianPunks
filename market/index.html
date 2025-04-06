@@ -1195,25 +1195,54 @@
         if (balance.toNumber() === 0) {
           tokensHtml = '<p class="text-center text-muted">No tokens found for this wallet.</p>';
         } else {
-          tokensHtml = '<div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2">';
+          // Obtener todos los tokens y sus ofertas
+          const tokensWithOffers = [];
           for (let i = 0; i < balance; i++) {
             const tokenId = await nftContract.tokenOfOwnerByIndex(userAccount, i);
             const nft = nftData.find(n => parseInt(n.name.split('#')[1]) === tokenId.toNumber());
             if (nft) {
-              tokensHtml += `
-                <div class="col">
-                  <div class="card h-100" style="cursor: pointer;" onclick="closeAndShowNFTDetails('${nft.name}')">
-                    <div class="ratio ratio-1x1">
-                      <img src="${nft.image}" class="card-img-top" alt="Token #${tokenId}" style="object-fit: cover;">
-                    </div>
-                    <div class="card-body p-2">
-                      <h6 class="card-title mb-0">${nft.name}</h6>
-                      <small class="text-muted">Rarity: ${nft.rarity.toFixed(2)}</small>
-                    </div>
+              // Obtener ofertas para este token
+              const tokenOffers = await marketplaceContract.getTokenOffersForToken(NFT_ADDRESS, tokenId);
+              const highestOffer = tokenOffers.reduce((max, offer) => {
+                if (offer.exists && offer.offerAmount.gt(max)) {
+                  return offer.offerAmount;
+                }
+                return max;
+              }, ethers.BigNumber.from(0));
+              
+              tokensWithOffers.push({
+                tokenId,
+                nft,
+                highestOffer
+              });
+            }
+          }
+          
+          // Ordenar por oferta más alta
+          tokensWithOffers.sort((a, b) => b.highestOffer.sub(a.highestOffer).toNumber());
+          
+          tokensHtml = '<div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2">';
+          for (const token of tokensWithOffers) {
+            const price = parseFloat(ethers.utils.formatUnits(token.highestOffer, 18));
+            const formattedPrice = price >= 1000000 ? (price / 1000000).toFixed(1) + 'M' :
+                                 price >= 1000 ? (price / 1000).toFixed(1) + 'K' :
+                                 price.toFixed(1);
+            tokensHtml += `
+              <div class="col">
+                <div class="card h-100" style="cursor: pointer;" onclick="closeAndShowNFTDetails('${token.nft.name}')">
+                  <div class="ratio ratio-1x1">
+                    <img src="${token.nft.image}" class="card-img-top" alt="Token ${token.tokenId}" style="object-fit: cover;">
+                  </div>
+                  <div class="card-body p-2">
+                    <h6 class="card-title mb-0">${token.nft.name}</h6>
+                    <small class="text-muted">Rarity: ${token.nft.rarity.toFixed(2)}</small>
+                    ${!token.highestOffer.isZero() ? `
+                      <small class="text-primary d-block">Offer: ${formattedPrice} $A</small>
+                    ` : ''}
                   </div>
                 </div>
-              `;
-            }
+              </div>
+            `;
           }
           tokensHtml += '</div>';
         }
