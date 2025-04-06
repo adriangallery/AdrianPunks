@@ -696,10 +696,10 @@
           offer.tokenId.toString() === tokenId.toString()
         );
 
-        // Obtener floor offer de forma segura
+        // Obtener floor offer de forma segura usando el nuevo contrato
         let floorOffer;
         try {
-          floorOffer = await marketplaceContract.floorOffers(NFT_ADDRESS);
+          floorOffer = await newMarketplaceContract.floorOffers(NFT_ADDRESS);
         } catch (e) {
           console.error("Error retrieving floor offer, defaulting to no active offer:", e);
           floorOffer = { offerAmount: ethers.BigNumber.from(0), buyer: "", active: false };
@@ -762,7 +762,7 @@
                   </div>
                 ` : '<p class="text-muted">No direct offers for this token</p>'}
 
-                ${floorOffer && floorOffer.active ? `
+                ${floorOffer.offerAmount.gt(0) ? `
                   <div class="floor-offer-info mt-2">
                     <p class="mb-1">Floor Offer: ${ethers.utils.formatUnits(floorOffer.offerAmount, 18)} $ADRIAN</p>
                     <small>By: ${floorOffer.buyer.substring(0, 6)}...${floorOffer.buyer.substring(38)}</small>
@@ -958,7 +958,7 @@
         const floorOffer = await newMarketplaceContract.floorOffers(NFT_ADDRESS);
         const offerAmount = floorOffer.offerAmount;
         const floorSection = document.getElementById("floorOfferSection");
-        if (floorOffer.active && offerAmount.gt(0)) {
+        if (offerAmount.gt(0)) {
           document.getElementById("floorOfferText").innerText = 
             `Highest floor offer: ${ethers.utils.formatUnits(offerAmount, 18)} $ADRIAN`;
           floorSection.classList.remove("no-offer");
@@ -1377,12 +1377,12 @@
       }
     }
 
-    // Función para aceptar una floor offer
+    // Función para aceptar una floor offer (usando el nuevo contrato y comprobando solo si offerAmount > 0)
     async function acceptFloorOffer(tokenId) {
       try {
-        // Verificar si hay una floor offer activa
-        const floorOffer = await marketplaceContract.floorOffers(NFT_ADDRESS);
-        if (!floorOffer.active) {
+        // Obtener floor offer desde el nuevo contrato
+        const floorOffer = await newMarketplaceContract.floorOffers(NFT_ADDRESS);
+        if (floorOffer.offerAmount.eq(0)) {
           alert("No hay una floor offer activa para esta colección");
           return;
         }
@@ -1402,9 +1402,9 @@
           console.log("NFT específico aprobado para el marketplace");
         }
 
-        // Aceptar la floor offer
+        // Aceptar la floor offer usando el nuevo contrato
         console.log("Aceptando floor offer para token:", tokenId);
-        const tx = await marketplaceContract.acceptFloorOffer(
+        const tx = await newMarketplaceContract.acceptFloorOffer(
           NFT_ADDRESS,
           tokenId,
           1, // nftType = 1 para ERC721
@@ -1444,12 +1444,12 @@
         const buyerAddress = floorOffer.buyer.toLowerCase();
         const userAddress = userAccount.toLowerCase();
         
-        if (!floorOffer.active || floorOffer.offerAmount.eq(0)) {
+        if (floorOffer.offerAmount.eq(0)) {
           container.innerHTML = '<p class="text-center text-muted">No active floor offers found</p>';
           return;
         }
 
-        // Si hay una oferta activa, mostrarla incluso si no es del usuario actual
+        // Mostrar la oferta de piso si hay un monto mayor a 0
         const offerAmount = ethers.utils.formatUnits(floorOffer.offerAmount, 18);
         let html = `
           <div class="list-group">
