@@ -479,35 +479,104 @@
   <!-- Main Script: NFT loading and Contract Interactions -->
   <script>
     /*********** Global Variables and Contract Setup ***********/
+    const NFT_ADDRESS = "0x1a92f7381b9f03921564a437210bb9396471050c"; // Dirección del contrato ERC721 AdrianPunks
+    const NEW_MARKET_ADDRESS = "0x2d0c8af807ef45ac17cafb21cf10dc5510f8b0ef"; // Dirección del nuevo marketplace
+    const TOKEN_ADDRESS = "0x1a92f7381b9f03921564a437210bb9396471050c"; // Dirección del token $ADRIAN
+    
+    let nftContract;
+    let newMarketplaceContract;
+    let tokenContract;
+    let userAccount;
     let nftData = [];
     let mintedNFTs = [];
     let currentPage = 0;
     let isLoading = false;
     let hasMoreTokens = true;
     const TOKENS_PER_PAGE = 20;
-    
+
+    async function initContracts() {
+      try {
+        // Inicializar provider
+        if (window.ethereum) {
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const signer = provider.getSigner();
+          userAccount = await signer.getAddress();
+
+          // Inicializar contratos
+          nftContract = new ethers.Contract(
+            NFT_ADDRESS,
+            [
+              "function ownerOf(uint256 tokenId) view returns (address)",
+              "function getApproved(uint256 tokenId) view returns (address)",
+              "function approve(address to, uint256 tokenId)",
+              "function balanceOf(address owner) view returns (uint256)",
+              "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)"
+            ],
+            signer
+          );
+
+          newMarketplaceContract = new ethers.Contract(
+            NEW_MARKET_ADDRESS,
+            [
+              "function getActiveListingsDetailed() view returns (tuple(uint256 id, address seller, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime)[])",
+              "function getTokenOffersForToken(address collection, uint256 tokenId) view returns (tuple(uint256 id, address buyer, uint256 offerAmount, uint256 quantity, bool exists)[])",
+              "function floorOffers(address collection, uint256 index) view returns (tuple(uint256 offerAmount, address buyer, bool active))",
+              "function setFloorOffer(address collection, uint256 offerAmount)",
+              "function acceptFloorOffer(address collection, uint256 tokenId, uint256 quantity)",
+              "function createListing(address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 duration, uint256 listingType)",
+              "function cancelListing(uint256 listingId)",
+              "function buyListing(uint256 listingId, uint256 quantity)",
+              "function setTraitOffer(string traitType, string traitValue, uint256 offerAmount)",
+              "function cancelTraitOffer(string traitType, string traitValue)",
+              "function traitOffers(bytes32) view returns (tuple(uint256 offerAmount, address buyer, bool active))",
+              "function makeTokenOffer(address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount)",
+              "function withdrawTokenOffer(address collection, uint256 tokenId)",
+              "function acceptTokenOffer(address collection, uint256 tokenId, uint256 offerId, uint256 quantity)"
+            ],
+            signer
+          );
+
+          tokenContract = new ethers.Contract(
+            TOKEN_ADDRESS,
+            [
+              "function balanceOf(address account) view returns (uint256)",
+              "function allowance(address owner, address spender) view returns (uint256)",
+              "function approve(address spender, uint256 amount)"
+            ],
+            signer
+          );
+
+          // Actualizar balance
+          await updateTokenBalance();
+          await loadFloorOffer();
+        } else {
+          alert("Please install MetaMask to use this application");
+        }
+      } catch (error) {
+        console.error("Error initializing contracts:", error);
+        alert("Error connecting to the blockchain: " + error.message);
+      }
+    }
+
     async function checkMintStatus(startTokenId, endTokenId) {
       try {
-        const promises = [];
+        const mintedTokens = [];
         for (let i = startTokenId; i <= endTokenId; i++) {
-          promises.push(nftContract.ownerOf(i).then(() => ({
-            tokenId: i,
-            minted: true
-          })).catch(() => ({
-            tokenId: i,
-            minted: false
-          })));
+          try {
+            const owner = await nftContract.ownerOf(i);
+            if (owner !== ethers.constants.AddressZero) {
+              mintedTokens.push(i);
+            }
+          } catch (error) {
+            // Si hay un error al verificar ownerOf, asumimos que el token no está minteado
+            // y detenemos la búsqueda ya que los tokens se mintean en orden
+            break;
+          }
         }
-        const results = await Promise.all(promises);
-        // Si encontramos un token no minteado, asumimos que los siguientes tampoco lo están
-        const firstUnminted = results.findIndex(result => !result.minted);
-        if (firstUnminted !== -1) {
-          hasMoreTokens = false;
-          return results.slice(0, firstUnminted);
-        }
-        return results;
+        return mintedTokens;
       } catch (error) {
-        console.error('Error checking mint status:', error);
+        console.error("Error checking mint status:", error);
         return [];
       }
     }
