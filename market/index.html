@@ -153,12 +153,7 @@
           <!-- Tabs para diferentes tipos de ofertas y tokens -->
           <ul class="nav nav-tabs mb-3 d-flex" id="offersTab" role="tablist">
             <li class="nav-item flex-equal" role="presentation">
-              <button class="nav-link active w-100" id="listing-offers-tab" data-bs-toggle="tab" data-bs-target="#listing-offers" type="button" role="tab">
-                Listing
-              </button>
-            </li>
-            <li class="nav-item flex-equal" role="presentation">
-              <button class="nav-link w-100" id="token-offers-tab" data-bs-toggle="tab" data-bs-target="#token-offers" type="button" role="tab">
+              <button class="nav-link active w-100" id="token-offers-tab" data-bs-toggle="tab" data-bs-target="#token-offers" type="button" role="tab">
                 Token
               </button>
             </li>
@@ -211,19 +206,8 @@
 
           <!-- Contenido de los tabs -->
           <div class="tab-content" id="offersTabContent">
-            <!-- Listing Offers -->
-            <div class="tab-pane fade show active" id="listing-offers" role="tabpanel">
-              <div id="listingOffersContent">
-                <div class="text-center">
-                  <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
             <!-- Token Offers -->
-            <div class="tab-pane fade" id="token-offers" role="tabpanel">
+            <div class="tab-pane fade show active" id="token-offers" role="tabpanel">
               <div id="tokenOffersContent">
                 <div class="text-center">
                   <div class="spinner-border text-primary" role="status">
@@ -1068,8 +1052,7 @@
       document.querySelectorAll('#offersTab button').forEach(button => {
         button.addEventListener('click', (e) => {
           const tabId = e.target.getAttribute('data-bs-target').substring(1);
-          if (tabId === 'listing-offers') loadListingOffers();
-          else if (tabId === 'token-offers') loadTokenOffers();
+          if (tabId === 'token-offers') loadTokenOffers();
           else if (tabId === 'floor-offers') loadFloorOffers();
           else if (tabId === 'trait-offers') loadTraitOffers();
         });
@@ -1077,45 +1060,9 @@
     }
     
     async function loadMyOffers() {
-      loadListingOffers();
       loadTokenOffers();
       loadFloorOffers();
       loadTraitOffers();
-    }
-    
-    async function loadListingOffers() {
-      const container = document.getElementById('listingOffersContent');
-      try {
-        const offers = await marketplaceContract.getMyListingOffers(userAccount);
-        if (offers.length === 0) {
-          container.innerHTML = '<p class="text-center text-muted">No active listing offers found</p>';
-          return;
-        }
-        let html = '<div class="list-group">';
-        for (const offer of offers) {
-          if (!offer.exists) continue;
-          const offerAmount = ethers.utils.formatUnits(offer.offerAmount, 18);
-          html += `
-            <div class="list-group-item">
-              <div class="d-flex justify-content-between align-items-center">
-                <div>
-                  <h6 class="mb-1">Offer on Listing #${offer.listingId.toString()}</h6>
-                  <p class="mb-1">Token #${offer.tokenId.toString()} - ${offerAmount} $ADRIAN</p>
-                  <small class="text-muted">Quantity: ${offer.quantity.toString()}</small>
-                </div>
-                <button class="btn btn-danger btn-sm" onclick="cancelListingOffer(${offer.listingId})">
-                  Cancel Offer
-                </button>
-              </div>
-            </div>
-          `;
-        }
-        html += '</div>';
-        container.innerHTML = html;
-      } catch (error) {
-        console.error("Error loading listing offers:", error);
-        container.innerHTML = '<div class="alert alert-danger">Error loading listing offers</div>';
-      }
     }
     
     async function loadTokenOffers() {
@@ -1204,18 +1151,6 @@
       } catch (error) {
         console.error("Error loading MyTokens:", error);
         container.innerHTML = '<div class="alert alert-danger">Error loading tokens: ' + error.message + '</div>';
-      }
-    }
-    
-    async function cancelListingOffer(listingId) {
-      try {
-        const tx = await marketplaceContract.withdrawOffer(listingId, { gasLimit: 1000000 });
-        await tx.wait();
-        alert("Offer cancelled successfully!");
-        loadListingOffers();
-      } catch (error) {
-        console.error("Error cancelling listing offer:", error);
-        alert("Error cancelling offer: " + error.message);
       }
     }
     
