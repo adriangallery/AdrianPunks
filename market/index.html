@@ -149,7 +149,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <!-- Tabs para ofertas: Token, Floor y Trait -->
+          <!-- Tabs: Token, Floor y Trait -->
           <ul class="nav nav-tabs mb-3 d-flex" id="offersTab" role="tablist">
             <li class="nav-item flex-equal" role="presentation">
               <button class="nav-link active w-100" id="token-offers-tab" data-bs-toggle="tab" data-bs-target="#token-offers" type="button" role="tab">
@@ -328,7 +328,7 @@
     const ACTIVITY_LOGGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
     const OFFER_MANAGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
 
-    // ABI actualizado del contrato AdrianMarket (incluye trait offers)
+    // ABI actualizado del contrato AdrianMarket (incluye Trait Offers)
     const MARKET_ABI = [
       "constructor(address _paymentToken)",
       "event FloorOfferAccepted(address indexed collection, address indexed seller, uint256 tokenId, uint256 offerAmount)",
@@ -348,9 +348,8 @@
       "event TraitOfferSet(string traitType, string traitValue, address indexed buyer, uint256 offerAmount)",
       "event TraitOfferAccepted(string traitType, string traitValue, address indexed seller, uint256 tokenId, uint256 offerAmount)",
       "event TraitOfferCancelled(string traitType, string traitValue, address indexed buyer)",
-      "event Unpaused(address account)",
-
-      // Funciones de listings
+      
+      // Listings
       "function createListing(address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 duration, uint8 nftTypeParam) external",
       "function cancelListing(uint256 listingId) external",
       "function buyListing(uint256 listingId, uint256 purchaseQuantity) external",
@@ -359,47 +358,46 @@
       "function getMyListings(address seller) external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)[])",
       "function getListing(uint256 listingId) external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType))",
       "function getActiveTokenListings() external view returns (tuple(address collection, uint256 tokenId, uint256 totalQuantity)[])",
-
+      
       // Floor offers
       "function floorOffers(address, uint256) external view returns (uint256 offerAmount, address buyer, bool active)",
       "function setFloorOffer(address collection, uint256 offerAmount) external",
       "function withdrawFloorOffer(address collection) external",
       "function acceptFloorOffer(address collection, uint256 tokenId, uint8 nftTypeParam) external",
       "function acceptMultipleFloorOffers(address collection, uint256 tokenId, uint8 nftTypeParam, address[] buyers) external",
-
+      
       // Listing Offers
       "function makeOffer(uint256 listingId, uint256 quantity, uint256 offerAmount) external",
       "function withdrawOffer(uint256 listingId) external",
       "function acceptOffer(uint256 listingId, address buyer) external",
       "function getMyListingOffers(address buyer) external view returns (tuple(uint256 id, uint256 listingId, address buyer, uint256 tokenId, uint256 quantity, uint256 offerAmount, bool exists)[])",
-
+      
       // Token offers
       "function makeTokenOffer(address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount) external",
       "function withdrawTokenOffer(address collection, uint256 tokenId) external",
       "function acceptTokenOffer(address collection, uint256 tokenId, uint256 offerId, uint8 nftTypeParam) external",
       "function getMyTokenOffers(address buyer) external view returns (tuple(uint256 id, address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount, address buyer, bool exists)[])",
       "function getTokenOffersForToken(address collection, uint256 tokenId) external view returns (tuple(uint256 id, address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount, address buyer, bool exists)[])",
-
+      
       // Trait offers
       "function setTraitOffer(string traitType, string traitValue, uint256 offerAmount) external",
       "function cancelTraitOffer(string traitType, string traitValue) external",
       "function acceptTraitOffer(string traitType, string traitValue, uint256 tokenId, address collection, uint8 nftTypeParam) external",
-      "function getTraitOffers(address buyer) external view returns (tuple(string traitType, string traitValue, uint256 offerAmount, address buyer, bool exists)[])",
-
-      // Funciones administrativas
+      // NOTA: En este contrato no existe una función para obtener las trait offers.
+      
+      // Administración
       "function owner() external view returns (address)",
       "function paused() external view returns (bool)",
       "function paymentToken() external view returns (address)",
       "function renounceOwnership() external",
       "function transferOwnership(address newOwner) external",
-
-      // Funciones de soporte
+      
+      // Soporte
       "function supportsInterface(bytes4 interfaceId) external view returns (bool)",
       "function onERC1155Received(address, address, uint256, uint256, bytes) external pure returns (bytes4)",
       "function onERC1155BatchReceived(address, address, uint256[], uint256[], bytes) external pure returns (bytes4)"
     ];
 
-    // ABI de los tokens y NFTs (actualizado con ERC721Enumerable)
     const TOKEN_ABI = [
       "function balanceOf(address account) view returns (uint256)",
       "function approve(address spender, uint256 amount) external returns (bool)",
@@ -423,7 +421,7 @@
         userAccount = await signer.getAddress();
         tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
         nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
-        // Para listados usamos el nuevo contrato:
+        // Usamos el nuevo contrato para listados y trait offers
         marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
         newMarketplaceContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, signer);
         updateTokenBalance();
@@ -436,7 +434,7 @@
     /*********** NFT Data Loading and Display ***********/
     let activeFilters = new Map();
     let allTraits = new Map();
-
+    
     function extractTraits(nfts) {
       allTraits.clear();
       nfts.forEach(nft => {
@@ -451,7 +449,7 @@
       });
       return allTraits;
     }
-
+    
     function renderTraitFilters() {
       const container = document.getElementById('traitCategories');
       container.innerHTML = '';
@@ -475,7 +473,7 @@
       });
       updateActiveFiltersDisplay();
     }
-
+    
     function updateActiveFiltersDisplay() {
       const container = document.getElementById('activeFilters');
       if (activeFilters.size === 0) {
@@ -490,7 +488,7 @@
         </span>
       `).join('');
     }
-
+    
     function toggleTraitFilter(traitType, value) {
       if (activeFilters.get(traitType) === value) {
         activeFilters.delete(traitType);
@@ -500,19 +498,19 @@
       renderTraitFilters();
       filterAndDisplayNFTs();
     }
-
+    
     function removeTraitFilter(traitType) {
       activeFilters.delete(traitType);
       renderTraitFilters();
       filterAndDisplayNFTs();
     }
-
+    
     function clearTraitFilters() {
       activeFilters.clear();
       renderTraitFilters();
       filterAndDisplayNFTs();
     }
-
+    
     function filterAndDisplayNFTs() {
       if (!nftData) return;
       let filteredNFTs = nftData;
@@ -526,10 +524,10 @@
       document.getElementById('filteredCount').textContent = `Showing ${filteredNFTs.length} of ${nftData.length}`;
       displayNFTs(filteredNFTs);
     }
-
+    
     let activeListingsData = [];
     let currentSortOrder = 'asc';
-
+    
     async function loadActiveListings() {
       try {
         activeListingsData = await newMarketplaceContract.getActiveListingsDetailed();
@@ -540,7 +538,7 @@
         activeListingsData = [];
       }
     }
-
+    
     async function loadNFTs() {
       try {
         const response = await fetch('adrianpunks.json');
@@ -556,7 +554,7 @@
         document.getElementById('nftGrid').innerHTML = `<div class="alert alert-danger">Error loading NFTs: ${error.message}</div>`;
       }
     }
-
+    
     async function filterByActiveListings() {
       const button = document.querySelector('button[onclick="filterByActiveListings()"]');
       const isActive = button.classList.contains('active');
@@ -574,7 +572,7 @@
         filterAndDisplayNFTs();
       }
     }
-
+    
     async function sortByFloorPrice() {
       const button = document.querySelector('button[onclick="sortByFloorPrice()"]');
       currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
@@ -599,7 +597,7 @@
       });
       displayNFTs(sortedNFTs);
     }
-
+    
     function displayNFTs(nfts) {
       const grid = document.getElementById('nftGrid');
       grid.innerHTML = '';
@@ -629,7 +627,7 @@
         grid.appendChild(card);
       });
     }
-
+    
     async function showNFTDetails(nftName) {
       try {
         const data = await fetch('adrianpunks.json').then(response => response.json());
@@ -647,7 +645,6 @@
         }
         const activeListings = await newMarketplaceContract.getActiveListingsDetailed();
         const tokenListing = activeListings.find(listing => listing.tokenId.toString() === tokenId.toString() && listing.expirationTime > Math.floor(Date.now() / 1000));
-        // Se usa el nuevo contrato para obtener las token offers
         const tokenOffers = await newMarketplaceContract.getMyTokenOffers(userAccount);
         const relevantOffers = tokenOffers.filter(offer => offer.exists && offer.tokenId.toString() === tokenId.toString());
         let floorOffer;
@@ -761,7 +758,7 @@
         alert('Error loading NFT details: ' + error.message);
       }
     }
-
+    
     async function cancelListing(listingId) {
       try {
         const tx = await newMarketplaceContract.cancelListing(listingId, { gasLimit: 1000000 });
@@ -775,7 +772,7 @@
         alert("Error cancelling listing: " + error.message);
       }
     }
-
+    
     function openListingForm(nftName, marketType) {
       const tokenId = nftName.split('#')[1];
       const modalBody = document.querySelector('.modal-body');
@@ -801,12 +798,12 @@
       modalBody.appendChild(listingForm);
       listingForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-
+    
     function closeListingForm() {
       const form = document.querySelector('.listing-form');
       if (form) form.remove();
     }
-
+    
     async function createListing(tokenId) {
       try {
         const price = ethers.utils.parseUnits(document.getElementById('listingPrice').value, 18);
@@ -1088,20 +1085,40 @@
       }
     }
     
-    // --- CORRECCIÓN DEL TAB TRAIT ---
+    // --- Función loadTraitOffers actualizada usando queryFilter de eventos ---
     async function loadTraitOffers() {
       const container = document.getElementById('traitOffersContent');
       try {
-        // Se usa el nuevo contrato y la función getTraitOffers para obtener las ofertas de traits del usuario conectado
-        const traitOffers = await newMarketplaceContract.getTraitOffers(userAccount);
-        if (!traitOffers || traitOffers.length === 0) {
+        // Filtrar los eventos TraitOfferSet donde buyer es el usuario
+        const filter = newMarketplaceContract.filters.TraitOfferSet(null, null, userAccount);
+        const logs = await newMarketplaceContract.queryFilter(filter, 0, "latest");
+        let offers = [];
+        // Decodificar los logs usando la interfaz del contrato
+        logs.forEach(log => {
+          const parsed = newMarketplaceContract.interface.parseLog(log);
+          offers.push({
+            traitType: parsed.args.traitType,
+            traitValue: parsed.args.traitValue,
+            offerAmount: parsed.args.offerAmount,
+            buyer: parsed.args.buyer
+          });
+        });
+        // Ahora, para cada oferta, comprobar si sigue activa consultando el mapping traitOffers
+        let activeOffers = [];
+        for (const offer of offers) {
+          const key = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(["string", "string"], [offer.traitType, offer.traitValue]));
+          const traitOffer = await newMarketplaceContract.traitOffers(key);
+          if (traitOffer.active && traitOffer.buyer.toLowerCase() === userAccount.toLowerCase()) {
+            activeOffers.push(traitOffer);
+          }
+        }
+        if (activeOffers.length === 0) {
           container.innerHTML = '<p class="text-center text-muted">No active trait offers found</p>';
           return;
         }
         let html = '<div class="list-group">';
-        for (const offer of traitOffers) {
-          if (!offer.exists) continue;
-          const offerAmount = ethers.utils.formatUnits(offer.offerAmount, 18);
+        for (const offer of activeOffers) {
+          const offerAmountFormatted = ethers.utils.formatUnits(offer.offerAmount, 18);
           html += `
             <div class="list-group-item">
               <div class="d-flex justify-content-between align-items-center">
@@ -1111,7 +1128,7 @@
                     <span class="badge bg-primary me-2">${offer.traitType}</span>
                     <span class="badge bg-secondary">${offer.traitValue}</span>
                   </div>
-                  <p class="mb-1">${offerAmount} $ADRIAN</p>
+                  <p class="mb-1">${offerAmountFormatted} $ADRIAN</p>
                 </div>
                 <button class="btn btn-danger btn-sm" onclick="cancelTraitOffer('${offer.traitType}', '${offer.traitValue}')">
                   Cancel Offer
@@ -1127,6 +1144,7 @@
         container.innerHTML = '<div class="alert alert-danger">Error loading trait offers</div>';
       }
     }
+    // --- Fin loadTraitOffers ---
     
     async function cancelTraitOffer(traitType, traitValue) {
       try {
@@ -1139,8 +1157,7 @@
         alert("Error cancelling trait offer: " + error.message);
       }
     }
-    // --- FIN CORRECCIÓN DEL TAB TRAIT ---
-
+    
     async function openMyTokensModal() {
       if (!nftContract || !userAccount) {
         alert("Please connect your wallet first.");
