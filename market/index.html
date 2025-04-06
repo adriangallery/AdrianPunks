@@ -1055,9 +1055,22 @@
     }
     
     function closeAndShowNFTDetails(nftName) {
-      const modal = bootstrap.Modal.getInstance(document.getElementById('recentActivityModal'));
-      modal.hide();
-      showNFTDetails(nftName);
+      try {
+        // Cerrar el modal actual
+        const currentModal = document.querySelector('.modal.show');
+        if (currentModal) {
+          const modalInstance = bootstrap.Modal.getInstance(currentModal);
+          if (modalInstance) {
+            modalInstance.hide();
+          }
+        }
+        // Abrir el modal de detalles
+        showNFTDetails(nftName);
+      } catch (error) {
+        console.error("Error al manejar los modales:", error);
+        // Si hay algún error, al menos intentamos mostrar los detalles
+        showNFTDetails(nftName);
+      }
     }
     
     async function openMyOffersModal() {
@@ -1209,12 +1222,6 @@
         console.error("Error loading MyTokens:", error);
         container.innerHTML = '<div class="alert alert-danger">Error loading tokens: ' + error.message + '</div>';
       }
-    }
-    
-    function closeAndShowNFTDetails(nftName) {
-      const modal = bootstrap.Modal.getInstance(document.getElementById('myTokensModal'));
-      modal.hide();
-      showNFTDetails(nftName);
     }
     
     async function cancelListingOffer(listingId) {
