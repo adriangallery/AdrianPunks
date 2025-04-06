@@ -68,7 +68,6 @@
       .then(response => response.text())
       .then(html => {
         document.getElementById('menu-container').innerHTML = html;
-        // Load menu.js after menu HTML is loaded
         const script = document.createElement('script');
         script.src = 'components/menu.js';
         document.head.appendChild(script);
@@ -150,7 +149,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <!-- Tabs para diferentes tipos de ofertas y tokens -->
+          <!-- Tabs para ofertas: Token, Floor y Trait -->
           <ul class="nav nav-tabs mb-3 d-flex" id="offersTab" role="tablist">
             <li class="nav-item flex-equal" role="presentation">
               <button class="nav-link active w-100" id="token-offers-tab" data-bs-toggle="tab" data-bs-target="#token-offers" type="button" role="tab">
@@ -216,7 +215,6 @@
                 </div>
               </div>
             </div>
-
             <!-- Floor Offers -->
             <div class="tab-pane fade" id="floor-offers" role="tabpanel">
               <div id="floorOffersContent">
@@ -227,7 +225,6 @@
                 </div>
               </div>
             </div>
-            
             <!-- Trait Offers -->
             <div class="tab-pane fade" id="trait-offers" role="tabpanel">
               <div id="traitOffersContent">
@@ -331,9 +328,8 @@
     const ACTIVITY_LOGGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
     const OFFER_MANAGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
 
-    // ABI actualizado del contrato AdrianMarket (se incluyen las funciones nuevas)
+    // ABI actualizado del contrato AdrianMarket (incluye trait offers)
     const MARKET_ABI = [
-      // Constructor y eventos
       "constructor(address _paymentToken)",
       "event FloorOfferAccepted(address indexed collection, address indexed seller, uint256 tokenId, uint256 offerAmount)",
       "event FloorOfferSet(address indexed collection, address indexed buyer, uint256 offerAmount)",
@@ -363,40 +359,40 @@
       "function getMyListings(address seller) external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)[])",
       "function getListing(uint256 listingId) external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType))",
       "function getActiveTokenListings() external view returns (tuple(address collection, uint256 tokenId, uint256 totalQuantity)[])",
-      
+
       // Floor offers
       "function floorOffers(address, uint256) external view returns (uint256 offerAmount, address buyer, bool active)",
       "function setFloorOffer(address collection, uint256 offerAmount) external",
       "function withdrawFloorOffer(address collection) external",
       "function acceptFloorOffer(address collection, uint256 tokenId, uint8 nftTypeParam) external",
       "function acceptMultipleFloorOffers(address collection, uint256 tokenId, uint8 nftTypeParam, address[] buyers) external",
-      
+
       // Listing Offers
       "function makeOffer(uint256 listingId, uint256 quantity, uint256 offerAmount) external",
       "function withdrawOffer(uint256 listingId) external",
       "function acceptOffer(uint256 listingId, address buyer) external",
       "function getMyListingOffers(address buyer) external view returns (tuple(uint256 id, uint256 listingId, address buyer, uint256 tokenId, uint256 quantity, uint256 offerAmount, bool exists)[])",
-      
+
       // Token offers
       "function makeTokenOffer(address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount) external",
       "function withdrawTokenOffer(address collection, uint256 tokenId) external",
       "function acceptTokenOffer(address collection, uint256 tokenId, uint256 offerId, uint8 nftTypeParam) external",
       "function getMyTokenOffers(address buyer) external view returns (tuple(uint256 id, address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount, address buyer, bool exists)[])",
       "function getTokenOffersForToken(address collection, uint256 tokenId) external view returns (tuple(uint256 id, address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount, address buyer, bool exists)[])",
-      
+
       // Trait offers
       "function setTraitOffer(string traitType, string traitValue, uint256 offerAmount) external",
       "function cancelTraitOffer(string traitType, string traitValue) external",
       "function acceptTraitOffer(string traitType, string traitValue, uint256 tokenId, address collection, uint8 nftTypeParam) external",
       "function getTraitOffers(address buyer) external view returns (tuple(string traitType, string traitValue, uint256 offerAmount, address buyer, bool exists)[])",
-      
+
       // Funciones administrativas
       "function owner() external view returns (address)",
       "function paused() external view returns (bool)",
       "function paymentToken() external view returns (address)",
       "function renounceOwnership() external",
       "function transferOwnership(address newOwner) external",
-      
+
       // Funciones de soporte
       "function supportsInterface(bytes4 interfaceId) external view returns (bool)",
       "function onERC1155Received(address, address, uint256, uint256, bytes) external pure returns (bytes4)",
@@ -534,7 +530,6 @@
     let activeListingsData = [];
     let currentSortOrder = 'asc';
 
-    // Actualizamos para leer los listados activos del nuevo contrato
     async function loadActiveListings() {
       try {
         activeListingsData = await newMarketplaceContract.getActiveListingsDetailed();
@@ -650,10 +645,9 @@
         } catch (error) {
           ownershipStatus = `<div class="alert alert-warning">No se pudo verificar la propiedad del token</div>`;
         }
-        // Leer los listados activos desde el nuevo contrato
         const activeListings = await newMarketplaceContract.getActiveListingsDetailed();
         const tokenListing = activeListings.find(listing => listing.tokenId.toString() === tokenId.toString() && listing.expirationTime > Math.floor(Date.now() / 1000));
-        // Cambiado para usar el nuevo contrato en la obtención de token offers
+        // Se usa el nuevo contrato para obtener las token offers
         const tokenOffers = await newMarketplaceContract.getMyTokenOffers(userAccount);
         const relevantOffers = tokenOffers.filter(offer => offer.exists && offer.tokenId.toString() === tokenId.toString());
         let floorOffer;
@@ -677,7 +671,6 @@
               <p><strong>Compiler:</strong> ${nft.compiler}</p>
               <p><strong>Masterminds:</strong> ${nft.masterminds.join(', ')}</p>
               <p><strong>Rarity:</strong> ${nft.rarity.toFixed(2)}</p>
-              <!-- Sección de Listing Activo -->
               ${isOwner ? `
                 ${!tokenListing ? `
                   <button class="btn btn-primary w-100 mb-2" onclick="openListingForm('${nft.name}', 'NewAdrianMarket')">
@@ -769,7 +762,6 @@
       }
     }
 
-    // Actualización: ahora cancelamos listados usando el nuevo contrato
     async function cancelListing(listingId) {
       try {
         const tx = await newMarketplaceContract.cancelListing(listingId, { gasLimit: 1000000 });
@@ -784,7 +776,6 @@
       }
     }
 
-    // La función openListingForm permanece igual en UI (se muestra "NewAdrianMarket" en el texto)
     function openListingForm(nftName, marketType) {
       const tokenId = nftName.split('#')[1];
       const modalBody = document.querySelector('.modal-body');
@@ -816,7 +807,6 @@
       if (form) form.remove();
     }
 
-    // Actualización: crear listado usando el nuevo contrato
     async function createListing(tokenId) {
       try {
         const price = ethers.utils.parseUnits(document.getElementById('listingPrice').value, 18);
@@ -1025,7 +1015,6 @@
     
     function closeAndShowNFTDetails(nftName) {
       try {
-        // Cerrar el modal actual
         const currentModal = document.querySelector('.modal.show');
         if (currentModal) {
           const modalInstance = bootstrap.Modal.getInstance(currentModal);
@@ -1033,11 +1022,9 @@
             modalInstance.hide();
           }
         }
-        // Abrir el modal de detalles
         showNFTDetails(nftName);
       } catch (error) {
         console.error("Error al manejar los modales:", error);
-        // Si hay algún error, al menos intentamos mostrar los detalles
         showNFTDetails(nftName);
       }
     }
@@ -1101,16 +1088,16 @@
       }
     }
     
+    // --- CORRECCIÓN DEL TAB TRAIT ---
     async function loadTraitOffers() {
       const container = document.getElementById('traitOffersContent');
       try {
-        // Obtener todas las ofertas de traits
+        // Se usa el nuevo contrato y la función getTraitOffers para obtener las ofertas de traits del usuario conectado
         const traitOffers = await newMarketplaceContract.getTraitOffers(userAccount);
         if (!traitOffers || traitOffers.length === 0) {
           container.innerHTML = '<p class="text-center text-muted">No active trait offers found</p>';
           return;
         }
-
         let html = '<div class="list-group">';
         for (const offer of traitOffers) {
           if (!offer.exists) continue;
@@ -1152,8 +1139,8 @@
         alert("Error cancelling trait offer: " + error.message);
       }
     }
-    
-    // Nueva función: cargar tokens que posee la wallet usando ERC721Enumerable
+    // --- FIN CORRECCIÓN DEL TAB TRAIT ---
+
     async function openMyTokensModal() {
       if (!nftContract || !userAccount) {
         alert("Please connect your wallet first.");
@@ -1239,7 +1226,6 @@
       }
     }
     
-    // Función para abrir el formulario de trait offer
     function openTraitOfferForm(traitType, traitValue) {
       const modalBody = document.querySelector('.modal-body');
       const existingForm = document.querySelector('.trait-offer-form');
@@ -1278,14 +1264,12 @@
       try {
         const offerAmount = document.getElementById(`traitOfferAmount_${traitType}_${traitValue}`).value;
         const offerAmountWei = ethers.utils.parseUnits(offerAmount, 18);
-        // Usar NEW_MARKET_ADDRESS para la aprobación
         const allowance = await tokenContract.allowance(userAccount, NEW_MARKET_ADDRESS);
         if (allowance.lt(offerAmountWei)) {
           const txApprove = await tokenContract.approve(NEW_MARKET_ADDRESS, offerAmountWei);
           await txApprove.wait();
           console.log("Approved tokens for trait offer");
         }
-        // Usar el nuevo contrato para establecer el trait offer
         const tx = await newMarketplaceContract.setTraitOffer(traitType, traitValue, offerAmountWei, { gasLimit: 1000000 });
         await tx.wait();
         alert("Trait offer created successfully!");
@@ -1333,14 +1317,12 @@
       try {
         const offerAmount = document.getElementById(`tokenOfferAmount_${tokenId}`).value;
         const offerAmountWei = ethers.utils.parseUnits(offerAmount, 18);
-        // Verificar y aprobar usando NEW_MARKET_ADDRESS
         const allowance = await tokenContract.allowance(userAccount, NEW_MARKET_ADDRESS);
         if (allowance.lt(offerAmountWei)) {
           const txApprove = await tokenContract.approve(NEW_MARKET_ADDRESS, offerAmountWei);
           await txApprove.wait();
           console.log("Approved tokens for token offer");
         }
-        // Usar el nuevo contrato para hacer el token offer
         const tx = await newMarketplaceContract.makeTokenOffer(
           NFT_ADDRESS,
           tokenId,
@@ -1358,7 +1340,6 @@
       }
     }
     
-    // Actualización en acceptFloorOffer:
     async function acceptFloorOffer(tokenId) {
       try {
         const floorOffer = await newMarketplaceContract.callStatic.floorOffers(NFT_ADDRESS, 0);
