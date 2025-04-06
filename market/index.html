@@ -1102,7 +1102,54 @@
     
     async function loadTraitOffers() {
       const container = document.getElementById('traitOffersContent');
-      container.innerHTML = '<p class="text-center text-muted">Trait offers coming soon...</p>';
+      try {
+        // Obtener todas las ofertas de traits
+        const traitOffers = await newMarketplaceContract.getTraitOffers(userAccount);
+        if (!traitOffers || traitOffers.length === 0) {
+          container.innerHTML = '<p class="text-center text-muted">No active trait offers found</p>';
+          return;
+        }
+
+        let html = '<div class="list-group">';
+        for (const offer of traitOffers) {
+          if (!offer.exists) continue;
+          const offerAmount = ethers.utils.formatUnits(offer.offerAmount, 18);
+          html += `
+            <div class="list-group-item">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <h6 class="mb-1">Trait Offer</h6>
+                  <div class="trait-info mb-1">
+                    <span class="badge bg-primary me-2">${offer.traitType}</span>
+                    <span class="badge bg-secondary">${offer.traitValue}</span>
+                  </div>
+                  <p class="mb-1">${offerAmount} $ADRIAN</p>
+                </div>
+                <button class="btn btn-danger btn-sm" onclick="cancelTraitOffer('${offer.traitType}', '${offer.traitValue}')">
+                  Cancel Offer
+                </button>
+              </div>
+            </div>
+          `;
+        }
+        html += '</div>';
+        container.innerHTML = html;
+      } catch (error) {
+        console.error("Error loading trait offers:", error);
+        container.innerHTML = '<div class="alert alert-danger">Error loading trait offers</div>';
+      }
+    }
+    
+    async function cancelTraitOffer(traitType, traitValue) {
+      try {
+        const tx = await newMarketplaceContract.cancelTraitOffer(traitType, traitValue, { gasLimit: 1000000 });
+        await tx.wait();
+        alert("Trait offer cancelled successfully!");
+        loadTraitOffers();
+      } catch (error) {
+        console.error("Error cancelling trait offer:", error);
+        alert("Error cancelling trait offer: " + error.message);
+      }
     }
     
     // Nueva función: cargar tokens que posee la wallet usando ERC721Enumerable
