@@ -117,10 +117,13 @@
           </ul>
         </div>
         <button class="action-btn outline" onclick="filterByActiveListings()">
-          <span class="d-none d-md-inline">Show Listed</span><span class="d-md-none">Listed</span>
+          <span class="d-none d-md-inline">Listed</span><span class="d-md-none">Listed</span>
         </button>
         <button class="action-btn outline" onclick="sortByFloorPrice()">
           <span class="d-none d-md-inline">Sort by FP</span><span class="d-md-none">Sort FP</span>
+        </button>
+        <button class="action-btn outline" onclick="openMyTokensModal()">
+          <span class="d-none d-md-inline">My</span> Tokens
         </button>
       </div>
     </div>
@@ -318,6 +321,25 @@
               <input type="text" id="popupOfferAmount" value="10000" class="form-control">
             </label>
             <button class="btn btn-primary mt-2" onclick="makeFloorOfferPopup()">Submit Floor Offer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for My Tokens -->
+  <div class="modal fade" id="myTokensModal" tabindex="-1" aria-labelledby="myTokensModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="myTokensModalLabel">My Tokens</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="myTokensModalContent">
+          <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1115,8 +1137,18 @@
     }
     
     // Nueva función: cargar tokens que posee la wallet usando ERC721Enumerable
-    async function loadMyTokens() {
-      const container = document.getElementById('myTokensContent');
+    async function openMyTokensModal() {
+      if (!nftContract || !userAccount) {
+        alert("Please connect your wallet first.");
+        return;
+      }
+      const modal = new bootstrap.Modal(document.getElementById('myTokensModal'));
+      modal.show();
+      loadMyTokensModal();
+    }
+    
+    async function loadMyTokensModal() {
+      const container = document.getElementById('myTokensModalContent');
       container.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
       try {
         const balance = await nftContract.balanceOf(userAccount);
@@ -1125,7 +1157,6 @@
           tokensHtml = '<p class="text-center text-muted">No tokens found for this wallet.</p>';
         } else {
           tokensHtml = '<ul class="list-group">';
-          // Iteramos sobre la cantidad de tokens que posee la wallet
           for (let i = 0; i < balance; i++) {
             const tokenId = await nftContract.tokenOfOwnerByIndex(userAccount, i);
             tokensHtml += `<li class="list-group-item">Token #${tokenId.toString()}</li>`;
