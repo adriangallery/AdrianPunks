@@ -1046,67 +1046,93 @@
       }
     }
     
-    async function openRecentActivityModal() {
-      if (!marketplaceContract) {
-        alert("Please connect your wallet first.");
-        return;
-      }
+    async function loadRecentActivity() {
+      const container = document.getElementById('recentActivityContent');
+      container.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
       try {
-        const activeListings = await newMarketplaceContract.getActiveListingsDetailed();
-        let contentHtml = "";
-        if (activeListings.length === 0) {
-          contentHtml = "<p class='text-center'>No active listings.</p>";
-        } else {
-          contentHtml = "<div class='list-group'>";
-          for (const listing of activeListings) {
-            const nft = nftData.find(n => parseInt(n.name.split('#')[1]) === listing.tokenId.toNumber());
-            const price = parseFloat(ethers.utils.formatUnits(listing.price, 18));
-            const formattedPrice = price >= 1000000 ? (price / 1000000).toFixed(1) + 'M' :
-                                 price >= 1000 ? (price / 1000).toFixed(1) + 'K' :
-                                 price.toFixed(1);
-            contentHtml += `
-              <div class="list-group-item d-flex justify-content-between align-items-center">
-                <div>
-                  <span class="fw-bold">Listing</span> - 
-                  <span class="text-muted">${listing.seller.substring(0, 6)}...${listing.seller.substring(38)}</span> - 
-                  <span class="fw-bold">${listing.tokenId.toString()}</span> - 
-                  <span class="text-primary">${formattedPrice} $A</span> - 
-                  <small class="text-muted">Expires: ${new Date(listing.expirationTime * 1000).toLocaleString()}</small>
-                </div>
-                ${nft ? `
-                  <img src="${nft.image}" 
-                       class="rounded" 
-                       style="width: 30px; height: 30px; object-fit: cover; cursor: pointer;" 
-                       alt="Token ${listing.tokenId}"
-                       onclick="closeAndShowNFTDetails('${nft.name}')">
-                ` : ''}
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const newMarketplaceContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, provider);
+        
+        // Obtener eventos de los últimos 1000 bloques
+        const currentBlock = await provider.getBlockNumber();
+        const fromBlock = Math.max(0, currentBlock - 1000);
+        
+        // Obtener todos los eventos relevantes
+        const [listings, purchases, offers, tokenOffers, traitOffers] = await Promise.all([
+          newMarketplaceContract.queryFilter(newMarketplaceContract.filters.ListingCreated(), fromBlock, currentBlock),
+          newMarketplaceContract.queryFilter(newMarketplaceContract.filters.ListingPurchased(), fromBlock, currentBlock),
+          newMarketplaceContract.queryFilter(newMarketplaceContract.filters.OfferCreated(), fromBlock, currentBlock),
+          newMarketplaceContract.queryFilter(newMarketplaceContract.filters.TokenOfferCreated(), fromBlock, currentBlock),
+          newMarketplaceContract.queryFilter(newMarketplaceContract.filters.TraitOfferSet(), fromBlock, currentBlock)
+        ]);
+        
+        // Combinar y ordenar todos los eventos por timestamp
+        const allEvents = [
+          ...listings.map(e => ({ ...e, type: 'listing' })),
+          ...purchases.map(e => ({ ...e, type: 'purchase' })),
+          ...offers.map(e => ({ ...e, type: 'offer' })),
+          ...tokenOffers.map(e => ({ ...e, type: 'tokenOffer' })),
+          ...traitOffers.map(e => ({ ...e, type: 'traitOffer' }))
+        ].sort((a, b) => b.blockNumber - a.blockNumber);
+        
+        // Limitar a los últimos 50 eventos
+        const recentEvents = allEvents.slice(0, 50);
+        
+        let activityHtml = '<div class="list-group">';
+        for (const event of recentEvents) {
+          const block = await provider.getBlock(event.blockNumber);
+          const timestamp = new Date(block.timestamp * 1000).toLocaleString();
+          const tokenId = event.args.tokenId ? event.args.tokenId.toString() : '';
+          const nft = nftData.find(n => parseInt(n.name.split('#')[1]) === parseInt(tokenId));
+          
+          let eventType, action, price;
+          switch (event.type) {
+            case 'listing':
+              eventType = 'Listing';
+              action = 'listed';
+              price = ethers.utils.formatUnits(event.args.price, 18);
+              break;
+            case 'purchase':
+              eventType = 'Purchase';
+              action = 'purchased';
+              price = ethers.utils.formatUnits(event.args.price, 18);
+              break;
+            case 'offer':
+              eventType = 'Offer';
+              action = 'made an offer of';
+              price = ethers.utils.formatUnits(event.args.offerAmount, 18);
+              break;
+            case 'tokenOffer':
+              eventType = 'Token Offer';
+              action = 'made an offer of';
+              price = ethers.utils.formatUnits(event.args.offerAmount, 18);
+              break;
+            case 'traitOffer':
+              eventType = 'Trait Offer';
+              action = 'made an offer of';
+              price = ethers.utils.formatUnits(event.args.offerAmount, 18);
+              break;
+          }
+          
+          activityHtml += `
+            <div class="list-group-item">
+              <div class="d-flex w-100 justify-content-between">
+                <h6 class="mb-1">${eventType}</h6>
+                <small class="text-muted">${timestamp}</small>
               </div>
-            `;
-          }
-          contentHtml += "</div>";
+              <p class="mb-1">
+                ${event.args.buyer ? event.args.buyer.substring(0, 6) + '...' + event.args.buyer.substring(38) : 
+                  event.args.seller ? event.args.seller.substring(0, 6) + '...' + event.args.seller.substring(38) : ''} 
+                ${action} ${nft ? nft.name : tokenId} for ${parseFloat(price).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1})} $ADRIAN
+              </p>
+            </div>
+          `;
         }
-        document.getElementById("recentActivityContent").innerHTML = contentHtml;
-        let modal = new bootstrap.Modal(document.getElementById('recentActivityModal'));
-        modal.show();
-      } catch (e) {
-        console.error(e);
-        alert("Error loading recent activity: " + e.message);
-      }
-    }
-    
-    function closeAndShowNFTDetails(nftName) {
-      try {
-        const currentModal = document.querySelector('.modal.show');
-        if (currentModal) {
-          const modalInstance = bootstrap.Modal.getInstance(currentModal);
-          if (modalInstance) {
-            modalInstance.hide();
-          }
-        }
-        showNFTDetails(nftName);
+        activityHtml += '</div>';
+        container.innerHTML = activityHtml;
       } catch (error) {
-        console.error("Error al manejar los modales:", error);
-        showNFTDetails(nftName);
+        console.error("Error loading recent activity:", error);
+        container.innerHTML = '<div class="alert alert-danger">Error loading recent activity: ' + error.message + '</div>';
       }
     }
     
