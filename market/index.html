@@ -1312,13 +1312,15 @@
       try {
         const offerAmount = document.getElementById(`traitOfferAmount_${traitType}_${traitValue}`).value;
         const offerAmountWei = ethers.utils.parseUnits(offerAmount, 18);
-        const allowance = await tokenContract.allowance(userAccount, MARKET_ADDRESS);
+        // Usar NEW_MARKET_ADDRESS para la aprobación
+        const allowance = await tokenContract.allowance(userAccount, NEW_MARKET_ADDRESS);
         if (allowance.lt(offerAmountWei)) {
-          const txApprove = await tokenContract.approve(MARKET_ADDRESS, offerAmountWei);
+          const txApprove = await tokenContract.approve(NEW_MARKET_ADDRESS, offerAmountWei);
           await txApprove.wait();
           console.log("Approved tokens for trait offer");
         }
-        const tx = await marketplaceContract.setTraitOffer(traitType, traitValue, offerAmountWei, { gasLimit: 1000000 });
+        // Usar el nuevo contrato para establecer el trait offer
+        const tx = await newMarketplaceContract.setTraitOffer(traitType, traitValue, offerAmountWei, { gasLimit: 1000000 });
         await tx.wait();
         alert("Trait offer created successfully!");
         closeTraitOfferForm();
@@ -1365,13 +1367,15 @@
       try {
         const offerAmount = document.getElementById(`tokenOfferAmount_${tokenId}`).value;
         const offerAmountWei = ethers.utils.parseUnits(offerAmount, 18);
-        const allowance = await tokenContract.allowance(userAccount, MARKET_ADDRESS);
+        // Verificar y aprobar usando NEW_MARKET_ADDRESS
+        const allowance = await tokenContract.allowance(userAccount, NEW_MARKET_ADDRESS);
         if (allowance.lt(offerAmountWei)) {
-          const txApprove = await tokenContract.approve(MARKET_ADDRESS, offerAmountWei);
+          const txApprove = await tokenContract.approve(NEW_MARKET_ADDRESS, offerAmountWei);
           await txApprove.wait();
           console.log("Approved tokens for token offer");
         }
-        const tx = await marketplaceContract.makeTokenOffer(
+        // Usar el nuevo contrato para hacer el token offer
+        const tx = await newMarketplaceContract.makeTokenOffer(
           NFT_ADDRESS,
           tokenId,
           1,
