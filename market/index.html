@@ -663,8 +663,8 @@
         }
         const activeListings = await newMarketplaceContract.getActiveListingsDetailed();
         const tokenListing = activeListings.find(listing => listing.tokenId.toString() === tokenId.toString() && listing.expirationTime > Math.floor(Date.now() / 1000));
-        const tokenOffers = await newMarketplaceContract.getMyTokenOffers(userAccount);
-        const relevantOffers = tokenOffers.filter(offer => offer.exists && offer.tokenId.toString() === tokenId.toString());
+        const tokenOffers = await newMarketplaceContract.getTokenOffersForToken(NFT_ADDRESS, tokenId);
+        const relevantOffers = tokenOffers.filter(offer => offer.exists);
         let floorOffer;
         try {
           floorOffer = await newMarketplaceContract.callStatic.floorOffers(NFT_ADDRESS, 0);
@@ -724,7 +724,14 @@
                       </div>
                     `).join('')}
                   </div>
-                ` : '<p class="text-muted">No direct offers for this token</p>'}
+                ` : `
+                  <div class="text-center">
+                    <div class="spinner-border text-primary spinner-border-sm" role="status">
+                      <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="text-muted mt-2">Loading offers...</p>
+                  </div>
+                `}
                 ${floorOffer.offerAmount.gt(0) ? `
                   <div class="floor-offer-info mt-2">
                     <p class="mb-1">Floor Offer: ${ethers.utils.formatUnits(floorOffer.offerAmount, 18)} $ADRIAN</p>
