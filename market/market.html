@@ -316,12 +316,12 @@
       "event OfferWithdrawn(uint256 indexed offerId, uint256 indexed listingId, address indexed buyer)",
       "event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)",
       "event Paused(address account)",
-      "event TokenOfferAccepted(uint256 indexed offerId, address indexed collection, uint256 indexed tokenId, address seller, address buyer, uint256 offerAmount)",
       "event TokenOfferCreated(uint256 indexed offerId, address indexed collection, uint256 indexed tokenId, address buyer, uint256 quantity, uint256 offerAmount)",
       "event TokenOfferWithdrawn(uint256 indexed offerId, address indexed collection, uint256 indexed tokenId, address buyer)",
+      "event TokenOfferAccepted(uint256 indexed offerId, address indexed collection, uint256 indexed tokenId, address seller, address buyer, uint256 offerAmount)",
+      "event TraitOfferSet(string traitType, string traitValue, address indexed buyer, uint256 offerAmount)",
       "event TraitOfferAccepted(string traitType, string traitValue, address indexed seller, uint256 tokenId, uint256 offerAmount)",
       "event TraitOfferCancelled(string traitType, string traitValue, address indexed buyer)",
-      "event TraitOfferSet(string traitType, string traitValue, address indexed buyer, uint256 offerAmount)",
       "event Unpaused(address account)",
 
       // Funciones de listings
@@ -335,7 +335,7 @@
       "function getActiveTokenListings() external view returns (tuple(address collection, uint256 tokenId, uint256 totalQuantity)[])",
       
       // Floor offers
-      "function floorOffers(address) external view returns (uint256 offerAmount, address buyer, bool active)",
+      "function floorOffers(address, uint256) external view returns (uint256 offerAmount, address buyer, bool active)",
       "function setFloorOffer(address collection, uint256 offerAmount) external",
       "function withdrawFloorOffer(address collection) external",
       "function acceptFloorOffer(address collection, uint256 tokenId, uint8 nftTypeParam) external",
@@ -696,10 +696,10 @@
           offer.tokenId.toString() === tokenId.toString()
         );
 
-        // Obtener floor offer de forma segura usando el nuevo contrato con callStatic
+        // Obtener floor offer de forma segura usando el nuevo contrato (usando callStatic y pasando el índice 0)
         let floorOffer;
         try {
-          floorOffer = await newMarketplaceContract.callStatic.floorOffers(NFT_ADDRESS);
+          floorOffer = await newMarketplaceContract.callStatic.floorOffers(NFT_ADDRESS, 0);
         } catch (e) {
           console.error("Error retrieving floor offer, defaulting to no active offer:", e);
           floorOffer = { offerAmount: ethers.BigNumber.from(0), buyer: "", active: false };
@@ -955,8 +955,8 @@
     
     async function loadFloorOffer() {
       try {
-        // Usar callStatic para obtener la floor offer desde el nuevo contrato
-        const floorOffer = await newMarketplaceContract.callStatic.floorOffers(NFT_ADDRESS);
+        // Usar callStatic y pasar el índice 0 para obtener la oferta más alta
+        const floorOffer = await newMarketplaceContract.callStatic.floorOffers(NFT_ADDRESS, 0);
         const offerAmount = floorOffer.offerAmount;
         const floorSection = document.getElementById("floorOfferSection");
         if (offerAmount.gt(0)) {
@@ -1381,8 +1381,8 @@
     // Función para aceptar una floor offer (usando el nuevo contrato y comprobando solo si offerAmount > 0)
     async function acceptFloorOffer(tokenId) {
       try {
-        // Obtener floor offer desde el nuevo contrato con callStatic
-        const floorOffer = await newMarketplaceContract.callStatic.floorOffers(NFT_ADDRESS);
+        // Obtener floor offer desde el nuevo contrato con callStatic y el índice 0
+        const floorOffer = await newMarketplaceContract.callStatic.floorOffers(NFT_ADDRESS, 0);
         if (floorOffer.offerAmount.eq(0)) {
           alert("No hay una floor offer activa para esta colección");
           return;
@@ -1433,8 +1433,8 @@
       const container = document.getElementById('floorOffersContent');
       try {
         console.log("Checking floor offers for address:", userAccount);
-        // Usar callStatic para leer la floor offer del nuevo contrato
-        const floorOffer = await newMarketplaceContract.callStatic.floorOffers(NFT_ADDRESS);
+        // Usar callStatic para leer la floor offer del nuevo contrato, con índice 0
+        const floorOffer = await newMarketplaceContract.callStatic.floorOffers(NFT_ADDRESS, 0);
         console.log("Floor offer data:", {
           amount: floorOffer.offerAmount.toString(),
           buyer: floorOffer.buyer,
