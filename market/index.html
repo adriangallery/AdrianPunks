@@ -366,8 +366,9 @@
       "event TraitOfferSet(string traitType, string traitValue, address indexed buyer, uint256 offerAmount)",
       "event TraitOfferAccepted(string traitType, string traitValue, address indexed seller, uint256 tokenId, uint256 offerAmount)",
       "event TraitOfferCancelled(string traitType, string traitValue, address indexed buyer)",
-      
-      // Listings
+      "event Unpaused(address account)",
+
+      // Funciones de listings
       "function createListing(address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 duration, uint8 nftTypeParam) external",
       "function cancelListing(uint256 listingId) external",
       "function buyListing(uint256 listingId, uint256 purchaseQuantity) external",
@@ -401,16 +402,16 @@
       "function setTraitOffer(string traitType, string traitValue, uint256 offerAmount) external",
       "function cancelTraitOffer(string traitType, string traitValue) external",
       "function acceptTraitOffer(string traitType, string traitValue, uint256 tokenId, address collection, uint8 nftTypeParam) external",
-      // NOTA: En este contrato no existe una función para obtener las trait offers.
+      "function getTraitOffers(address buyer) external view returns (tuple(string traitType, string traitValue, uint256 offerAmount, address buyer, bool exists)[])",
       
-      // Administración
+      // Funciones administrativas
       "function owner() external view returns (address)",
       "function paused() external view returns (bool)",
       "function paymentToken() external view returns (address)",
       "function renounceOwnership() external",
       "function transferOwnership(address newOwner) external",
       
-      // Soporte
+      // Funciones de soporte
       "function supportsInterface(bytes4 interfaceId) external view returns (bool)",
       "function onERC1155Received(address, address, uint256, uint256, bytes) external pure returns (bytes4)",
       "function onERC1155BatchReceived(address, address, uint256[], uint256[], bytes) external pure returns (bytes4)"
@@ -664,6 +665,7 @@
         const activeListings = await newMarketplaceContract.getActiveListingsDetailed();
         const tokenListing = activeListings.find(listing => listing.tokenId.toString() === tokenId.toString() && listing.expirationTime > Math.floor(Date.now() / 1000));
         const tokenOffers = await newMarketplaceContract.getTokenOffersForToken(NFT_ADDRESS, tokenId);
+        console.log("Token offers:", tokenOffers); // Para debugging
         const relevantOffers = tokenOffers.filter(offer => offer.exists);
         let floorOffer;
         try {
