@@ -1156,12 +1156,25 @@
         if (balance.toNumber() === 0) {
           tokensHtml = '<p class="text-center text-muted">No tokens found for this wallet.</p>';
         } else {
-          tokensHtml = '<ul class="list-group">';
+          tokensHtml = '<div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2">';
           for (let i = 0; i < balance; i++) {
             const tokenId = await nftContract.tokenOfOwnerByIndex(userAccount, i);
-            tokensHtml += `<li class="list-group-item">Token #${tokenId.toString()}</li>`;
+            const nft = nftData.find(n => parseInt(n.name.split('#')[1]) === tokenId.toNumber());
+            if (nft) {
+              tokensHtml += `
+                <div class="col">
+                  <div class="card h-100">
+                    <img src="${nft.image}" class="card-img-top" alt="Token #${tokenId}" style="height: 100px; object-fit: cover;">
+                    <div class="card-body p-2">
+                      <h6 class="card-title mb-0">${nft.name}</h6>
+                      <small class="text-muted">Rarity: ${nft.rarity.toFixed(2)}</small>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }
           }
-          tokensHtml += '</ul>';
+          tokensHtml += '</div>';
         }
         container.innerHTML = tokensHtml;
       } catch (error) {
