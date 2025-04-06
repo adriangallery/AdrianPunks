@@ -879,6 +879,29 @@
       }
     }
     
+    // NUEVA FUNCIÓN: buyToken
+    // Esta función gestiona la compra de un token usando el nuevo contrato de AdrianMarket,
+    // solicitando la aprobación necesaria y comprando el listado activo.
+    async function buyToken(listingId, priceStr) {
+      try {
+        const price = ethers.BigNumber.from(priceStr);
+        const currentAllowance = await tokenContract.allowance(userAccount, NEW_MARKET_ADDRESS);
+        if (currentAllowance.lt(price)) {
+          const txApprove = await tokenContract.approve(NEW_MARKET_ADDRESS, price);
+          await txApprove.wait();
+        }
+        const txPurchase = await newMarketplaceContract.buyListing(listingId, 1, { gasLimit: 1000000 });
+        await txPurchase.wait();
+        alert("Purchase successful!");
+        loadNFTs();
+        const modal = bootstrap.Modal.getInstance(document.getElementById('nftModal'));
+        modal.hide();
+      } catch (error) {
+        console.error("Error purchasing token:", error);
+        alert("Error purchasing token: " + error.message);
+      }
+    }
+    
     async function updateTokenBalance() {
       try {
         const balanceRaw = await tokenContract.balanceOf(userAccount);
