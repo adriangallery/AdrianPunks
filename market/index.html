@@ -1229,6 +1229,20 @@
             const tokenId = await nftContract.tokenOfOwnerByIndex(userAccount, i);
             const nft = nftData.find(n => parseInt(n.name.split('#')[1]) === tokenId.toNumber());
             if (nft) {
+              // Obtener las ofertas para este token
+              const tokenOffers = await newMarketplaceContract.getTokenOffersForToken(NFT_ADDRESS, tokenId);
+              const relevantOffers = tokenOffers.filter(offer => offer.exists);
+              let highestOffer = null;
+              if (relevantOffers.length > 0) {
+                highestOffer = relevantOffers.reduce((max, offer) => 
+                  offer.offerAmount.gt(max.offerAmount) ? offer : max
+                );
+              }
+              const offerAmount = highestOffer ? ethers.utils.formatUnits(highestOffer.offerAmount, 18) : null;
+              const formattedOffer = offerAmount ? 
+                (parseFloat(offerAmount) >= 1000000 ? (parseFloat(offerAmount) / 1000000).toFixed(1) + 'M' :
+                 parseFloat(offerAmount) >= 1000 ? (parseFloat(offerAmount) / 1000).toFixed(1) + 'K' :
+                 parseFloat(offerAmount).toFixed(1)) + ' $A' : '';
               tokensHtml += `
                 <div class="col">
                   <div class="card h-100" style="cursor: pointer;" onclick="closeAndShowNFTDetails('${nft.name}')">
@@ -1238,6 +1252,7 @@
                     <div class="card-body p-2">
                       <h6 class="card-title mb-0">${nft.name}</h6>
                       <small class="text-muted">Rarity: ${nft.rarity.toFixed(2)}</small>
+                      ${formattedOffer ? `<small class="text-success d-block">Offer: ${formattedOffer}</small>` : ''}
                     </div>
                   </div>
                 </div>
