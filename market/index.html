@@ -1501,6 +1501,37 @@
       }
     }
     
+    async function acceptTokenOffer(collection, tokenId, offerId) {
+      try {
+        const owner = await nftContract.ownerOf(tokenId);
+        if (owner.toLowerCase() !== userAccount.toLowerCase()) {
+          alert("You are not the owner of this token");
+          return;
+        }
+        const approvedAddress = await nftContract.getApproved(tokenId);
+        if (approvedAddress.toLowerCase() !== NEW_MARKET_ADDRESS.toLowerCase()) {
+          const txApprove = await nftContract.approve(NEW_MARKET_ADDRESS, tokenId);
+          await txApprove.wait();
+          console.log("NFT approved for the new marketplace");
+        }
+        const tx = await newMarketplaceContract.acceptTokenOffer(
+          collection,
+          tokenId,
+          offerId,
+          1,
+          { gasLimit: 1000000 }
+        );
+        await tx.wait();
+        alert("Token offer accepted successfully!");
+        const modal = bootstrap.Modal.getInstance(document.getElementById('nftModal'));
+        modal.hide();
+        loadNFTs();
+      } catch (error) {
+        console.error("Error accepting token offer:", error);
+        alert("Error accepting token offer: " + error.message);
+      }
+    }
+    
     document.addEventListener('DOMContentLoaded', async () => {
       await initContracts();
       loadNFTs();
