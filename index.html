@@ -14,27 +14,6 @@
       margin: 0;
       padding: 0;
       font-family: 'VT323', monospace;
-      padding-top: 60px; /* Espacio para el menú fijo */
-    }
-    .navbar {
-      position: fixed;
-      top: 0;
-      width: 100%;
-      z-index: 100;
-      background-color: #fff;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .token-symbol {
-      font-weight: bold;
-      color: #333;
-    }
-    .navbar-nav .nav-link {
-      color: #333;
-      font-size: 1.1rem;
-      padding: 0.5rem 1rem;
-    }
-    .navbar-nav .nav-link:hover {
-      color: #007bff;
     }
     h1 {
       font-size: 3rem;
@@ -184,45 +163,6 @@
   </style>
 </head>
 <body>
-  <!-- Menú de navegación -->
-  <nav class="navbar navbar-expand-lg">
-    <div class="container-fluid">
-      <div class="d-flex align-items-center">
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-        <span class="navbar-text token-symbol ms-2">$ADRIAN</span>
-      </div>
-      
-      <!-- Botón Connect visible solo en mobile -->
-      <div class="d-flex d-lg-none align-items-center">
-        <button id="connectWalletButtonMobile" class="btn btn-primary">Connect</button>
-      </div>
-
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav me-auto">
-          <li class="nav-item">
-            <a class="nav-link active" href="index.html">Home</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="market/market.html">Market</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="stake/stake.html">Stake</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="claim/claim.html">Claim</a>
-          </li>
-        </ul>
-      </div>
-
-      <!-- Botón Connect visible solo en desktop -->
-      <div class="d-none d-lg-flex align-items-center ms-auto desktop-wallet-section">
-        <button id="connectWalletButton" class="btn btn-primary">Connect Wallet</button>
-      </div>
-    </div>
-  </nav>
-
   <div class="container">
     <h1>Adrian Punks <span style="color: red;">&#9632;</span><span style="color: blue;">&#9632;</span></h1>
     <img src="https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/1.gif" alt="Adrian Punks">
@@ -289,111 +229,30 @@
     // Actualizar el contador cada 30 segundos
     setInterval(updateMintedCounter, 30000);
     
-    // Funciones del menú
-    function isMobile() {
-      return /Mobi|Android/i.test(navigator.userAgent);
-    }
-
-    function ensureEthers(callback) {
-      if (typeof ethers !== 'undefined') {
-        callback();
-      } else {
-        var script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js';
-        script.onload = callback;
-        script.onerror = function () {
-          console.error('Failed to load ethers.js');
-          alert('Error: Failed to load ethers.js. Please reload the page.');
-        };
-        document.head.appendChild(script);
-      }
-    }
-
-    function handleAccountsChanged(accounts) {
-      if (accounts.length === 0) {
-        disconnectWallet();
-      } else {
-        const shortAddress = `${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`;
-        document.getElementById('connectWalletButton').innerHTML = `Connected: ${shortAddress}`;
-        document.getElementById('connectWalletButtonMobile').innerHTML = shortAddress;
-      }
-    }
-
-    function disconnectWallet() {
-      provider = null;
-      signer = null;
-      userAccount = null;
-      adrianPunksContract = null;
-      adrianTokenContract = null;
-      
-      document.getElementById('connectWalletButton').innerHTML = "Connect Wallet";
-      document.getElementById('connectWalletButtonMobile').innerHTML = "Connect";
-      document.getElementById("mintForm").style.display = "none";
-      document.getElementById("mintedCounter").style.display = "none";
-      document.getElementById("totalCounter").style.display = "none";
-      document.getElementById("status").innerText = "";
-      
-      if (window.ethereum) {
-        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
-      }
-    }
-
-    // Modificar la función connectWallet existente para manejar ambos botones
     async function connectWallet() {
-      ensureEthers(async () => {
-        try {
-          if (!window.ethereum) {
-            document.getElementById("status").innerText = "Please install MetaMask.";
-            return;
-          }
-
-          provider = new ethers.providers.Web3Provider(window.ethereum);
-          await provider.send("eth_requestAccounts", []);
-          signer = provider.getSigner();
-          userAccount = await signer.getAddress();
-          
-          // Actualizar botones con la dirección truncada
-          const shortAddress = `${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
-          document.getElementById('connectWalletButton').innerHTML = `Connected: ${shortAddress}`;
-          document.getElementById('connectWalletButtonMobile').innerHTML = shortAddress;
-          
-          document.getElementById("status").innerText = "Wallet connected: " + userAccount;
-          adrianPunksContract = new ethers.Contract(adrianPunksAddress, adrianPunksABI, signer);
-          adrianTokenContract = new ethers.Contract(adrianTokenAddress, erc20ABI, signer);
-          
-          document.getElementById("mintForm").style.display = "block";
-          document.getElementById("mintedCounter").style.display = "block";
-          document.getElementById("totalCounter").style.display = "block";
-          
-          await updateMintedCounter();
-          loadWhitelistInfo();
-          
-          // Escuchar cambios de cuenta
-          window.ethereum.on('accountsChanged', handleAccountsChanged);
-          
-        } catch (error) {
-          console.error("Error connecting wallet:", error);
-          document.getElementById("status").innerText = "Error connecting wallet: " + error.message;
+      try {
+        if (!window.ethereum) {
+          document.getElementById("status").innerText = "Please install MetaMask.";
+          return;
         }
-      });
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        userAccount = await signer.getAddress();
+        document.getElementById("status").innerText = "Wallet connected: " + userAccount;
+        adrianPunksContract = new ethers.Contract(adrianPunksAddress, adrianPunksABI, signer);
+        adrianTokenContract = new ethers.Contract(adrianTokenAddress, erc20ABI, signer);
+        document.getElementById("connectWalletButton").disabled = true;
+        document.getElementById("mintForm").style.display = "block";
+        document.getElementById("mintedCounter").style.display = "block";
+        document.getElementById("totalCounter").style.display = "block";
+        await updateMintedCounter();
+        loadWhitelistInfo();
+      } catch (error) {
+        console.error("Error connecting wallet:", error);
+        document.getElementById("status").innerText = "Error connecting wallet: " + error.message;
+      }
     }
-
-    // Verificar conexión al cargar la página
-    window.addEventListener('load', () => {
-      ensureEthers(async () => {
-        if (window.ethereum) {
-          provider = new ethers.providers.Web3Provider(window.ethereum);
-          try {
-            const accounts = await provider.listAccounts();
-            if (accounts.length > 0) {
-              await connectWallet();
-            }
-          } catch (error) {
-            console.error("Error checking wallet connection:", error);
-          }
-        }
-      });
-    });
     
     function getTierName(i) {
       if(i === 0) return "OWNER";
