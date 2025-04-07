@@ -764,24 +764,41 @@
         // Consultamos cuántos tokens se han minteado hasta el momento
         const mintedCountBN = await nftContract.totalMinted();
         const mintedCount = mintedCountBN.toNumber();
-        console.log("Minted count:", mintedCount);
-
-        const response = await fetch('adrianpunks.json');
-        if (!response.ok) throw new Error('Error loading NFTs');
+        
+        // Cargamos los datos de los NFTs
+        const response = await fetch('/market/adrianpunks.json');
         const data = await response.json();
-        // Filtrar para mostrar solo los tokens cuyo ID <= mintedCount
-        nftData = (data.collection || []).filter(nft => {
-          const tokenIdStr = nft.name.split('#')[1];
-          const tokenId = parseInt(tokenIdStr);
-          return tokenId <= mintedCount;
+        nftData = data.collection;
+        
+        // Filtramos solo los NFTs que han sido minteados
+        const mintedNFTs = nftData.filter(nft => nft.id <= mintedCount);
+        
+        // Mostramos los NFTs en la cuadrícula
+        const nftGrid = document.getElementById("nftGrid");
+        nftGrid.innerHTML = "";
+        
+        mintedNFTs.forEach(nft => {
+          const nftCard = document.createElement("div");
+          nftCard.className = "col-md-4 mb-4";
+          nftCard.innerHTML = `
+            <div class="card h-100">
+              <img src="${nft.image}" class="card-img-top" alt="${nft.name}">
+              <div class="card-body">
+                <h5 class="card-title">${nft.name}</h5>
+                <p class="card-text">ID: ${nft.id}</p>
+                <button class="btn btn-primary" onclick="makeOffer(${nft.id})">Make Offer</button>
+              </div>
+            </div>
+          `;
+          nftGrid.appendChild(nftCard);
         });
-        await loadActiveListings();
-        extractTraits(nftData);
-        renderTraitFilters();
-        filterAndDisplayNFTs();
       } catch (error) {
-        console.error('Error:', error);
-        document.getElementById('nftGrid').innerHTML = `<div class="alert alert-danger">Error loading NFTs: ${error.message}</div>`;
+        console.error("Error loading NFTs:", error);
+        document.getElementById("nftGrid").innerHTML = `
+          <div class="col-12 text-center">
+            <p class="text-danger">Error loading NFTs. Please try again later.</p>
+          </div>
+        `;
       }
     }
     
