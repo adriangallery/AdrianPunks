@@ -326,12 +326,15 @@
     async function loadNFTData() {
       try {
         const response = await fetch('/api/nfts');
+        if (!response.ok) throw new Error('Error loading NFTs');
         const data = await response.json();
-        nftData = data.collection.slice(0, 5); // Solo los primeros 5 tokens
+        
+        // Asegurarnos de que solo usamos los primeros 5 tokens
+        const firstFiveNFTs = data.collection.slice(0, 5);
         
         // Seleccionar un NFT aleatorio de los primeros 5
-        const randomIndex = Math.floor(Math.random() * nftData.length);
-        const randomNFT = nftData[randomIndex];
+        const randomIndex = Math.floor(Math.random() * firstFiveNFTs.length);
+        const randomNFT = firstFiveNFTs[randomIndex];
         
         const featuredImage = document.getElementById('featuredImage');
         featuredImage.src = randomNFT.image;
