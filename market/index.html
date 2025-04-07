@@ -627,6 +627,7 @@
         // Usamos el nuevo contrato para listados y trait offers
         marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
         newMarketplaceContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, signer);
+        await loadNFTs(); // Cargamos los NFTs después de inicializar los contratos
         updateTokenBalance();
         loadFloorOffer();
       } else {
@@ -744,45 +745,45 @@
     
     // MODIFICACIÓN: Filtrar NFTs según la cantidad minteada
     async function loadNFTs() {
-        try {
-            // Verificar si MetaMask está instalado
-            if (typeof window.ethereum === 'undefined') {
-                displayMessage('Please install MetaMask to view NFTs', 'error');
-                return;
-            }
-
-            // Verificar si hay una cuenta conectada
-            const accounts = await ethereum.request({ method: 'eth_accounts' });
-            if (accounts.length === 0) {
-                displayMessage('Please connect your wallet to view NFTs', 'warning');
-                return;
-            }
-
-            // Obtener el total de NFTs minteados
-            const mintedCountBN = await nftContract.totalMinted();
-            const totalMinted = mintedCountBN.toNumber();
-            
-            // Cargar datos del JSON
-            const response = await fetch('/market/adrianpunks.json');
-            const data = await response.json();
-            nftData = data.collection;
-
-            // Limpiar el grid de NFTs
-            const nftGrid = document.getElementById('nft-grid');
-            nftGrid.innerHTML = '';
-
-            // Mostrar los NFTs minteados
-            for (let i = 0; i < totalMinted; i++) {
-                const nft = nftData[i];
-                if (nft) {
-                    const nftCard = createNFTCard(nft);
-                    nftGrid.appendChild(nftCard);
-                }
-            }
-        } catch (error) {
-            console.error('Error loading NFTs:', error);
-            displayMessage('Error loading NFTs: ' + error.message, 'error');
+      try {
+        if (!window.ethereum) {
+          document.getElementById("nftGrid").innerHTML = `
+            <div class="col-12 text-center">
+              <p class="text-muted">Please install MetaMask to view NFTs</p>
+            </div>
+          `;
+          return;
         }
+        if (!userAccount) {
+          document.getElementById("nftGrid").innerHTML = `
+            <div class="col-12 text-center">
+              <p class="text-muted">Please connect your wallet to view NFTs</p>
+            </div>
+          `;
+          return;
+        }
+        // Consultamos cuántos tokens se han minteado hasta el momento
+        const mintedCountBN = await nftContract.totalMinted();
+        const mintedCount = mintedCountBN.toNumber();
+        console.log("Minted count:", mintedCount);
+
+        const response = await fetch('adrianpunks.json');
+        if (!response.ok) throw new Error('Error loading NFTs');
+        const data = await response.json();
+        // Filtrar para mostrar solo los tokens cuyo ID <= mintedCount
+        nftData = (data.collection || []).filter(nft => {
+          const tokenIdStr = nft.name.split('#')[1];
+          const tokenId = parseInt(tokenIdStr);
+          return tokenId <= mintedCount;
+        });
+        await loadActiveListings();
+        extractTraits(nftData);
+        renderTraitFilters();
+        filterAndDisplayNFTs();
+      } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('nftGrid').innerHTML = `<div class="alert alert-danger">Error loading NFTs: ${error.message}</div>`;
+      }
     }
     
     async function displayNFTs(nfts) {
@@ -821,7 +822,7 @@
     
     async function showNFTDetails(nftName) {
       try {
-        const data = await fetch('/market/adrianpunks.json').then(response => response.json());
+        const data = await fetch('adrianpunks.json').then(response => response.json());
         const nft = data.collection.find(n => n.name === nftName);
         if (!nft) throw new Error("NFT not found");
         const tokenId = parseInt(nft.name.split('#')[1]);
