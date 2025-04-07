@@ -1,4 +1,3 @@
-<!-- Archivo combinado: Allowlist + Mint -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,24 +9,65 @@
   <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <style>
-    body { background-color: #f7f7f7; margin: 0; padding: 0; font-family: 'VT323', monospace; }
-    h1 { font-size: 3rem; }
+    body {
+      background-color: #f7f7f7;
+      margin: 0;
+      padding: 0;
+      font-family: 'VT323', monospace;
+    }
+    h1 {
+      font-size: 3rem;
+    }
     .container {
-      max-width: 700px; margin: 20px auto; background: #fff; padding: 20px;
-      border-radius: 10px; text-align: center;
+      max-width: 700px;
+      margin: 20px auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
-    .container img { max-width: 100%; border-radius: 10px; margin-bottom: 15px; }
-    #status { margin-top: 15px; font-size: 14px; color: #333; word-wrap: break-word; }
-    table { width: 100%; margin-top: 15px; }
-    th, td { padding: 5px; text-align: center; }
-    #connectWalletButton, #mintButton, #maxMintButton { margin-top: 15px; margin-bottom: 20px; }
-    #totalCounter { font-size: 4rem; margin-bottom: 20px; }
+    .container img {
+      max-width: 100%;
+      border-radius: 10px;
+      margin-bottom: 15px;
+    }
+    #status {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #333;
+      word-wrap: break-word;
+    }
+    table {
+      width: 100%;
+      margin-top: 15px;
+    }
+    th, td {
+      padding: 5px;
+      text-align: center;
+    }
+    #connectWalletButton, #mintButton, #maxMintButton {
+      margin-top: 15px;
+      margin-bottom: 20px;
+    }
+    #totalCounter {
+      font-size: 4rem;
+      margin-bottom: 20px;
+    }
     @media (max-width: 768px) {
-      .container { margin: 10px; padding: 15px; }
-      h1 { font-size: 2.5rem; }
-      #status, table, th, td { font-size: 0.9rem; }
-      #totalCounter { font-size: 3rem; }
+      .container {
+        margin: 10px;
+        padding: 15px;
+      }
+      h1 {
+        font-size: 2.5rem;
+      }
+      #status, table, th, td {
+        font-size: 0.9rem;
+      }
+      #totalCounter {
+        font-size: 3rem;
+      }
     }
   </style>
 </head>
@@ -36,9 +76,16 @@
     <h1>Adrian Punks <span style="color: red;">&#9632;</span><span style="color: blue;">&#9632;</span></h1>
     <img src="https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/1.gif" alt="Adrian Punks">
     <button id="connectWalletButton" class="btn btn-primary">Connect Wallet</button>
+    
+    <!-- Contador grande de allowlist (total remaining sin el public mint) -->
     <div id="totalCounter"></div>
+    
+    <!-- Información del allowlist -->
     <div id="whitelistInfo"></div>
+    <!-- Debug de timestamps -->
     <div id="timestampDebug"></div>
+    
+    <!-- Formulario de mint (se muestra al conectar la wallet) -->
     <form id="mintForm" style="display: none;">
       <div class="mb-3">
         <label for="mintQuantity" class="form-label">Mint Quantity:</label>
@@ -47,153 +94,246 @@
       <button type="button" id="mintButton" class="btn btn-primary">Mint</button>
       <button type="button" id="maxMintButton" class="btn btn-secondary">Max Mint</button>
     </form>
+    
     <div id="status"></div>
   </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
+    // Direcciones de contratos
     const adrianPunksAddress = "0x79be8acdd339c7b92918fcc3fd3875b5aaad7566";
     const adrianTokenAddress = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    // ABI original con nombres de parámetros para que funcione allowlist info y mint
     const adrianPunksABI = [
-      "function getAggregatedWhitelistInfo(address) view returns (uint256,uint256,uint256,uint256[],uint256[])",
-      "function salePhases(uint256) view returns (uint256,uint256,uint256)",
-      "function getWhitelistInfo(uint256,address) view returns (bool,uint256,uint256,uint256,uint256)",
-      "function mint(uint256[] calldata,uint256[] calldata) external"
+      "function getAggregatedWhitelistInfo(address user) view returns (uint256 totalAllowed, uint256 mintedByUser, uint256 totalRemaining, uint256[] memory prices, uint256[] memory saleStarts)",
+      "function salePhases(uint256) view returns (uint256 saleStart, uint256 price, uint256 allowed)",
+      "function getWhitelistInfo(uint256 tier, address user) view returns (bool isWhitelisted, uint256 allowed, uint256 minted, uint256 remaining, uint256 price)",
+      "function mint(uint256[] calldata tiers, uint256[] calldata amounts) external"
     ];
     const erc20ABI = [
-      "function approve(address,uint256) external returns (bool)",
-      "function allowance(address,address) view returns (uint256)"
+      "function approve(address spender, uint256 amount) external returns (bool)",
+      "function allowance(address owner, address spender) view returns (uint256)"
     ];
-
-    let provider, signer, userAccount, adrianPunksContract, adrianTokenContract;
-
+    
+    let provider;
+    let signer;
+    let userAccount;
+    let adrianPunksContract;
+    let adrianTokenContract;
+    
     async function connectWallet() {
       try {
-        if (!window.ethereum) return document.getElementById("status").innerText = "Please install MetaMask.";
+        if (!window.ethereum) {
+          document.getElementById("status").innerText = "Please install MetaMask.";
+          return;
+        }
         provider = new ethers.providers.Web3Provider(window.ethereum);
         await provider.send("eth_requestAccounts", []);
         signer = provider.getSigner();
         userAccount = await signer.getAddress();
+        document.getElementById("status").innerText = "Wallet connected: " + userAccount;
         adrianPunksContract = new ethers.Contract(adrianPunksAddress, adrianPunksABI, signer);
         adrianTokenContract = new ethers.Contract(adrianTokenAddress, erc20ABI, signer);
-        document.getElementById("status").innerText = "Wallet connected: " + userAccount;
         document.getElementById("connectWalletButton").disabled = true;
         document.getElementById("mintForm").style.display = "block";
         loadWhitelistInfo();
-      } catch (e) {
-        console.error("Connect error:", e);
-        document.getElementById("status").innerText = "Error: " + e.message;
+      } catch (error) {
+        console.error("Error connecting wallet:", error);
+        document.getElementById("status").innerText = "Error connecting wallet: " + error.message;
       }
     }
-
+    
     function getTierName(i) {
       if(i === 0) return "OWNER";
       if(i === 1) return "GENESIS";
       if(i === 2) return "COLLABS";
-      if(i >= 3 && i <= 5) return "LOTTERY";
+      if(i === 3 || i === 4 || i === 5) return "LOTTERY";
       if(i === 6) return "ARTIST";
-      return "PUBLIC";
+      if(i === 7) return "PUBLIC";
     }
-
+    
     async function loadWhitelistInfo() {
       try {
-        let totalAllowedSum = ethers.BigNumber.from(0), totalMintedSum = ethers.BigNumber.from(0), totalRemainingSum = ethers.BigNumber.from(0), publicMintAllowed = ethers.BigNumber.from(0);
-        let html = `<h3>Your Allowlist Info (Stackable)</h3><table class="table table-bordered"><thead><tr><th>Tier</th><th>Sale Start</th><th>Price (ADRIAN)</th><th>Allowed</th><th>Type</th></tr></thead><tbody>`;
-        let debugInfo = "", now = Math.floor(Date.now() / 1000);
-        debugInfo += `<p>Current Timestamp: ${now}</p>`;
+        // Variables para agrupar totales
+        let totalAllowedSum = ethers.BigNumber.from("0");
+        let totalMintedSum = ethers.BigNumber.from("0");
+        let totalRemainingSum = ethers.BigNumber.from("0");
+        let publicMintAllowed = ethers.BigNumber.from("0");
+        let html = `<h3>Your Allowlist Info (Stackable)</h3>`;
+        html += `<table class="table table-bordered">
+                  <thead>
+                    <tr>
+                      <th>Tier</th>
+                      <th>Sale Start</th>
+                      <th>Price (ADRIAN)</th>
+                      <th>Allowed</th>
+                      <th>Tier Type</th>
+                    </tr>
+                  </thead>
+                  <tbody>`;
+        let debugInfo = "";
+        const currentTimestamp = Math.floor(Date.now() / 1000);
+        debugInfo += `<p>Current Timestamp: ${currentTimestamp}</p>`;
+        
         for (let i = 0; i < 8; i++) {
           const phase = await adrianPunksContract.salePhases(i);
+          const saleStartTimestamp = phase.saleStart.toNumber();
+          const saleStartDate = new Date(saleStartTimestamp * 1000).toLocaleString();
+          const priceFormatted = ethers.utils.formatUnits(phase.price, 18);
+          
           const walletInfo = await adrianPunksContract.getWhitelistInfo(i, userAccount);
-          const price = ethers.utils.formatUnits(phase.price, 18);
-          const allowed = walletInfo[1].toString();
-          const minted = walletInfo[2].toString();
-          const remaining = walletInfo[3].toString();
-          if(walletInfo[0]) {
-            totalAllowedSum = totalAllowedSum.add(walletInfo[1]);
-            totalMintedSum = totalMintedSum.add(walletInfo[2]);
-            totalRemainingSum = totalRemainingSum.add(walletInfo[3]);
-            if(i === 7) publicMintAllowed = walletInfo[1];
+          let allowedForWallet = walletInfo.isWhitelisted ? walletInfo.allowed : ethers.BigNumber.from("0");
+          let mintedForWallet = walletInfo.isWhitelisted ? walletInfo.minted : ethers.BigNumber.from("0");
+          let remainingForWallet = walletInfo.isWhitelisted ? walletInfo.remaining : ethers.BigNumber.from("0");
+          
+          if (walletInfo.isWhitelisted) {
+            totalAllowedSum = totalAllowedSum.add(walletInfo.allowed);
+            totalMintedSum = totalMintedSum.add(walletInfo.minted);
+            totalRemainingSum = totalRemainingSum.add(walletInfo.remaining);
+            if(i === 7) {
+              publicMintAllowed = walletInfo.allowed;
+            }
           }
-          html += `<tr><td>${getTierName(i)}</td><td>${new Date(phase.saleStart * 1000).toLocaleString()}</td><td>${price}</td><td>${allowed}</td><td>${i<7 ? "Allowlist" : "Public Mint"}</td></tr>`;
-          debugInfo += `<p>Tier ${i}: ${phase.saleStart} (now: ${now})</p>`;
+          
+          const tierType = (i < 7) ? "Allowlist" : "Public Mint";
+          html += `<tr>
+                    <td>${getTierName(i)}</td>
+                    <td>${saleStartDate}</td>
+                    <td>${priceFormatted}</td>
+                    <td>${allowedForWallet.toString()}</td>
+                    <td>${tierType}</td>
+                  </tr>`;
+          debugInfo += `<p>Tier ${i} (${getTierName(i)}): saleStart = ${saleStartTimestamp} (current: ${currentTimestamp})</p>`;
         }
         html += `</tbody></table>`;
-        document.getElementById("whitelistInfo").innerHTML = `<p>Total Allowed: ${totalAllowedSum} | Already Minted: ${totalMintedSum} | Remaining: ${totalRemainingSum}</p>` + html;
+        let totalsHtml = `<p>Total Allowed: ${totalAllowedSum.toString()} | Already Minted: ${totalMintedSum.toString()} | Remaining: ${totalRemainingSum.toString()}</p>`;
+        document.getElementById("whitelistInfo").innerHTML = totalsHtml + html;
         document.getElementById("timestampDebug").innerHTML = debugInfo;
-        document.getElementById("totalCounter").innerText = totalRemainingSum.sub(publicMintAllowed).toString();
-      } catch (e) {
-        console.error("Whitelist error:", e);
+        const displayRemaining = totalRemainingSum.sub(publicMintAllowed);
+        document.getElementById("totalCounter").innerText = displayRemaining.toString();
+      } catch (error) {
+        console.error("Error loading allowlist info:", error);
         document.getElementById("whitelistInfo").innerText = "Error loading allowlist info.";
       }
     }
-
+    
     async function mintTokens() {
-      const quantity = parseInt(document.getElementById("mintQuantity").value);
-      if (quantity <= 0) return document.getElementById("status").innerText = "Please enter a valid mint quantity.";
+      const statusDiv = document.getElementById("status");
+      const desiredQuantity = parseInt(document.getElementById("mintQuantity").value);
+      if (desiredQuantity <= 0) {
+        statusDiv.innerText = "Please enter a valid mint quantity.";
+        return;
+      }
       try {
-        let tiers = [], amounts = [], left = quantity;
-        for (let i = 0; i < 8 && left > 0; i++) {
+        let tiers = [];
+        let amounts = [];
+        let remainingToMint = desiredQuantity;
+        
+        // Iterar por los 8 tiers
+        for (let i = 0; i < 8 && remainingToMint > 0; i++) {
           const info = await adrianPunksContract.getWhitelistInfo(i, userAccount);
-          let available = (i < 7 && info[0]) || i === 7 ? parseInt(info[3].toString()) : 0;
+          let available = 0;
+          if (i < 7) {
+            if (info.isWhitelisted) {
+              available = parseInt(info.remaining.toString());
+            }
+          } else {
+            available = parseInt(info.remaining.toString());
+          }
           if (available > 0) {
-            let minting = Math.min(left, available);
-            tiers.push(i); amounts.push(minting); left -= minting;
+            const mintThisTier = Math.min(remainingToMint, available);
+            tiers.push(i);
+            amounts.push(mintThisTier);
+            remainingToMint -= mintThisTier;
           }
         }
-        if (left > 0) return document.getElementById("status").innerText = "Not enough available mints.";
-        let cost = ethers.BigNumber.from(0);
-        for (let i = 0; i < tiers.length; i++) {
-          const p = await adrianPunksContract.salePhases(tiers[i]);
-          cost = cost.add(p.price.mul(amounts[i]));
+        if (remainingToMint > 0) {
+          statusDiv.innerText = "Mint quantity exceeds allowed amount in your allowlist.";
+          return;
         }
+        
+        let totalCost = ethers.BigNumber.from("0");
+        for (let j = 0; j < tiers.length; j++) {
+          const phase = await adrianPunksContract.salePhases(tiers[j]);
+          totalCost = totalCost.add(phase.price.mul(amounts[j]));
+        }
+        
+        statusDiv.innerText = "Checking token allowance...";
         const allowance = await adrianTokenContract.allowance(userAccount, adrianPunksAddress);
-        if (allowance.lt(cost)) {
-          document.getElementById("status").innerText = "Approving tokens...";
-          const tx = await adrianTokenContract.approve(adrianPunksAddress, cost); await tx.wait();
+        if (allowance.lt(totalCost)) {
+          statusDiv.innerText = "Approving tokens for minting...";
+          const approveTx = await adrianTokenContract.approve(adrianPunksAddress, totalCost);
+          await approveTx.wait();
         }
-        document.getElementById("status").innerText = "Minting...";
-        const mintTx = await adrianPunksContract.mint(tiers, amounts); await mintTx.wait();
-        document.getElementById("status").innerText = "Mint successful!";
+        
+        statusDiv.innerText = "Sending mint transaction...";
+        const mintTx = await adrianPunksContract.mint(tiers, amounts);
+        statusDiv.innerText = "Transaction sent. Waiting for confirmation...";
+        await mintTx.wait();
+        statusDiv.innerText = "Mint successful!";
         loadWhitelistInfo();
-      } catch (e) {
-        console.error("Mint error:", e);
-        document.getElementById("status").innerText = "Error: " + (e.data?.message || e.message);
+      } catch (error) {
+        console.error("Error during mint:", error);
+        statusDiv.innerText = "Error: " + (error.data?.message || error.message);
       }
     }
-
+    
     async function maxMintTokens() {
+      const statusDiv = document.getElementById("status");
       try {
-        let tiers = [], amounts = [], now = Math.floor(Date.now() / 1000);
+        let tiers = [];
+        let amounts = [];
+        const currentTimestamp = Math.floor(Date.now() / 1000);
         for (let i = 0; i < 8; i++) {
           const phase = await adrianPunksContract.salePhases(i);
-          if (now >= phase.saleStart) {
+          const saleStartTimestamp = phase.saleStart.toNumber();
+          if (currentTimestamp >= saleStartTimestamp) {
             const info = await adrianPunksContract.getWhitelistInfo(i, userAccount);
-            const available = (i < 7 && info[0]) || i === 7 ? parseInt(info[3].toString()) : 0;
+            let available = 0;
+            if (i < 7) {
+              if (info.isWhitelisted) {
+                available = parseInt(info.remaining.toString());
+              }
+            } else {
+              available = parseInt(info.remaining.toString());
+            }
             if (available > 0) {
-              tiers.push(i); amounts.push(available);
+              tiers.push(i);
+              amounts.push(available);
             }
           }
         }
-        if (!tiers.length) return document.getElementById("status").innerText = "No mints available.";
-        let cost = ethers.BigNumber.from(0);
-        for (let i = 0; i < tiers.length; i++) {
-          const p = await adrianPunksContract.salePhases(tiers[i]);
-          cost = cost.add(p.price.mul(amounts[i]));
+        if (tiers.length === 0) {
+          statusDiv.innerText = "No available mints at this time (sale not open or no allowlist available).";
+          return;
         }
+        
+        let totalCost = ethers.BigNumber.from("0");
+        for (let j = 0; j < tiers.length; j++) {
+          const phase = await adrianPunksContract.salePhases(tiers[j]);
+          totalCost = totalCost.add(phase.price.mul(amounts[j]));
+        }
+        
+        statusDiv.innerText = "Checking token allowance for max mint...";
         const allowance = await adrianTokenContract.allowance(userAccount, adrianPunksAddress);
-        if (allowance.lt(cost)) {
-          document.getElementById("status").innerText = "Approving tokens...";
-          const tx = await adrianTokenContract.approve(adrianPunksAddress, cost); await tx.wait();
+        if (allowance.lt(totalCost)) {
+          statusDiv.innerText = "Approving tokens for max minting...";
+          const approveTx = await adrianTokenContract.approve(adrianPunksAddress, totalCost);
+          await approveTx.wait();
         }
-        document.getElementById("status").innerText = "Minting...";
-        const mintTx = await adrianPunksContract.mint(tiers, amounts); await mintTx.wait();
-        document.getElementById("status").innerText = "Max Mint successful!";
+        
+        statusDiv.innerText = "Sending max mint transaction...";
+        const mintTx = await adrianPunksContract.mint(tiers, amounts);
+        statusDiv.innerText = "Transaction sent. Waiting for confirmation...";
+        await mintTx.wait();
+        statusDiv.innerText = "Max Mint successful!";
         loadWhitelistInfo();
-      } catch (e) {
-        console.error("Max Mint error:", e);
-        document.getElementById("status").innerText = "Error: " + (e.data?.message || e.message);
+      } catch (error) {
+        console.error("Error during max mint:", error);
+        statusDiv.innerText = "Error: " + (error.data?.message || error.message);
       }
     }
-
+    
     document.getElementById("connectWalletButton").addEventListener("click", connectWallet);
     document.getElementById("mintButton").addEventListener("click", mintTokens);
     document.getElementById("maxMintButton").addEventListener("click", maxMintTokens);
