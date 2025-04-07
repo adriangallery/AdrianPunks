@@ -744,62 +744,44 @@
     
     // MODIFICACIÓN: Filtrar NFTs según la cantidad minteada
     async function loadNFTs() {
-      try {
-        if (!window.ethereum) {
-          document.getElementById("nftGrid").innerHTML = `
-            <div class="col-12 text-center">
-              <p class="text-muted">Please install MetaMask to view NFTs</p>
-            </div>
-          `;
-          return;
+        try {
+            // Verificar si MetaMask está instalado
+            if (typeof window.ethereum === 'undefined') {
+                displayMessage('Please install MetaMask to view NFTs', 'error');
+                return;
+            }
+
+            // Verificar si hay una cuenta conectada
+            const accounts = await ethereum.request({ method: 'eth_accounts' });
+            if (accounts.length === 0) {
+                displayMessage('Please connect your wallet to view NFTs', 'warning');
+                return;
+            }
+
+            // Obtener el total de NFTs minteados
+            const totalMinted = await nftContract.methods.totalSupply().call();
+            
+            // Cargar datos del JSON
+            const response = await fetch('adrianpunks.json');
+            const data = await response.json();
+            nftData = data.collection;
+
+            // Limpiar el grid de NFTs
+            const nftGrid = document.getElementById('nft-grid');
+            nftGrid.innerHTML = '';
+
+            // Mostrar los NFTs minteados
+            for (let i = 0; i < totalMinted; i++) {
+                const nft = nftData[i];
+                if (nft) {
+                    const nftCard = createNFTCard(nft);
+                    nftGrid.appendChild(nftCard);
+                }
+            }
+        } catch (error) {
+            console.error('Error loading NFTs:', error);
+            displayMessage('Error loading NFTs: ' + error.message, 'error');
         }
-        if (!userAccount) {
-          document.getElementById("nftGrid").innerHTML = `
-            <div class="col-12 text-center">
-              <p class="text-muted">Please connect your wallet to view NFTs</p>
-            </div>
-          `;
-          return;
-        }
-        // Consultamos cuántos tokens se han minteado hasta el momento
-        const mintedCountBN = await nftContract.totalMinted();
-        const mintedCount = mintedCountBN.toNumber();
-        
-        // Cargamos los datos de los NFTs
-        const response = await fetch('adrianpunks.json');
-        const data = await response.json();
-        nftData = data.collection;
-        
-        // Filtramos solo los NFTs que han sido minteados
-        const mintedNFTs = nftData.filter(nft => nft.id <= mintedCount);
-        
-        // Mostramos los NFTs en la cuadrícula
-        const nftGrid = document.getElementById("nftGrid");
-        nftGrid.innerHTML = "";
-        
-        mintedNFTs.forEach(nft => {
-          const nftCard = document.createElement("div");
-          nftCard.className = "col-md-4 mb-4";
-          nftCard.innerHTML = `
-            <div class="card h-100">
-              <img src="${nft.image}" class="card-img-top" alt="${nft.name}">
-              <div class="card-body">
-                <h5 class="card-title">${nft.name}</h5>
-                <p class="card-text">ID: ${nft.id}</p>
-                <button class="btn btn-primary" onclick="makeOffer(${nft.id})">Make Offer</button>
-              </div>
-            </div>
-          `;
-          nftGrid.appendChild(nftCard);
-        });
-      } catch (error) {
-        console.error("Error loading NFTs:", error);
-        document.getElementById("nftGrid").innerHTML = `
-          <div class="col-12 text-center">
-            <p class="text-danger">Error loading NFTs. Please try again later.</p>
-          </div>
-        `;
-      }
     }
     
     async function displayNFTs(nfts) {

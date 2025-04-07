@@ -325,20 +325,21 @@
 
     async function loadNFTData() {
       try {
+        // Cargamos los datos de los NFTs
         const response = await fetch('/market/adrianpunks.json');
         const data = await response.json();
-        nftData = data.collection.slice(0, 5); // Solo los primeros 5 tokens
+        nftData = data.collection;
         
-        // Seleccionar un NFT aleatorio de los primeros 5
+        // Seleccionamos un NFT aleatorio
         const randomIndex = Math.floor(Math.random() * nftData.length);
-        const randomNFT = nftData[randomIndex];
+        const selectedNFT = nftData[randomIndex];
         
-        const featuredImage = document.getElementById('featuredImage');
-        featuredImage.src = randomNFT.image;
-        featuredImage.alt = `AdrianPunk #${randomNFT.id}`;
+        // Actualizamos la imagen y el ID
+        document.getElementById('featuredImage').src = selectedNFT.image;
+        document.getElementById('nftId').textContent = `#${selectedNFT.id}`;
         
-        // Inicializar contratos si hay wallet conectada
-        if (window.ethereum) {
+        // Si hay una wallet conectada, inicializamos los contratos
+        if (window.ethereum && window.ethereum.selectedAddress) {
           await initContracts();
         }
       } catch (error) {
