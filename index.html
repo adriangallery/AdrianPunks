@@ -111,7 +111,9 @@
       "function getAggregatedWhitelistInfo(address user) view returns (uint256 totalAllowed, uint256 mintedByUser, uint256 totalRemaining, uint256[] memory prices, uint256[] memory saleStarts)",
       "function salePhases(uint256) view returns (uint256 saleStart, uint256 price, uint256 allowed)",
       "function getWhitelistInfo(uint256 tier, address user) view returns (bool isWhitelisted, uint256 allowed, uint256 minted, uint256 remaining, uint256 price)",
-      "function mint(uint256[] calldata tiers, uint256[] calldata amounts) external"
+      "function mint(uint256[] calldata tiers, uint256[] calldata amounts) external",
+      "function totalMinted() view returns (uint256)",
+      "function currentTokenId() view returns (uint256)"
     ];
     const erc20ABI = [
       "function approve(address spender, uint256 amount) external returns (bool)",
@@ -126,12 +128,16 @@
     
     async function updateMintedCounter() {
       try {
+        if (!adrianPunksContract) return;
         const totalMinted = await adrianPunksContract.totalMinted();
-        document.getElementById("mintedCounter").innerText = `${totalMinted} of 1000 minted`;
+        document.getElementById("mintedCounter").innerText = `${totalMinted.toString()} of 1000 minted`;
       } catch (error) {
         console.error("Error updating minted counter:", error);
       }
     }
+    
+    // Actualizar el contador cada 30 segundos
+    setInterval(updateMintedCounter, 30000);
     
     async function connectWallet() {
       try {
@@ -148,8 +154,8 @@
         adrianTokenContract = new ethers.Contract(adrianTokenAddress, erc20ABI, signer);
         document.getElementById("connectWalletButton").disabled = true;
         document.getElementById("mintForm").style.display = "block";
+        await updateMintedCounter(); // Esperar a que se actualice el contador
         loadWhitelistInfo();
-        updateMintedCounter();
       } catch (error) {
         console.error("Error connecting wallet:", error);
         document.getElementById("status").innerText = "Error connecting wallet: " + error.message;
