@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AdrianPunks Market v3.11</title>
+  <title>AdrianPunks Market v3.12</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/market/styles.css">
@@ -1069,7 +1069,7 @@
     }
     
     async function sweepFloor() {
-      if (!marketplaceContract) {
+      if (!newMarketplaceContract) {
         alert("Please connect your wallet first.");
         return;
       }
@@ -1079,28 +1079,56 @@
         return;
       }
       try {
-        const activeListings = await marketplaceContract.getActiveListingsDetailed();
-        let listingsArr = activeListings.filter(listing => listing.expirationTime > Math.floor(Date.now() / 1000));
-        listingsArr.sort((a, b) => Number(a.price) - Number(b.price));
+        // Obtenemos listados activos del nuevo contrato
+        const activeListings = await newMarketplaceContract.getActiveListingsDetailed();
+        // Filtramos los listados que aún no han expirado
+        let listingsArr = activeListings.filter(listing => {
+          // Suponemos que listing.expirationTime es un BigNumber
+          return listing.expirationTime.gt(Math.floor(Date.now() / 1000));
+        });
+        // Ordenamos por precio unitario (precio / cantidad) de menor a mayor
+        listingsArr.sort((a, b) => {
+          const unitPriceA = a.price.div(a.quantity);
+          const unitPriceB = b.price.div(b.quantity);
+          // Usamos BigNumber.sub() y toNumber() para la comparación
+          return unitPriceA.sub(unitPriceB).toNumber();
+        });
+        
         let tokensBought = 0;
+        let totalCost = ethers.BigNumber.from(0);
+        let remaining = numTokens;
+        
+        // Recorremos los listados para comprar tokens hasta cubrir la cantidad solicitada
         for (let listing of listingsArr) {
-          if (tokensBought >= numTokens) break;
+          if (remaining <= 0) break;
+          const available = listing.quantity.toNumber(); // Asumimos que listing.quantity es un BigNumber
+          if (available <= 0) continue;
+          
+          // Calculamos cuántos tokens podemos comprar en este listado
+          const purchaseQuantity = Math.min(available, remaining);
+          const unitPrice = listing.price.div(listing.quantity);
+          const purchaseTotalPrice = unitPrice.mul(purchaseQuantity);
+          
+          // Comprobamos y aprobamos tokens para el nuevo contrato si es necesario
+          const currentAllowance = await tokenContract.allowance(userAccount, NEW_MARKET_ADDRESS);
+          if (currentAllowance.lt(purchaseTotalPrice)) {
+            const txApprove = await tokenContract.approve(NEW_MARKET_ADDRESS, purchaseTotalPrice);
+            await txApprove.wait();
+          }
+          
           try {
-            const requiredAmount = listing.price.div(listing.quantity);
-            const currentAllowance = await tokenContract.allowance(userAccount, MARKET_ADDRESS);
-            if (currentAllowance.lt(requiredAmount)) {
-              const txApprove = await tokenContract.approve(MARKET_ADDRESS, requiredAmount);
-              await txApprove.wait();
-            }
-            const txBuy = await marketplaceContract.buyListing(listing.id, 1, { gasLimit: 1000000 });
+            const txBuy = await newMarketplaceContract.buyListing(listing.id, purchaseQuantity, { gasLimit: 1000000 });
             await txBuy.wait();
-            tokensBought++;
-            console.log(`Token purchased from listing ${listing.id}`);
+            tokensBought += purchaseQuantity;
+            totalCost = totalCost.add(purchaseTotalPrice);
+            remaining -= purchaseQuantity;
+            console.log(`Purchased ${purchaseQuantity} token(s) from listing ${listing.id}`);
           } catch (err) {
             console.error("Error purchasing listing " + listing.id, err);
           }
         }
-        alert(`Sweep Floor complete! You purchased ${tokensBought} token(s).`);
+        
+        alert(`Sweep Floor complete! You purchased ${tokensBought} token(s) for a total cost of ${ethers.utils.formatUnits(totalCost, 18)} $ADRIAN.`);
         loadNFTs();
       } catch (error) {
         console.error("Error during Sweep Floor:", error);
