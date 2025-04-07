@@ -53,6 +53,21 @@
     #totalCounter, #mintedCounter {
       font-size: 4rem;
       margin-bottom: 20px;
+      display: none;
+    }
+    .mint-form-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin: 20px 0;
+    }
+    .mint-form-container .quantity-input {
+      width: 100px;
+      margin: 0;
+    }
+    .mint-form-container .btn {
+      white-space: nowrap;
     }
     @media (max-width: 768px) {
       .container {
@@ -68,6 +83,13 @@
       #totalCounter, #mintedCounter {
         font-size: 3rem;
       }
+      .mint-form-container {
+        flex-direction: column;
+        gap: 5px;
+      }
+      .mint-form-container .quantity-input {
+        width: 100%;
+      }
     }
   </style>
 </head>
@@ -82,12 +104,11 @@
     
     <!-- Formulario de mint (se muestra al conectar la wallet) -->
     <form id="mintForm" style="display: none;">
-      <div class="mb-3">
-        <label for="mintQuantity" class="form-label">Mint Quantity:</label>
-        <input type="number" class="form-control" id="mintQuantity" value="1" min="1">
+      <div class="mint-form-container">
+        <input type="number" class="form-control quantity-input" id="mintQuantity" value="1" min="1">
+        <button type="button" id="mintButton" class="btn btn-primary">Mint</button>
+        <button type="button" id="maxMintButton" class="btn btn-secondary">Max Mint</button>
       </div>
-      <button type="button" id="mintButton" class="btn btn-primary">Mint</button>
-      <button type="button" id="maxMintButton" class="btn btn-secondary">Max Mint</button>
     </form>
     
     <!-- Contador grande de allowlist (total remaining sin el public mint) -->
@@ -154,7 +175,9 @@
         adrianTokenContract = new ethers.Contract(adrianTokenAddress, erc20ABI, signer);
         document.getElementById("connectWalletButton").disabled = true;
         document.getElementById("mintForm").style.display = "block";
-        await updateMintedCounter(); // Esperar a que se actualice el contador
+        document.getElementById("mintedCounter").style.display = "block";
+        document.getElementById("totalCounter").style.display = "block";
+        await updateMintedCounter();
         loadWhitelistInfo();
       } catch (error) {
         console.error("Error connecting wallet:", error);
