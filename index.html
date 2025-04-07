@@ -276,7 +276,7 @@
                     <tr>
                       <th>Tier</th>
                       <th>Sale Start (Your Local Time)</th>
-                      <th>Price (ADRIAN)</th>
+                      <th>Price</th>
                       <th>Allowed</th>
                       <th>Tier Type</th>
                     </tr>
@@ -300,7 +300,17 @@
             hour12: true,
             timeZoneName: 'short'
           });
-          const priceFormatted = ethers.utils.formatUnits(phase.price, 18);
+          
+          // Formatear el precio con K y $A
+          const priceInWei = phase.price;
+          const priceInEther = ethers.utils.formatUnits(priceInWei, 18);
+          const priceNumber = parseFloat(priceInEther);
+          let priceFormatted;
+          if (priceNumber >= 1000) {
+            priceFormatted = `${(priceNumber / 1000).toFixed(0)}K $A`;
+          } else {
+            priceFormatted = `${priceNumber.toFixed(0)} $A`;
+          }
           
           const walletInfo = await adrianPunksContract.getWhitelistInfo(i, userAccount);
           let allowedForWallet = walletInfo.isWhitelisted ? walletInfo.allowed : ethers.BigNumber.from("0");
