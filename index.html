@@ -326,7 +326,15 @@
     async function loadNFTData() {
       try {
         const response = await fetch('/api/nfts');
-        if (!response.ok) throw new Error('Error loading NFTs');
+        if (!response.ok) {
+          // Si hay error, usar una imagen por defecto
+          const featuredImage = document.getElementById('featuredImage');
+          featuredImage.src = 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/1.gif';
+          featuredImage.alt = 'AdrianPunk #1';
+          console.warn('Using default image due to API error');
+          return;
+        }
+        
         const data = await response.json();
         
         // Asegurarnos de que solo usamos los primeros 5 tokens
@@ -346,6 +354,10 @@
         }
       } catch (error) {
         console.error('Error loading NFT data:', error);
+        // En caso de error, usar la imagen por defecto
+        const featuredImage = document.getElementById('featuredImage');
+        featuredImage.src = 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/1.gif';
+        featuredImage.alt = 'AdrianPunk #1';
       }
     }
     
