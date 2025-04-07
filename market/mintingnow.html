@@ -479,211 +479,120 @@
   <!-- Main Script: NFT loading and Contract Interactions -->
   <script>
     /*********** Global Variables and Contract Setup ***********/
-    const NFT_ADDRESS = "0x1a92f7381b9f03921564a437210bb9396471050c"; // Dirección del contrato ERC721 AdrianPunks
-    const NEW_MARKET_ADDRESS = "0x2d0c8af807ef45ac17cafb21cf10dc5510f8b0ef"; // Dirección del nuevo marketplace
-    const TOKEN_ADDRESS = "0x1a92f7381b9f03921564a437210bb9396471050c"; // Dirección del token $ADRIAN
-    
-    let nftContract;
-    let newMarketplaceContract;
-    let tokenContract;
-    let userAccount;
     let nftData = [];
-    let mintedNFTs = [];
-    let currentPage = 0;
-    let isLoading = false;
-    let hasMoreTokens = true;
-    const TOKENS_PER_PAGE = 20;
+    let provider, signer, userAccount;
+    let tokenContract, nftContract, marketplaceContract, newMarketplaceContract;
+    
+    // Direcciones de contratos y ABIs
+    const TOKEN_ADDRESS  = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const NFT_ADDRESS    = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
+    const MARKET_ADDRESS = "0xe746999546e65c44543a443cc1e9b5fe168ede5d";
+    const NEW_MARKET_ADDRESS = "0x4B09395Dd0B826Ab3D54272D5dba6769D1640297";
+    const ACTIVITY_LOGGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
+    const OFFER_MANAGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
 
+    // ABI actualizado del contrato AdrianMarket (incluye Trait Offers)
+    const MARKET_ABI = [
+      "constructor(address _paymentToken)",
+      "event FloorOfferAccepted(address indexed collection, address indexed seller, uint256 tokenId, uint256 offerAmount)",
+      "event FloorOfferSet(address indexed collection, address indexed buyer, uint256 offerAmount)",
+      "event ListingCancelled(uint256 indexed listingId)",
+      "event ListingCreated(uint256 indexed listingId, address indexed seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)",
+      "event ListingEdited(uint256 indexed listingId, uint256 newPrice, uint256 newExpirationTime)",
+      "event ListingPurchased(uint256 indexed listingId, address indexed buyer, uint256 quantity)",
+      "event OfferAccepted(uint256 indexed offerId, uint256 indexed listingId, address indexed buyer, address seller)",
+      "event OfferCreated(uint256 indexed offerId, uint256 indexed listingId, address indexed buyer, uint256 tokenId, uint256 quantity, uint256 offerAmount)",
+      "event OfferWithdrawn(uint256 indexed offerId, uint256 indexed listingId, address indexed buyer)",
+      "event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)",
+      "event Paused(address account)",
+      "event TokenOfferCreated(uint256 indexed offerId, address indexed collection, uint256 tokenId, address buyer, uint256 quantity, uint256 offerAmount)",
+      "event TokenOfferWithdrawn(uint256 indexed offerId, address indexed collection, uint256 tokenId, address buyer)",
+      "event TokenOfferAccepted(uint256 indexed offerId, address indexed collection, uint256 tokenId, address seller, address buyer, uint256 offerAmount)",
+      "event TraitOfferSet(string traitType, string traitValue, address indexed buyer, uint256 offerAmount)",
+      "event TraitOfferAccepted(string traitType, string traitValue, address indexed seller, uint256 tokenId, uint256 offerAmount)",
+      "event TraitOfferCancelled(string traitType, string traitValue, address indexed buyer)",
+      "event Unpaused(address account)",
+
+      // Funciones de listings
+      "function createListing(address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 duration, uint8 nftTypeParam) external",
+      "function cancelListing(uint256 listingId) external",
+      "function buyListing(uint256 listingId, uint256 purchaseQuantity) external",
+      "function editListing(uint256 listingId, uint256 newPrice, uint256 newDuration) external",
+      "function getActiveListingsDetailed() external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)[])",
+      "function getMyListings(address seller) external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)[])",
+      "function getListing(uint256 listingId) external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType))",
+      "function getActiveTokenListings() external view returns (tuple(address collection, uint256 tokenId, uint256 totalQuantity)[])",
+      
+      // Floor offers
+      "function floorOffers(address, uint256) external view returns (uint256 offerAmount, address buyer, bool active)",
+      "function setFloorOffer(address collection, uint256 offerAmount) external",
+      "function withdrawFloorOffer(address collection) external",
+      "function acceptFloorOffer(address collection, uint256 tokenId, uint8 nftTypeParam) external",
+      "function acceptMultipleFloorOffers(address collection, uint256 tokenId, uint8 nftTypeParam, address[] buyers) external",
+      
+      // Listing Offers
+      "function makeOffer(uint256 listingId, uint256 quantity, uint256 offerAmount) external",
+      "function withdrawOffer(uint256 listingId) external",
+      "function acceptOffer(uint256 listingId, address buyer) external",
+      "function getMyListingOffers(address buyer) external view returns (tuple(uint256 id, uint256 listingId, address buyer, uint256 tokenId, uint256 quantity, uint256 offerAmount, bool exists)[])",
+      
+      // Token offers
+      "function makeTokenOffer(address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount) external",
+      "function withdrawTokenOffer(address collection, uint256 tokenId) external",
+      "function acceptTokenOffer(address collection, uint256 tokenId, uint256 offerId, uint8 nftTypeParam) external",
+      "function getMyTokenOffers(address buyer) external view returns (tuple(uint256 id, address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount, address buyer, bool exists)[])",
+      "function getTokenOffersForToken(address collection, uint256 tokenId) external view returns (tuple(uint256 id, address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount, address buyer, bool exists)[])",
+      
+      // Trait offers
+      "function setTraitOffer(string traitType, string traitValue, uint256 offerAmount) external",
+      "function cancelTraitOffer(string traitType, string traitValue) external",
+      "function acceptTraitOffer(string traitType, string traitValue, uint256 tokenId, address collection, uint8 nftTypeParam) external",
+      "function getTraitOffers(address buyer) external view returns (tuple(string traitType, string traitValue, uint256 offerAmount, address buyer, bool exists)[])",
+      
+      // Funciones administrativas
+      "function owner() external view returns (address)",
+      "function paused() external view returns (bool)",
+      "function paymentToken() external view returns (address)",
+      "function renounceOwnership() external",
+      "function transferOwnership(address newOwner) external",
+      
+      // Funciones de soporte
+      "function supportsInterface(bytes4 interfaceId) external view returns (bool)",
+      "function onERC1155Received(address, address, uint256, uint256, bytes) external pure returns (bytes4)",
+      "function onERC1155BatchReceived(address, address, uint256[], uint256[], bytes) external pure returns (bytes4)"
+    ];
+
+    const TOKEN_ABI = [
+      "function balanceOf(address account) view returns (uint256)",
+      "function approve(address spender, uint256 amount) external returns (bool)",
+      "function allowance(address owner, address spender) view returns (uint256)"
+    ];
+    const NFT_ABI = [
+      "function tokenURI(uint256 tokenId) view returns (string)",
+      "function ownerOf(uint256 tokenId) view returns (address)",
+      "function getApproved(uint256 tokenId) view returns (address)",
+      "function approve(address to, uint256 tokenId) external",
+      "function isApprovedForAll(address owner, address operator) view returns (bool)",
+      "function setApprovalForAll(address operator, bool approved) external",
+      "function balanceOf(address owner) view returns (uint256)",
+      "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+      "function totalMinted() view returns (uint256)"
+    ];
+    
     async function initContracts() {
-      try {
-        // Inicializar provider
-        if (window.ethereum) {
-          await window.ethereum.request({ method: 'eth_requestAccounts' });
-          const provider = new ethers.providers.Web3Provider(window.ethereum);
-          const signer = provider.getSigner();
-          userAccount = await signer.getAddress();
-
-          // Inicializar contratos
-          nftContract = new ethers.Contract(
-            NFT_ADDRESS,
-            [
-              "function ownerOf(uint256 tokenId) view returns (address)",
-              "function getApproved(uint256 tokenId) view returns (address)",
-              "function approve(address to, uint256 tokenId)",
-              "function balanceOf(address owner) view returns (uint256)",
-              "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)"
-            ],
-            signer
-          );
-
-          newMarketplaceContract = new ethers.Contract(
-            NEW_MARKET_ADDRESS,
-            [
-              "function getActiveListingsDetailed() view returns (tuple(uint256 id, address seller, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime)[])",
-              "function getTokenOffersForToken(address collection, uint256 tokenId) view returns (tuple(uint256 id, address buyer, uint256 offerAmount, uint256 quantity, bool exists)[])",
-              "function floorOffers(address collection, uint256 index) view returns (tuple(uint256 offerAmount, address buyer, bool active))",
-              "function setFloorOffer(address collection, uint256 offerAmount)",
-              "function acceptFloorOffer(address collection, uint256 tokenId, uint256 quantity)",
-              "function createListing(address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 duration, uint256 listingType)",
-              "function cancelListing(uint256 listingId)",
-              "function buyListing(uint256 listingId, uint256 quantity)",
-              "function setTraitOffer(string traitType, string traitValue, uint256 offerAmount)",
-              "function cancelTraitOffer(string traitType, string traitValue)",
-              "function traitOffers(bytes32) view returns (tuple(uint256 offerAmount, address buyer, bool active))",
-              "function makeTokenOffer(address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount)",
-              "function withdrawTokenOffer(address collection, uint256 tokenId)",
-              "function acceptTokenOffer(address collection, uint256 tokenId, uint256 offerId, uint256 quantity)"
-            ],
-            signer
-          );
-
-          tokenContract = new ethers.Contract(
-            TOKEN_ADDRESS,
-            [
-              "function balanceOf(address account) view returns (uint256)",
-              "function allowance(address owner, address spender) view returns (uint256)",
-              "function approve(address spender, uint256 amount)"
-            ],
-            signer
-          );
-
-          // Actualizar balance
-          await updateTokenBalance();
-          await loadFloorOffer();
-        } else {
-          alert("Please install MetaMask to use this application");
-        }
-      } catch (error) {
-        console.error("Error initializing contracts:", error);
-        alert("Error connecting to the blockchain: " + error.message);
-      }
-    }
-
-    async function checkMintStatus(startTokenId, endTokenId) {
-      try {
-        const mintedTokens = [];
-        for (let i = startTokenId; i <= endTokenId; i++) {
-          try {
-            const owner = await nftContract.ownerOf(i);
-            if (owner !== ethers.constants.AddressZero) {
-              mintedTokens.push(i);
-            }
-          } catch (error) {
-            // Si hay un error al verificar ownerOf, asumimos que el token no está minteado
-            // y detenemos la búsqueda ya que los tokens se mintean en orden
-            break;
-          }
-        }
-        return mintedTokens;
-      } catch (error) {
-        console.error("Error checking mint status:", error);
-        return [];
-      }
-    }
-
-    async function loadMoreNFTs() {
-      if (isLoading || !hasMoreTokens) return;
-      
-      isLoading = true;
-      const loader = document.getElementById('nft-loader');
-      if (loader) {
-        loader.style.display = 'block';
-      }
-      
-      try {
-        const startToken = currentPage * TOKENS_PER_PAGE + 1;
-        const endToken = Math.min(startToken + TOKENS_PER_PAGE - 1, 1000);
-        
-        const mintStatus = await checkMintStatus(startToken, endToken);
-        if (mintStatus.length === 0) {
-          hasMoreTokens = false;
-          isLoading = false;
-          if (loader) {
-            loader.remove();
-          }
-          return;
-        }
-
-        const response = await fetch('adrianpunks.json');
-        if (!response.ok) throw new Error('Error loading NFTs');
-        const data = await response.json();
-        
-        const newMintedNFTs = mintStatus
-          .filter(status => status.minted)
-          .map(status => {
-            const nft = data.collection.find(n => parseInt(n.name.split('#')[1]) === status.tokenId);
-            return nft;
-          })
-          .filter(nft => nft);
-
-        mintedNFTs = [...mintedNFTs, ...newMintedNFTs];
-        await loadActiveListings();
-        
-        extractTraits(mintedNFTs);
-        renderTraitFilters();
-        displayNFTs(mintedNFTs);
-        
-        currentPage++;
-        
-        if (mintStatus.length < TOKENS_PER_PAGE || !hasMoreTokens) {
-          hasMoreTokens = false;
-          if (loader) {
-            loader.remove();
-          }
-        }
-      } catch (error) {
-        console.error('Error:', error);
-        document.getElementById('nftGrid').innerHTML = `<div class="alert alert-danger">Error loading NFTs: ${error.message}</div>`;
-      } finally {
-        isLoading = false;
-        if (loader) {
-          loader.style.display = hasMoreTokens ? 'block' : 'none';
-        }
-      }
-    }
-    
-    // Función para manejar el scroll infinito
-    function handleScroll() {
-      if (isLoading || !hasMoreTokens) return;
-      
-      const scrollPosition = window.innerHeight + window.scrollY;
-      const documentHeight = document.documentElement.offsetHeight;
-      
-      // Cargar más cuando estemos cerca del final
-      if (scrollPosition >= documentHeight - 1000) {
-        loadMoreNFTs();
-      }
-    }
-    
-    function filterAndDisplayNFTs() {
-      if (!mintedNFTs) return;
-      let filteredNFTs = mintedNFTs;
-      if (activeFilters.size > 0) {
-        filteredNFTs = mintedNFTs.filter(nft => {
-          return Array.from(activeFilters.entries()).every(([type, value]) => {
-            return nft.attributes.some(attr => attr.trait_type === type && attr.value === value);
-          });
-        });
-      }
-      document.getElementById('filteredCount').textContent = `Showing ${filteredNFTs.length} of ${mintedNFTs.length}`;
-      displayNFTs(filteredNFTs);
-    }
-    
-    async function loadNFTs() {
-      try {
-        // Reiniciar variables
-        mintedNFTs = [];
-        currentPage = 0;
-        hasMoreTokens = true;
-        
-        // Cargar la primera página
-        await loadMoreNFTs();
-        
-        // Añadir el event listener para scroll infinito
-        window.addEventListener('scroll', handleScroll);
-      } catch (error) {
-        console.error('Error:', error);
-        document.getElementById('nftGrid').innerHTML = `<div class="alert alert-danger">Error loading NFTs: ${error.message}</div>`;
+      if (window.ethereum) {
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+        userAccount = await signer.getAddress();
+        tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+        nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
+        // Usamos el nuevo contrato para listados y trait offers
+        marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
+        newMarketplaceContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, signer);
+        updateTokenBalance();
+        loadFloorOffer();
+      } else {
+        console.error("Ethereum provider not found.");
       }
     }
     
@@ -767,6 +676,20 @@
       filterAndDisplayNFTs();
     }
     
+    function filterAndDisplayNFTs() {
+      if (!nftData) return;
+      let filteredNFTs = nftData;
+      if (activeFilters.size > 0) {
+        filteredNFTs = nftData.filter(nft => {
+          return Array.from(activeFilters.entries()).every(([type, value]) => {
+            return nft.attributes.some(attr => attr.trait_type === type && attr.value === value);
+          });
+        });
+      }
+      document.getElementById('filteredCount').textContent = `Showing ${filteredNFTs.length} of ${nftData.length}`;
+      displayNFTs(filteredNFTs);
+    }
+    
     let activeListingsData = [];
     let currentSortOrder = 'asc';
     
@@ -781,69 +704,40 @@
       }
     }
     
-    async function filterByActiveListings() {
-      const button = document.querySelector('button[onclick="filterByActiveListings()"]');
-      const isActive = button.classList.contains('active');
-      if (!isActive) {
-        button.classList.remove('btn-outline-primary');
-        button.classList.add('btn-primary', 'active');
-        const listedNFTs = nftData.filter(nft => {
-          const tokenId = parseInt(nft.name.split('#')[1]);
-          return activeListingsData.some(listing => listing.tokenId.toString() === tokenId.toString());
+    // MODIFICACIÓN: Filtrar NFTs según la cantidad minteada
+    async function loadNFTs() {
+      try {
+        // Consultamos cuántos tokens se han minteado hasta el momento
+        const mintedCountBN = await nftContract.totalMinted();
+        const mintedCount = mintedCountBN.toNumber();
+        console.log("Minted count:", mintedCount);
+
+        const response = await fetch('adrianpunks.json');
+        if (!response.ok) throw new Error('Error loading NFTs');
+        const data = await response.json();
+        // Filtrar para mostrar solo los tokens cuyo ID <= mintedCount
+        nftData = (data.collection || []).filter(nft => {
+          const tokenIdStr = nft.name.split('#')[1];
+          const tokenId = parseInt(tokenIdStr);
+          return tokenId <= mintedCount;
         });
-        displayNFTs(listedNFTs);
-      } else {
-        button.classList.remove('btn-primary', 'active');
-        button.classList.add('btn-outline-primary');
+        await loadActiveListings();
+        extractTraits(nftData);
+        renderTraitFilters();
         filterAndDisplayNFTs();
+      } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('nftGrid').innerHTML = `<div class="alert alert-danger">Error loading NFTs: ${error.message}</div>`;
       }
     }
     
-    async function sortByFloorPrice() {
-      const button = document.querySelector('button[onclick="sortByFloorPrice()"]');
-      currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
-      button.classList.remove('btn-outline-primary');
-      button.classList.add('btn-primary');
-      const arrowDirection = currentSortOrder === 'asc' ? '↑' : '↓';
-      button.innerHTML = `<span class="d-none d-md-inline">Sort by FP</span><span class="d-md-none">Sort FP</span> ${arrowDirection}`;
-      const priceMap = new Map();
-      activeListingsData.forEach(listing => {
-        const currentPrice = priceMap.get(listing.tokenId.toString());
-        const thisPrice = parseFloat(ethers.utils.formatUnits(listing.price, 18));
-        if (!currentPrice || thisPrice < currentPrice) {
-          priceMap.set(listing.tokenId.toString(), thisPrice);
-        }
-      });
-      const sortedNFTs = [...nftData].sort((a, b) => {
-        const tokenIdA = a.name.split('#')[1];
-        const tokenIdB = b.name.split('#')[1];
-        const priceA = priceMap.get(tokenIdA) || Number.MAX_VALUE;
-        const priceB = priceMap.get(tokenIdB) || Number.MAX_VALUE;
-        return currentSortOrder === 'asc' ? priceA - priceB : priceB - priceA;
-      });
-      displayNFTs(sortedNFTs);
-    }
-    
-    function displayNFTs(nfts) {
+    async function displayNFTs(nfts) {
       const grid = document.getElementById('nftGrid');
-      // Mantener el loader si existe
-      const loader = document.getElementById('nft-loader');
-      if (!loader) {
-        grid.innerHTML = '';
-      }
-      
+      grid.innerHTML = '';
       if (!nfts || nfts.length === 0) {
         grid.innerHTML = '<div class="alert alert-info">No NFTs found</div>';
         return;
       }
-
-      // Eliminar el contenido anterior excepto el loader
-      Array.from(grid.children).forEach(child => {
-        if (child.id !== 'nft-loader') {
-          child.remove();
-        }
-      });
-
       nfts.forEach(nft => {
         const tokenId = nft.name.split('#')[1];
         const listing = activeListingsData.find(l => l.tokenId.toString() === tokenId && l.expirationTime > Math.floor(Date.now() / 1000));
@@ -867,23 +761,8 @@
             ` : ''}
           </div>
         `;
-        grid.insertBefore(card, loader);
+        grid.appendChild(card);
       });
-
-      // Añadir o actualizar el loader
-      if (!loader && hasMoreTokens) {
-        const loaderDiv = document.createElement('div');
-        loaderDiv.id = 'nft-loader';
-        loaderDiv.className = 'text-center mt-4 mb-4';
-        loaderDiv.innerHTML = `
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading more NFTs...</span>
-          </div>
-        `;
-        grid.appendChild(loaderDiv);
-      } else if (!hasMoreTokens && loader) {
-        loader.remove();
-      }
     }
     
     async function showNFTDetails(nftName) {
@@ -904,7 +783,7 @@
         const activeListings = await newMarketplaceContract.getActiveListingsDetailed();
         const tokenListing = activeListings.find(listing => listing.tokenId.toString() === tokenId.toString() && listing.expirationTime > Math.floor(Date.now() / 1000));
         const tokenOffers = await newMarketplaceContract.getTokenOffersForToken(NFT_ADDRESS, tokenId);
-        console.log("Token offers:", tokenOffers); // Para debugging
+        console.log("Token offers:", tokenOffers);
         const relevantOffers = tokenOffers.filter(offer => offer.exists);
         let floorOffer;
         try {
@@ -1124,9 +1003,6 @@
       }
     }
     
-    // NUEVA FUNCIÓN: buyToken
-    // Esta función gestiona la compra de un token usando el nuevo contrato de AdrianMarket,
-    // solicitando la aprobación necesaria y comprando el listado activo.
     async function buyToken(listingId, priceStr) {
       try {
         const price = ethers.BigNumber.from(priceStr);
@@ -1371,15 +1247,12 @@
       }
     }
     
-    // --- Función loadTraitOffers actualizada usando queryFilter de eventos ---
     async function loadTraitOffers() {
       const container = document.getElementById('traitOffersContent');
       try {
-        // Filtrar los eventos TraitOfferSet donde buyer es el usuario
         const filter = newMarketplaceContract.filters.TraitOfferSet(null, null, userAccount);
         const logs = await newMarketplaceContract.queryFilter(filter, 0, "latest");
         let offers = [];
-        // Decodificar los logs usando la interfaz del contrato
         logs.forEach(log => {
           const parsed = newMarketplaceContract.interface.parseLog(log);
           offers.push({
@@ -1389,7 +1262,6 @@
             buyer: parsed.args.buyer
           });
         });
-        // Ahora, para cada oferta, comprobar si sigue activa consultando el mapping traitOffers
         let activeOffers = [];
         for (const offer of offers) {
           const key = ethers.utils.keccak256(ethers.utils.defaultAbiCoder.encode(["string", "string"], [offer.traitType, offer.traitValue]));
@@ -1430,7 +1302,6 @@
         container.innerHTML = '<div class="alert alert-danger">Error loading trait offers</div>';
       }
     }
-    // --- Fin loadTraitOffers ---
     
     async function cancelTraitOffer(traitType, traitValue) {
       try {
@@ -1468,7 +1339,6 @@
             const tokenId = await nftContract.tokenOfOwnerByIndex(userAccount, i);
             const nft = nftData.find(n => parseInt(n.name.split('#')[1]) === tokenId.toNumber());
             if (nft) {
-              // Obtener las ofertas para este token
               const tokenOffers = await newMarketplaceContract.getTokenOffersForToken(NFT_ADDRESS, tokenId);
               const relevantOffers = tokenOffers.filter(offer => offer.exists);
               let highestOffer = null;
