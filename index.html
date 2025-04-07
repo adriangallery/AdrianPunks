@@ -301,7 +301,7 @@
       "function approve(address spender, uint256 amount) external returns (bool)",
       "function allowance(address owner, address spender) view returns (uint256)"
     ];
-
+    
     const MARKET_ABI = [
       "function floorOffers(address, uint256) external view returns (uint256 offerAmount, address buyer, bool active)",
       "function setFloorOffer(address collection, uint256 offerAmount) external",
@@ -325,24 +325,13 @@
 
     async function loadNFTData() {
       try {
-        const response = await fetch('/market/api/nfts');
-        if (!response.ok) {
-          // Si hay error, usar una imagen por defecto
-          const featuredImage = document.getElementById('featuredImage');
-          featuredImage.src = 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/1.gif';
-          featuredImage.alt = 'AdrianPunk #1';
-          console.warn('Using default image due to API error');
-          return;
-        }
-        
+        const response = await fetch('/market/adrianpunks.json');
         const data = await response.json();
+        nftData = data.collection;
         
-        // Asegurarnos de que solo usamos los primeros 5 tokens
-        const firstFiveNFTs = data.collection.slice(0, 5);
-        
-        // Seleccionar un NFT aleatorio de los primeros 5
-        const randomIndex = Math.floor(Math.random() * firstFiveNFTs.length);
-        const randomNFT = firstFiveNFTs[randomIndex];
+        // Seleccionar un NFT aleatorio
+        const randomIndex = Math.floor(Math.random() * nftData.length);
+        const randomNFT = nftData[randomIndex];
         
         const featuredImage = document.getElementById('featuredImage');
         featuredImage.src = randomNFT.image;
@@ -354,10 +343,6 @@
         }
       } catch (error) {
         console.error('Error loading NFT data:', error);
-        // En caso de error, usar la imagen por defecto
-        const featuredImage = document.getElementById('featuredImage');
-        featuredImage.src = 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/1.gif';
-        featuredImage.alt = 'AdrianPunk #1';
       }
     }
     
@@ -387,7 +372,7 @@
                               formattedAmount.toFixed(1);
           document.getElementById("floorOfferText").innerText = `Highest floor offer: ${displayAmount} $ADRIAN`;
           floorSection.classList.remove("no-offer");
-        } else {
+            } else {
           document.getElementById("floorOfferText").innerText = "Highest floor offer: 0 $ADRIAN";
           floorSection.classList.add("no-offer");
         }
@@ -450,4 +435,4 @@
     });
   </script>
 </body>
-</html> 
+</html>
