@@ -50,7 +50,7 @@
       margin-top: 15px;
       margin-bottom: 20px;
     }
-    #totalCounter {
+    #totalCounter, #mintedCounter {
       font-size: 4rem;
       margin-bottom: 20px;
     }
@@ -65,7 +65,7 @@
       #status, table, th, td {
         font-size: 0.9rem;
       }
-      #totalCounter {
+      #totalCounter, #mintedCounter {
         font-size: 3rem;
       }
     }
@@ -75,15 +75,10 @@
   <div class="container">
     <h1>Adrian Punks <span style="color: red;">&#9632;</span><span style="color: blue;">&#9632;</span></h1>
     <img src="https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/1.gif" alt="Adrian Punks">
-    <button id="connectWalletButton" class="btn btn-primary">Connect Wallet</button>
+    <button id="connectWalletButton" class="btn btn-primary">Connect Wallet (switch to BASE)</button>
     
-    <!-- Contador grande de allowlist (total remaining sin el public mint) -->
-    <div id="totalCounter"></div>
-    
-    <!-- Información del allowlist -->
-    <div id="whitelistInfo"></div>
-    <!-- Debug de timestamps -->
-    <div id="timestampDebug"></div>
+    <!-- Contador de mints totales -->
+    <div id="mintedCounter">0 of 1000 minted</div>
     
     <!-- Formulario de mint (se muestra al conectar la wallet) -->
     <form id="mintForm" style="display: none;">
@@ -94,6 +89,14 @@
       <button type="button" id="mintButton" class="btn btn-primary">Mint</button>
       <button type="button" id="maxMintButton" class="btn btn-secondary">Max Mint</button>
     </form>
+    
+    <!-- Contador grande de allowlist (total remaining sin el public mint) -->
+    <div id="totalCounter"></div>
+    
+    <!-- Información del allowlist -->
+    <div id="whitelistInfo"></div>
+    <!-- Debug de timestamps -->
+    <div id="timestampDebug"></div>
     
     <div id="status"></div>
   </div>
@@ -121,6 +124,15 @@
     let adrianPunksContract;
     let adrianTokenContract;
     
+    async function updateMintedCounter() {
+      try {
+        const totalMinted = await adrianPunksContract.totalMinted();
+        document.getElementById("mintedCounter").innerText = `${totalMinted} of 1000 minted`;
+      } catch (error) {
+        console.error("Error updating minted counter:", error);
+      }
+    }
+    
     async function connectWallet() {
       try {
         if (!window.ethereum) {
@@ -137,6 +149,7 @@
         document.getElementById("connectWalletButton").disabled = true;
         document.getElementById("mintForm").style.display = "block";
         loadWhitelistInfo();
+        updateMintedCounter();
       } catch (error) {
         console.error("Error connecting wallet:", error);
         document.getElementById("status").innerText = "Error connecting wallet: " + error.message;
@@ -272,6 +285,7 @@
         await mintTx.wait();
         statusDiv.innerText = "Mint successful!";
         loadWhitelistInfo();
+        updateMintedCounter();
       } catch (error) {
         console.error("Error during mint:", error);
         statusDiv.innerText = "Error: " + (error.data?.message || error.message);
@@ -328,6 +342,7 @@
         await mintTx.wait();
         statusDiv.innerText = "Max Mint successful!";
         loadWhitelistInfo();
+        updateMintedCounter();
       } catch (error) {
         console.error("Error during max mint:", error);
         statusDiv.innerText = "Error: " + (error.data?.message || error.message);
