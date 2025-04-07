@@ -275,7 +275,7 @@
                   <thead>
                     <tr>
                       <th>Tier</th>
-                      <th>Sale Start</th>
+                      <th>Sale Start (Your Local Time)</th>
                       <th>Price (ADRIAN)</th>
                       <th>Allowed</th>
                       <th>Tier Type</th>
@@ -289,7 +289,17 @@
         for (let i = 0; i < 8; i++) {
           const phase = await adrianPunksContract.salePhases(i);
           const saleStartTimestamp = phase.saleStart.toNumber();
-          const saleStartDate = new Date(saleStartTimestamp * 1000).toLocaleString();
+          const saleStartDate = new Date(saleStartTimestamp * 1000);
+          const localTimeString = saleStartDate.toLocaleString(undefined, {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+            timeZoneName: 'short'
+          });
           const priceFormatted = ethers.utils.formatUnits(phase.price, 18);
           
           const walletInfo = await adrianPunksContract.getWhitelistInfo(i, userAccount);
@@ -309,7 +319,7 @@
           const tierType = (i < 7) ? "Allowlist" : "Public Mint";
           html += `<tr>
                     <td>${getTierName(i)}</td>
-                    <td>${saleStartDate}</td>
+                    <td>${localTimeString}</td>
                     <td>${priceFormatted}</td>
                     <td>${allowedForWallet.toString()}</td>
                     <td>${tierType}</td>
