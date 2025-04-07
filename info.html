@@ -213,7 +213,7 @@
 
     <!-- Project Information -->
     <div class="info-section">
-      <img src="https://adrianpunks.com/tokens/1.png" alt="AdrianPunks Token #1" class="featured-image">
+      <img id="featuredImage" src="" alt="AdrianPunks Token #1" class="featured-image">
       
       <div class="info-content">
         <h2>Welcome to AdrianPunks</h2>
@@ -269,10 +269,11 @@
     /*********** Global Variables and Contract Setup ***********/
     let provider, signer, userAccount;
     let tokenContract, marketplaceContract, newMarketplaceContract;
+    let nftData = [];
     
     // Direcciones de contratos y ABIs
     const TOKEN_ADDRESS  = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
-    const MARKET_ADDRESS = "0xe746999546e65c44543a443cc1e9b5fe168ede5d";
+    const NFT_ADDRESS    = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
     const NEW_MARKET_ADDRESS = "0x4B09395Dd0B826Ab3D54272D5dba6769D1640297";
 
     const TOKEN_ABI = [
@@ -293,12 +294,28 @@
         signer = provider.getSigner();
         userAccount = await signer.getAddress();
         tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
-        marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
         newMarketplaceContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, signer);
+        await loadNFTData();
         updateTokenBalance();
         loadFloorOffer();
       } else {
         console.error("Ethereum provider not found.");
+      }
+    }
+
+    async function loadNFTData() {
+      try {
+        const response = await fetch('adrianpunks.json');
+        if (!response.ok) throw new Error('Error loading NFTs');
+        const data = await response.json();
+        nftData = data.collection;
+        // Cargar la imagen del token #1
+        const token1 = nftData.find(nft => nft.name === 'AdrianPunks #1');
+        if (token1) {
+          document.getElementById('featuredImage').src = token1.image;
+        }
+      } catch (error) {
+        console.error('Error loading NFT data:', error);
       }
     }
     
@@ -322,7 +339,11 @@
         const offerAmount = floorOffer.offerAmount;
         const floorSection = document.getElementById("floorOfferSection");
         if (offerAmount.gt(0)) {
-          document.getElementById("floorOfferText").innerText = `Highest floor offer: ${ethers.utils.formatUnits(offerAmount, 18)} $ADRIAN`;
+          const formattedAmount = parseFloat(ethers.utils.formatUnits(offerAmount, 18));
+          const displayAmount = formattedAmount >= 1000000 ? (formattedAmount / 1000000).toFixed(1) + 'M' :
+                              formattedAmount >= 1000 ? (formattedAmount / 1000).toFixed(1) + 'K' :
+                              formattedAmount.toFixed(1);
+          document.getElementById("floorOfferText").innerText = `Highest floor offer: ${displayAmount} $ADRIAN`;
           floorSection.classList.remove("no-offer");
         } else {
           document.getElementById("floorOfferText").innerText = "Highest floor offer: 0 $ADRIAN";
