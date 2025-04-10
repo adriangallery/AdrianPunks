@@ -1,333 +1,309 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PunkQuest - Dashboard</title>
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <!-- Bootstrap CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PunkQuest</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <!-- Custom Styles -->
-  <link rel="stylesheet" href="/market/styles/styles.css">
-  <!-- Bootstrap Icons -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/market/styles/styles.css" />
+  <!-- Inline CSS for theme variables and basic styles -->
   <style>
-    /* Base styles */
     :root {
-      --bg-color: #ffffff;
-      --text-color: #333333;
-      --card-bg: #ffffff;
-      --border-color: #dee2e6;
-      --modal-bg: #ffffff;
-      --modal-header-bg: #f8f9fa;
-      --dropdown-bg: #ffffff;
-      --dropdown-text: #333333;
-      --badge-bg: #007bff;
-      --badge-text: #ffffff;
-      --list-group-bg: #ffffff;
-      --list-group-text: #333333;
-      --list-group-border: #dee2e6;
+      --bg-color-light: #ffffff;
+      --text-color-light: #333333;
+      --bg-color-dark: #121212;
+      --text-color-dark: #f4f4f4;
+      --primary-color: #f39c12;
+      /* Additional variables for card, modal, etc. */
+      --card-bg: #f8f9fa;
+      --card-border: #f39c12;
     }
-    /* Dark mode styles */
-    [data-theme="dark"] {
-      --bg-color: #1a1a1a;
-      --text-color: #ffffff;
-      --card-bg: #2d2d2d;
-      --border-color: #404040;
-      --modal-bg: #2d2d2d;
-      --modal-header-bg: #1a1a1a;
-      --dropdown-bg: #2d2d2d;
-      --dropdown-text: #ffffff;
-      --badge-bg: #0d6efd;
-      --badge-text: #ffffff;
-      --list-group-bg: #2d2d2d;
-      --list-group-text: #ffffff;
-      --list-group-border: #404040;
-      --modal-text: #ffffff;
-      --modal-border: #404040;
-      --modal-input-bg: #1a1a1a;
-      --modal-input-text: #ffffff;
-      --modal-input-border: #404040;
-    }
+
     body {
-      background-color: var(--bg-color);
-      color: var(--text-color);
+      background-color: var(--bg-color-light);
+      color: var(--text-color-light);
+      font-family: "Share Tech Mono", monospace;
+      transition: background-color 0.3s, color 0.3s;
     }
-    .container {
-      background-color: var(--bg-color);
+
+    body.dark-theme {
+      background-color: var(--bg-color-dark);
+      color: var(--text-color-dark);
     }
+
     .card {
       background-color: var(--card-bg);
-      border-color: var(--border-color);
-      color: var(--text-color);
-    }
-    .card-title, .card-text {
-      color: var(--text-color);
-    }
-    .text-muted {
-      color: #a0a0a0 !important;
-    }
-    /* Additional styles from your base */
-    .info-section {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 2rem;
-    }
-    .featured-image {
-      max-width: 100%;
-      height: auto;
-      border-radius: 10px;
-      margin-bottom: 2rem;
-    }
-    .info-content {
-      line-height: 1.6;
-    }
-    .info-content h2 {
-      margin-bottom: 1.5rem;
-    }
-    .info-content p {
+      border: 1px solid var(--card-border);
+      border-radius: 0.5rem;
+      padding: 1rem;
       margin-bottom: 1rem;
-    }
-    .info-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 2rem;
-      margin-top: 2rem;
-    }
-    .info-card {
-      padding: 1.5rem;
-      border-radius: 10px;
-      background-color: var(--card-bg);
-      border: 1px solid var(--border-color);
-    }
-    .info-card h3 {
-      margin-bottom: 1rem;
-    }
-    .info-card ul {
-      padding-left: 1.5rem;
-    }
-    .info-card li {
-      margin-bottom: 0.5rem;
-    }
-    @media (max-width: 768px) {
-      .info-section {
-        padding: 1rem;
-      }
-      .info-grid {
-        grid-template-columns: 1fr;
-      }
     }
   </style>
-  <!-- Load ethers.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
-  <!-- Menu Component -->
-  <div id="menu-container"></div>
+  <!-- Menu Component Container -->
+  <div id="menu"></div>
+
+  <div class="container my-4">
+    <!-- Header Section -->
+    <header class="text-center mb-4">
+      <h1>Welcome to PunkQuest – Unleash Your Inner Punk! 🚀</h1>
+      <button id="theme-toggle" class="btn btn-secondary">Toggle Theme</button>
+    </header>
+
+    <!-- Wallet Connection Section -->
+    <section class="mb-4">
+      <button id="connect-wallet" class="btn btn-primary">Connect Wallet</button>
+      <div id="wallet-info" class="mt-2"></div>
+    </section>
+
+    <!-- Featured NFT Section -->
+    <section class="mb-4">
+      <h2>Featured NFT</h2>
+      <div id="featured-nft" class="card">
+        <img id="nft-image" src="" alt="NFT Image" class="img-fluid" />
+        <p id="nft-id" class="mt-2"></p>
+      </div>
+    </section>
+
+    <!-- $ADRIAN Token Balance Section -->
+    <section class="mb-4">
+      <h2>$ADRIAN Token Balance</h2>
+      <div id="token-balance" class="card">
+        <p>Balance: <span id="adrian-balance">0</span></p>
+      </div>
+    </section>
+
+    <!-- Floor Offer Section -->
+    <section class="mb-4">
+      <h2>Floor Offer</h2>
+      <div id="floor-offer" class="card">
+        <p>Coming soon... 🎉</p>
+      </div>
+    </section>
+
+    <!-- Project Information Section -->
+    <section class="mb-4">
+      <h2>About PunkQuest</h2>
+      <div class="card">
+        <p>
+          PunkQuest is a decentralized application built on Ethereum, featuring unique NFTs, engaging tokenomics with $ADRIAN, and innovative staking functionalities. Join us and unleash your inner punk! 🎉🚀
+        </p>
+      </div>
+    </section>
+  </div>
+
+  <!-- Bootstrap 5 JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Ethers.js Library -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
+  <!-- Dynamically Load the Menu Component (HTML and associated JS) -->
   <script>
-    // Load menu from /market/components/menu.html
     fetch('/market/components/menu.html')
       .then(response => response.text())
       .then(html => {
-        document.getElementById('menu-container').innerHTML = html;
-        const script = document.createElement('script');
-        script.src = '/market/components/menu.js';
-        document.head.appendChild(script);
+        document.getElementById('menu').innerHTML = html;
+        // Dynamically load the menu interactions
+        const menuScript = document.createElement('script');
+        menuScript.src = '/market/components/menu.js';
+        document.body.appendChild(menuScript);
       })
-      .catch(error => console.error('Error loading menu:', error));
+      .catch(err => console.error("Failed to load menu component:", err));
   </script>
 
-  <!-- Main Content Container -->
-  <div class="container">
-    <!-- Token Balance and Floor Offer Info -->
-    <div class="info-section mb-4">
-      <h2 id="tokenBalance" class="mb-2">Balance: Loading...</h2>
-      <div id="floorOfferSection" class="text-secondary">
-        <span id="floorOfferText">Highest floor offer: -- $ADRIAN</span>
-      </div>
-    </div>
-
-    <!-- Project Information Section -->
-    <div class="info-section">
-      <img id="featuredImage" src="" alt="AdrianPunks Token #1" class="featured-image">
-      <div class="info-content">
-        <h2>Welcome to AdrianPunks</h2>
-        <p>AdrianPunks is a unique NFT collection that blends digital art with blockchain technology. Each token is a one-of-a-kind piece, showcasing distinctive traits and qualities that make it truly special.</p>
-        <div class="info-grid">
-          <div class="info-card">
-            <h3>Mint an AdrianPunk</h3>
-            <ul>
-              <li>Mint your own AdrianPunk</li>
-              <li>Price: 100K $A</li>
-              <li>Limited supply</li>
-              <li><a href="/mint.html" class="btn btn-primary mt-2">Mint Now</a></li>
-            </ul>
-          </div>
-          <div class="info-card">
-            <h3>Collection Features</h3>
-            <ul>
-              <li>Limited edition collection</li>
-              <li>Unique traits and attributes</li>
-              <li>Rarity-based system</li>
-              <li>Community-driven development</li>
-            </ul>
-          </div>
-          <div class="info-card">
-            <h3>Marketplace</h3>
-            <ul>
-              <li>Buy and sell NFTs</li>
-              <li>Make offers on tokens</li>
-              <li>Floor price tracking</li>
-              <li>Real-time trading</li>
-            </ul>
-          </div>
-          <div class="info-card">
-            <h3>AdrianPunks Artist</h3>
-            <ul>
-              <li>Created by HalfXtiger</li>
-              <li>Unique artistic vision</li>
-              <li>Digital art specialist</li>
-              <li><a href="https://x.com/halfxtiger" target="_blank" class="btn btn-outline-primary mt-2">Follow on X</a></li>
-            </ul>
-          </div>
-          <div class="info-card">
-            <h3>$ADRIAN Token</h3>
-            <ul>
-              <li>The original token that started it all</li>
-              <li>Primary currency for minting and trading</li>
-              <li>Used across AdrianGallery's ecosystem</li>
-              <li>Integrated with multiple dApps</li>
-            </ul>
-          </div>
-        </div>
-        <h3 class="mt-4">About the Project</h3>
-        <p>AdrianPunks was created with the vision of uniting art lovers and blockchain technology. Each NFT is carefully crafted with unique attributes, making them precious digital assets in the NFT space.</p>
-        <p>The project runs on the BASE blockchain, ensuring security and transparency in every transaction. Our marketplace gives a seamless experience for collectors to trade and connect with their digital assets.</p>
-        <p>Join our community and embark on your PunkQuest!</p>
-      </div>
-    </div>
-  </div>
-
-  <!-- Bootstrap Bundle JS -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  
-  <!-- Main JavaScript -->
+  <!-- Inline Scripts for Theme Toggle, Wallet Connection, Contract Integration, and Dynamic Content Loading -->
   <script>
-    /*********** Global Variables and Contract Setup ***********/
-    let provider, signer, userAccount;
-    let tokenContract, stakingContract;
-    let nftData = [];
-    
-    // Contract addresses as provided:
-    const TOKEN_ADDRESS  = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";      // Adrian Token
-    const NFT_ADDRESS    = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";      // AdrianPunks NFT
-    const STAKING_ADDRESS = "0xeEC1A809acB57acABa196C6677f65EcC4c6f4491";     // PunkQuest Staking
-
-    // Example ABI for token and staking contract functions
-    const TOKEN_ABI = [
-      "function balanceOf(address account) view returns (uint256)",
-      "function approve(address spender, uint256 amount) external returns (bool)",
-      "function allowance(address owner, address spender) view returns (uint256)"
-    ];
-    const STAKING_ABI = [
-      "function floorOffers(address, uint256) external view returns (uint256 offerAmount, address buyer, bool active)"
-      // ... add more functions as needed for staking (e.g., stake, claimRewards, unstake, pendingRewards, etc.)
-    ];
-    
-    async function initContracts() {
-      if (window.ethereum) {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-        userAccount = await signer.getAddress();
-        tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
-        stakingContract = new ethers.Contract(STAKING_ADDRESS, STAKING_ABI, signer);
-        updateTokenBalance();
-        loadFloorOffer();
+    // Theme Toggle Functionality
+    function applyTheme(theme) {
+      if (theme === 'dark') {
+        document.body.classList.add('dark-theme');
       } else {
-        console.error("Ethereum provider not found.");
+        document.body.classList.remove('dark-theme');
       }
-    }
-    
-    async function updateTokenBalance() {
-      try {
-        const balanceRaw = await tokenContract.balanceOf(userAccount);
-        const balance = parseFloat(ethers.utils.formatUnits(balanceRaw, 18));
-        let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
-                              balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
-                              balance.toFixed(1);
-        document.getElementById("tokenBalance").innerText = `Balance: ${formattedBalance} $ADRIAN`;
-      } catch (error) {
-        console.error("Error fetching token balance:", error);
-        document.getElementById("tokenBalance").innerText = "Balance: Error";
-      }
+      localStorage.setItem('theme', theme);
     }
 
-    async function loadFloorOffer() {
-      try {
-        const floorOffer = await stakingContract.callStatic.floorOffers(NFT_ADDRESS, 0);
-        const offerAmount = floorOffer.offerAmount;
-        const floorSection = document.getElementById("floorOfferSection");
-        if (offerAmount.gt(0)) {
-          const formattedAmount = parseFloat(ethers.utils.formatUnits(offerAmount, 18));
-          const displayAmount = formattedAmount >= 1000000 ? (formattedAmount / 1000000).toFixed(1) + 'M' :
-                              formattedAmount >= 1000 ? (formattedAmount / 1000).toFixed(1) + 'K' :
-                              formattedAmount.toFixed(1);
-          document.getElementById("floorOfferText").innerText = `Highest floor offer: ${displayAmount} $ADRIAN`;
-          floorSection.classList.remove("no-offer");
-        } else {
-          document.getElementById("floorOfferText").innerText = "Highest floor offer: 0 $ADRIAN";
-          floorSection.classList.add("no-offer");
-        }
-      } catch (error) {
-        console.error("Error loading floor offer:", error);
-        document.getElementById("floorOfferText").innerText = "Highest floor offer: 0 $ADRIAN";
-        document.getElementById("floorOfferSection").classList.add("no-offer");
-      }
-    }
-
-    document.addEventListener('DOMContentLoaded', async () => {
-      await initContracts();
+    document.getElementById('theme-toggle').addEventListener('click', () => {
+      const currentTheme = localStorage.getItem('theme') || 'light';
+      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      applyTheme(newTheme);
     });
 
-    // Theme toggle function
-    function toggleTheme() {
-      const html = document.documentElement;
-      const themeButton = document.getElementById('themeButton');
-      const themeButtonText = document.getElementById('themeButtonText');
-      const isDark = html.getAttribute('data-theme') === 'dark';
-      
-      if (!isDark) {
-        html.setAttribute('data-theme', 'dark');
-        localStorage.setItem('theme', 'dark');
-        themeButtonText.textContent = 'LightMode';
-        themeButton.classList.remove('btn-outline-dark');
-        themeButton.classList.add('btn-dark');
-      } else {
-        html.removeAttribute('data-theme');
-        localStorage.setItem('theme', 'light');
-        themeButtonText.textContent = 'DarkMode';
-        themeButton.classList.remove('btn-dark');
-        themeButton.classList.add('btn-secondary');
-      }
-    }
-
-    // Load saved theme
+    // Apply theme preference on page load
     document.addEventListener('DOMContentLoaded', () => {
-      const savedTheme = localStorage.getItem('theme');
-      const html = document.documentElement;
-      const themeButton = document.getElementById('themeButton');
-      const themeButtonText = document.getElementById('themeButtonText');
-      if (savedTheme === 'dark') {
-        html.setAttribute('data-theme', 'dark');
-        themeButtonText.textContent = 'LightMode';
-        themeButton.classList.remove('btn-outline-dark');
-        themeButton.classList.add('btn-dark');
+      const savedTheme = localStorage.getItem('theme') || 'light';
+      applyTheme(savedTheme);
+    });
+
+    // Ethers.js Integration for Wallet Connection and Contract Setup
+    let provider, signer;
+    const connectWalletButton = document.getElementById('connect-wallet');
+    const walletInfoDiv = document.getElementById('wallet-info');
+
+    // Contract Addresses
+    const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
+    const STAKING_ADDRESS = "0xeEC1A809acB57acABa196C6677f65EcC4c6f4491";
+
+    // Minimal ABI for the token contract ($ADRIAN)
+    const tokenABI = [
+      "function balanceOf(address owner) view returns (uint256)",
+      "function approve(address spender, uint256 amount) returns (bool)"
+    ];
+
+    // ABI del contrato de staking de AdrianPunks (integrando las funciones del contrato)
+    const stakingABI = [
+      {
+        "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
+        "name": "stake",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
+        "name": "claimRewards",
+        "outputs": [{"internalType": "uint256", "name": "rewardAmount", "type": "uint256"}],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
+        "name": "unstake",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
+        "name": "pendingRewards",
+        "outputs": [{"internalType": "uint256", "name": "rewardAmount", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
+        "name": "purchaseFastLevelUpgrade",
+        "outputs": [{"internalType": "uint256", "name": "bonusAdded", "type": "uint256"}],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {"internalType": "uint256", "name": "tokenId", "type": "uint256"},
+          {"internalType": "uint256", "name": "itemId", "type": "uint256"},
+          {"internalType": "uint256", "name": "quantity", "type": "uint256"}
+        ],
+        "name": "purchaseItemUpgrade",
+        "outputs": [{"internalType": "uint256", "name": "bonusAdded", "type": "uint256"}],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
+        "name": "getTokenStakingInfo",
+        "outputs": [
+          {"internalType": "uint256", "name": "stakeStart", "type": "uint256"},
+          {"internalType": "uint256", "name": "lastClaim", "type": "uint256"},
+          {"internalType": "uint256", "name": "fastLevelBonus", "type": "uint256"},
+          {"internalType": "uint256", "name": "itemBonus", "type": "uint256"},
+          {"internalType": "uint256", "name": "pendingReward", "type": "uint256"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "getBasicGamificationParameters",
+        "outputs": [
+          {"internalType": "uint256", "name": "activationFee_", "type": "uint256"},
+          {"internalType": "uint256", "name": "exitFee_", "type": "uint256"},
+          {"internalType": "uint256", "name": "fastLevelUpgradeFee_", "type": "uint256"},
+          {"internalType": "uint256", "name": "fastLevelUpgradeBonusIncrement_", "type": "uint256"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "getSocialStakingParameters",
+        "outputs": [
+          {"internalType": "uint256", "name": "socialMinTokens_", "type": "uint256"},
+          {"internalType": "uint256", "name": "socialBoostBonus_", "type": "uint256"},
+          {"internalType": "uint256", "name": "socialBoostDuration_", "type": "uint256"},
+          {"internalType": "uint256", "name": "socialBoostActiveUntil_", "type": "uint256"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "getLevelParameters",
+        "outputs": [
+          {"internalType": "uint256[]", "name": "thresholds", "type": "uint256[]"},
+          {"internalType": "uint256[]", "name": "bonuses", "type": "uint256[]"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "inputs": [{"internalType": "uint256", "name": "itemId", "type": "uint256"}],
+        "name": "getItem",
+        "outputs": [
+          {"internalType": "uint256", "name": "price", "type": "uint256"},
+          {"internalType": "uint256", "name": "bonus", "type": "uint256"},
+          {"internalType": "bool", "name": "exists", "type": "bool"}
+        ],
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ];
+
+    // Contract Instances (will be initialized after wallet connection)
+    let tokenContract, stakingContract;
+
+    connectWalletButton.addEventListener("click", async () => {
+      if (window.ethereum) {
+        try {
+          await window.ethereum.request({ method: "eth_requestAccounts" });
+          provider = new ethers.providers.Web3Provider(window.ethereum);
+          signer = provider.getSigner();
+          const walletAddress = await signer.getAddress();
+          walletInfoDiv.innerHTML = `<p>Wallet: ${walletAddress}</p>`;
+
+          // Initialize token and staking contracts
+          tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
+          stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer); // La dirección del contrato de staking es configurable
+
+          // Fetch $ADRIAN token balance and update UI
+          const balance = await tokenContract.balanceOf(walletAddress);
+          document.getElementById("adrian-balance").innerText = ethers.utils.formatUnits(balance, 18);
+        } catch (err) {
+          console.error("Wallet connection error:", err);
+          walletInfoDiv.innerHTML = `<p style="color:red;">Connection failed. Please try again.</p>`;
+        }
       } else {
-        themeButtonText.textContent = 'DarkMode';
-        themeButton.classList.remove('btn-dark');
-        themeButton.classList.add('btn-secondary');
+        walletInfoDiv.innerHTML = `<p style="color:red;">Please install MetaMask!</p>`;
       }
     });
+
+    // Dynamic Content Loading for NFT Data
+    fetch("/punkquest/adrianpunks.json")
+      .then((response) => response.json())
+      .then((data) => {
+        const collection = data.collection;
+        if (collection && collection.length > 0) {
+          // Randomly select one of the first five NFTs in the collection
+          const randomIndex = Math.floor(Math.random() * Math.min(5, collection.length));
+          const featuredNFT = collection[randomIndex];
+          document.getElementById("nft-image").src = featuredNFT.image || "";
+          document.getElementById("nft-id").innerText = `NFT ID: ${featuredNFT.id || "N/A"}`;
+        }
+      })
+      .catch((err) => console.error("Error loading NFT data:", err));
   </script>
 </body>
 </html>
