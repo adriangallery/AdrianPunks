@@ -16,7 +16,7 @@
       --bg-color-dark: #121212;
       --text-color-dark: #f4f4f4;
       --primary-color: #f39c12;
-      /* Additional variables for card, modal, etc. */
+      /* Otras variables para cards y modales */
       --card-bg: #f8f9fa;
       --card-border: #f39c12;
     }
@@ -93,6 +93,41 @@
         </p>
       </div>
     </section>
+
+    <!-- Sección: Tokens en la Wallet de AdrianPunks -->
+    <section class="mb-4">
+      <h2>Mis Tokens de AdrianPunks</h2>
+      <div class="card">
+        <select id="punk-tokens-list" class="form-select mb-2">
+          <!-- Se llenará dinámicamente con los tokens de la wallet -->
+        </select>
+        <button id="load-tokens" class="btn btn-secondary">Cargar Tokens</button>
+      </div>
+    </section>
+
+    <!-- Sección: Acciones de PunkQuest -->
+    <section class="mb-4">
+      <h2>Acciones de PunkQuest</h2>
+      <div class="card">
+        <button id="stake-token" class="btn btn-primary mb-2">Stake Token</button>
+        <button id="claim-rewards" class="btn btn-primary mb-2">Claim Rewards</button>
+        <button id="unstake-token" class="btn btn-primary mb-2">Unstake Token</button>
+        <button id="get-staking-info" class="btn btn-info mb-2">Ver Info de Staking</button>
+        <button id="get-pending-rewards" class="btn btn-info mb-2">Ver Pending Rewards</button>
+        <hr>
+        <div class="mb-3">
+          <label for="itemId" class="form-label">Item ID para Upgrade</label>
+          <input type="number" id="itemId" class="form-control" placeholder="Ingrese Item ID" />
+        </div>
+        <div class="mb-3">
+          <label for="quantity" class="form-label">Cantidad</label>
+          <input type="number" id="quantity" class="form-control" placeholder="Ingrese cantidad" />
+        </div>
+        <button id="purchase-item-upgrade" class="btn btn-warning mb-2">Purchase Item Upgrade</button>
+        <button id="purchase-fast-level" class="btn btn-warning mb-2">Fast Level Upgrade</button>
+        <div id="action-output" class="mt-2"></div>
+      </div>
+    </section>
   </div>
 
   <!-- Bootstrap 5 JS Bundle -->
@@ -100,13 +135,12 @@
   <!-- Ethers.js Library -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
-  <!-- Dynamically Load the Menu Component (HTML and associated JS) -->
+  <!-- Cargar dinámicamente el componente del menú (HTML y JS asociado) -->
   <script>
     fetch('/market/components/menu.html')
       .then(response => response.text())
       .then(html => {
         document.getElementById('menu').innerHTML = html;
-        // Dynamically load the menu interactions
         const menuScript = document.createElement('script');
         menuScript.src = '/market/components/menu.js';
         document.body.appendChild(menuScript);
@@ -114,9 +148,14 @@
       .catch(err => console.error("Failed to load menu component:", err));
   </script>
 
-  <!-- Inline Scripts for Theme Toggle, Wallet Connection, Contract Integration, and Dynamic Content Loading -->
+  <!-- Scripts inline para funcionalidad de tema, conexión de wallet e interacción con contratos -->
   <script>
-    // Theme Toggle Functionality
+    // Función para mostrar salida en el área de acciones
+    function displayOutput(message) {
+      document.getElementById("action-output").innerHTML = message;
+    }
+
+    // Funcionalidad del Theme Toggle
     function applyTheme(theme) {
       if (theme === 'dark') {
         document.body.classList.add('dark-theme');
@@ -132,29 +171,36 @@
       applyTheme(newTheme);
     });
 
-    // Apply theme preference on page load
     document.addEventListener('DOMContentLoaded', () => {
       const savedTheme = localStorage.getItem('theme') || 'light';
       applyTheme(savedTheme);
     });
 
-    // Ethers.js Integration for Wallet Connection and Contract Setup
+    // Variables globales para ethers.js
     let provider, signer;
-    const connectWalletButton = document.getElementById('connect-wallet');
-    const walletInfoDiv = document.getElementById('wallet-info');
+    let tokenContract, stakingContract, nftContract;
+    const connectWalletButton = document.getElementById("connect-wallet");
+    const walletInfoDiv = document.getElementById("wallet-info");
 
-    // Contract Addresses
+    // Direcciones de contratos
     const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
     const STAKING_ADDRESS = "0xeEC1A809acB57acABa196C6677f65EcC4c6f4491";
 
-    // Minimal ABI for the token contract ($ADRIAN)
+    // ABI mínimo para token ($ADRIAN)
     const tokenABI = [
       "function balanceOf(address owner) view returns (uint256)",
       "function approve(address spender, uint256 amount) returns (bool)"
     ];
 
-    // ABI del contrato de staking de AdrianPunks (integrando las funciones del contrato)
+    // ABI para NFT de AdrianPunks (ERC721 Enumerable)
+    const nftABI = [
+      "function balanceOf(address owner) view returns (uint256)",
+      "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+      "function tokenURI(uint256 tokenId) view returns (string)"
+    ];
+
+    // ABI del contrato de staking de AdrianPunks (con funciones de read y write)
     const stakingABI = [
       {
         "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
@@ -262,9 +308,7 @@
       }
     ];
 
-    // Contract Instances (will be initialized after wallet connection)
-    let tokenContract, stakingContract;
-
+    // Evento de conexión de wallet
     connectWalletButton.addEventListener("click", async () => {
       if (window.ethereum) {
         try {
@@ -274,15 +318,16 @@
           const walletAddress = await signer.getAddress();
           walletInfoDiv.innerHTML = `<p>Wallet: ${walletAddress}</p>`;
 
-          // Initialize token and staking contracts
+          // Inicializar contratos
           tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
           stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer); // La dirección del contrato de staking es configurable
+          nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
 
-          // Fetch $ADRIAN token balance and update UI
+          // Obtener y actualizar el balance de $ADRIAN
           const balance = await tokenContract.balanceOf(walletAddress);
           document.getElementById("adrian-balance").innerText = ethers.utils.formatUnits(balance, 18);
         } catch (err) {
-          console.error("Wallet connection error:", err);
+          console.error("Error al conectar la wallet:", err);
           walletInfoDiv.innerHTML = `<p style="color:red;">Connection failed. Please try again.</p>`;
         }
       } else {
@@ -290,20 +335,144 @@
       }
     });
 
-    // Dynamic Content Loading for NFT Data
+    // Cargar datos dinámicos del JSON para el NFT destacado
     fetch("/punkquest/adrianpunks.json")
-      .then((response) => response.json())
-      .then((data) => {
+      .then(response => response.json())
+      .then(data => {
         const collection = data.collection;
         if (collection && collection.length > 0) {
-          // Randomly select one of the first five NFTs in the collection
+          // Seleccionar aleatoriamente uno de los primeros 5 NFTs
           const randomIndex = Math.floor(Math.random() * Math.min(5, collection.length));
           const featuredNFT = collection[randomIndex];
           document.getElementById("nft-image").src = featuredNFT.image || "";
           document.getElementById("nft-id").innerText = `NFT ID: ${featuredNFT.id || "N/A"}`;
         }
       })
-      .catch((err) => console.error("Error loading NFT data:", err));
+      .catch(err => console.error("Error loading NFT data:", err));
+
+    // Función para cargar los tokens de AdrianPunks en la wallet
+    document.getElementById("load-tokens").addEventListener("click", async () => {
+      if (nftContract && signer) {
+        try {
+          const walletAddress = await signer.getAddress();
+          const nftSelect = document.getElementById("punk-tokens-list");
+          nftSelect.innerHTML = "";
+          const balance = await nftContract.balanceOf(walletAddress);
+          const count = balance.toNumber();
+          for (let i = 0; i < count; i++) {
+            const tokenId = await nftContract.tokenOfOwnerByIndex(walletAddress, i);
+            const option = document.createElement("option");
+            option.value = tokenId;
+            option.innerText = "Token " + tokenId;
+            nftSelect.appendChild(option);
+          }
+          displayOutput("Tokens cargados: " + count);
+        } catch (error) {
+          displayOutput("Error loading tokens: " + error.message);
+        }
+      } else {
+        displayOutput("Por favor conecta tu wallet primero.");
+      }
+    });
+
+    // Funcionalidades de escritura y lectura del contrato de staking
+
+    // Stake Token
+    document.getElementById("stake-token").addEventListener("click", async () => {
+      const tokenId = document.getElementById("punk-tokens-list").value;
+      if (!tokenId) return;
+      try {
+        const tx = await stakingContract.stake(tokenId);
+        await tx.wait();
+        displayOutput("Token " + tokenId + " staked successfully!");
+      } catch (error) {
+        displayOutput("Error staking token " + tokenId + ": " + error.message);
+      }
+    });
+
+    // Claim Rewards
+    document.getElementById("claim-rewards").addEventListener("click", async () => {
+      const tokenId = document.getElementById("punk-tokens-list").value;
+      if (!tokenId) return;
+      try {
+        const tx = await stakingContract.claimRewards(tokenId);
+        await tx.wait();
+        displayOutput("Rewards for token " + tokenId + " claimed successfully!");
+      } catch (error) {
+        displayOutput("Error claiming rewards for token " + tokenId + ": " + error.message);
+      }
+    });
+
+    // Unstake Token
+    document.getElementById("unstake-token").addEventListener("click", async () => {
+      const tokenId = document.getElementById("punk-tokens-list").value;
+      if (!tokenId) return;
+      try {
+        const tx = await stakingContract.unstake(tokenId);
+        await tx.wait();
+        displayOutput("Token " + tokenId + " unstaked successfully!");
+      } catch (error) {
+        displayOutput("Error unstaking token " + tokenId + ": " + error.message);
+      }
+    });
+
+    // Ver Info de Staking
+    document.getElementById("get-staking-info").addEventListener("click", async () => {
+      const tokenId = document.getElementById("punk-tokens-list").value;
+      if (!tokenId) return;
+      try {
+        const info = await stakingContract.getTokenStakingInfo(tokenId);
+        let output = `Staking Info for token ${tokenId}:<br>`;
+        output += `Stake Start: ${info[0].toString()}<br>`;
+        output += `Last Claim: ${info[1].toString()}<br>`;
+        output += `Fast Level Bonus: ${info[2].toString()}<br>`;
+        output += `Item Bonus: ${info[3].toString()}<br>`;
+        output += `Pending Reward: ${info[4].toString()}<br>`;
+        displayOutput(output);
+      } catch (error) {
+        displayOutput("Error getting staking info for token " + tokenId + ": " + error.message);
+      }
+    });
+
+    // Ver Pending Rewards
+    document.getElementById("get-pending-rewards").addEventListener("click", async () => {
+      const tokenId = document.getElementById("punk-tokens-list").value;
+      if (!tokenId) return;
+      try {
+        const pending = await stakingContract.pendingRewards(tokenId);
+        displayOutput("Pending rewards for token " + tokenId + ": " + pending.toString());
+      } catch (error) {
+        displayOutput("Error getting pending rewards for token " + tokenId + ": " + error.message);
+      }
+    });
+
+    // Fast Level Upgrade
+    document.getElementById("purchase-fast-level").addEventListener("click", async () => {
+      const tokenId = document.getElementById("punk-tokens-list").value;
+      if (!tokenId) return;
+      try {
+        const tx = await stakingContract.purchaseFastLevelUpgrade(tokenId);
+        await tx.wait();
+        displayOutput("Fast Level Upgrade purchased for token " + tokenId + " successfully!");
+      } catch (error) {
+        displayOutput("Error in Fast Level Upgrade for token " + tokenId + ": " + error.message);
+      }
+    });
+
+    // Purchase Item Upgrade
+    document.getElementById("purchase-item-upgrade").addEventListener("click", async () => {
+      const tokenId = document.getElementById("punk-tokens-list").value;
+      const itemId = document.getElementById("itemId").value;
+      const quantity = document.getElementById("quantity").value;
+      if (!tokenId || !itemId || !quantity) return;
+      try {
+        const tx = await stakingContract.purchaseItemUpgrade(tokenId, itemId, quantity);
+        await tx.wait();
+        displayOutput("Item Upgrade purchased for token " + tokenId + " successfully!");
+      } catch (error) {
+        displayOutput("Error purchasing item upgrade for token " + tokenId + ": " + error.message);
+      }
+    });
   </script>
 </body>
 </html>
