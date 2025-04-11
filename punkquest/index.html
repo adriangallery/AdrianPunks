@@ -19,10 +19,11 @@
       --card-bg: #f8f9fa;
       --card-border: #f39c12;
     }
+    /* Terminal-like font */
     body {
       background-color: var(--bg-color-light);
       color: var(--text-color-light);
-      font-family: "Share Tech Mono", monospace;
+      font-family: "Courier New", monospace;
       transition: background-color 0.3s, color 0.3s;
     }
     body.dark-theme {
@@ -75,15 +76,10 @@
   <div id="menu"></div>
 
   <div class="container my-4">
-    <!-- Header Section with Responsive Image -->
+    <!-- Header Section (Featured image removed) -->
     <header>
       <h1>PunkQuest</h1>
-      <!-- Responsive image inserted below the title -->
-      <img src="https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/27.png" 
-           class="img-fluid mx-auto d-block my-2" 
-           alt="PunkQuest Banner" 
-           style="max-height: 200px;">
-      <p>Stake your AdrianPunk NFT and earn rewards & boosts!</p>
+      <p>Stake your AdrianPunk NFT and earn rewards &amp; boosts!</p>
       <button id="theme-toggle" class="btn btn-secondary mt-2">Toggle Theme</button>
     </header>
 
@@ -116,7 +112,7 @@
           <!-- Display stake cost -->
           <p id="stake-cost-output" class="mb-3 text-primary">Stake Cost: Loading...</p>
           <button id="stake-token" class="btn btn-primary mb-3">Stake Selected Token</button>
-          <button id="refresh-info" class="btn btn-info mb-3">Refresh Rewards & Boosts</button>
+          <button id="refresh-info" class="btn btn-info mb-3">Refresh Rewards &amp; Boosts</button>
           <div id="staking-info-output"></div>
         </div>
       </div>
@@ -164,10 +160,10 @@
 
   <!-- Inline Script for Wallet, Contract Interactions and UI Functions -->
   <script>
-    // Global variables
+    // Global variables for ethers.js and contracts
     let provider, signer;
     let tokenContract, stakingContract, nftContract;
-    let selectedTokenId = null; // For token selection
+    let selectedTokenId = null; // To store the selected tokenId
 
     // Contract Addresses
     const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
@@ -196,13 +192,18 @@
       "function getBasicGamificationParameters() view returns (uint256, uint256, uint256, uint256)"
     ];
 
-    // Helper function to format amounts (removing 18 decimals)
+    // Helper function to format amounts (fees and stake cost with 1 decimal)
     function formatAmount(amount) {
       const value = parseFloat(ethers.utils.formatUnits(amount, 18));
       return value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " $A";
     }
+    // Helper function for rewards with 4 decimals
+    function formatReward(amount) {
+      const value = parseFloat(ethers.utils.formatUnits(amount, 18));
+      return value.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + " A$";
+    }
 
-    // Function to load tokens from JSON by matching owned tokens
+    // Function to load tokens owned by the connected wallet (using JSON data)
     async function loadTokens() {
       try {
         const walletAddress = await signer.getAddress();
@@ -238,17 +239,19 @@
           card.appendChild(overlay);
           col.appendChild(card);
           gridContainer.appendChild(col);
-          // Toggle selection
+          // Toggle selection: select/deselect token, then refresh staking info accordingly
           card.addEventListener("click", () => {
             if (card.classList.contains("selected-token")) {
               card.classList.remove("selected-token");
               selectedTokenId = null;
               document.getElementById("token-action-output").innerText = "No token selected";
+              document.getElementById("staking-info-output").innerText = "";
             } else {
               document.querySelectorAll(".token-card").forEach(el => el.classList.remove("selected-token"));
               card.classList.add("selected-token");
               selectedTokenId = tokenId;
               document.getElementById("token-action-output").innerText = `Selected Token: ${selectedTokenId}`;
+              refreshStakingInfo();
             }
           });
         }
@@ -257,7 +260,7 @@
       }
     }
 
-    // Connect wallet, initialize contracts and automatically load tokens & stake cost info
+    // Connect wallet, initialize contracts; automatically load tokens & stake cost info
     document.getElementById("connect-wallet").addEventListener("click", async () => {
       if (window.ethereum) {
         try {
@@ -283,7 +286,7 @@
 
     // ---------------------- User Functions ---------------------- //
 
-    // Stake Selected Token with approval check
+    // Stake Selected Token with approval check and refresh info
     document.getElementById("stake-token").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Please select a token first.");
       try {
@@ -292,7 +295,7 @@
         const activationFee = params[0];
         const currentAllowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
         if (currentAllowance.lt(activationFee)) {
-          document.getElementById("general-output").innerHTML = `<p class="text-info">Approving spend of $ADRIAN tokens. Please wait...</p>`;
+          document.getElementById("general-output").innerHTML = `<p class="text-info">Approving spend of $ADRIAN tokens for staking fee. Please wait...</p>`;
           const approveTx = await tokenContract.approve(STAKING_ADDRESS, activationFee);
           await approveTx.wait();
           document.getElementById("general-output").innerHTML = `<p class="text-info">Approval successful. Proceeding with staking...</p>`;
@@ -312,7 +315,7 @@
       }
     });
 
-    // Refresh staking information for the selected token
+    // Refresh staking info for the selected token (pending rewards with 4 decimals)
     async function refreshStakingInfo() {
       if (!selectedTokenId) return alert("Please select a token first.");
       try {
@@ -322,7 +325,7 @@
                         Last Claim: ${new Date(info[1] * 1000).toLocaleString()}<br>
                         Fast-Level Bonus: ${ethers.utils.formatUnits(info[2], 18)} (raw)<br>
                         Item Bonus: ${ethers.utils.formatUnits(info[3], 18)} (raw)<br>
-                        Pending Rewards: ${formatAmount(info[4])}`;
+                        Pending Rewards: ${formatReward(info[4])}`;
         document.getElementById("staking-info-output").innerHTML = output;
       } catch (error) {
         document.getElementById("staking-info-output").innerHTML = "Error: " + error.message;
@@ -330,7 +333,7 @@
     }
     document.getElementById("refresh-info").addEventListener("click", refreshStakingInfo);
 
-    // Claim Rewards for the selected token
+    // Claim rewards for the selected token
     document.getElementById("claim-rewards").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Please select a token first.");
       try {
@@ -343,7 +346,7 @@
       }
     });
 
-    // Unstake the selected token
+    // Unstake selected token
     document.getElementById("unstake-token").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Please select a token first.");
       try {
@@ -357,7 +360,7 @@
       }
     });
 
-    // Purchase Fast Level Upgrade for the selected token
+    // Purchase fast-level upgrade for selected token
     document.getElementById("purchase-fast-level").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Please select a token first.");
       try {
@@ -370,7 +373,7 @@
       }
     });
 
-    // Purchase Item Upgrade for the selected token
+    // Purchase item upgrade for selected token
     document.getElementById("purchase-item-upgrade").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Please select a token first.");
       const itemId = document.getElementById("input-itemId").value;
