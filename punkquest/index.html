@@ -93,13 +93,13 @@
       <div id="owner-check" class="mt-2"></div>
     </section>
 
-    <!-- My Tokens Section (Grid of tokens owned by wallet) -->
+    <!-- My Tokens Section (Grid of tokens owned by the wallet) -->
     <section id="tokens-section" class="mb-4">
       <div class="card">
         <h2 class="section-title">My Tokens</h2>
-        <button id="load-tokens" class="btn btn-secondary mb-3">Load Tokens</button>
+        <!-- The token grid loads automatically after wallet connection -->
         <div id="tokens-grid" class="row row-cols-2 row-cols-sm-3 row-cols-md-4 g-3 token-grid">
-          <!-- Only tokens owned by the wallet (using JSON info) will be loaded here -->
+          <!-- Tokens will be injected here from the JSON data -->
         </div>
         <div id="token-action-output" class="mt-2"></div>
       </div>
@@ -365,7 +365,61 @@
       }
     ];
 
-    // Connect wallet and initialize contracts
+    // Function to load tokens owned by wallet using JSON info
+    async function loadTokens() {
+      try {
+        const walletAddress = await signer.getAddress();
+        // Fetch JSON collection from /punkquest/adrianpunks.json
+        const response = await fetch("/punkquest/adrianpunks.json");
+        const data = await response.json();
+        const jsonCollection = data.collection;
+
+        // Get NFTs owned by wallet
+        const balance = await nftContract.balanceOf(walletAddress);
+        const count = balance.toNumber();
+        const gridContainer = document.getElementById("tokens-grid");
+        gridContainer.innerHTML = "";
+        for (let i = 0; i < count; i++) {
+          const tokenId = (await nftContract.tokenOfOwnerByIndex(walletAddress, i)).toString();
+          // Match token info by comparing token number extracted from the name (e.g. "AdrianPunks#5")
+          const tokenInfo = jsonCollection.find(item => {
+            if (item.name) {
+              const parts = item.name.split("#");
+              return parts.length === 2 && parts[1] === tokenId;
+            }
+            return false;
+          });
+          const imgSrc = tokenInfo ? tokenInfo.image : `https://via.placeholder.com/150?text=Token+${tokenId}`;
+          // Create grid element for the token
+          const col = document.createElement("div");
+          col.className = "col";
+          const card = document.createElement("div");
+          card.className = "card token-card";
+          card.dataset.tokenId = tokenId;
+          const img = document.createElement("img");
+          img.src = imgSrc;
+          img.alt = "Token " + tokenId;
+          const overlay = document.createElement("div");
+          overlay.className = "card-body p-2";
+          overlay.innerHTML = `<p class="text-center mb-0">Token ${tokenId}</p>`;
+          card.appendChild(img);
+          card.appendChild(overlay);
+          col.appendChild(card);
+          gridContainer.appendChild(col);
+          // Add click event to select a token
+          card.addEventListener("click", () => {
+            document.querySelectorAll(".token-card").forEach(el => el.classList.remove("selected-token"));
+            card.classList.add("selected-token");
+            selectedTokenId = tokenId;
+            document.getElementById("token-action-output").innerText = `Selected Token: ${selectedTokenId}`;
+          });
+        }
+      } catch (error) {
+        document.getElementById("token-action-output").innerText = "Error loading tokens: " + error.message;
+      }
+    }
+
+    // Connect wallet and initialize contracts, then automatically load tokens
     document.getElementById("connect-wallet").addEventListener("click", async () => {
       if (window.ethereum) {
         try {
@@ -378,13 +432,15 @@
           tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
           stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
           nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
-          // Owner verification
+          // Verify owner
           const ownerAddress = await stakingContract.owner();
           if (walletAddress.toLowerCase() === ownerAddress.toLowerCase()) {
             document.getElementById("owner-check").innerHTML = `<p class="text-success">Connected as Owner</p>`;
           } else {
             document.getElementById("owner-check").innerHTML = `<p class="text-danger">You are not the Owner. Access restricted.</p>`;
           }
+          // Automatically load tokens after wallet connection
+          loadTokens();
         } catch (error) {
           document.getElementById("wallet-info").innerHTML = `<p class="text-danger">Wallet connection failed: ${error.message}</p>`;
         }
@@ -553,60 +609,6 @@
     document.addEventListener("DOMContentLoaded", () => {
       const savedTheme = localStorage.getItem("theme") || "light";
       applyTheme(savedTheme);
-    });
-
-    // --- Token Grid Functionality ---
-    // This function loads only the tokens owned by the wallet by:
-    // 1. Fetching the JSON collection from /punkquest/adrianpunks.json.
-    // 2. Using nftContract.balanceOf and tokenOfOwnerByIndex to get owned token IDs.
-    // 3. Matching each token ID with its JSON info (for image, etc.) and displaying in a grid.
-    document.getElementById("load-tokens").addEventListener("click", async () => {
-      if (!nftContract || !signer) {
-        return document.getElementById("token-action-output").innerText = "Please connect your wallet first.";
-      }
-      try {
-        const walletAddress = await signer.getAddress();
-        // Load the JSON collection
-        const response = await fetch("/punkquest/adrianpunks.json");
-        const data = await response.json();
-        const jsonCollection = data.collection;
-        // Get tokens owned by the wallet
-        const balance = await nftContract.balanceOf(walletAddress);
-        const count = balance.toNumber();
-        const gridContainer = document.getElementById("tokens-grid");
-        gridContainer.innerHTML = "";
-        for (let i = 0; i < count; i++) {
-          const tokenId = (await nftContract.tokenOfOwnerByIndex(walletAddress, i)).toString();
-          // Find token info from JSON
-          const tokenInfo = jsonCollection.find(item => item.id == tokenId);
-          const imgSrc = tokenInfo ? tokenInfo.image : "https://via.placeholder.com/150?text=Token+" + tokenId;
-          // Build the grid element
-          const col = document.createElement("div");
-          col.className = "col";
-          const card = document.createElement("div");
-          card.className = "card token-card";
-          card.dataset.tokenId = tokenId;
-          const img = document.createElement("img");
-          img.src = imgSrc;
-          img.alt = "Token " + tokenId;
-          const overlay = document.createElement("div");
-          overlay.className = "card-body p-2";
-          overlay.innerHTML = `<p class="text-center mb-0">Token ${tokenId}</p>`;
-          card.appendChild(img);
-          card.appendChild(overlay);
-          col.appendChild(card);
-          gridContainer.appendChild(col);
-          // Add click event to select token
-          card.addEventListener("click", () => {
-            document.querySelectorAll(".token-card").forEach(el => el.classList.remove("selected-token"));
-            card.classList.add("selected-token");
-            selectedTokenId = tokenId;
-            document.getElementById("token-action-output").innerText = `Selected Token: ${selectedTokenId}`;
-          });
-        }
-      } catch (error) {
-        document.getElementById("token-action-output").innerText = "Error loading tokens: " + error.message;
-      }
     });
   </script>
 </body>
