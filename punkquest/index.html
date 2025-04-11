@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PunkQuest</title>
+  <title>Admin Dashboard - PunkQuest</title>
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <!-- Custom Styles -->
@@ -16,7 +16,6 @@
       --bg-color-dark: #121212;
       --text-color-dark: #f4f4f4;
       --primary-color: #f39c12;
-      /* Otras variables para cards y modales */
       --card-bg: #f8f9fa;
       --card-border: #f39c12;
     }
@@ -40,94 +39,167 @@
       padding: 1rem;
       margin-bottom: 1rem;
     }
+
+    /* Additional custom styles */
+    header {
+      background: linear-gradient(135deg, #f39c12, #ffb347);
+      color: #fff;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .section-title {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      border-bottom: 2px solid var(--primary-color);
+      padding-bottom: 0.3rem;
+    }
+    .token-grid img {
+      width: 100%;
+      height: auto;
+      border-radius: 0.5rem;
+    }
+    .token-card {
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .token-card:hover {
+      transform: scale(1.05);
+    }
+    .selected-token {
+      border: 2px solid var(--primary-color);
+    }
   </style>
 </head>
 <body>
-  <!-- Menu Component Container -->
+  <!-- Menu Component Container (Loaded dynamically) -->
   <div id="menu"></div>
 
   <div class="container my-4">
     <!-- Header Section -->
-    <header class="text-center mb-4">
-      <h1>Welcome to PunkQuest – Unleash Your Inner Punk! 🚀</h1>
-      <button id="theme-toggle" class="btn btn-secondary">Toggle Theme</button>
+    <header class="text-center">
+      <h1>Admin Dashboard - PunkQuest</h1>
+      <button id="theme-toggle" class="btn btn-secondary mt-2">Toggle Theme</button>
     </header>
 
     <!-- Wallet Connection Section -->
-    <section class="mb-4">
+    <section id="wallet-connection" class="mb-4">
       <button id="connect-wallet" class="btn btn-primary">Connect Wallet</button>
       <div id="wallet-info" class="mt-2"></div>
+      <div id="owner-check" class="mt-2"></div>
     </section>
 
-    <!-- Featured NFT Section -->
-    <section class="mb-4">
-      <h2>Featured NFT</h2>
-      <div id="featured-nft" class="card">
-        <img id="nft-image" src="" alt="NFT Image" class="img-fluid" />
-        <p id="nft-id" class="mt-2"></p>
-      </div>
-    </section>
-
-    <!-- $ADRIAN Token Balance Section -->
-    <section class="mb-4">
-      <h2>$ADRIAN Token Balance</h2>
-      <div id="token-balance" class="card">
-        <p>Balance: <span id="adrian-balance">0</span></p>
-      </div>
-    </section>
-
-    <!-- Floor Offer Section -->
-    <section class="mb-4">
-      <h2>Floor Offer</h2>
-      <div id="floor-offer" class="card">
-        <p>Coming soon... 🎉</p>
-      </div>
-    </section>
-
-    <!-- Project Information Section -->
-    <section class="mb-4">
-      <h2>About PunkQuest</h2>
-      <div class="card">
-        <p>
-          PunkQuest is a decentralized application built on Ethereum, featuring unique NFTs, engaging tokenomics with $ADRIAN, and innovative staking functionalities. Join us and unleash your inner punk! 🎉🚀
-        </p>
-      </div>
-    </section>
-
-    <!-- Sección: Tokens en la Wallet de AdrianPunks -->
-    <section class="mb-4">
-      <h2>Mis Tokens de AdrianPunks</h2>
-      <div class="card">
-        <select id="punk-tokens-list" class="form-select mb-2">
-          <!-- Se llenará dinámicamente con los tokens de la wallet -->
-        </select>
-        <button id="load-tokens" class="btn btn-secondary">Cargar Tokens</button>
-      </div>
-    </section>
-
-    <!-- Sección: Acciones de PunkQuest -->
-    <section class="mb-4">
-      <h2>Acciones de PunkQuest</h2>
-      <div class="card">
-        <button id="stake-token" class="btn btn-primary mb-2">Stake Token</button>
-        <button id="claim-rewards" class="btn btn-primary mb-2">Claim Rewards</button>
-        <button id="unstake-token" class="btn btn-primary mb-2">Unstake Token</button>
-        <button id="get-staking-info" class="btn btn-info mb-2">Ver Info de Staking</button>
-        <button id="get-pending-rewards" class="btn btn-info mb-2">Ver Pending Rewards</button>
-        <hr>
-        <div class="mb-3">
-          <label for="itemId" class="form-label">Item ID para Upgrade</label>
-          <input type="number" id="itemId" class="form-control" placeholder="Ingrese Item ID" />
+    <!-- Owner Functions -->
+    <div class="row">
+      <!-- Box 1: Minimal Game Settings -->
+      <div class="col-md-4">
+        <div class="card">
+          <h2 class="section-title">Minimal Game Settings</h2>
+          <button id="read-basic-params" class="btn btn-info mb-2">Read Basic Parameters</button>
+          <div id="basic-params-output" class="mb-2"></div>
+          <div class="mb-2">
+            <label for="input-activationFee" class="form-label">Activation Fee:</label>
+            <input type="text" id="input-activationFee" class="form-control" />
+          </div>
+          <div class="mb-2">
+            <label for="input-exitFee" class="form-label">Exit Fee:</label>
+            <input type="text" id="input-exitFee" class="form-control" />
+          </div>
+          <div class="mb-2">
+            <label for="input-fastLevelUpgradeFee" class="form-label">Fast Level Upgrade Fee:</label>
+            <input type="text" id="input-fastLevelUpgradeFee" class="form-control" />
+          </div>
+          <div class="mb-2">
+            <label for="input-fastLevelUpgradeBonusIncrement" class="form-label">Fast Level Upgrade Bonus Increment:</label>
+            <input type="text" id="input-fastLevelUpgradeBonusIncrement" class="form-control" />
+          </div>
+          <button id="update-basic-params" class="btn btn-warning">Update Basic Parameters</button>
         </div>
-        <div class="mb-3">
-          <label for="quantity" class="form-label">Cantidad</label>
-          <input type="number" id="quantity" class="form-control" placeholder="Ingrese cantidad" />
+      </div>
+
+      <!-- Box 2: Boost Functions -->
+      <div class="col-md-4">
+        <div class="card">
+          <h2 class="section-title">Boost Functions</h2>
+          <button id="read-social-params" class="btn btn-info mb-2">Read Social Staking Parameters</button>
+          <div id="social-params-output" class="mb-2"></div>
+          <div class="mb-2">
+            <label for="input-socialMinTokens" class="form-label">Social Min Tokens:</label>
+            <input type="text" id="input-socialMinTokens" class="form-control" />
+          </div>
+          <div class="mb-2">
+            <label for="input-socialBoostBonus" class="form-label">Social Boost Bonus:</label>
+            <input type="text" id="input-socialBoostBonus" class="form-control" />
+          </div>
+          <div class="mb-2">
+            <label for="input-socialBoostDuration" class="form-label">Social Boost Duration:</label>
+            <input type="text" id="input-socialBoostDuration" class="form-control" />
+          </div>
+          <div class="mb-2">
+            <label for="input-socialBoostActiveUntil" class="form-label">Social Boost Active Until:</label>
+            <input type="text" id="input-socialBoostActiveUntil" class="form-control" />
+          </div>
+          <button id="update-social-params" class="btn btn-warning">Update Social Staking Parameters</button>
+          <hr>
+          <!-- Optional boost actions (if admin wishes to emulate upgrade functions) -->
+          <button id="purchase-fast-level" class="btn btn-warning mb-2">Fast Level Upgrade</button>
+          <div class="mb-3">
+            <label for="input-itemId" class="form-label">Item ID for Upgrade:</label>
+            <input type="number" id="input-itemId" class="form-control" placeholder="Enter Item ID" />
+          </div>
+          <div class="mb-3">
+            <label for="input-quantity" class="form-label">Quantity:</label>
+            <input type="number" id="input-quantity" class="form-control" placeholder="Enter Quantity" />
+          </div>
+          <button id="purchase-item-upgrade" class="btn btn-warning">Purchase Item Upgrade</button>
         </div>
-        <button id="purchase-item-upgrade" class="btn btn-warning mb-2">Purchase Item Upgrade</button>
-        <button id="purchase-fast-level" class="btn btn-warning mb-2">Fast Level Upgrade</button>
-        <div id="action-output" class="mt-2"></div>
+      </div>
+
+      <!-- Box 3: Advanced Adjustments -->
+      <div class="col-md-4">
+        <div class="card">
+          <h2 class="section-title">Advanced Adjustments</h2>
+          <button id="read-level-params" class="btn btn-info mb-2">Read Level Parameters</button>
+          <div id="level-params-output" class="mb-2"></div>
+          <div class="mb-2">
+            <label for="input-thresholds" class="form-label">Thresholds (comma separated):</label>
+            <input type="text" id="input-thresholds" class="form-control" />
+          </div>
+          <div class="mb-2">
+            <label for="input-bonuses" class="form-label">Bonuses (comma separated):</label>
+            <input type="text" id="input-bonuses" class="form-control" />
+          </div>
+          <button id="update-level-params" class="btn btn-warning">Update Level Parameters</button>
+          <hr>
+          <!-- Item Information -->
+          <div class="mb-2">
+            <label for="input-itemLookup" class="form-label">Item ID for Lookup:</label>
+            <input type="text" id="input-itemLookup" class="form-control" />
+          </div>
+          <button id="read-item" class="btn btn-info">Read Item Info</button>
+          <div id="item-output" class="mt-2"></div>
+          <hr>
+          <!-- Withdraw Funds -->
+          <button id="withdraw-button" class="btn btn-danger">Withdraw Funds</button>
+          <div id="withdraw-output" class="mt-2"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tokens Grid Section -->
+    <section id="tokens-section" class="mb-4">
+      <div class="card">
+        <h2 class="section-title">My Tokens</h2>
+        <button id="load-tokens" class="btn btn-secondary mb-3">Load Tokens</button>
+        <div id="tokens-grid" class="row row-cols-2 row-cols-sm-3 row-cols-md-4 g-3 token-grid">
+          <!-- Tokens will be loaded here from JSON -->
+        </div>
+        <div id="token-action-output" class="mt-2"></div>
       </div>
     </section>
+
+    <!-- General Action Output -->
+    <div id="admin-output" class="mt-3"></div>
   </div>
 
   <!-- Bootstrap 5 JS Bundle -->
@@ -135,7 +207,7 @@
   <!-- Ethers.js Library -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
-  <!-- Cargar dinámicamente el componente del menú (HTML y JS asociado) -->
+  <!-- Load Menu Component Dynamically -->
   <script>
     fetch('/market/components/menu.html')
       .then(response => response.text())
@@ -148,116 +220,36 @@
       .catch(err => console.error("Failed to load menu component:", err));
   </script>
 
-  <!-- Scripts inline para funcionalidad de tema, conexión de wallet e interacción con contratos -->
+  <!-- Inline Script for Wallet, Contract Interactions and UI Functions -->
   <script>
-    // Función para mostrar salida en el área de acciones
-    function displayOutput(message) {
-      document.getElementById("action-output").innerHTML = message;
-    }
-
-    // Funcionalidad del Theme Toggle
-    function applyTheme(theme) {
-      if (theme === 'dark') {
-        document.body.classList.add('dark-theme');
-      } else {
-        document.body.classList.remove('dark-theme');
-      }
-      localStorage.setItem('theme', theme);
-    }
-
-    document.getElementById('theme-toggle').addEventListener('click', () => {
-      const currentTheme = localStorage.getItem('theme') || 'light';
-      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-      applyTheme(newTheme);
-    });
-
-    document.addEventListener('DOMContentLoaded', () => {
-      const savedTheme = localStorage.getItem('theme') || 'light';
-      applyTheme(savedTheme);
-    });
-
-    // Variables globales para ethers.js
+    // Global variables for ethers.js and contracts
     let provider, signer;
     let tokenContract, stakingContract, nftContract;
-    const connectWalletButton = document.getElementById("connect-wallet");
-    const walletInfoDiv = document.getElementById("wallet-info");
+    let selectedTokenId = null; // To store tokenId from grid selection
 
-    // Direcciones de contratos
+    // Contract Addresses
     const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
     const STAKING_ADDRESS = "0xeEC1A809acB57acABa196C6677f65EcC4c6f4491";
 
-    // ABI mínimo para token ($ADRIAN)
+    // Minimal ABI definitions
     const tokenABI = [
       "function balanceOf(address owner) view returns (uint256)",
       "function approve(address spender, uint256 amount) returns (bool)"
     ];
 
-    // ABI para NFT de AdrianPunks (ERC721 Enumerable)
     const nftABI = [
       "function balanceOf(address owner) view returns (uint256)",
       "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
       "function tokenURI(uint256 tokenId) view returns (string)"
     ];
 
-    // ABI del contrato de staking de AdrianPunks (con funciones de read y write)
     const stakingABI = [
+      // Read functions
       {
-        "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
-        "name": "stake",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
-        "name": "claimRewards",
-        "outputs": [{"internalType": "uint256", "name": "rewardAmount", "type": "uint256"}],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
-        "name": "unstake",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
-        "name": "pendingRewards",
-        "outputs": [{"internalType": "uint256", "name": "rewardAmount", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      {
-        "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
-        "name": "purchaseFastLevelUpgrade",
-        "outputs": [{"internalType": "uint256", "name": "bonusAdded", "type": "uint256"}],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {"internalType": "uint256", "name": "tokenId", "type": "uint256"},
-          {"internalType": "uint256", "name": "itemId", "type": "uint256"},
-          {"internalType": "uint256", "name": "quantity", "type": "uint256"}
-        ],
-        "name": "purchaseItemUpgrade",
-        "outputs": [{"internalType": "uint256", "name": "bonusAdded", "type": "uint256"}],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
-        "name": "getTokenStakingInfo",
-        "outputs": [
-          {"internalType": "uint256", "name": "stakeStart", "type": "uint256"},
-          {"internalType": "uint256", "name": "lastClaim", "type": "uint256"},
-          {"internalType": "uint256", "name": "fastLevelBonus", "type": "uint256"},
-          {"internalType": "uint256", "name": "itemBonus", "type": "uint256"},
-          {"internalType": "uint256", "name": "pendingReward", "type": "uint256"}
-        ],
+        "inputs": [],
+        "name": "owner",
+        "outputs": [{"internalType": "address", "name": "", "type": "address"}],
         "stateMutability": "view",
         "type": "function"
       },
@@ -305,172 +297,300 @@
         ],
         "stateMutability": "view",
         "type": "function"
+      },
+      // Write functions (only callable by owner)
+      {
+        "inputs": [
+          {"internalType": "uint256", "name": "activationFee_", "type": "uint256"},
+          {"internalType": "uint256", "name": "exitFee_", "type": "uint256"},
+          {"internalType": "uint256", "name": "fastLevelUpgradeFee_", "type": "uint256"},
+          {"internalType": "uint256", "name": "fastLevelUpgradeBonusIncrement_", "type": "uint256"}
+        ],
+        "name": "setBasicGamificationParameters",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {"internalType": "uint256", "name": "socialMinTokens_", "type": "uint256"},
+          {"internalType": "uint256", "name": "socialBoostBonus_", "type": "uint256"},
+          {"internalType": "uint256", "name": "socialBoostDuration_", "type": "uint256"},
+          {"internalType": "uint256", "name": "socialBoostActiveUntil_", "type": "uint256"}
+        ],
+        "name": "setSocialStakingParameters",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {"internalType": "uint256[]", "name": "thresholds", "type": "uint256[]"},
+          {"internalType": "uint256[]", "name": "bonuses", "type": "uint256[]"}
+        ],
+        "name": "setLevelParameters",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [],
+        "name": "adminWithdraw",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      // Optional functions available in the contract (if any)
+      {
+        "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
+        "name": "purchaseFastLevelUpgrade",
+        "outputs": [{"internalType": "uint256", "name": "bonusAdded", "type": "uint256"}],
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "inputs": [
+          {"internalType": "uint256", "name": "tokenId", "type": "uint256"},
+          {"internalType": "uint256", "name": "itemId", "type": "uint256"},
+          {"internalType": "uint256", "name": "quantity", "type": "uint256"}
+        ],
+        "name": "purchaseItemUpgrade",
+        "outputs": [{"internalType": "uint256", "name": "bonusAdded", "type": "uint256"}],
+        "stateMutability": "nonpayable",
+        "type": "function"
       }
     ];
 
-    // Evento de conexión de wallet
-    connectWalletButton.addEventListener("click", async () => {
+    // Connect wallet and initialize contracts
+    document.getElementById("connect-wallet").addEventListener("click", async () => {
       if (window.ethereum) {
         try {
           await window.ethereum.request({ method: "eth_requestAccounts" });
           provider = new ethers.providers.Web3Provider(window.ethereum);
           signer = provider.getSigner();
           const walletAddress = await signer.getAddress();
-          walletInfoDiv.innerHTML = `<p>Wallet: ${walletAddress}</p>`;
-
-          // Inicializar contratos
+          document.getElementById("wallet-info").innerHTML = `<p>Wallet: ${walletAddress}</p>`;
+          // Initialize contracts
           tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
-          stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer); // La dirección del contrato de staking es configurable
+          stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
           nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
-
-          // Obtener y actualizar el balance de $ADRIAN
+          // Update token balance (if needed)
           const balance = await tokenContract.balanceOf(walletAddress);
-          document.getElementById("adrian-balance").innerText = ethers.utils.formatUnits(balance, 18);
-        } catch (err) {
-          console.error("Error al conectar la wallet:", err);
-          walletInfoDiv.innerHTML = `<p style="color:red;">Connection failed. Please try again.</p>`;
-        }
-      } else {
-        walletInfoDiv.innerHTML = `<p style="color:red;">Please install MetaMask!</p>`;
-      }
-    });
-
-    // Cargar datos dinámicos del JSON para el NFT destacado
-    fetch("/punkquest/adrianpunks.json")
-      .then(response => response.json())
-      .then(data => {
-        const collection = data.collection;
-        if (collection && collection.length > 0) {
-          // Seleccionar aleatoriamente uno de los primeros 5 NFTs
-          const randomIndex = Math.floor(Math.random() * Math.min(5, collection.length));
-          const featuredNFT = collection[randomIndex];
-          document.getElementById("nft-image").src = featuredNFT.image || "";
-          document.getElementById("nft-id").innerText = `NFT ID: ${featuredNFT.id || "N/A"}`;
-        }
-      })
-      .catch(err => console.error("Error loading NFT data:", err));
-
-    // Función para cargar los tokens de AdrianPunks en la wallet
-    document.getElementById("load-tokens").addEventListener("click", async () => {
-      if (nftContract && signer) {
-        try {
-          const walletAddress = await signer.getAddress();
-          const nftSelect = document.getElementById("punk-tokens-list");
-          nftSelect.innerHTML = "";
-          const balance = await nftContract.balanceOf(walletAddress);
-          const count = balance.toNumber();
-          for (let i = 0; i < count; i++) {
-            const tokenId = await nftContract.tokenOfOwnerByIndex(walletAddress, i);
-            const option = document.createElement("option");
-            option.value = tokenId;
-            option.innerText = "Token " + tokenId;
-            nftSelect.appendChild(option);
+          // Owner verification
+          const ownerAddress = await stakingContract.owner();
+          if(walletAddress.toLowerCase() === ownerAddress.toLowerCase()){
+            document.getElementById("owner-check").innerHTML = `<p class="text-success">Connected as Owner</p>`;
+          } else {
+            document.getElementById("owner-check").innerHTML = `<p class="text-danger">You are not the Owner. Access restricted.</p>`;
           }
-          displayOutput("Tokens cargados: " + count);
         } catch (error) {
-          displayOutput("Error loading tokens: " + error.message);
+          document.getElementById("wallet-info").innerHTML = `<p class="text-danger">Wallet connection failed: ${error.message}</p>`;
         }
       } else {
-        displayOutput("Por favor conecta tu wallet primero.");
+        document.getElementById("wallet-info").innerHTML = `<p class="text-danger">Please install MetaMask!</p>`;
       }
     });
 
-    // Funcionalidades de escritura y lectura del contrato de staking
+    // --- Admin Functions ---
 
-    // Stake Token
-    document.getElementById("stake-token").addEventListener("click", async () => {
-      const tokenId = document.getElementById("punk-tokens-list").value;
-      if (!tokenId) return;
+    // Basic Gamification Parameters
+    document.getElementById("read-basic-params").addEventListener("click", async () => {
       try {
-        const tx = await stakingContract.stake(tokenId);
+        const params = await stakingContract.getBasicGamificationParameters();
+        const output = `Activation Fee: ${params[0].toString()}<br>
+                        Exit Fee: ${params[1].toString()}<br>
+                        Fast Level Upgrade Fee: ${params[2].toString()}<br>
+                        Fast Level Upgrade Bonus Increment: ${params[3].toString()}`;
+        document.getElementById("basic-params-output").innerHTML = output;
+      } catch (error) {
+        document.getElementById("basic-params-output").innerHTML = "Error: " + error.message;
+      }
+    });
+
+    document.getElementById("update-basic-params").addEventListener("click", async () => {
+      const activationFee = document.getElementById("input-activationFee").value;
+      const exitFee = document.getElementById("input-exitFee").value;
+      const fastLevelUpgradeFee = document.getElementById("input-fastLevelUpgradeFee").value;
+      const fastLevelUpgradeBonusIncrement = document.getElementById("input-fastLevelUpgradeBonusIncrement").value;
+      try {
+        const tx = await stakingContract.setBasicGamificationParameters(activationFee, exitFee, fastLevelUpgradeFee, fastLevelUpgradeBonusIncrement);
         await tx.wait();
-        displayOutput("Token " + tokenId + " staked successfully!");
+        document.getElementById("admin-output").innerHTML = `<p class="text-success">Basic parameters updated successfully.</p>`;
       } catch (error) {
-        displayOutput("Error staking token " + tokenId + ": " + error.message);
+        document.getElementById("admin-output").innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
       }
     });
 
-    // Claim Rewards
-    document.getElementById("claim-rewards").addEventListener("click", async () => {
-      const tokenId = document.getElementById("punk-tokens-list").value;
-      if (!tokenId) return;
+    // Social Staking Parameters
+    document.getElementById("read-social-params").addEventListener("click", async () => {
       try {
-        const tx = await stakingContract.claimRewards(tokenId);
+        const params = await stakingContract.getSocialStakingParameters();
+        const output = `Social Min Tokens: ${params[0].toString()}<br>
+                        Social Boost Bonus: ${params[1].toString()}<br>
+                        Social Boost Duration: ${params[2].toString()}<br>
+                        Social Boost Active Until: ${params[3].toString()}`;
+        document.getElementById("social-params-output").innerHTML = output;
+      } catch (error) {
+        document.getElementById("social-params-output").innerHTML = "Error: " + error.message;
+      }
+    });
+
+    document.getElementById("update-social-params").addEventListener("click", async () => {
+      const socialMinTokens = document.getElementById("input-socialMinTokens").value;
+      const socialBoostBonus = document.getElementById("input-socialBoostBonus").value;
+      const socialBoostDuration = document.getElementById("input-socialBoostDuration").value;
+      const socialBoostActiveUntil = document.getElementById("input-socialBoostActiveUntil").value;
+      try {
+        const tx = await stakingContract.setSocialStakingParameters(socialMinTokens, socialBoostBonus, socialBoostDuration, socialBoostActiveUntil);
         await tx.wait();
-        displayOutput("Rewards for token " + tokenId + " claimed successfully!");
+        document.getElementById("admin-output").innerHTML = `<p class="text-success">Social parameters updated successfully.</p>`;
       } catch (error) {
-        displayOutput("Error claiming rewards for token " + tokenId + ": " + error.message);
+        document.getElementById("admin-output").innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
       }
     });
 
-    // Unstake Token
-    document.getElementById("unstake-token").addEventListener("click", async () => {
-      const tokenId = document.getElementById("punk-tokens-list").value;
-      if (!tokenId) return;
+    // Level Parameters
+    document.getElementById("read-level-params").addEventListener("click", async () => {
       try {
-        const tx = await stakingContract.unstake(tokenId);
+        const params = await stakingContract.getLevelParameters();
+        const thresholds = params[0];
+        const bonuses = params[1];
+        const output = `Thresholds: ${thresholds.join(", ")}<br>
+                        Bonuses: ${bonuses.join(", ")}`;
+        document.getElementById("level-params-output").innerHTML = output;
+      } catch (error) {
+        document.getElementById("level-params-output").innerHTML = "Error: " + error.message;
+      }
+    });
+
+    document.getElementById("update-level-params").addEventListener("click", async () => {
+      const thresholdsInput = document.getElementById("input-thresholds").value;
+      const bonusesInput = document.getElementById("input-bonuses").value;
+      const thresholdsArray = thresholdsInput.split(",").map(x => parseInt(x.trim()));
+      const bonusesArray = bonusesInput.split(",").map(x => parseInt(x.trim()));
+      try {
+        const tx = await stakingContract.setLevelParameters(thresholdsArray, bonusesArray);
         await tx.wait();
-        displayOutput("Token " + tokenId + " unstaked successfully!");
+        document.getElementById("admin-output").innerHTML = `<p class="text-success">Level parameters updated successfully.</p>`;
       } catch (error) {
-        displayOutput("Error unstaking token " + tokenId + ": " + error.message);
+        document.getElementById("admin-output").innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
       }
     });
 
-    // Ver Info de Staking
-    document.getElementById("get-staking-info").addEventListener("click", async () => {
-      const tokenId = document.getElementById("punk-tokens-list").value;
-      if (!tokenId) return;
+    // Read Item Info
+    document.getElementById("read-item").addEventListener("click", async () => {
+      const itemId = document.getElementById("input-itemLookup").value;
       try {
-        const info = await stakingContract.getTokenStakingInfo(tokenId);
-        let output = `Staking Info for token ${tokenId}:<br>`;
-        output += `Stake Start: ${info[0].toString()}<br>`;
-        output += `Last Claim: ${info[1].toString()}<br>`;
-        output += `Fast Level Bonus: ${info[2].toString()}<br>`;
-        output += `Item Bonus: ${info[3].toString()}<br>`;
-        output += `Pending Reward: ${info[4].toString()}<br>`;
-        displayOutput(output);
+        const item = await stakingContract.getItem(itemId);
+        const output = `Price: ${item[0].toString()}<br>
+                        Bonus: ${item[1].toString()}<br>
+                        Exists: ${item[2]}`;
+        document.getElementById("item-output").innerHTML = output;
       } catch (error) {
-        displayOutput("Error getting staking info for token " + tokenId + ": " + error.message);
+        document.getElementById("item-output").innerHTML = "Error: " + error.message;
       }
     });
 
-    // Ver Pending Rewards
-    document.getElementById("get-pending-rewards").addEventListener("click", async () => {
-      const tokenId = document.getElementById("punk-tokens-list").value;
-      if (!tokenId) return;
+    // Withdraw Funds
+    document.getElementById("withdraw-button").addEventListener("click", async () => {
       try {
-        const pending = await stakingContract.pendingRewards(tokenId);
-        displayOutput("Pending rewards for token " + tokenId + ": " + pending.toString());
+        const tx = await stakingContract.adminWithdraw();
+        await tx.wait();
+        document.getElementById("withdraw-output").innerHTML = `<p class="text-success">Funds withdrawn successfully.</p>`;
       } catch (error) {
-        displayOutput("Error getting pending rewards for token " + tokenId + ": " + error.message);
+        document.getElementById("withdraw-output").innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
       }
     });
 
-    // Fast Level Upgrade
+    // Optional Boost Functions (if admin wishes to trigger upgrades)
     document.getElementById("purchase-fast-level").addEventListener("click", async () => {
-      const tokenId = document.getElementById("punk-tokens-list").value;
-      if (!tokenId) return;
+      if (!selectedTokenId) return alert("Please select a token from the grid.");
       try {
-        const tx = await stakingContract.purchaseFastLevelUpgrade(tokenId);
+        const tx = await stakingContract.purchaseFastLevelUpgrade(selectedTokenId);
         await tx.wait();
-        displayOutput("Fast Level Upgrade purchased for token " + tokenId + " successfully!");
+        document.getElementById("admin-output").innerHTML = `<p class="text-success">Fast Level Upgrade executed for token ${selectedTokenId}.</p>`;
       } catch (error) {
-        displayOutput("Error in Fast Level Upgrade for token " + tokenId + ": " + error.message);
+        document.getElementById("admin-output").innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
       }
     });
 
-    // Purchase Item Upgrade
     document.getElementById("purchase-item-upgrade").addEventListener("click", async () => {
-      const tokenId = document.getElementById("punk-tokens-list").value;
-      const itemId = document.getElementById("itemId").value;
-      const quantity = document.getElementById("quantity").value;
-      if (!tokenId || !itemId || !quantity) return;
+      if (!selectedTokenId) return alert("Please select a token from the grid.");
+      const itemId = document.getElementById("input-itemId").value;
+      const quantity = document.getElementById("input-quantity").value;
+      if (!itemId || !quantity) return alert("Please enter item ID and quantity.");
       try {
-        const tx = await stakingContract.purchaseItemUpgrade(tokenId, itemId, quantity);
+        const tx = await stakingContract.purchaseItemUpgrade(selectedTokenId, itemId, quantity);
         await tx.wait();
-        displayOutput("Item Upgrade purchased for token " + tokenId + " successfully!");
+        document.getElementById("admin-output").innerHTML = `<p class="text-success">Item Upgrade executed for token ${selectedTokenId}.</p>`;
       } catch (error) {
-        displayOutput("Error purchasing item upgrade for token " + tokenId + ": " + error.message);
+        document.getElementById("admin-output").innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
+      }
+    });
+
+    // Theme Toggle Functionality
+    function applyTheme(theme) {
+      if(theme === "dark"){
+        document.body.classList.add("dark-theme");
+      } else {
+        document.body.classList.remove("dark-theme");
+      }
+      localStorage.setItem("theme", theme);
+    }
+
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+      const currentTheme = localStorage.getItem("theme") || "light";
+      const newTheme = currentTheme === "light" ? "dark" : "light";
+      applyTheme(newTheme);
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const savedTheme = localStorage.getItem("theme") || "light";
+      applyTheme(savedTheme);
+    });
+
+    // --- Token Grid Functionality ---
+    // Load tokens from JSON and display as a grid with thumbnails
+    document.getElementById("load-tokens").addEventListener("click", async () => {
+      try {
+        const response = await fetch("/punkquest/adrianpunks.json");
+        const data = await response.json();
+        const collection = data.collection;
+        const gridContainer = document.getElementById("tokens-grid");
+        gridContainer.innerHTML = "";
+        if (collection && collection.length > 0) {
+          collection.forEach(token => {
+            const col = document.createElement("div");
+            col.className = "col";
+            const card = document.createElement("div");
+            card.className = "card token-card";
+            card.dataset.tokenId = token.id;
+            // Create image element with thumbnail; adjust size via CSS
+            const img = document.createElement("img");
+            img.src = token.image;
+            img.alt = "Token " + token.id;
+            // Create overlay text for token id
+            const overlay = document.createElement("div");
+            overlay.className = "card-body p-2";
+            overlay.innerHTML = `<p class="text-center mb-0">Token ${token.id}</p>`;
+            card.appendChild(img);
+            card.appendChild(overlay);
+            col.appendChild(card);
+            gridContainer.appendChild(col);
+            // Click event to select token
+            card.addEventListener("click", () => {
+              // Remove selection from any previously selected card
+              document.querySelectorAll(".token-card").forEach(el => el.classList.remove("selected-token"));
+              card.classList.add("selected-token");
+              selectedTokenId = token.id;
+              document.getElementById("token-action-output").innerText = `Selected Token: ${selectedTokenId}`;
+            });
+          });
+        } else {
+          gridContainer.innerHTML = "<p>No tokens found in JSON.</p>";
+        }
+      } catch (error) {
+        document.getElementById("token-action-output").innerText = "Error loading tokens: " + error.message;
       }
     });
   </script>
