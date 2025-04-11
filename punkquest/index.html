@@ -40,7 +40,6 @@
       margin-bottom: 1rem;
     }
 
-    /* Additional custom styles */
     header {
       background: linear-gradient(135deg, #f39c12, #ffb347);
       color: #fff;
@@ -48,24 +47,29 @@
       border-radius: 0.5rem;
       margin-bottom: 1rem;
     }
+
     .section-title {
       font-size: 1.5rem;
       margin-bottom: 1rem;
       border-bottom: 2px solid var(--primary-color);
       padding-bottom: 0.3rem;
     }
+
     .token-grid img {
       width: 100%;
       height: auto;
       border-radius: 0.5rem;
     }
+
     .token-card {
       cursor: pointer;
       transition: transform 0.2s;
     }
+
     .token-card:hover {
       transform: scale(1.05);
     }
+
     .selected-token {
       border: 2px solid var(--primary-color);
     }
@@ -89,7 +93,19 @@
       <div id="owner-check" class="mt-2"></div>
     </section>
 
-    <!-- Owner Functions -->
+    <!-- My Tokens Section (Grid of tokens owned by wallet) -->
+    <section id="tokens-section" class="mb-4">
+      <div class="card">
+        <h2 class="section-title">My Tokens</h2>
+        <button id="load-tokens" class="btn btn-secondary mb-3">Load Tokens</button>
+        <div id="tokens-grid" class="row row-cols-2 row-cols-sm-3 row-cols-md-4 g-3 token-grid">
+          <!-- Only tokens owned by the wallet (using JSON info) will be loaded here -->
+        </div>
+        <div id="token-action-output" class="mt-2"></div>
+      </div>
+    </section>
+
+    <!-- Admin Functions: Grouped Boxes -->
     <div class="row">
       <!-- Box 1: Minimal Game Settings -->
       <div class="col-md-4">
@@ -141,7 +157,7 @@
           </div>
           <button id="update-social-params" class="btn btn-warning">Update Social Staking Parameters</button>
           <hr>
-          <!-- Optional boost actions (if admin wishes to emulate upgrade functions) -->
+          <!-- Optional boost actions -->
           <button id="purchase-fast-level" class="btn btn-warning mb-2">Fast Level Upgrade</button>
           <div class="mb-3">
             <label for="input-itemId" class="form-label">Item ID for Upgrade:</label>
@@ -186,18 +202,6 @@
       </div>
     </div>
 
-    <!-- Tokens Grid Section -->
-    <section id="tokens-section" class="mb-4">
-      <div class="card">
-        <h2 class="section-title">My Tokens</h2>
-        <button id="load-tokens" class="btn btn-secondary mb-3">Load Tokens</button>
-        <div id="tokens-grid" class="row row-cols-2 row-cols-sm-3 row-cols-md-4 g-3 token-grid">
-          <!-- Tokens will be loaded here from JSON -->
-        </div>
-        <div id="token-action-output" class="mt-2"></div>
-      </div>
-    </section>
-
     <!-- General Action Output -->
     <div id="admin-output" class="mt-3"></div>
   </div>
@@ -225,7 +229,7 @@
     // Global variables for ethers.js and contracts
     let provider, signer;
     let tokenContract, stakingContract, nftContract;
-    let selectedTokenId = null; // To store tokenId from grid selection
+    let selectedTokenId = null; // To store the selected tokenId
 
     // Contract Addresses
     const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
@@ -340,7 +344,7 @@
         "stateMutability": "nonpayable",
         "type": "function"
       },
-      // Optional functions available in the contract (if any)
+      // Optional upgrade functions
       {
         "inputs": [{"internalType": "uint256", "name": "tokenId", "type": "uint256"}],
         "name": "purchaseFastLevelUpgrade",
@@ -374,11 +378,9 @@
           tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
           stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
           nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
-          // Update token balance (if needed)
-          const balance = await tokenContract.balanceOf(walletAddress);
           // Owner verification
           const ownerAddress = await stakingContract.owner();
-          if(walletAddress.toLowerCase() === ownerAddress.toLowerCase()){
+          if (walletAddress.toLowerCase() === ownerAddress.toLowerCase()) {
             document.getElementById("owner-check").innerHTML = `<p class="text-success">Connected as Owner</p>`;
           } else {
             document.getElementById("owner-check").innerHTML = `<p class="text-danger">You are not the Owner. Access restricted.</p>`;
@@ -413,7 +415,9 @@
       const fastLevelUpgradeFee = document.getElementById("input-fastLevelUpgradeFee").value;
       const fastLevelUpgradeBonusIncrement = document.getElementById("input-fastLevelUpgradeBonusIncrement").value;
       try {
-        const tx = await stakingContract.setBasicGamificationParameters(activationFee, exitFee, fastLevelUpgradeFee, fastLevelUpgradeBonusIncrement);
+        const tx = await stakingContract.setBasicGamificationParameters(
+          activationFee, exitFee, fastLevelUpgradeFee, fastLevelUpgradeBonusIncrement
+        );
         await tx.wait();
         document.getElementById("admin-output").innerHTML = `<p class="text-success">Basic parameters updated successfully.</p>`;
       } catch (error) {
@@ -441,7 +445,9 @@
       const socialBoostDuration = document.getElementById("input-socialBoostDuration").value;
       const socialBoostActiveUntil = document.getElementById("input-socialBoostActiveUntil").value;
       try {
-        const tx = await stakingContract.setSocialStakingParameters(socialMinTokens, socialBoostBonus, socialBoostDuration, socialBoostActiveUntil);
+        const tx = await stakingContract.setSocialStakingParameters(
+          socialMinTokens, socialBoostBonus, socialBoostDuration, socialBoostActiveUntil
+        );
         await tx.wait();
         document.getElementById("admin-output").innerHTML = `<p class="text-success">Social parameters updated successfully.</p>`;
       } catch (error) {
@@ -502,7 +508,7 @@
       }
     });
 
-    // Optional Boost Functions (if admin wishes to trigger upgrades)
+    // Optional Boost Functions
     document.getElementById("purchase-fast-level").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Please select a token from the grid.");
       try {
@@ -530,7 +536,7 @@
 
     // Theme Toggle Functionality
     function applyTheme(theme) {
-      if(theme === "dark"){
+      if (theme === "dark") {
         document.body.classList.add("dark-theme");
       } else {
         document.body.classList.remove("dark-theme");
@@ -550,44 +556,53 @@
     });
 
     // --- Token Grid Functionality ---
-    // Load tokens from JSON and display as a grid with thumbnails
+    // This function loads only the tokens owned by the wallet by:
+    // 1. Fetching the JSON collection from /punkquest/adrianpunks.json.
+    // 2. Using nftContract.balanceOf and tokenOfOwnerByIndex to get owned token IDs.
+    // 3. Matching each token ID with its JSON info (for image, etc.) and displaying in a grid.
     document.getElementById("load-tokens").addEventListener("click", async () => {
+      if (!nftContract || !signer) {
+        return document.getElementById("token-action-output").innerText = "Please connect your wallet first.";
+      }
       try {
+        const walletAddress = await signer.getAddress();
+        // Load the JSON collection
         const response = await fetch("/punkquest/adrianpunks.json");
         const data = await response.json();
-        const collection = data.collection;
+        const jsonCollection = data.collection;
+        // Get tokens owned by the wallet
+        const balance = await nftContract.balanceOf(walletAddress);
+        const count = balance.toNumber();
         const gridContainer = document.getElementById("tokens-grid");
         gridContainer.innerHTML = "";
-        if (collection && collection.length > 0) {
-          collection.forEach(token => {
-            const col = document.createElement("div");
-            col.className = "col";
-            const card = document.createElement("div");
-            card.className = "card token-card";
-            card.dataset.tokenId = token.id;
-            // Create image element with thumbnail; adjust size via CSS
-            const img = document.createElement("img");
-            img.src = token.image;
-            img.alt = "Token " + token.id;
-            // Create overlay text for token id
-            const overlay = document.createElement("div");
-            overlay.className = "card-body p-2";
-            overlay.innerHTML = `<p class="text-center mb-0">Token ${token.id}</p>`;
-            card.appendChild(img);
-            card.appendChild(overlay);
-            col.appendChild(card);
-            gridContainer.appendChild(col);
-            // Click event to select token
-            card.addEventListener("click", () => {
-              // Remove selection from any previously selected card
-              document.querySelectorAll(".token-card").forEach(el => el.classList.remove("selected-token"));
-              card.classList.add("selected-token");
-              selectedTokenId = token.id;
-              document.getElementById("token-action-output").innerText = `Selected Token: ${selectedTokenId}`;
-            });
+        for (let i = 0; i < count; i++) {
+          const tokenId = (await nftContract.tokenOfOwnerByIndex(walletAddress, i)).toString();
+          // Find token info from JSON
+          const tokenInfo = jsonCollection.find(item => item.id == tokenId);
+          const imgSrc = tokenInfo ? tokenInfo.image : "https://via.placeholder.com/150?text=Token+" + tokenId;
+          // Build the grid element
+          const col = document.createElement("div");
+          col.className = "col";
+          const card = document.createElement("div");
+          card.className = "card token-card";
+          card.dataset.tokenId = tokenId;
+          const img = document.createElement("img");
+          img.src = imgSrc;
+          img.alt = "Token " + tokenId;
+          const overlay = document.createElement("div");
+          overlay.className = "card-body p-2";
+          overlay.innerHTML = `<p class="text-center mb-0">Token ${tokenId}</p>`;
+          card.appendChild(img);
+          card.appendChild(overlay);
+          col.appendChild(card);
+          gridContainer.appendChild(col);
+          // Add click event to select token
+          card.addEventListener("click", () => {
+            document.querySelectorAll(".token-card").forEach(el => el.classList.remove("selected-token"));
+            card.classList.add("selected-token");
+            selectedTokenId = tokenId;
+            document.getElementById("token-action-output").innerText = `Selected Token: ${selectedTokenId}`;
           });
-        } else {
-          gridContainer.innerHTML = "<p>No tokens found in JSON.</p>";
         }
       } catch (error) {
         document.getElementById("token-action-output").innerText = "Error loading tokens: " + error.message;
