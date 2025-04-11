@@ -365,6 +365,18 @@
       }
     ];
 
+    // Helper function to format amounts by removing 18 zeros and formatting as "10,000.0 $A"
+    function formatAmount(amount) {
+      // Convert using ethers.utils.formatUnits to get a decimal string
+      const value = parseFloat(ethers.utils.formatUnits(amount, 18));
+      return value.toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1}) + " $A";
+    }
+
+    // Function to format arrays of token amounts (if needed)
+    function formatAmountArray(arr) {
+      return arr.map(a => formatAmount(a)).join(", ");
+    }
+
     // Function to load tokens owned by wallet using JSON info
     async function loadTokens() {
       try {
@@ -381,7 +393,7 @@
         gridContainer.innerHTML = "";
         for (let i = 0; i < count; i++) {
           const tokenId = (await nftContract.tokenOfOwnerByIndex(walletAddress, i)).toString();
-          // Match token info by comparing token number extracted from the name (e.g. "AdrianPunks#5")
+          // Find token info by matching token number in "name" (e.g., "AdrianPunks#5")
           const tokenInfo = jsonCollection.find(item => {
             if (item.name) {
               const parts = item.name.split("#");
@@ -406,12 +418,18 @@
           card.appendChild(overlay);
           col.appendChild(card);
           gridContainer.appendChild(col);
-          // Add click event to select a token
+          // Add click event to select/deselect token
           card.addEventListener("click", () => {
-            document.querySelectorAll(".token-card").forEach(el => el.classList.remove("selected-token"));
-            card.classList.add("selected-token");
-            selectedTokenId = tokenId;
-            document.getElementById("token-action-output").innerText = `Selected Token: ${selectedTokenId}`;
+            if (card.classList.contains("selected-token")) {
+              card.classList.remove("selected-token");
+              selectedTokenId = null;
+              document.getElementById("token-action-output").innerText = "No token selected";
+            } else {
+              document.querySelectorAll(".token-card").forEach(el => el.classList.remove("selected-token"));
+              card.classList.add("selected-token");
+              selectedTokenId = tokenId;
+              document.getElementById("token-action-output").innerText = `Selected Token: ${selectedTokenId}`;
+            }
           });
         }
       } catch (error) {
@@ -451,14 +469,19 @@
 
     // --- Admin Functions ---
 
-    // Basic Gamification Parameters
+    // Read Basic Gamification Parameters
     document.getElementById("read-basic-params").addEventListener("click", async () => {
       try {
         const params = await stakingContract.getBasicGamificationParameters();
-        const output = `Activation Fee: ${params[0].toString()}<br>
-                        Exit Fee: ${params[1].toString()}<br>
-                        Fast Level Upgrade Fee: ${params[2].toString()}<br>
-                        Fast Level Upgrade Bonus Increment: ${params[3].toString()}`;
+        // Format each amount by removing 18 decimals and appending " $A"
+        const activationFeeFormatted = formatAmount(params[0]);
+        const exitFeeFormatted = formatAmount(params[1]);
+        const fastLevelUpgradeFeeFormatted = formatAmount(params[2]);
+        const fastLevelUpgradeBonusIncrementFormatted = formatAmount(params[3]);
+        const output = `Activation Fee: ${activationFeeFormatted}<br>
+                        Exit Fee: ${exitFeeFormatted}<br>
+                        Fast Level Upgrade Fee: ${fastLevelUpgradeFeeFormatted}<br>
+                        Fast Level Upgrade Bonus Increment: ${fastLevelUpgradeBonusIncrementFormatted}`;
         document.getElementById("basic-params-output").innerHTML = output;
       } catch (error) {
         document.getElementById("basic-params-output").innerHTML = "Error: " + error.message;
@@ -485,10 +508,14 @@
     document.getElementById("read-social-params").addEventListener("click", async () => {
       try {
         const params = await stakingContract.getSocialStakingParameters();
-        const output = `Social Min Tokens: ${params[0].toString()}<br>
-                        Social Boost Bonus: ${params[1].toString()}<br>
-                        Social Boost Duration: ${params[2].toString()}<br>
-                        Social Boost Active Until: ${params[3].toString()}`;
+        const socialMinTokensFormatted = formatAmount(params[0]);
+        const socialBoostBonusFormatted = formatAmount(params[1]);
+        const socialBoostDurationFormatted = formatAmount(params[2]);
+        const socialBoostActiveUntilFormatted = formatAmount(params[3]);
+        const output = `Social Min Tokens: ${socialMinTokensFormatted}<br>
+                        Social Boost Bonus: ${socialBoostBonusFormatted}<br>
+                        Social Boost Duration: ${socialBoostDurationFormatted}<br>
+                        Social Boost Active Until: ${socialBoostActiveUntilFormatted}`;
         document.getElementById("social-params-output").innerHTML = output;
       } catch (error) {
         document.getElementById("social-params-output").innerHTML = "Error: " + error.message;
@@ -515,10 +542,10 @@
     document.getElementById("read-level-params").addEventListener("click", async () => {
       try {
         const params = await stakingContract.getLevelParameters();
-        const thresholds = params[0];
-        const bonuses = params[1];
-        const output = `Thresholds: ${thresholds.join(", ")}<br>
-                        Bonuses: ${bonuses.join(", ")}`;
+        const thresholdsFormatted = params[0].map(a => formatAmount(a));
+        const bonusesFormatted = params[1].map(a => formatAmount(a));
+        const output = `Thresholds: ${thresholdsFormatted.join(", ")}<br>
+                        Bonuses: ${bonusesFormatted.join(", ")}`;
         document.getElementById("level-params-output").innerHTML = output;
       } catch (error) {
         document.getElementById("level-params-output").innerHTML = "Error: " + error.message;
@@ -544,8 +571,11 @@
       const itemId = document.getElementById("input-itemLookup").value;
       try {
         const item = await stakingContract.getItem(itemId);
-        const output = `Price: ${item[0].toString()}<br>
-                        Bonus: ${item[1].toString()}<br>
+        // Format price and bonus using our helper function
+        const priceFormatted = formatAmount(item[0]);
+        const bonusFormatted = formatAmount(item[1]);
+        const output = `Price: ${priceFormatted}<br>
+                        Bonus: ${bonusFormatted}<br>
                         Exists: ${item[2]}`;
         document.getElementById("item-output").innerHTML = output;
       } catch (error) {
