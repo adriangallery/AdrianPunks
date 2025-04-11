@@ -65,18 +65,17 @@
     .selected-token {
       border: 3px solid var(--primary-color);
     }
-    /* Box container styling */
     .action-box {
       margin-bottom: 1rem;
     }
   </style>
 </head>
 <body>
-  <!-- (Optional: Dynamically load menu component if needed) -->
+  <!-- Optional Menu Component (loaded dynamically) -->
   <div id="menu"></div>
 
   <div class="container my-4">
-    <!-- Header -->
+    <!-- Header Section -->
     <header>
       <h1>PunkQuest</h1>
       <p>Stake your AdrianPunk NFT and earn rewards & boosts!</p>
@@ -88,8 +87,7 @@
       <button id="connect-wallet" class="btn btn-primary">Connect Wallet</button>
       <div id="wallet-info" class="mt-2"></div>
       <div id="owner-check" class="mt-2"></div>
-      <!-- Info on fees: They are charged per token staked -->
-      <small class="text-muted">Note: Fees are applied per token on staking/unstaking.</small>
+      <small class="text-muted">Note: Fees are applied per token upon staking/unstaking.</small>
     </section>
 
     <!-- My Tokens Section (Grid) -->
@@ -97,7 +95,7 @@
       <div class="card">
         <h2 class="section-title">My Tokens</h2>
         <div id="tokens-grid" class="row row-cols-2 row-cols-sm-3 row-cols-md-4 g-3 token-grid">
-          <!-- Tokens owned by wallet (from JSON) will be injected here automatically -->
+          <!-- Token grid loaded automatically -->
         </div>
         <div id="token-action-output" class="mt-2"></div>
       </div>
@@ -109,7 +107,9 @@
       <div class="col-md-6 action-box">
         <div class="card">
           <h2 class="section-title">Stake & Rewards</h2>
-          <p>Select a token from above and click "Stake Selected Token". Fees will be deducted per token.</p>
+          <p>Select a token above and click "Stake Selected Token". The activation fee will be charged per token.</p>
+          <!-- Display stake cost -->
+          <p id="stake-cost-output" class="mb-3 text-primary">Stake Cost: Loading...</p>
           <button id="stake-token" class="btn btn-primary mb-3">Stake Selected Token</button>
           <button id="refresh-info" class="btn btn-info mb-3">Refresh Rewards & Boosts</button>
           <div id="staking-info-output"></div>
@@ -119,7 +119,6 @@
       <div class="col-md-6 action-box">
         <div class="card">
           <h2 class="section-title">Additional Actions</h2>
-          <p>Complementary functions after staking.</p>
           <button id="claim-rewards" class="btn btn-primary mb-2">Claim Rewards</button>
           <button id="unstake-token" class="btn btn-primary mb-2">Unstake Token</button>
           <hr>
@@ -141,27 +140,40 @@
     <div id="general-output" class="mt-3"></div>
   </div>
 
-  <!-- Bootstrap 5 JS Bundle -->
+  <!-- Bootstrap 5 JS Bundle and Ethers.js Library -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <!-- Ethers.js Library -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
-  <!-- Inline Script for Wallet, Contract Interactions, and UI Functions -->
+  <!-- Load Menu Component Dynamically (if needed) -->
   <script>
-    // Global variables for ethers.js and contracts
+    fetch('/market/components/menu.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('menu').innerHTML = html;
+        const menuScript = document.createElement('script');
+        menuScript.src = '/market/components/menu.js';
+        document.body.appendChild(menuScript);
+      })
+      .catch(err => console.error("Failed to load menu component:", err));
+  </script>
+
+  <!-- Inline Script for Wallet, Contract Interactions and UI Functions -->
+  <script>
+    // Global variables
     let provider, signer;
     let tokenContract, stakingContract, nftContract;
     let selectedTokenId = null; // For token selection
 
-    // Contract Addresses (same as provided in contract code)
+    // Contract Addresses
     const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
     const STAKING_ADDRESS = "0xeEC1A809acB57acABa196C6677f65EcC4c6f4491";
 
-    // Minimal ABIs
+    // Minimal ABI definitions (added allowance function)
     const tokenABI = [
       "function balanceOf(address owner) view returns (uint256)",
-      "function approve(address spender, uint256 amount) returns (bool)"
+      "function approve(address spender, uint256 amount) returns (bool)",
+      "function allowance(address owner, address spender) view returns (uint256)"
     ];
     const nftABI = [
       "function balanceOf(address owner) view returns (uint256)",
@@ -175,7 +187,8 @@
       "function pendingRewards(uint256 tokenId) view returns (uint256)",
       "function getTokenStakingInfo(uint256 tokenId) view returns (uint256, uint256, uint256, uint256, uint256)",
       "function purchaseFastLevelUpgrade(uint256 tokenId) external returns (uint256)",
-      "function purchaseItemUpgrade(uint256 tokenId, uint256 itemId, uint256 quantity) external returns (uint256)"
+      "function purchaseItemUpgrade(uint256 tokenId, uint256 itemId, uint256 quantity) external returns (uint256)",
+      "function getBasicGamificationParameters() view returns (uint256, uint256, uint256, uint256)"
     ];
 
     // Helper function to format amounts (removing 18 decimals)
@@ -184,7 +197,7 @@
       return value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " $A";
     }
 
-    // Function to load tokens owned by the connected wallet using JSON info
+    // Function to load tokens owned by wallet using JSON info and display grid
     async function loadTokens() {
       try {
         const walletAddress = await signer.getAddress();
@@ -228,7 +241,6 @@
               selectedTokenId = null;
               document.getElementById("token-action-output").innerText = "No token selected";
             } else {
-              // Remove selection from all tokens
               document.querySelectorAll(".token-card").forEach(el => el.classList.remove("selected-token"));
               card.classList.add("selected-token");
               selectedTokenId = tokenId;
@@ -241,7 +253,7 @@
       }
     }
 
-    // Connect wallet and initialize contracts; then automatically load tokens
+    // Connect wallet and initialize contracts; automatically load tokens and update stake cost
     document.getElementById("connect-wallet").addEventListener("click", async () => {
       if (window.ethereum) {
         try {
@@ -250,13 +262,15 @@
           signer = provider.getSigner();
           const walletAddress = await signer.getAddress();
           document.getElementById("wallet-info").innerHTML = `<p>Wallet: ${walletAddress}</p>`;
-          // Initialize contracts
           tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
           stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
           nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
-          // (For user functions, admin-only features are not displayed.)
-          // Automatically load tokens on wallet connection
+          // Automatically load tokens after connection
           loadTokens();
+          // Retrieve and display stake cost (activation fee)
+          const params = await stakingContract.getBasicGamificationParameters();
+          const activationFeeFormatted = formatAmount(params[0]);
+          document.getElementById("stake-cost-output").innerText = `Stake Cost: ${activationFeeFormatted}`;
         } catch (error) {
           document.getElementById("wallet-info").innerHTML = `<p class="text-danger">Wallet connection failed: ${error.message}</p>`;
         }
@@ -267,22 +281,41 @@
 
     // ---------------------- User Functions ---------------------- //
 
-    // Stake Selected Token (pays activationFee per token)
+    // Stake Selected Token with approval check
     document.getElementById("stake-token").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Please select a token first.");
       try {
-        // (Assumes the user has already approved the $ADRIAN token if needed)
+        const walletAddress = await signer.getAddress();
+        // Retrieve current activation fee from contract
+        const params = await stakingContract.getBasicGamificationParameters();
+        const activationFee = params[0]; // In wei
+        
+        // Check allowance for $ADRIAN token spending on the staking contract
+        const currentAllowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
+        if (currentAllowance.lt(activationFee)) {
+          // Approve the staking contract to spend at least the activation fee
+          document.getElementById("general-output").innerHTML = `<p class="text-info">Approving spend of $ADRIAN tokens. Please wait…</p>`;
+          const approveTx = await tokenContract.approve(STAKING_ADDRESS, activationFee);
+          await approveTx.wait();
+          document.getElementById("general-output").innerHTML = `<p class="text-info">Approval successful. Proceeding with staking…</p>`;
+        }
+        // Now call stake function
         const tx = await stakingContract.stake(selectedTokenId);
         await tx.wait();
         document.getElementById("general-output").innerHTML = `<p class="text-success">Token ${selectedTokenId} staked successfully.</p>`;
-        // Optionally refresh staking info after staking
         refreshStakingInfo();
       } catch (error) {
-        document.getElementById("general-output").innerHTML = `<p class="text-danger">Error staking token: ${error.message}</p>`;
+        let errorMsg = error.message;
+        if (errorMsg.includes("transfer amount exceeds allowance")) {
+          errorMsg = "Insufficient token allowance. Please ensure you have enough $ADRIAN and try again.";
+        } else if (errorMsg.includes("insufficient funds")) {
+          errorMsg = "Insufficient funds in your wallet. Please ensure you have enough $ADRIAN tokens.";
+        }
+        document.getElementById("general-output").innerHTML = `<p class="text-danger">Error staking token: ${errorMsg}</p>`;
       }
     });
 
-    // Refresh Rewards & Boosts for the selected token
+    // Refresh staking information for the selected token
     async function refreshStakingInfo() {
       if (!selectedTokenId) return alert("Please select a token first.");
       try {
@@ -301,7 +334,7 @@
     }
     document.getElementById("refresh-info").addEventListener("click", refreshStakingInfo);
 
-    // Claim Rewards for the selected token
+    // Claim rewards for the selected token
     document.getElementById("claim-rewards").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Please select a token first.");
       try {
@@ -314,7 +347,7 @@
       }
     });
 
-    // Unstake the selected token (pays exit fee per token)
+    // Unstake selected token
     document.getElementById("unstake-token").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Please select a token first.");
       try {
@@ -322,14 +355,13 @@
         await tx.wait();
         document.getElementById("general-output").innerHTML = `<p class="text-success">Token ${selectedTokenId} unstaked successfully.</p>`;
         refreshStakingInfo();
-        // Optionally, reload the tokens grid (in case staking status changed)
         loadTokens();
       } catch (error) {
         document.getElementById("general-output").innerHTML = `<p class="text-danger">Error unstaking token: ${error.message}</p>`;
       }
     });
 
-    // Purchase Fast Level Upgrade for the selected token
+    // Purchase fast-level upgrade for selected token
     document.getElementById("purchase-fast-level").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Please select a token first.");
       try {
@@ -342,7 +374,7 @@
       }
     });
 
-    // Purchase Item Upgrade for the selected token
+    // Purchase item upgrade for selected token
     document.getElementById("purchase-item-upgrade").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Please select a token first.");
       const itemId = document.getElementById("input-itemId").value;
