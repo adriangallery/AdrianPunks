@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Dashboard - PunkQuest</title>
   <!-- Bootstrap 5 CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <!-- Custom Styles -->
-  <link rel="stylesheet" href="/market/styles/styles.css">
+  <link rel="stylesheet" href="/market/styles/styles.css" />
   <!-- Inline CSS para tema y estilos básicos -->
   <style>
     :root {
@@ -19,10 +19,11 @@
       --card-bg: #f8f9fa;
       --card-border: #f39c12;
     }
+    /* Usamos tipografía tipo terminal */
     body {
       background-color: var(--bg-color-light);
       color: var(--text-color-light);
-      font-family: "Share Tech Mono", monospace;
+      font-family: "Courier New", monospace;
       transition: background-color 0.3s, color 0.3s;
     }
     body.dark-theme {
@@ -36,9 +37,36 @@
       padding: 1rem;
       margin-bottom: 1rem;
     }
+    .section-title {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      border-bottom: 2px solid var(--primary-color);
+      padding-bottom: 0.3rem;
+    }
+    .token-grid img {
+      width: 100%;
+      height: auto;
+      border-radius: 0.5rem;
+    }
+    .token-card {
+      cursor: pointer;
+      transition: transform 0.2s, border 0.2s;
+    }
+    .token-card:hover {
+      transform: scale(1.05);
+    }
+    .selected-token {
+      border: 3px solid var(--primary-color);
+    }
+    .action-box {
+      margin-bottom: 1rem;
+    }
   </style>
 </head>
 <body>
+  <!-- Se carga el componente de menú de forma dinámica, si se requiere -->
+  <div id="menu"></div>
+
   <div class="container my-4">
     <!-- Encabezado -->
     <header class="text-center mb-4">
@@ -60,19 +88,20 @@
       <button id="read-basic-params" class="btn btn-info mb-2">Leer Parámetros Básicos</button>
       <div id="basic-params-output" class="mb-2"></div>
       <div class="mb-2">
-        <label>Activation Fee:</label>
+        <label>Activation Fee ($ADRIAN):</label>
+        <!-- El usuario ingresa sin decimales -->
         <input type="text" id="input-activationFee" class="form-control">
       </div>
       <div class="mb-2">
-        <label>Exit Fee:</label>
+        <label>Exit Fee ($ADRIAN):</label>
         <input type="text" id="input-exitFee" class="form-control">
       </div>
       <div class="mb-2">
-        <label>Fast Level Upgrade Fee:</label>
+        <label>Fast Level Upgrade Fee ($ADRIAN):</label>
         <input type="text" id="input-fastLevelUpgradeFee" class="form-control">
       </div>
       <div class="mb-2">
-        <label>Fast Level Upgrade Bonus Increment:</label>
+        <label>Fast Level Upgrade Bonus Increment (en número, sin decimales, ej: 5 para 5%):</label>
         <input type="text" id="input-fastLevelUpgradeBonusIncrement" class="form-control">
       </div>
       <button id="update-basic-params" class="btn btn-warning">Actualizar Parámetros Básicos</button>
@@ -89,15 +118,15 @@
         <input type="text" id="input-socialMinTokens" class="form-control">
       </div>
       <div class="mb-2">
-        <label>Social Boost Bonus:</label>
+        <label>Social Boost Bonus (ingresar valor entero, ej: 10 para 10%):</label>
         <input type="text" id="input-socialBoostBonus" class="form-control">
       </div>
       <div class="mb-2">
-        <label>Social Boost Duration:</label>
+        <label>Social Boost Duration (en segundos):</label>
         <input type="text" id="input-socialBoostDuration" class="form-control">
       </div>
       <div class="mb-2">
-        <label>Social Boost Active Until:</label>
+        <label>Social Boost Active Until (timestamp):</label>
         <input type="text" id="input-socialBoostActiveUntil" class="form-control">
       </div>
       <button id="update-social-params" class="btn btn-warning">Actualizar Parámetros de Social Staking</button>
@@ -110,30 +139,70 @@
       <button id="read-level-params" class="btn btn-info mb-2">Leer Parámetros de Niveles</button>
       <div id="level-params-output" class="mb-2"></div>
       <div class="mb-2">
-        <label>Thresholds (separados por coma):</label>
+        <label>Thresholds (segundos, separados por coma):</label>
         <input type="text" id="input-thresholds" class="form-control">
       </div>
       <div class="mb-2">
-        <label>Bonuses (separados por coma):</label>
+        <label>Bonuses (ingresar porcentajes, ej: 10 para 10%, separados por coma):</label>
         <input type="text" id="input-bonuses" class="form-control">
       </div>
       <button id="update-level-params" class="btn btn-warning">Actualizar Parámetros de Niveles</button>
     </section>
     <hr>
 
-    <!-- Sección: Consultar Información de Item -->
-    <section id="item-info" class="mb-4">
-      <h2>Consultar Información de Item</h2>
-      <div class="mb-2">
-        <label>Item ID:</label>
+    <!-- Sección: Gestión de Ítems -->
+    <section id="item-management" class="mb-4">
+      <h2>Gestión de Ítems</h2>
+      <div class="mb-3">
+        <label>Consultar Ítem: (ID)</label>
         <input type="text" id="input-item-id" class="form-control">
       </div>
-      <button id="read-item" class="btn btn-info">Leer Información de Item</button>
+      <button id="read-item" class="btn btn-info mb-3">Leer Información de Ítem</button>
       <div id="item-output" class="mt-2"></div>
+      <hr>
+      <div class="mb-3">
+        <label>Agregar/Actualizar Ítem - ID:</label>
+        <input type="text" id="input-create-item-id" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>Precio ($ADRIAN, sin decimales):</label>
+        <input type="text" id="input-create-item-price" class="form-control">
+      </div>
+      <div class="mb-3">
+        <label>Bonus (por unidad, sin decimales; ej: 5 para 5%):</label>
+        <input type="text" id="input-create-item-bonus" class="form-control">
+      </div>
+      <button id="update-item" class="btn btn-warning mb-3">Agregar/Actualizar Ítem</button>
+      <div class="mb-3">
+        <label>Eliminar Ítem - ID:</label>
+        <input type="text" id="input-remove-item-id" class="form-control">
+      </div>
+      <button id="remove-item" class="btn btn-danger">Eliminar Ítem</button>
     </section>
     <hr>
 
-    <!-- Sección: Retirar Fondos -->
+    <!-- Sección: Configuraciones Avanzadas -->
+    <section id="advanced-config" class="mb-4">
+      <h2>Configuraciones Avanzadas</h2>
+      <div class="mb-3">
+        <label>Reward Token (dirección):</label>
+        <input type="text" id="input-reward-token" class="form-control">
+      </div>
+      <button id="update-reward-token" class="btn btn-warning mb-3">Actualizar Reward Token</button>
+      <div class="mb-3">
+        <label>Base Reward Rate (sin decimales):</label>
+        <input type="text" id="input-base-reward-rate" class="form-control">
+      </div>
+      <button id="update-base-reward-rate" class="btn btn-warning mb-3">Actualizar Base Reward Rate</button>
+      <div class="mb-3">
+        <label>Fee Wallet (dirección):</label>
+        <input type="text" id="input-fee-wallet" class="form-control">
+      </div>
+      <button id="update-fee-wallet" class="btn btn-warning">Actualizar Fee Wallet</button>
+    </section>
+    <hr>
+
+    <!-- Sección: Retirar Fondos (Admin) -->
     <section id="withdraw-funds" class="mb-4">
       <h2>Retirar Fondos (Admin)</h2>
       <button id="withdraw-button" class="btn btn-danger">Retirar Fondos</button>
@@ -148,264 +217,348 @@
   <!-- Ethers.js Library -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   
-  <!-- Script Admin -->
+  <!-- Script Admin (carga del menú, etc.) -->
   <script>
+    // Cargar menú de forma dinámica si se necesita
+    fetch('/market/components/menu.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('menu').innerHTML = html;
+        const menuScript = document.createElement('script');
+        menuScript.src = '/market/components/menu.js';
+        document.body.appendChild(menuScript);
+      })
+      .catch(err => console.error("Error al cargar menú:", err));
+  </script>
+  
+  <!-- Inline Script para Interacción con el Contrato y UI -->
+  <script>
+    // Variables globales y contratos
     let provider, signer;
-    let stakingContract; // Usamos el contrato de staking para las funciones admin
-    const connectWalletButton = document.getElementById("connect-wallet");
-    const walletInfoDiv = document.getElementById("wallet-info");
-    const ownerCheckDiv = document.getElementById("owner-check");
-    const adminOutputDiv = document.getElementById("admin-output");
+    let tokenContract, stakingContract, nftContract;
+    let selectedTokenId = null; // Token seleccionado en la grilla
 
-    // Dirección del contrato de staking
+    // Direcciones de contrato
+    const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
     const STAKING_ADDRESS = "0xeEC1A809acB57acABa196C6677f65EcC4c6f4491";
 
-    // ABI extendido: incluye funciones de lectura, actualización y administración
+    // ABI mínimos (con funciones de allowance)
+    const tokenABI = [
+      "function balanceOf(address owner) view returns (uint256)",
+      "function approve(address spender, uint256 amount) returns (bool)",
+      "function allowance(address owner, address spender) view returns (uint256)"
+    ];
+    const nftABI = [
+      "function balanceOf(address owner) view returns (uint256)",
+      "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+      "function tokenURI(uint256 tokenId) view returns (string)"
+    ];
     const stakingABI = [
-      // --- Funciones de lectura ---
-      // Verificar Owner (se asume que el contrato implementa Ownable)
-      {
-        "inputs": [],
-        "name": "owner",
-        "outputs": [{"internalType": "address", "name": "", "type": "address"}],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      // Lectura de parámetros básicos
-      {
-        "inputs": [],
-        "name": "getBasicGamificationParameters",
-        "outputs": [
-          {"internalType": "uint256", "name": "activationFee_", "type": "uint256"},
-          {"internalType": "uint256", "name": "exitFee_", "type": "uint256"},
-          {"internalType": "uint256", "name": "fastLevelUpgradeFee_", "type": "uint256"},
-          {"internalType": "uint256", "name": "fastLevelUpgradeBonusIncrement_", "type": "uint256"}
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      // Lectura de parámetros de social staking
-      {
-        "inputs": [],
-        "name": "getSocialStakingParameters",
-        "outputs": [
-          {"internalType": "uint256", "name": "socialMinTokens_", "type": "uint256"},
-          {"internalType": "uint256", "name": "socialBoostBonus_", "type": "uint256"},
-          {"internalType": "uint256", "name": "socialBoostDuration_", "type": "uint256"},
-          {"internalType": "uint256", "name": "socialBoostActiveUntil_", "type": "uint256"}
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      // Lectura de parámetros de niveles
-      {
-        "inputs": [],
-        "name": "getLevelParameters",
-        "outputs": [
-          {"internalType": "uint256[]", "name": "thresholds", "type": "uint256[]"},
-          {"internalType": "uint256[]", "name": "bonuses", "type": "uint256[]"}
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-      // Consultar información de un item
-      {
-        "inputs": [{"internalType": "uint256", "name": "itemId", "type": "uint256"}],
-        "name": "getItem",
-        "outputs": [
-          {"internalType": "uint256", "name": "price", "type": "uint256"},
-          {"internalType": "uint256", "name": "bonus", "type": "uint256"},
-          {"internalType": "bool", "name": "exists", "type": "bool"}
-        ],
-        "stateMutability": "view",
-        "type": "function"
-      },
-
-      // --- Funciones de actualización (solamente accesibles para el owner) ---
-      {
-        "inputs": [
-          {"internalType": "uint256", "name": "activationFee_", "type": "uint256"},
-          {"internalType": "uint256", "name": "exitFee_", "type": "uint256"},
-          {"internalType": "uint256", "name": "fastLevelUpgradeFee_", "type": "uint256"},
-          {"internalType": "uint256", "name": "fastLevelUpgradeBonusIncrement_", "type": "uint256"}
-        ],
-        "name": "setBasicGamificationParameters",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {"internalType": "uint256", "name": "socialMinTokens_", "type": "uint256"},
-          {"internalType": "uint256", "name": "socialBoostBonus_", "type": "uint256"},
-          {"internalType": "uint256", "name": "socialBoostDuration_", "type": "uint256"},
-          {"internalType": "uint256", "name": "socialBoostActiveUntil_", "type": "uint256"}
-        ],
-        "name": "setSocialStakingParameters",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      {
-        "inputs": [
-          {"internalType": "uint256[]", "name": "thresholds", "type": "uint256[]"},
-          {"internalType": "uint256[]", "name": "bonuses", "type": "uint256[]"}
-        ],
-        "name": "setLevelParameters",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      },
-      // Función para retirar fondos (adminWithdraw)
-      {
-        "inputs": [],
-        "name": "adminWithdraw",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-      }
+      "function getBasicGamificationParameters() view returns (uint256, uint256, uint256, uint256)",
+      "function getSocialStakingParameters() view returns (uint256, uint256, uint256, uint256)",
+      "function getLevelParameters() view returns (uint256[] memory, uint256[] memory)",
+      "function setBasicGamificationParameters(uint256 activationFee_, uint256 exitFee_, uint256 fastLevelUpgradeFee_, uint256 fastLevelUpgradeBonusIncrement_) external",
+      "function setSocialStakingParameters(uint256 socialMinTokens_, uint256 socialBoostBonus_, uint256 socialBoostDuration_, uint256 socialBoostActiveUntil_) external",
+      "function setLevelParameters(uint256[] calldata thresholds, uint256[] calldata bonuses) external",
+      "function adminWithdraw() external",
+      // Funciones de ítems
+      "function getItem(uint256 itemId) view returns (uint256, uint256, bool)",
+      "function addOrUpdateItem(uint256 itemId, uint256 price, uint256 bonus) external",
+      "function removeItem(uint256 itemId) external",
+      // Funciones avanzadas
+      "function setRewardToken(address _newRewardToken) external",
+      "function setBaseRewardRate(uint256 _newRate) external",
+      "function setFeeWallet(address _feeWallet) external",
+      // Otras funciones de staking
+      "function stake(uint256 tokenId) external",
+      "function claimRewards(uint256 tokenId) external returns (uint256)",
+      "function unstake(uint256 tokenId) external",
+      "function purchaseFastLevelUpgrade(uint256 tokenId) external returns (uint256)",
+      "function purchaseItemUpgrade(uint256 tokenId, uint256 itemId, uint256 quantity) external returns (uint256)"
     ];
 
-    // Conexión de wallet y verificación de owner
-    connectWalletButton.addEventListener("click", async () => {
+    // Funciones helper de conversión para $ADRIAN (sin 18 decimales)
+    // Para lecturas: se convierten a números simples
+    function formatTokenValue(amount) {
+      return parseFloat(ethers.utils.formatUnits(amount, 18));
+    }
+    // Para writes: se multiplica el input (string) por 1e18
+    function parseTokenValue(input) {
+      return ethers.utils.parseUnits(input, 18);
+    }
+
+    // Función para cargar los tokens (solo los que posee el usuario) utilizando la info del JSON
+    async function loadTokens() {
+      try {
+        const walletAddress = await signer.getAddress();
+        const response = await fetch("/punkquest/adrianpunks.json");
+        const data = await response.json();
+        const jsonCollection = data.collection;
+        const balance = await nftContract.balanceOf(walletAddress);
+        const count = balance.toNumber();
+        const gridContainer = document.getElementById("tokens-grid");
+        gridContainer.innerHTML = "";
+        for (let i = 0; i < count; i++) {
+          const tokenId = (await nftContract.tokenOfOwnerByIndex(walletAddress, i)).toString();
+          const tokenInfo = jsonCollection.find(item => {
+            if (item.name) {
+              const parts = item.name.split("#");
+              return parts.length === 2 && parts[1] === tokenId;
+            }
+            return false;
+          });
+          const imgSrc = tokenInfo ? tokenInfo.image : `https://via.placeholder.com/150?text=Token+${tokenId}`;
+          const col = document.createElement("div");
+          col.className = "col";
+          const card = document.createElement("div");
+          card.className = "card token-card";
+          card.dataset.tokenId = tokenId;
+          const img = document.createElement("img");
+          img.src = imgSrc;
+          img.alt = "Token " + tokenId;
+          const overlay = document.createElement("div");
+          overlay.className = "card-body p-2";
+          overlay.innerHTML = `<p class="text-center mb-0">Token ${tokenId}</p>`;
+          card.appendChild(img);
+          card.appendChild(overlay);
+          col.appendChild(card);
+          gridContainer.appendChild(col);
+          // Toggle de selección: al hacer click se selecciona/deselecciona el token y se actualiza la info
+          card.addEventListener("click", () => {
+            if (card.classList.contains("selected-token")) {
+              card.classList.remove("selected-token");
+              selectedTokenId = null;
+              document.getElementById("token-action-output").innerText = "No token selected";
+              document.getElementById("staking-info-output").innerText = "";
+            } else {
+              document.querySelectorAll(".token-card").forEach(el => el.classList.remove("selected-token"));
+              card.classList.add("selected-token");
+              selectedTokenId = tokenId;
+              document.getElementById("token-action-output").innerText = `Selected Token: ${selectedTokenId}`;
+              refreshStakingInfo();
+            }
+          });
+        }
+      } catch (error) {
+        document.getElementById("token-action-output").innerText = "Error loading tokens: " + error.message;
+      }
+    }
+
+    // Conectar Wallet e inicializar contratos; actualizar tokens y parámetros de fees (conversion sin 18 decimales)
+    document.getElementById("connect-wallet").addEventListener("click", async () => {
       if (window.ethereum) {
         try {
           await window.ethereum.request({ method: "eth_requestAccounts" });
           provider = new ethers.providers.Web3Provider(window.ethereum);
           signer = provider.getSigner();
           const walletAddress = await signer.getAddress();
-          walletInfoDiv.innerHTML = `<p>Wallet: ${walletAddress}</p>`;
-          
-          // Inicializar el contrato de staking
+          document.getElementById("wallet-info").innerHTML = `<p>Wallet: ${walletAddress}</p>`;
+          tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
           stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
-          // Verificar el owner
-          const ownerAddress = await stakingContract.owner();
-          if(walletAddress.toLowerCase() === ownerAddress.toLowerCase()){
-            ownerCheckDiv.innerHTML = `<p style="color:green;">Conectado como Owner</p>`;
-          } else {
-            ownerCheckDiv.innerHTML = `<p style="color:red;">No eres el Owner. Acceso restringido.</p>`;
-          }
+          nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
+          loadTokens();
+          const params = await stakingContract.getBasicGamificationParameters();
+          const activationFeeFormatted = formatTokenValue(params[0]);
+          const exitFeeFormatted = formatTokenValue(params[1]);
+          document.getElementById("stake-cost-output").innerText = `Stake Cost: ${activationFeeFormatted} $A`;
+          document.getElementById("exit-fee-output").innerText = `Exit Fee: ${exitFeeFormatted} $A`;
         } catch (error) {
-          walletInfoDiv.innerHTML = `<p style="color:red;">Error al conectar la wallet: ${error.message}</p>`;
+          document.getElementById("wallet-info").innerHTML = `<p style="color:red;">Error al conectar la wallet: ${error.message}</p>`;
         }
       } else {
-        walletInfoDiv.innerHTML = `<p style="color:red;">Por favor instala MetaMask!</p>`;
+        document.getElementById("wallet-info").innerHTML = `<p style="color:red;">¡Por favor instala MetaMask!</p>`;
       }
     });
 
-    // --- Funciones Admin ---
+    // ---------------------- Funciones de Usuario ---------------------- //
 
-    // Leer parámetros básicos
-    document.getElementById("read-basic-params").addEventListener("click", async () => {
+    // Stake: se verifica la aprobación para el activation fee y se procede a stake
+    document.getElementById("stake-token").addEventListener("click", async () => {
+      if (!selectedTokenId) return alert("Por favor, selecciona un token primero.");
       try {
+        const walletAddress = await signer.getAddress();
         const params = await stakingContract.getBasicGamificationParameters();
-        const output = `Activation Fee: ${params[0].toString()}<br>
-                        Exit Fee: ${params[1].toString()}<br>
-                        Fast Level Upgrade Fee: ${params[2].toString()}<br>
-                        Fast Level Upgrade Bonus Increment: ${params[3].toString()}`;
-        document.getElementById("basic-params-output").innerHTML = output;
-      } catch (error) {
-        document.getElementById("basic-params-output").innerHTML = "Error: " + error.message;
-      }
-    });
-
-    // Actualizar parámetros básicos
-    document.getElementById("update-basic-params").addEventListener("click", async () => {
-      const activationFee = document.getElementById("input-activationFee").value;
-      const exitFee = document.getElementById("input-exitFee").value;
-      const fastLevelUpgradeFee = document.getElementById("input-fastLevelUpgradeFee").value;
-      const fastLevelUpgradeBonusIncrement = document.getElementById("input-fastLevelUpgradeBonusIncrement").value;
-      try {
-        const tx = await stakingContract.setBasicGamificationParameters(activationFee, exitFee, fastLevelUpgradeFee, fastLevelUpgradeBonusIncrement);
+        const activationFee = params[0];
+        const currentAllowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
+        if (currentAllowance.lt(activationFee)) {
+          document.getElementById("general-output").innerHTML = `<p style="color:blue;">Aprobando gasto de tokens $ADRIAN para el fee de stake. Espera...</p>`;
+          const approveTx = await tokenContract.approve(STAKING_ADDRESS, activationFee);
+          await approveTx.wait();
+          document.getElementById("general-output").innerHTML = `<p style="color:blue;">Aprobación exitosa. Continuando con el stake...</p>`;
+        }
+        const tx = await stakingContract.stake(selectedTokenId);
         await tx.wait();
-        adminOutputDiv.innerHTML = `<p style="color:green;">Parámetros básicos actualizados correctamente.</p>`;
+        document.getElementById("general-output").innerHTML = `<p style="color:green;">Token ${selectedTokenId} staked exitosamente.</p>`;
+        refreshStakingInfo();
       } catch (error) {
-        adminOutputDiv.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+        let errorMsg = error.message;
+        if (errorMsg.includes("transfer amount exceeds allowance")) {
+          errorMsg = "Aprobación insuficiente. Verifica que tienes suficientes tokens $ADRIAN.";
+        } else if (errorMsg.includes("insufficient funds")) {
+          errorMsg = "Fondos insuficientes en tu wallet. Revisa tu balance de $ADRIAN.";
+        }
+        document.getElementById("general-output").innerHTML = `<p style="color:red;">Error al stakear token: ${errorMsg}</p>`;
       }
     });
 
-    // Leer parámetros de Social Staking
-    document.getElementById("read-social-params").addEventListener("click", async () => {
+    // Función para refrescar la información de staking (pending rewards, etc.)
+    async function refreshStakingInfo() {
+      if (!selectedTokenId) return alert("Por favor, selecciona un token primero.");
       try {
-        const params = await stakingContract.getSocialStakingParameters();
-        const output = `Social Min Tokens: ${params[0].toString()}<br>
-                        Social Boost Bonus: ${params[1].toString()}<br>
-                        Social Boost Duration: ${params[2].toString()}<br>
-                        Social Boost Active Until: ${params[3].toString()}`;
-        document.getElementById("social-params-output").innerHTML = output;
+        const info = await stakingContract.getTokenStakingInfo(selectedTokenId);
+        const output = `<strong>Info de Stake para Token ${selectedTokenId}:</strong><br>
+                        Stake Start: ${new Date(info[0] * 1000).toLocaleString()}<br>
+                        Last Claim: ${new Date(info[1] * 1000).toLocaleString()}<br>
+                        Fast-Level Bonus: ${ethers.utils.formatUnits(info[2], 18)} (raw)<br>
+                        Item Bonus: ${ethers.utils.formatUnits(info[3], 18)} (raw)<br>
+                        Pending Rewards: ${formatReward(info[4])}`;
+        document.getElementById("staking-info-output").innerHTML = output;
       } catch (error) {
-        document.getElementById("social-params-output").innerHTML = "Error: " + error.message;
+        document.getElementById("staking-info-output").innerHTML = "Error: " + error.message;
       }
-    });
+    }
+    document.getElementById("refresh-info").addEventListener("click", refreshStakingInfo);
 
-    // Actualizar parámetros de Social Staking
-    document.getElementById("update-social-params").addEventListener("click", async () => {
-      const socialMinTokens = document.getElementById("input-socialMinTokens").value;
-      const socialBoostBonus = document.getElementById("input-socialBoostBonus").value;
-      const socialBoostDuration = document.getElementById("input-socialBoostDuration").value;
-      const socialBoostActiveUntil = document.getElementById("input-socialBoostActiveUntil").value;
+    // Claim Rewards
+    document.getElementById("claim-rewards").addEventListener("click", async () => {
+      if (!selectedTokenId) return alert("Por favor, selecciona un token primero.");
       try {
-        const tx = await stakingContract.setSocialStakingParameters(socialMinTokens, socialBoostBonus, socialBoostDuration, socialBoostActiveUntil);
+        const tx = await stakingContract.claimRewards(selectedTokenId);
         await tx.wait();
-        adminOutputDiv.innerHTML = `<p style="color:green;">Parámetros de Social Staking actualizados correctamente.</p>`;
+        document.getElementById("general-output").innerHTML = `<p style="color:green;">Recompensas reclamadas para el token ${selectedTokenId}.</p>`;
+        refreshStakingInfo();
       } catch (error) {
-        adminOutputDiv.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+        document.getElementById("general-output").innerHTML = `<p style="color:red;">Error reclamando recompensas: ${error.message}</p>`;
       }
     });
 
-    // Leer parámetros de Niveles
-    document.getElementById("read-level-params").addEventListener("click", async () => {
+    // Unstake: se verifica aprobación para el exit fee y se llama a unstake
+    document.getElementById("unstake-token").addEventListener("click", async () => {
+      if (!selectedTokenId) return alert("Por favor, selecciona un token primero.");
       try {
-        const params = await stakingContract.getLevelParameters();
-        const thresholds = params[0];
-        const bonuses = params[1];
-        const output = `Thresholds: ${thresholds.join(", ")}<br>
-                        Bonuses: ${bonuses.join(", ")}`;
-        document.getElementById("level-params-output").innerHTML = output;
-      } catch (error) {
-        document.getElementById("level-params-output").innerHTML = "Error: " + error.message;
-      }
-    });
-
-    // Actualizar parámetros de Niveles
-    document.getElementById("update-level-params").addEventListener("click", async () => {
-      const thresholdsInput = document.getElementById("input-thresholds").value;
-      const bonusesInput = document.getElementById("input-bonuses").value;
-      const thresholdsArray = thresholdsInput.split(",").map(x => parseInt(x.trim()));
-      const bonusesArray = bonusesInput.split(",").map(x => parseInt(x.trim()));
-      try {
-        const tx = await stakingContract.setLevelParameters(thresholdsArray, bonusesArray);
+        const walletAddress = await signer.getAddress();
+        const params = await stakingContract.getBasicGamificationParameters();
+        const exitFee = params[1];
+        const currentAllowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
+        if (currentAllowance.lt(exitFee)) {
+          document.getElementById("general-output").innerHTML = `<p style="color:blue;">Aprobando gasto de $ADRIAN para el fee de unstake. Espera...</p>`;
+          const approveTx = await tokenContract.approve(STAKING_ADDRESS, exitFee);
+          await approveTx.wait();
+          document.getElementById("general-output").innerHTML = `<p style="color:blue;">Aprobación exitosa para el fee de unstake.</p>`;
+        }
+        const tx = await stakingContract.unstake(selectedTokenId);
         await tx.wait();
-        adminOutputDiv.innerHTML = `<p style="color:green;">Parámetros de Niveles actualizados correctamente.</p>`;
+        document.getElementById("general-output").innerHTML = `<p style="color:green;">Token ${selectedTokenId} unstaked exitosamente.</p>`;
+        refreshStakingInfo();
+        loadTokens();
       } catch (error) {
-        adminOutputDiv.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+        document.getElementById("general-output").innerHTML = `<p style="color:red;">Error al unstakear token: ${error.message}</p>`;
       }
     });
 
-    // Consultar información de un item
-    document.getElementById("read-item").addEventListener("click", async () => {
-      const itemId = document.getElementById("input-item-id").value;
+    // Purchase Fast Level Upgrade
+    document.getElementById("purchase-fast-level").addEventListener("click", async () => {
+      if (!selectedTokenId) return alert("Por favor, selecciona un token primero.");
       try {
-        const item = await stakingContract.getItem(itemId);
-        const output = `Price: ${item[0].toString()}<br>Bonus: ${item[1].toString()}<br>Exists: ${item[2]}`;
-        document.getElementById("item-output").innerHTML = output;
-      } catch (error) {
-        document.getElementById("item-output").innerHTML = "Error: " + error.message;
-      }
-    });
-
-    // Función para retirar fondos (adminWithdraw)
-    document.getElementById("withdraw-button").addEventListener("click", async () => {
-      try {
-        const tx = await stakingContract.adminWithdraw();
+        const tx = await stakingContract.purchaseFastLevelUpgrade(selectedTokenId);
         await tx.wait();
-        document.getElementById("withdraw-output").innerHTML = `<p style="color:green;">Fondos retirados correctamente.</p>`;
+        document.getElementById("general-output").innerHTML = `<p style="color:green;">Upgrade rápido comprado para el token ${selectedTokenId}.</p>`;
+        refreshStakingInfo();
       } catch (error) {
-        document.getElementById("withdraw-output").innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+        document.getElementById("general-output").innerHTML = `<p style="color:red;">Error comprando upgrade rápido: ${error.message}</p>`;
       }
     });
 
-    // Funcionalidad del Theme Toggle
+    // Purchase Item Upgrade
+    document.getElementById("purchase-item-upgrade").addEventListener("click", async () => {
+      if (!selectedTokenId) return alert("Por favor, selecciona un token primero.");
+      const itemId = document.getElementById("input-itemId").value;
+      const quantity = document.getElementById("input-quantity").value;
+      if (!itemId || !quantity) return alert("Por favor ingresa Item ID y Cantidad.");
+      try {
+        const tx = await stakingContract.purchaseItemUpgrade(selectedTokenId, itemId, quantity);
+        await tx.wait();
+        document.getElementById("general-output").innerHTML = `<p style="color:green;">Upgrade de ítem comprado para el token ${selectedTokenId}.</p>`;
+        refreshStakingInfo();
+      } catch (error) {
+        document.getElementById("general-output").innerHTML = `<p style="color:red;">Error comprando upgrade de ítem: ${error.message}</p>`;
+      }
+    });
+
+    // ---------------------- Funciones Owner Adicionales ---------------------- //
+
+    // Gestión de Ítems: Agregar/Actualizar Ítem
+    document.getElementById("update-item").addEventListener("click", async () => {
+      const itemId = document.getElementById("input-create-item-id").value;
+      const priceInput = document.getElementById("input-create-item-price").value;
+      const bonusInput = document.getElementById("input-create-item-bonus").value;
+      if (!itemId || !priceInput || !bonusInput) return alert("Por favor, ingresa todos los valores para el ítem.");
+      try {
+        // Convertir price y bonus a valor en wei (multiplicar por 1e18)
+        const priceWei = parseTokenValue(priceInput);
+        const bonusWei = parseTokenValue(bonusInput);
+        const tx = await stakingContract.addOrUpdateItem(itemId, priceWei, bonusWei);
+        await tx.wait();
+        adminOutputDiv.innerHTML = `<p style="color:green;">Ítem ${itemId} agregado/actualizado correctamente.</p>`;
+      } catch (error) {
+        adminOutputDiv.innerHTML = `<p style="color:red;">Error al agregar/actualizar ítem: ${error.message}</p>`;
+      }
+    });
+
+    // Gestión de Ítems: Eliminar Ítem
+    document.getElementById("remove-item").addEventListener("click", async () => {
+      const itemId = document.getElementById("input-remove-item-id").value;
+      if (!itemId) return alert("Por favor, ingresa el ID del ítem a eliminar.");
+      try {
+        const tx = await stakingContract.removeItem(itemId);
+        await tx.wait();
+        adminOutputDiv.innerHTML = `<p style="color:green;">Ítem ${itemId} eliminado correctamente.</p>`;
+      } catch (error) {
+        adminOutputDiv.innerHTML = `<p style="color:red;">Error al eliminar ítem: ${error.message}</p>`;
+      }
+    });
+
+    // Configuraciones Avanzadas Owner:
+    // Actualizar Reward Token
+    document.getElementById("update-reward-token").addEventListener("click", async () => {
+      const newRewardToken = document.getElementById("input-reward-token").value;
+      if (!newRewardToken) return alert("Por favor, ingresa la dirección del nuevo Reward Token.");
+      try {
+        const tx = await stakingContract.setRewardToken(newRewardToken);
+        await tx.wait();
+        adminOutputDiv.innerHTML = `<p style="color:green;">Reward Token actualizado correctamente.</p>`;
+      } catch (error) {
+        adminOutputDiv.innerHTML = `<p style="color:red;">Error al actualizar Reward Token: ${error.message}</p>`;
+      }
+    });
+    // Actualizar Base Reward Rate (ingresado sin decimales, se multiplica por 1e18)
+    document.getElementById("update-base-reward-rate").addEventListener("click", async () => {
+      const newRate = document.getElementById("input-base-reward-rate").value;
+      if (!newRate) return alert("Por favor, ingresa el nuevo Base Reward Rate.");
+      try {
+        const newRateWei = parseTokenValue(newRate);
+        const tx = await stakingContract.setBaseRewardRate(newRateWei);
+        await tx.wait();
+        adminOutputDiv.innerHTML = `<p style="color:green;">Base Reward Rate actualizado correctamente.</p>`;
+      } catch (error) {
+        adminOutputDiv.innerHTML = `<p style="color:red;">Error al actualizar Base Reward Rate: ${error.message}</p>`;
+      }
+    });
+    // Actualizar Fee Wallet
+    document.getElementById("update-fee-wallet").addEventListener("click", async () => {
+      const feeWallet = document.getElementById("input-fee-wallet").value;
+      if (!feeWallet) return alert("Por favor, ingresa la dirección de Fee Wallet.");
+      try {
+        const tx = await stakingContract.setFeeWallet(feeWallet);
+        await tx.wait();
+        adminOutputDiv.innerHTML = `<p style="color:green;">Fee Wallet actualizado correctamente.</p>`;
+      } catch (error) {
+        adminOutputDiv.innerHTML = `<p style="color:red;">Error al actualizar Fee Wallet: ${error.message}</p>`;
+      }
+    });
+
+    // ---------------------- Funciones de Theme ---------------------- //
     function applyTheme(theme) {
       if (theme === "dark") {
         document.body.classList.add("dark-theme");
@@ -414,13 +567,11 @@
       }
       localStorage.setItem("theme", theme);
     }
-
     document.getElementById("theme-toggle").addEventListener("click", () => {
       const currentTheme = localStorage.getItem("theme") || "light";
       const newTheme = currentTheme === "light" ? "dark" : "light";
       applyTheme(newTheme);
     });
-
     document.addEventListener("DOMContentLoaded", () => {
       const savedTheme = localStorage.getItem("theme") || "light";
       applyTheme(savedTheme);
