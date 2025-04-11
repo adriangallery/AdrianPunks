@@ -8,7 +8,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <!-- Custom Styles -->
   <link rel="stylesheet" href="/market/styles/styles.css" />
-  <!-- Inline CSS for theme variables and basic styles -->
+  <!-- Inline CSS for theme variables and terminal-like styling -->
   <style>
     :root {
       --bg-color-light: #ffffff;
@@ -76,7 +76,7 @@
   <div id="menu"></div>
 
   <div class="container my-4">
-    <!-- Header Section (Featured image removed) -->
+    <!-- Header Section (no featured image) -->
     <header>
       <h1>PunkQuest</h1>
       <p>Stake your AdrianPunk NFT and earn rewards &amp; boosts!</p>
@@ -96,7 +96,7 @@
       <div class="card">
         <h2 class="section-title">My Tokens</h2>
         <div id="tokens-grid" class="row row-cols-2 row-cols-sm-3 row-cols-md-4 g-3 token-grid">
-          <!-- Token grid loaded automatically -->
+          <!-- Tokens loaded automatically from JSON -->
         </div>
         <div id="token-action-output" class="mt-2"></div>
       </div>
@@ -107,7 +107,7 @@
       <!-- Box 1: Stake & Rewards -->
       <div class="col-md-6 action-box">
         <div class="card">
-          <h2 class="section-title">Stake & Rewards</h2>
+          <h2 class="section-title">Stake &amp; Rewards</h2>
           <p>Select a token above and click "Stake Selected Token". The activation fee will be charged per token.</p>
           <!-- Display stake cost -->
           <p id="stake-cost-output" class="mb-3 text-primary">Stake Cost: Loading...</p>
@@ -122,6 +122,8 @@
           <h2 class="section-title">Additional Actions</h2>
           <button id="claim-rewards" class="btn btn-primary mb-2">Claim Rewards</button>
           <button id="unstake-token" class="btn btn-primary mb-2">Unstake Token</button>
+          <!-- Display exit fee cost for unstaking -->
+          <p id="exit-fee-output" class="mb-3 text-primary">Exit Fee: Loading...</p>
           <hr>
           <div class="mb-3">
             <label for="input-itemId" class="form-label">Item ID for Upgrade:</label>
@@ -170,7 +172,7 @@
     const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
     const STAKING_ADDRESS = "0xeEC1A809acB57acABa196C6677f65EcC4c6f4491";
 
-    // Minimal ABI definitions (including allowance)
+    // Minimal ABI definitions (including allowance functions)
     const tokenABI = [
       "function balanceOf(address owner) view returns (uint256)",
       "function approve(address spender, uint256 amount) returns (bool)",
@@ -192,18 +194,19 @@
       "function getBasicGamificationParameters() view returns (uint256, uint256, uint256, uint256)"
     ];
 
-    // Helper function to format amounts (fees and stake cost with 1 decimal)
+    // Helper functions to format amounts
+    // Fees / stake cost: 1 decimal
     function formatAmount(amount) {
       const value = parseFloat(ethers.utils.formatUnits(amount, 18));
       return value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " $A";
     }
-    // Helper function for rewards with 4 decimals
+    // Rewards: 4 decimals
     function formatReward(amount) {
       const value = parseFloat(ethers.utils.formatUnits(amount, 18));
       return value.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + " A$";
     }
 
-    // Function to load tokens owned by the connected wallet (using JSON data)
+    // Function to load tokens owned by the wallet using JSON data
     async function loadTokens() {
       try {
         const walletAddress = await signer.getAddress();
@@ -239,7 +242,7 @@
           card.appendChild(overlay);
           col.appendChild(card);
           gridContainer.appendChild(col);
-          // Toggle selection: select/deselect token, then refresh staking info accordingly
+          // Toggle token selection: if selected then refresh staking info
           card.addEventListener("click", () => {
             if (card.classList.contains("selected-token")) {
               card.classList.remove("selected-token");
@@ -260,7 +263,7 @@
       }
     }
 
-    // Connect wallet, initialize contracts; automatically load tokens & stake cost info
+    // Connect wallet, initialize contracts, load tokens, and update fee info
     document.getElementById("connect-wallet").addEventListener("click", async () => {
       if (window.ethereum) {
         try {
@@ -275,7 +278,12 @@
           loadTokens();
           const params = await stakingContract.getBasicGamificationParameters();
           const activationFeeFormatted = formatAmount(params[0]);
+          const exitFeeFormatted = formatAmount(params[1]);
           document.getElementById("stake-cost-output").innerText = `Stake Cost: ${activationFeeFormatted}`;
+          // Update exit fee display in Additional Actions box
+          if(document.getElementById("exit-fee-output") !== null){
+            document.getElementById("exit-fee-output").innerText = `Exit Fee: ${exitFeeFormatted}`;
+          }
         } catch (error) {
           document.getElementById("wallet-info").innerHTML = `<p class="text-danger">Wallet connection failed: ${error.message}</p>`;
         }
@@ -286,7 +294,7 @@
 
     // ---------------------- User Functions ---------------------- //
 
-    // Stake Selected Token with approval check and refresh info
+    // Stake Selected Token with approval check
     document.getElementById("stake-token").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Please select a token first.");
       try {
@@ -333,7 +341,7 @@
     }
     document.getElementById("refresh-info").addEventListener("click", refreshStakingInfo);
 
-    // Claim rewards for the selected token
+    // Claim Rewards for the selected token
     document.getElementById("claim-rewards").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Please select a token first.");
       try {
@@ -346,10 +354,20 @@
       }
     });
 
-    // Unstake selected token
+    // Unstake selected token with approval check for exit fee
     document.getElementById("unstake-token").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Please select a token first.");
       try {
+        const walletAddress = await signer.getAddress();
+        const params = await stakingContract.getBasicGamificationParameters();
+        const exitFee = params[1];
+        const currentAllowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
+        if (currentAllowance.lt(exitFee)) {
+          document.getElementById("general-output").innerHTML = `<p class="text-info">Approving spend of $ADRIAN tokens for unstake fee. Please wait...</p>`;
+          const approveTx = await tokenContract.approve(STAKING_ADDRESS, exitFee);
+          await approveTx.wait();
+          document.getElementById("general-output").innerHTML = `<p class="text-info">Approval successful for unstake fee. Proceeding with unstaking...</p>`;
+        }
         const tx = await stakingContract.unstake(selectedTokenId);
         await tx.wait();
         document.getElementById("general-output").innerHTML = `<p class="text-success">Token ${selectedTokenId} unstaked successfully.</p>`;
@@ -360,7 +378,7 @@
       }
     });
 
-    // Purchase fast-level upgrade for selected token
+    // Purchase fast-level upgrade for the selected token
     document.getElementById("purchase-fast-level").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Please select a token first.");
       try {
@@ -373,7 +391,7 @@
       }
     });
 
-    // Purchase item upgrade for selected token
+    // Purchase item upgrade for the selected token
     document.getElementById("purchase-item-upgrade").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Please select a token first.");
       const itemId = document.getElementById("input-itemId").value;
@@ -389,7 +407,7 @@
       }
     });
 
-    // Theme Toggle
+    // Theme Toggle functionality
     function applyTheme(theme) {
       if (theme === "dark") {
         document.body.classList.add("dark-theme");
