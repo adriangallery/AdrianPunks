@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard - PunkQuest</title>
   <!-- Bootstrap 5 CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <!-- Custom Styles -->
-  <link rel="stylesheet" href="/market/styles/styles.css" />
-  <!-- Inline CSS para tema y estilos básicos -->
+  <link rel="stylesheet" href="/market/styles/styles.css">
+  <!-- Inline CSS para tema y estilo tipo terminal -->
   <style>
     :root {
       --bg-color-light: #ffffff;
@@ -19,7 +19,7 @@
       --card-bg: #f8f9fa;
       --card-border: #f39c12;
     }
-    /* Usamos tipografía de estilo terminal */
+    /* Tipografía estilo terminal */
     body {
       background-color: var(--bg-color-light);
       color: var(--text-color-light);
@@ -43,28 +43,10 @@
       border-bottom: 2px solid var(--primary-color);
       padding-bottom: 0.3rem;
     }
-    .token-grid img {
-      width: 100%;
-      height: auto;
-      border-radius: 0.5rem;
-    }
-    .token-card {
-      cursor: pointer;
-      transition: transform 0.2s, border 0.2s;
-    }
-    .token-card:hover {
-      transform: scale(1.05);
-    }
-    .selected-token {
-      border: 3px solid var(--primary-color);
-    }
-    .action-box {
-      margin-bottom: 1rem;
-    }
   </style>
 </head>
 <body>
-  <!-- Removido: No se carga ningún menú -->
+  <!-- Se elimina el menú -->
 
   <div class="container my-4">
     <!-- Encabezado -->
@@ -88,7 +70,7 @@
       <div id="basic-params-output" class="mb-2"></div>
       <div class="mb-2">
         <label>Activation Fee ($ADRIAN):</label>
-        <!-- El usuario ingresa sin decimales -->
+        <!-- Valores ingresados sin decimales; se convierten a wei -->
         <input type="text" id="input-activationFee" class="form-control">
       </div>
       <div class="mb-2">
@@ -215,7 +197,7 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <!-- Ethers.js Library -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-
+  
   <!-- Inline Script para Interacción con el Contrato y UI -->
   <script>
     // Variables globales y contratos
@@ -223,7 +205,7 @@
     let tokenContract, stakingContract, nftContract;
     let selectedTokenId = null;
 
-    // Direcciones de contrato
+    // Direcciones
     const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
     const STAKING_ADDRESS = "0xeEC1A809acB57acABa196C6677f65EcC4c6f4491";
@@ -264,16 +246,14 @@
     ];
 
     // Funciones helper para manejar $ADRIAN sin 18 decimales
-    // Para lecturas se convierte dividiendo por 1e18:
     function formatTokenValue(amount) {
       return parseFloat(ethers.utils.formatUnits(amount, 18));
     }
-    // Para writes se multiplica el input (string) por 1e18:
     function parseTokenValue(input) {
       return ethers.utils.parseUnits(input, 18);
     }
 
-    // Función para cargar tokens del usuario usando JSON
+    // Cargar tokens del usuario (solo los que posee)
     async function loadTokens() {
       try {
         const walletAddress = await signer.getAddress();
@@ -329,7 +309,7 @@
       }
     }
 
-    // Conectar Wallet e inicializar contratos; actualizar tokens y mostrar costos de stake y exit sin decimales
+    // Conectar wallet e inicializar contratos; actualizar tokens y mostrar costos de stake y exit sin decimales
     document.getElementById("connect-wallet").addEventListener("click", async () => {
       if (window.ethereum) {
         try {
@@ -343,11 +323,9 @@
           nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
           loadTokens();
           const params = await stakingContract.getBasicGamificationParameters();
-          // Convertir fees a números sin decimales
           const activationFeeFormatted = formatTokenValue(params[0]);
-          const exitFeeFormatted = formatTokenValue(params[1]);
           document.getElementById("stake-cost-output").innerText = `Stake Cost: ${activationFeeFormatted} $A`;
-          document.getElementById("exit-fee-output").innerText = `Exit Fee: ${exitFeeFormatted} $A`;
+          // Se elimina la actualización del Exit Fee por no haber elemento "exit-fee-output"
         } catch (error) {
           document.getElementById("wallet-info").innerHTML = `<p style="color:red;">Error al conectar la wallet: ${error.message}</p>`;
         }
@@ -358,16 +336,16 @@
 
     // ---------------------- Funciones de Usuario ---------------------- //
 
-    // Stake: verificar aprobación para activation fee y realizar el stake
+    // Stake: verificar aprobación para activation fee y realizar stake
     document.getElementById("stake-token").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Por favor, selecciona un token primero.");
       try {
         const walletAddress = await signer.getAddress();
         const params = await stakingContract.getBasicGamificationParameters();
-        const activationFee = params[0]; // en wei
+        const activationFee = params[0]; 
         const currentAllowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
         if (currentAllowance.lt(activationFee)) {
-          document.getElementById("general-output").innerHTML = `<p style="color:blue;">Aprobando gasto de tokens $ADRIAN para el fee de stake. Espera...</p>`;
+          document.getElementById("general-output").innerHTML = `<p style="color:blue;">Aprobando gasto de $ADRIAN para el fee de stake. Espera...</p>`;
           const approveTx = await tokenContract.approve(STAKING_ADDRESS, activationFee);
           await approveTx.wait();
           document.getElementById("general-output").innerHTML = `<p style="color:blue;">Aprobación exitosa. Continuando con el stake...</p>`;
@@ -387,7 +365,7 @@
       }
     });
 
-    // Función para refrescar info de staking (pending rewards con 4 decimales)
+    // Refrescar info de staking (con pending rewards a 4 decimales)
     async function refreshStakingInfo() {
       if (!selectedTokenId) return alert("Por favor, selecciona un token primero.");
       try {
@@ -405,7 +383,7 @@
     }
     document.getElementById("refresh-info").addEventListener("click", refreshStakingInfo);
 
-    // Claim Rewards
+    // Claim rewards
     document.getElementById("claim-rewards").addEventListener("click", async () => {
       if (!selectedTokenId) return alert("Por favor, selecciona un token primero.");
       try {
@@ -424,7 +402,7 @@
       try {
         const walletAddress = await signer.getAddress();
         const params = await stakingContract.getBasicGamificationParameters();
-        const exitFee = params[1]; // en wei
+        const exitFee = params[1]; 
         const currentAllowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
         if (currentAllowance.lt(exitFee)) {
           document.getElementById("general-output").innerHTML = `<p style="color:blue;">Aprobando gasto de $ADRIAN para el fee de unstake. Espera...</p>`;
@@ -471,7 +449,7 @@
       }
     });
 
-    // ---------------------- Funciones de Configuración Owner ---------------------- //
+    // ---------------------- Funciones Owner ---------------------- //
 
     // Actualizar Reward Token
     document.getElementById("update-reward-token").addEventListener("click", async () => {
@@ -485,7 +463,7 @@
         adminOutputDiv.innerHTML = `<p style="color:red;">Error actualizando Reward Token: ${error.message}</p>`;
       }
     });
-    // Actualizar Base Reward Rate (ingresado sin decimales, se multiplica por 1e18)
+    // Actualizar Base Reward Rate (sin decimales)
     document.getElementById("update-base-reward-rate").addEventListener("click", async () => {
       const newRate = document.getElementById("input-base-reward-rate").value;
       if (!newRate) return alert("Por favor, ingresa el nuevo Base Reward Rate.");
@@ -510,7 +488,7 @@
         adminOutputDiv.innerHTML = `<p style="color:red;">Error actualizando Fee Wallet: ${error.message}</p>`;
       }
     });
-    // Actualizar parámetros básicos (sin decimales, se convierten a wei)
+    // Actualizar parámetros básicos (sin decimales, convertir a wei)
     document.getElementById("update-basic-params").addEventListener("click", async () => {
       const activationFeeInput = document.getElementById("input-activationFee").value;
       const exitFeeInput = document.getElementById("input-exitFee").value;
@@ -532,7 +510,7 @@
         adminOutputDiv.innerHTML = `<p style="color:red;">Error actualizando parámetros básicos: ${error.message}</p>`;
       }
     });
-    // Actualizar parámetros de Social Staking (también se ingresan sin decimales)
+    // Actualizar parámetros de Social Staking
     document.getElementById("update-social-params").addEventListener("click", async () => {
       const socialMinTokens = document.getElementById("input-socialMinTokens").value;
       const socialBoostBonus = document.getElementById("input-socialBoostBonus").value;
@@ -541,7 +519,6 @@
       if (!socialMinTokens || !socialBoostBonus || !socialBoostDuration || !socialBoostActiveUntil)
         return alert("Por favor, ingresa todos los valores de parámetros de social staking.");
       try {
-        // Al tratarse de tokens, se asume que el valor es ingresado sin decimales (convertir cuando corresponda)
         const tx = await stakingContract.setSocialStakingParameters(
           socialMinTokens, socialBoostBonus, socialBoostDuration, socialBoostActiveUntil
         );
@@ -551,7 +528,7 @@
         adminOutputDiv.innerHTML = `<p style="color:red;">Error actualizando Social Staking: ${error.message}</p>`;
       }
     });
-    // Actualizar parámetros de Niveles (se ingresan directamente; depende de la lógica del contrato)
+    // Actualizar parámetros de Niveles
     document.getElementById("update-level-params").addEventListener("click", async () => {
       const thresholdsInput = document.getElementById("input-thresholds").value;
       const bonusesInput = document.getElementById("input-bonuses").value;
@@ -567,7 +544,7 @@
         adminOutputDiv.innerHTML = `<p style="color:red;">Error actualizando Parámetros de Niveles: ${error.message}</p>`;
       }
     });
-    // Leer información de un ítem
+    // Consultar información de un ítem
     document.getElementById("read-item").addEventListener("click", async () => {
       const itemId = document.getElementById("input-item-id").value;
       if (!itemId) return alert("Por favor, ingresa el ID del ítem a consultar.");
@@ -620,7 +597,7 @@
         adminOutputDiv.innerHTML = `<p style="color:red;">Error actualizando Reward Token: ${error.message}</p>`;
       }
     });
-    // Actualizar Base Reward Rate (sin decimales, se multiplica por 1e18)
+    // Actualizar Base Reward Rate
     document.getElementById("update-base-reward-rate").addEventListener("click", async () => {
       const newRate = document.getElementById("input-base-reward-rate").value;
       if (!newRate) return alert("Por favor, ingresa el nuevo Base Reward Rate.");
