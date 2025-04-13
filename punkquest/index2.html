@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PunkQuest - Stake Your AdrianPunk</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="/market/styles/styles.css" />
+  <!-- Inline CSS for theme variables and terminal-like styling -->
+  <style>
+    :root {
+      --bg-color-light: #ffffff;
+      --text-color-light: #333333;
+      --bg-color-dark: #121212;
+      --text-color-dark: #f4f4f4;
+      --primary-color: #f39c12;
+      --card-bg: #f8f9fa;
+      --card-border: #f39c12;
+    }
+    /* Terminal-like font */
+    body {
+      background-color: var(--bg-color-light);
+      color: var(--text-color-light);
+      font-family: "Courier New", monospace;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    body.dark-theme {
+      background-color: var(--bg-color-dark);
+      color: var(--text-color-dark);
+    }
+    header {
+      background: linear-gradient(135deg, #f39c12, #ffb347);
+      color: #fff;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    .section-title {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+      border-bottom: 2px solid var(--primary-color);
+      padding-bottom: 0.3rem;
+    }
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    .token-grid img {
+      width: 100%;
+      height: auto;
+      border-radius: 0.5rem;
+    }
+    .token-card {
+      cursor: pointer;
+      transition: transform 0.2s, border 0.2s;
+    }
+    .token-card:hover {
+      transform: scale(1.05);
+    }
+    .selected-token {
+      border: 3px solid var(--primary-color);
+    }
+    .action-box {
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Optional Menu Component (loaded dynamically) -->
+  <div id="menu"></div>
+
+  <div class="container my-4">
+    <!-- Header Section (no featured image) -->
+    <header>
+      <h1>PunkQuest</h1>
+      <p>Stake your AdrianPunk NFT and earn rewards &amp; boosts!</p>
+      <button id="theme-toggle" class="btn btn-secondary mt-2">Toggle Theme</button>
+    </header>
+
+    <!-- Wallet Connection Section -->
+    <section id="wallet-connection" class="mb-4">
+      <button id="connect-wallet" class="btn btn-primary">Connect Wallet</button>
+      <div id="wallet-info" class="mt-2"></div>
+      <div id="owner-check" class="mt-2"></div>
+      <small class="text-muted">Note: Fees are applied per token upon staking/unstaking.</small>
+    </section>
+
+    <!-- My Tokens Section (Grid) -->
+    <section id="tokens-section" class="mb-4">
+      <div class="card">
+        <h2 class="section-title">My Tokens</h2>
+        <div id="tokens-grid" class="row row-cols-2 row-cols-sm-3 row-cols-md-4 g-3 token-grid">
+          <!-- Tokens loaded automatically from JSON -->
+        </div>
+        <div id="token-action-output" class="mt-2"></div>
+      </div>
+    </section>
+
+    <!-- Main User Actions -->
+    <div class="row">
+      <!-- Box 1: Stake & Rewards -->
+      <div class="col-md-6 action-box">
+        <div class="card">
+          <h2 class="section-title">Stake &amp; Rewards</h2>
+          <p>Select a token above and click "Stake Selected Token". The activation fee will be charged per token.</p>
+          <!-- Display stake cost -->
+          <p id="stake-cost-output" class="mb-3 text-primary">Stake Cost: Loading...</p>
+          <button id="stake-token" class="btn btn-primary mb-3">Stake Selected Token</button>
+          <button id="refresh-info" class="btn btn-info mb-3">Refresh Rewards &amp; Boosts</button>
+          <div id="staking-info-output"></div>
+        </div>
+      </div>
+      <!-- Box 2: Additional Actions -->
+      <div class="col-md-6 action-box">
+        <div class="card">
+          <h2 class="section-title">Additional Actions</h2>
+          <button id="claim-rewards" class="btn btn-primary mb-2">Claim Rewards</button>
+          <button id="unstake-token" class="btn btn-primary mb-2">Unstake Token</button>
+          <!-- Display exit fee cost for unstaking -->
+          <p id="exit-fee-output" class="mb-3 text-primary">Exit Fee: Loading...</p>
+          <hr>
+          <div class="mb-3">
+            <label for="input-itemId" class="form-label">Item ID for Upgrade:</label>
+            <input type="number" id="input-itemId" class="form-control" placeholder="Enter Item ID" />
+          </div>
+          <div class="mb-3">
+            <label for="input-quantity" class="form-label">Quantity:</label>
+            <input type="number" id="input-quantity" class="form-control" placeholder="Enter Quantity" />
+          </div>
+          <button id="purchase-item-upgrade" class="btn btn-warning mb-2">Purchase Item Upgrade</button>
+          <button id="purchase-fast-level" class="btn btn-warning mb-2">Purchase Fast Level Upgrade</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- General Output Message -->
+    <div id="general-output" class="mt-3"></div>
+  </div>
+
+  <!-- Bootstrap 5 JS Bundle and Ethers.js Library -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
+  <!-- Load Menu Component Dynamically (if needed) -->
+  <script>
+    fetch('/market/components/menu.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('menu').innerHTML = html;
+        const menuScript = document.createElement('script');
+        menuScript.src = '/market/components/menu.js';
+        document.body.appendChild(menuScript);
+      })
+      .catch(err => console.error("Failed to load menu component:", err));
+  </script>
+
+  <!-- Inline Script for Wallet, Contract Interactions and UI Functions -->
+  <script>
+    // Global variables for ethers.js and contracts
+    let provider, signer;
+    let tokenContract, stakingContract, nftContract;
+    let selectedTokenId = null; // To store the selected tokenId
+
+    // Contract Addresses
+    const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
+    const STAKING_ADDRESS = "0xeEC1A809acB57acABa196C6677f65EcC4c6f4491";
+
+    // Minimal ABI definitions (including allowance functions)
+    const tokenABI = [
+      "function balanceOf(address owner) view returns (uint256)",
+      "function approve(address spender, uint256 amount) returns (bool)",
+      "function allowance(address owner, address spender) view returns (uint256)"
+    ];
+    const nftABI = [
+      "function balanceOf(address owner) view returns (uint256)",
+      "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+      "function tokenURI(uint256 tokenId) view returns (string)"
+    ];
+    const stakingABI = [
+      "function stake(uint256 tokenId) external",
+      "function claimRewards(uint256 tokenId) external returns (uint256)",
+      "function unstake(uint256 tokenId) external",
+      "function pendingRewards(uint256 tokenId) view returns (uint256)",
+      "function getTokenStakingInfo(uint256 tokenId) view returns (uint256, uint256, uint256, uint256, uint256)",
+      "function purchaseFastLevelUpgrade(uint256 tokenId) external returns (uint256)",
+      "function purchaseItemUpgrade(uint256 tokenId, uint256 itemId, uint256 quantity) external returns (uint256)",
+      "function getBasicGamificationParameters() view returns (uint256, uint256, uint256, uint256)"
+    ];
+
+    // Helper functions to format amounts
+    // Fees / stake cost: 1 decimal
+    function formatAmount(amount) {
+      const value = parseFloat(ethers.utils.formatUnits(amount, 18));
+      return value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " $A";
+    }
+    // Rewards: 4 decimals
+    function formatReward(amount) {
+      const value = parseFloat(ethers.utils.formatUnits(amount, 18));
+      return value.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + " A$";
+    }
+
+    // Function to load tokens owned by the wallet using JSON data
+    async function loadTokens() {
+      try {
+        const walletAddress = await signer.getAddress();
+        const response = await fetch("/punkquest/adrianpunks.json");
+        const data = await response.json();
+        const jsonCollection = data.collection;
+        const balance = await nftContract.balanceOf(walletAddress);
+        const count = balance.toNumber();
+        const gridContainer = document.getElementById("tokens-grid");
+        gridContainer.innerHTML = "";
+        for (let i = 0; i < count; i++) {
+          const tokenId = (await nftContract.tokenOfOwnerByIndex(walletAddress, i)).toString();
+          const tokenInfo = jsonCollection.find(item => {
+            if (item.name) {
+              const parts = item.name.split("#");
+              return parts.length === 2 && parts[1] === tokenId;
+            }
+            return false;
+          });
+          const imgSrc = tokenInfo ? tokenInfo.image : `https://via.placeholder.com/150?text=Token+${tokenId}`;
+          const col = document.createElement("div");
+          col.className = "col";
+          const card = document.createElement("div");
+          card.className = "card token-card";
+          card.dataset.tokenId = tokenId;
+          const img = document.createElement("img");
+          img.src = imgSrc;
+          img.alt = "Token " + tokenId;
+          const overlay = document.createElement("div");
+          overlay.className = "card-body p-2";
+          overlay.innerHTML = `<p class="text-center mb-0">Token ${tokenId}</p>`;
+          card.appendChild(img);
+          card.appendChild(overlay);
+          col.appendChild(card);
+          gridContainer.appendChild(col);
+          // Toggle token selection: if selected then refresh staking info
+          card.addEventListener("click", () => {
+            if (card.classList.contains("selected-token")) {
+              card.classList.remove("selected-token");
+              selectedTokenId = null;
+              document.getElementById("token-action-output").innerText = "No token selected";
+              document.getElementById("staking-info-output").innerText = "";
+            } else {
+              document.querySelectorAll(".token-card").forEach(el => el.classList.remove("selected-token"));
+              card.classList.add("selected-token");
+              selectedTokenId = tokenId;
+              document.getElementById("token-action-output").innerText = `Selected Token: ${selectedTokenId}`;
+              refreshStakingInfo();
+            }
+          });
+        }
+      } catch (error) {
+        document.getElementById("token-action-output").innerText = "Error loading tokens: " + error.message;
+      }
+    }
+
+    // Connect wallet, initialize contracts, load tokens, and update fee info
+    document.getElementById("connect-wallet").addEventListener("click", async () => {
+      if (window.ethereum) {
+        try {
+          await window.ethereum.request({ method: "eth_requestAccounts" });
+          provider = new ethers.providers.Web3Provider(window.ethereum);
+          signer = provider.getSigner();
+          const walletAddress = await signer.getAddress();
+          document.getElementById("wallet-info").innerHTML = `<p>Wallet: ${walletAddress}</p>`;
+          tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
+          stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
+          nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
+          loadTokens();
+          const params = await stakingContract.getBasicGamificationParameters();
+          const activationFeeFormatted = formatAmount(params[0]);
+          const exitFeeFormatted = formatAmount(params[1]);
+          document.getElementById("stake-cost-output").innerText = `Stake Cost: ${activationFeeFormatted}`;
+          // Update exit fee display in Additional Actions box
+          if(document.getElementById("exit-fee-output") !== null){
+            document.getElementById("exit-fee-output").innerText = `Exit Fee: ${exitFeeFormatted}`;
+          }
+        } catch (error) {
+          document.getElementById("wallet-info").innerHTML = `<p class="text-danger">Wallet connection failed: ${error.message}</p>`;
+        }
+      } else {
+        document.getElementById("wallet-info").innerHTML = `<p class="text-danger">Please install MetaMask!</p>`;
+      }
+    });
+
+    // ---------------------- User Functions ---------------------- //
+
+    // Stake Selected Token with approval check
+    document.getElementById("stake-token").addEventListener("click", async () => {
+      if (!selectedTokenId) return alert("Please select a token first.");
+      try {
+        const walletAddress = await signer.getAddress();
+        const params = await stakingContract.getBasicGamificationParameters();
+        const activationFee = params[0];
+        const currentAllowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
+        if (currentAllowance.lt(activationFee)) {
+          document.getElementById("general-output").innerHTML = `<p class="text-info">Approving spend of $ADRIAN tokens for staking fee. Please wait...</p>`;
+          const approveTx = await tokenContract.approve(STAKING_ADDRESS, activationFee);
+          await approveTx.wait();
+          document.getElementById("general-output").innerHTML = `<p class="text-info">Approval successful. Proceeding with staking...</p>`;
+        }
+        const tx = await stakingContract.stake(selectedTokenId);
+        await tx.wait();
+        document.getElementById("general-output").innerHTML = `<p class="text-success">Token ${selectedTokenId} staked successfully.</p>`;
+        refreshStakingInfo();
+      } catch (error) {
+        let errorMsg = error.message;
+        if (errorMsg.includes("transfer amount exceeds allowance")) {
+          errorMsg = "Insufficient token allowance. Ensure you have enough $ADRIAN tokens and try again.";
+        } else if (errorMsg.includes("insufficient funds")) {
+          errorMsg = "Insufficient funds in your wallet. Please check your $ADRIAN balance.";
+        }
+        document.getElementById("general-output").innerHTML = `<p class="text-danger">Error staking token: ${errorMsg}</p>`;
+      }
+    });
+
+    // Refresh staking info for the selected token (pending rewards with 4 decimals)
+    async function refreshStakingInfo() {
+      if (!selectedTokenId) return alert("Please select a token first.");
+      try {
+        const info = await stakingContract.getTokenStakingInfo(selectedTokenId);
+        const output = `<strong>Staking Info for Token ${selectedTokenId}:</strong><br>
+                        Stake Start: ${new Date(info[0] * 1000).toLocaleString()}<br>
+                        Last Claim: ${new Date(info[1] * 1000).toLocaleString()}<br>
+                        Fast-Level Bonus: ${ethers.utils.formatUnits(info[2], 18)} (raw)<br>
+                        Item Bonus: ${ethers.utils.formatUnits(info[3], 18)} (raw)<br>
+                        Pending Rewards: ${formatReward(info[4])}`;
+        document.getElementById("staking-info-output").innerHTML = output;
+      } catch (error) {
+        document.getElementById("staking-info-output").innerHTML = "Error: " + error.message;
+      }
+    }
+    document.getElementById("refresh-info").addEventListener("click", refreshStakingInfo);
+
+    // Claim Rewards for the selected token
+    document.getElementById("claim-rewards").addEventListener("click", async () => {
+      if (!selectedTokenId) return alert("Please select a token first.");
+      try {
+        const tx = await stakingContract.claimRewards(selectedTokenId);
+        await tx.wait();
+        document.getElementById("general-output").innerHTML = `<p class="text-success">Rewards claimed for token ${selectedTokenId}.</p>`;
+        refreshStakingInfo();
+      } catch (error) {
+        document.getElementById("general-output").innerHTML = `<p class="text-danger">Error claiming rewards: ${error.message}</p>`;
+      }
+    });
+
+    // Unstake selected token with approval check for exit fee
+    document.getElementById("unstake-token").addEventListener("click", async () => {
+      if (!selectedTokenId) return alert("Please select a token first.");
+      try {
+        const walletAddress = await signer.getAddress();
+        const params = await stakingContract.getBasicGamificationParameters();
+        const exitFee = params[1];
+        const currentAllowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
+        if (currentAllowance.lt(exitFee)) {
+          document.getElementById("general-output").innerHTML = `<p class="text-info">Approving spend of $ADRIAN tokens for unstake fee. Please wait...</p>`;
+          const approveTx = await tokenContract.approve(STAKING_ADDRESS, exitFee);
+          await approveTx.wait();
+          document.getElementById("general-output").innerHTML = `<p class="text-info">Approval successful for unstake fee. Proceeding with unstaking...</p>`;
+        }
+        const tx = await stakingContract.unstake(selectedTokenId);
+        await tx.wait();
+        document.getElementById("general-output").innerHTML = `<p class="text-success">Token ${selectedTokenId} unstaked successfully.</p>`;
+        refreshStakingInfo();
+        loadTokens();
+      } catch (error) {
+        document.getElementById("general-output").innerHTML = `<p class="text-danger">Error unstaking token: ${error.message}</p>`;
+      }
+    });
+
+    // Purchase fast-level upgrade for the selected token
+    document.getElementById("purchase-fast-level").addEventListener("click", async () => {
+      if (!selectedTokenId) return alert("Please select a token first.");
+      try {
+        const tx = await stakingContract.purchaseFastLevelUpgrade(selectedTokenId);
+        await tx.wait();
+        document.getElementById("general-output").innerHTML = `<p class="text-success">Fast Level Upgrade purchased for token ${selectedTokenId}.</p>`;
+        refreshStakingInfo();
+      } catch (error) {
+        document.getElementById("general-output").innerHTML = `<p class="text-danger">Error purchasing fast level upgrade: ${error.message}</p>`;
+      }
+    });
+
+    // Purchase item upgrade for the selected token
+    document.getElementById("purchase-item-upgrade").addEventListener("click", async () => {
+      if (!selectedTokenId) return alert("Please select a token first.");
+      const itemId = document.getElementById("input-itemId").value;
+      const quantity = document.getElementById("input-quantity").value;
+      if (!itemId || !quantity) return alert("Please enter an Item ID and Quantity.");
+      try {
+        const tx = await stakingContract.purchaseItemUpgrade(selectedTokenId, itemId, quantity);
+        await tx.wait();
+        document.getElementById("general-output").innerHTML = `<p class="text-success">Item upgrade purchased for token ${selectedTokenId}.</p>`;
+        refreshStakingInfo();
+      } catch (error) {
+        document.getElementById("general-output").innerHTML = `<p class="text-danger">Error purchasing item upgrade: ${error.message}</p>`;
+      }
+    });
+
+    // Theme Toggle functionality
+    function applyTheme(theme) {
+      if (theme === "dark") {
+        document.body.classList.add("dark-theme");
+      } else {
+        document.body.classList.remove("dark-theme");
+      }
+      localStorage.setItem("theme", theme);
+    }
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+      const currentTheme = localStorage.getItem("theme") || "light";
+      const newTheme = currentTheme === "light" ? "dark" : "light";
+      applyTheme(newTheme);
+    });
+    document.addEventListener("DOMContentLoaded", () => {
+      const savedTheme = localStorage.getItem("theme") || "light";
+      applyTheme(savedTheme);
+    });
+  </script>
+</body>
+</html>
