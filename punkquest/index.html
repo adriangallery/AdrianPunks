@@ -145,13 +145,14 @@
 
     .btn:hover {
       transform: translate(-2px, -2px);
-      box-shadow: 
-        5px 5px 0 var(--primary-text);
+      box-shadow: 5px 5px 0 var(--primary-text);
+      border-color: var(--accent-blue);
     }
 
     .btn:active {
       transform: translate(2px, 2px);
       box-shadow: none;
+      border-color: var(--accent-red);
     }
 
     .terminal {
@@ -174,6 +175,14 @@
       margin: 1rem 0;
       padding: 1rem;
       font-weight: 600;
+    }
+
+    /* Formato para dirección de wallet acortada */
+    .wallet-address {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--primary-text);
+      opacity: 0.8;
     }
 
     @media (max-width: 768px) {
@@ -226,16 +235,14 @@
   <div class="container">
     <!-- Sección de Encabezado -->
     <header>
-      <h1>PunkQuest Retro</h1>
-      <p>Stake your AdrianPunk and claim your rewards!</p>
-      <button id="theme-toggle" class="btn">Toggle Theme</button>
+      <h1>PunkQuest</h1>
+      <p>Your journey begins here</p>
     </header>
 
     <!-- Sección de Conexión de Wallet -->
     <section id="wallet-connection" class="mb-4">
       <button id="connect-wallet" class="btn">Connect Wallet</button>
       <div id="wallet-info" class="mt-2"></div>
-      <small class="terminal">Note: Fees are applied per token when staking/unstaking.</small>
     </section>
 
     <!-- Sección "My Tokens" -->
@@ -253,7 +260,7 @@
       <div class="card">
         <h2 class="section-title">Token Statistics</h2>
         <div id="individual-token-stats" class="terminal">
-          Selecciona un token para ver sus estadísticas detalladas.
+          Select a token to view detailed statistics.
         </div>
       </div>
       <div class="card">
@@ -264,14 +271,12 @@
       </div>
     </section>
 
-    <!-- Sección de Acciones de Stake -->
+    <!-- Sección de Acciones -->
     <section id="stake-actions" class="mb-4">
       <div class="card">
-        <h2 class="section-title">Stake &amp; Refresh</h2>
-        <p>Selecciona un token y haz clic en "Stake Token".</p>
-        <p id="stake-cost-output" class="mb-3">Stake Cost: Cargando...</p>
+        <h2 class="section-title">Actions</h2>
         <button id="stake-token" class="btn mb-3">Stake Token</button>
-        <button id="refresh-info" class="btn mb-3">Actualizar Estadísticas</button>
+        <button id="refresh-info" class="btn mb-3">Refresh Stats</button>
         <div id="action-output" class="terminal"></div>
       </div>
     </section>
@@ -440,23 +445,21 @@
           provider = new ethers.providers.Web3Provider(window.ethereum);
           signer = provider.getSigner();
           const walletAddress = await signer.getAddress();
-          document.getElementById("wallet-info").innerHTML = "<p>Wallet: " + walletAddress + "</p>";
+          // Formatear la dirección de la wallet
+          const shortAddress = walletAddress.substring(0, 6) + '...' + walletAddress.substring(walletAddress.length - 4);
+          document.getElementById("wallet-info").innerHTML = '<p class="wallet-address">Connected: ' + shortAddress + '</p>';
+          
           tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
           stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
           nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
           
           // Cargar tokens y estadísticas
           loadTokens();
-          
-          // Cargar parámetros básicos para mostrar la fee de staking
-          const params = await stakingContract.getBasicGamificationParameters();
-          const activationFeeFormatted = formatAmount(params[0]);
-          document.getElementById("stake-cost-output").textContent = "Stake Cost: " + activationFeeFormatted;
         } catch (error) {
-          document.getElementById("wallet-info").innerHTML = "<p>Error conectando wallet: " + error.message + "</p>";
+          document.getElementById("wallet-info").innerHTML = "<p>Error connecting wallet: " + error.message + "</p>";
         }
       } else {
-        document.getElementById("wallet-info").innerHTML = "<p>¡Por favor, instala MetaMask!</p>";
+        document.getElementById("wallet-info").innerHTML = "<p>Please install MetaMask!</p>";
       }
     });
 
@@ -490,25 +493,6 @@
         refreshTokenStats();
       }
       loadAggregateRewards();
-    });
-
-    // Funcionalidad básica de toggle de tema (se puede extender según sea necesario)
-    function applyTheme(theme) {
-      if (theme === "dark") {
-        document.body.classList.add("dark-theme");
-      } else {
-        document.body.classList.remove("dark-theme");
-      }
-      localStorage.setItem("theme", theme);
-    }
-    document.getElementById("theme-toggle").addEventListener("click", () => {
-      const currentTheme = localStorage.getItem("theme") || "light";
-      const newTheme = currentTheme === "light" ? "dark" : "light";
-      applyTheme(newTheme);
-    });
-    document.addEventListener("DOMContentLoaded", () => {
-      const savedTheme = localStorage.getItem("theme") || "light";
-      applyTheme(savedTheme);
     });
   </script>
 </body>
