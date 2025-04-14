@@ -17,7 +17,6 @@
       --card-bg: #ffffff;
       --card-border: #e9ecef;
       --screen-bg: #ffffff;
-      --scanline-color: rgba(0,0,0,0.03);
     }
     body {
       background-color: var(--bg-color);
@@ -25,7 +24,7 @@
       font-family: 'Space Grotesk', sans-serif;
       margin: 0;
       padding: 20px;
-      background-image: repeating-linear-gradient(0deg, var(--scanline-color), var(--scanline-color) 1px, transparent 1px, transparent 4px);
+      background-image: repeating-linear-gradient(0deg, rgba(0,0,0,0.03), rgba(0,0,0,0.03) 1px, transparent 1px, transparent 4px);
     }
     .container {
       max-width: 1200px;
@@ -90,11 +89,17 @@
       transform: translateY(-2px);
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
+    /* Imagenes 1:1 y responsivas */
     .weapon-card img {
       width: 100%;
-      height: 150px;
+      height: 0;
+      padding-bottom: 100%;  /* 1:1 aspect ratio */
       object-fit: cover;
       border-radius: 4px;
+      position: relative;
+    }
+    .weapon-card h4 {
+      margin: 0.5rem 0 0.25rem;
     }
     .btn {
       font-family: 'Press Start 2P', monospace;
@@ -129,7 +134,7 @@
   <div class="container">
     <header>
       <h1>PunkQuest Armory</h1>
-      <p>Explore weapons, purchase & equip them on your AdrianPunks</p>
+      <p>Explore weapons, purchase &amp; equip them on your AdrianPunks</p>
     </header>
     
     <!-- Wallet Connection Section -->
@@ -184,17 +189,17 @@
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script>
     // Global variables
-    let provider, signer, punkQuestContract;
+    let provider, signer, punkQuestContract, tokenContract;
     // Actualiza estas direcciones con las correspondientes de tu entorno
     const PUNKQUEST_ADDRESS = "0x01406664fcc698ae3b42c4012fee4eff1ddbebd7";
     const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     const NFT_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
     
+    // ABI para PunkQuest, Token y NFT
     const punkQuestABI = [
       "function buyItem(uint256 itemId, uint256 quantity) external",
       "function equipItem(uint256 tokenId, uint256 itemId) external",
       "function inventory(address, uint256) view returns (uint256)"
-      // Agrega más funciones si fuese necesario
     ];
     const tokenABI = [
       "function balanceOf(address owner) view returns (uint256)",
@@ -205,7 +210,17 @@
       "function ownerOf(uint256 tokenId) view returns (address)"
     ];
   
-    // Conexión de wallet
+    // Helper functions
+    function formatAmount(amount) {
+      const value = parseFloat(ethers.utils.formatUnits(amount, 18));
+      return value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " $A";
+    }
+    function formatReward(amount) {
+      const value = parseFloat(ethers.utils.formatUnits(amount, 18));
+      return value.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + " A$";
+    }
+  
+    // Conectar wallet y inicializar contratos
     document.getElementById("connect-wallet").addEventListener("click", async () => {
       if (window.ethereum) {
         try {
@@ -215,10 +230,11 @@
           provider.getResolver = async (name) => null;
           signer = provider.getSigner();
           const walletAddress = await signer.getAddress();
-          const shortAddress = walletAddress.substring(0,6) + "..." + walletAddress.substring(walletAddress.length -4);
+          const shortAddress = walletAddress.substring(0, 6) + "..." + walletAddress.substring(walletAddress.length - 4);
           document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddress}</p>`;
           punkQuestContract = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, signer);
-          // Puedes inicializar también tokenContract y nftContract si es necesario para otros reads.
+          tokenContract = new ethers.Contract(TOKEN_ADDRESS, tokenABI, signer);
+          // nftContract can be used later if needed.
           loadWeapons();
           loadInventory();
         } catch (error) {
@@ -237,7 +253,6 @@
         const weaponsGrid = document.getElementById("weapons-grid");
         weaponsGrid.innerHTML = "";
         weaponsData.forEach(weapon => {
-          // Crear tarjeta para cada weapon
           const card = document.createElement("div");
           card.className = "weapon-card";
           card.innerHTML = `
@@ -247,21 +262,31 @@
             <p>Bonus: ${weapon.bonus}</p>
             <p>Durability: ${weapon.durability}</p>
             <p>${weapon.description}</p>
-            <button class="btn buy-btn" data-id="${weapon.id}">Buy</button>
+            <button class="btn buy-btn" data-id="${weapon.id}" data-price="${weapon.price}">Buy</button>
           `;
           weaponsGrid.appendChild(card);
         });
-        // Agregar evento a los botones Buy
+        // Agregar evento de compra a los botones Buy
         const buyButtons = document.getElementsByClassName("buy-btn");
         for (let btn of buyButtons) {
           btn.addEventListener("click", async (e) => {
             const weaponId = e.target.getAttribute("data-id");
+            const weaponPriceStr = e.target.getAttribute("data-price");
+            // Convertir el precio a 18 decimales
+            const totalCost = ethers.utils.parseUnits(weaponPriceStr, 18);
             try {
+              const walletAddress = await signer.getAddress();
+              const allowance = await tokenContract.allowance(walletAddress, PUNKQUEST_ADDRESS);
+              if (allowance.lt(totalCost)) {
+                document.getElementById("general-output").innerText = "Approving spending for weapon purchase. Please wait...";
+                const approveTx = await tokenContract.approve(PUNKQUEST_ADDRESS, totalCost);
+                await approveTx.wait();
+              }
               const tx = await punkQuestContract.buyItem(weaponId, 1);
               document.getElementById("general-output").innerText = "Buying weapon... waiting for confirmation.";
               await tx.wait();
               document.getElementById("general-output").innerText = "Weapon purchased successfully!";
-              loadInventory(); // Actualiza inventario después de comprar.
+              loadInventory();
             } catch (error) {
               document.getElementById("general-output").innerText = "Error buying weapon: " + error.message;
             }
@@ -272,27 +297,24 @@
       }
     }
     
-    // Función para cargar el inventario del usuario para armas
+    // Función para cargar el inventario del usuario (arma) desde el contrato
     async function loadInventory() {
       try {
         const walletAddress = await signer.getAddress();
-        // Suponemos que en weapons.json se listan armas con IDs conocidos.
         const response = await fetch("weapons.json");
         const weaponsData = await response.json();
         let inventoryHTML = "<ul>";
         for (let weapon of weaponsData) {
-          // Llamar a la función getter del mapping inventory(address, itemId)
-          const quantity = await punkQuestContract.inventory(walletAddress, weapon.id);
-          if (quantity.gt(0)) {
-            inventoryHTML += `<li>Weapon ${weapon.name} (ID: ${weapon.id}) - Quantity: ${quantity.toString()}
-              <button class="btn equip-btn" data-id="${weapon.id}">Equip</button>
-            </li>`;
+          const qty = await punkQuestContract.inventory(walletAddress, weapon.id);
+          if (qty.gt(0)) {
+            inventoryHTML += `<li>${weapon.name} (ID: ${weapon.id}) - Quantity: ${qty.toString()}
+                              <button class="btn equip-btn" data-id="${weapon.id}">Equip</button>
+                              </li>`;
           }
         }
         inventoryHTML += "</ul>";
         document.getElementById("inventory-list").innerHTML = inventoryHTML;
-        
-        // Agregar evento a los botones Equip en inventario
+      
         const equipButtons = document.getElementsByClassName("equip-btn");
         for (let btn of equipButtons) {
           btn.addEventListener("click", async (e) => {
