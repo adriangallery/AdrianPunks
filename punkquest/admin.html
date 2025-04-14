@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PunkQuest Admin Panel - Create Weapon</title>
+  <title>PunkQuest Admin Panel</title>
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <!-- Modern fonts -->
@@ -62,60 +62,92 @@
       box-shadow: 4px 4px 0 var(--accent-blue);
       border-color: var(--accent-blue);
     }
+    .terminal {
+      background: var(--card-bg);
+      color: var(--primary-text);
+      padding: 1rem;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.9rem;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      margin-top: 1rem;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>Admin Panel</h1>
-      <p>Create Weapon</p>
+      <h1>PunkQuest Admin Panel</h1>
+      <p>Create and Update Weapons</p>
     </header>
-
-    <!-- Wallet Connection for Admin -->
-    <div id="wallet-connection" class="mb-3">
+    
+    <!-- Wallet Connection Section -->
+    <div id="wallet-connection" class="mb-4">
       <button id="connect-admin" class="btn">Connect Admin Wallet</button>
       <div id="admin-wallet-info" class="mt-2"></div>
     </div>
-
-    <!-- Form to Create Weapon -->
-    <div class="card">
+    
+    <!-- Create Weapon Section -->
+    <div class="card mb-4">
       <div class="card-body">
         <h2 class="section-title">Create New Weapon</h2>
-        <form id="weapon-form">
+        <form id="create-weapon-form">
           <label for="weapon-price">Price (in tokens):</label>
           <input type="number" step="any" id="weapon-price" class="form-control" placeholder="e.g., 1000" required>
-
+  
           <label for="weapon-bonus">Bonus (%) :</label>
           <input type="number" step="any" id="weapon-bonus" class="form-control" placeholder="e.g., 10" required>
-          <!-- Note: If admin enters 10, it is converted to fixed point: 10 * 1e16 = 1e17 -->
-
+  
           <label for="weapon-durability">Durability:</label>
           <input type="number" id="weapon-durability" class="form-control" placeholder="e.g., 100" required>
-
+  
           <button type="submit" class="btn">Create Weapon</button>
         </form>
-        <div id="weapon-form-output" class="terminal mt-3"></div>
+        <div id="create-weapon-output" class="terminal"></div>
       </div>
     </div>
+    
+    <!-- Update Weapon Section -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <h2 class="section-title">Update Weapon</h2>
+        <form id="load-weapon-form">
+          <label for="update-item-id">Weapon Item ID:</label>
+          <input type="number" id="update-item-id" class="form-control" placeholder="e.g., 1" required>
+          <button type="button" id="load-weapon-btn" class="btn">Load Weapon Data</button>
+        </form>
+        <form id="update-weapon-form" style="display:none;">
+          <label for="update-weapon-price">New Price (in tokens):</label>
+          <input type="number" step="any" id="update-weapon-price" class="form-control" placeholder="e.g., 1000" required>
+  
+          <label for="update-weapon-bonus">New Bonus (%) :</label>
+          <input type="number" step="any" id="update-weapon-bonus" class="form-control" placeholder="e.g., 10" required>
+  
+          <label for="update-weapon-durability">New Durability:</label>
+          <input type="number" id="update-weapon-durability" class="form-control" placeholder="e.g., 100" required>
+  
+          <button type="submit" class="btn">Update Weapon</button>
+        </form>
+        <div id="update-weapon-output" class="terminal"></div>
+      </div>
+    </div>
+  
   </div>
-
+  
   <!-- Bootstrap 5 JS and Ethers.js Library -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script>
-    // Global variables for ethers.js and contract
-    let provider, signer;
-    let punkQuestContract;
-    // Contract address and ABI for PunkQuest (update as needed)
-    const PUNKQUEST_ADDRESS = "0xYourPunkQuestContractAddress"; // Replace with deployed address
-
+    let provider, signer, punkQuestContract;
+    // Update this with the deployed address of PunkQuest
+    const PUNKQUEST_ADDRESS = "0xYourPunkQuestContractAddress"; 
     const punkQuestABI = [
       "function addItem(uint8 _type, uint256 _price, uint256 _bonus, uint256 _durability) external",
-      // Minimal additional ABI if necessary
+      "function updateItem(uint256 _itemId, uint256 _price, uint256 _bonus, uint256 _durability) external onlyOwner",
+      "function items(uint256) view returns (uint256 price, uint256 bonus, uint256 durability, bool exists, uint8 itemType)",
       "function owner() view returns (address)"
     ];
-
-    // Connect Admin Wallet
+  
     document.getElementById("connect-admin").addEventListener("click", async () => {
       if (window.ethereum) {
         try {
@@ -123,7 +155,7 @@
           provider = new ethers.providers.Web3Provider(window.ethereum);
           signer = provider.getSigner();
           const walletAddress = await signer.getAddress();
-          const shortAddr = walletAddress.substring(0, 6) + "..." + walletAddress.substring(walletAddress.length - 4);
+          const shortAddr = walletAddress.substring(0,6) + "..." + walletAddress.substring(walletAddress.length -4);
           document.getElementById("admin-wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddr}</p>`;
           punkQuestContract = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, signer);
         } catch (error) {
@@ -133,43 +165,81 @@
         document.getElementById("admin-wallet-info").innerHTML = `<p>Please install MetaMask!</p>`;
       }
     });
-
-    // Handle Weapon Form Submission
-    document.getElementById("weapon-form").addEventListener("submit", async (event) => {
-      event.preventDefault(); // Prevent default form submission
+  
+    // Create Weapon Form Submission
+    document.getElementById("create-weapon-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
       if (!punkQuestContract) {
         alert("Please connect your admin wallet first.");
         return;
       }
-      // Get form values
       const priceInput = document.getElementById("weapon-price").value;
       const bonusInput = document.getElementById("weapon-bonus").value;
       const durabilityInput = document.getElementById("weapon-durability").value;
-
-      // Convert inputs: 
-      // Price is converted to 18 decimals.
-      let priceParsed;
-      let bonusParsed;
       try {
-        priceParsed = ethers.utils.parseUnits(priceInput, 18);
-        // For bonus, if admin enters 10 (for 10%), we calculate bonusParsed = 10 * 1e16 (since 10*1e16 = 1e17).
-        bonusParsed = ethers.BigNumber.from(bonusInput).mul("10000000000000000"); // 1e16 = 10^16
+        const priceParsed = ethers.utils.parseUnits(priceInput, 18);
+        // Convert bonus: if 10 is entered, then bonusParsed = 10 * 1e16 = 1e17.
+        const bonusParsed = ethers.BigNumber.from(bonusInput).mul("10000000000000000");
+        const durabilityParsed = parseInt(durabilityInput);
+        const tx = await punkQuestContract.addItem(0, priceParsed, bonusParsed, durabilityParsed);
+        document.getElementById("create-weapon-output").innerText = "Transaction sent... waiting for confirmation.";
+        await tx.wait();
+        document.getElementById("create-weapon-output").innerText = "Weapon created successfully!";
+        document.getElementById("create-weapon-form").reset();
       } catch (error) {
-        document.getElementById("weapon-form-output").innerText = "Error parsing numbers: " + error.message;
+        document.getElementById("create-weapon-output").innerText = "Error creating weapon: " + error.message;
+      }
+    });
+  
+    // Load Weapon Data for Update
+    document.getElementById("load-weapon-btn").addEventListener("click", async () => {
+      if (!punkQuestContract) {
+        alert("Please connect your admin wallet first.");
         return;
       }
-      const durabilityParsed = parseInt(durabilityInput);
-
-      // Call contract.addItem with ItemType = 0 (Weapon).
+      const itemId = document.getElementById("update-item-id").value;
       try {
-        const tx = await punkQuestContract.addItem(0, priceParsed, bonusParsed, durabilityParsed);
-        document.getElementById("weapon-form-output").innerText = "Transaction sent. Waiting for confirmation...";
-        await tx.wait();
-        document.getElementById("weapon-form-output").innerText = "Weapon created successfully!";
-        // Optionally, clear the form:
-        document.getElementById("weapon-form").reset();
+        const weaponData = await punkQuestContract.items(itemId);
+        // weaponData returns (price, bonus, durability, exists, itemType)
+        if (!weaponData.exists || weaponData.itemType != 0) { // 0 = Weapon in enum
+          document.getElementById("update-weapon-output").innerText = "Weapon not found with that ID.";
+          return;
+        }
+        // Pre-fill the form fields. Price and bonus are in fixed point.
+        document.getElementById("update-weapon-price").value = ethers.utils.formatUnits(weaponData.price, 18);
+        // Convert bonus from fixed point to percentage: (bonus / 1e16)
+        document.getElementById("update-weapon-bonus").value = ethers.utils.formatUnits(weaponData.bonus, 16);
+        document.getElementById("update-weapon-durability").value = weaponData.durability.toString();
+        document.getElementById("update-weapon-form").style.display = "block";
+        document.getElementById("update-weapon-output").innerText = "Weapon data loaded. You can now update.";
       } catch (error) {
-        document.getElementById("weapon-form-output").innerText = "Error creating weapon: " + error.message;
+        document.getElementById("update-weapon-output").innerText = "Error loading weapon data: " + error.message;
+      }
+    });
+  
+    // Update Weapon Form Submission
+    document.getElementById("update-weapon-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!punkQuestContract) {
+        alert("Please connect your admin wallet first.");
+        return;
+      }
+      const itemId = document.getElementById("update-item-id").value;
+      const priceInput = document.getElementById("update-weapon-price").value;
+      const bonusInput = document.getElementById("update-weapon-bonus").value;
+      const durabilityInput = document.getElementById("update-weapon-durability").value;
+      try {
+        const priceParsed = ethers.utils.parseUnits(priceInput, 18);
+        const bonusParsed = ethers.BigNumber.from(bonusInput).mul("10000000000000000");
+        const durabilityParsed = parseInt(durabilityInput);
+        const tx = await punkQuestContract.updateItem(itemId, priceParsed, bonusParsed, durabilityParsed);
+        document.getElementById("update-weapon-output").innerText = "Transaction sent... waiting for confirmation.";
+        await tx.wait();
+        document.getElementById("update-weapon-output").innerText = "Weapon updated successfully!";
+        document.getElementById("update-weapon-form").reset();
+        document.getElementById("update-weapon-form").style.display = "none";
+      } catch (error) {
+        document.getElementById("update-weapon-output").innerText = "Error updating weapon: " + error.message;
       }
     });
   </script>
