@@ -21,7 +21,7 @@
       --scanline-color: rgba(0,0,0,0.03);
       --pixel-shadow: -1px -1px 0 var(--accent-red), 1px 1px 0 var(--accent-blue);
     }
-    
+
     body {
       background-color: var(--bg-color);
       color: var(--primary-text);
@@ -29,13 +29,7 @@
       margin: 0;
       padding: 20px;
       line-height: 1.6;
-      background-image: 
-        repeating-linear-gradient(0deg, 
-          var(--scanline-color), 
-          var(--scanline-color) 1px, 
-          transparent 1px, 
-          transparent 4px
-        );
+      background-image: repeating-linear-gradient(0deg, var(--scanline-color), var(--scanline-color) 1px, transparent 1px, transparent 4px);
     }
 
     .container {
@@ -44,19 +38,14 @@
       padding: 20px;
       background: var(--screen-bg);
       border: 1px solid var(--card-border);
-      box-shadow: 
-        0 0 0 1px var(--accent-red),
-        0 0 0 2px var(--accent-blue),
-        0 4px 6px rgba(0,0,0,0.1);
+      box-shadow: 0 0 0 1px var(--accent-red), 0 0 0 2px var(--accent-blue), 0 4px 6px rgba(0,0,0,0.1);
       border-radius: 8px;
     }
 
     header {
       text-align: center;
       padding: 2rem;
-      background: linear-gradient(180deg, 
-        var(--card-bg) 0%,
-        var(--screen-bg) 100%);
+      background: linear-gradient(180deg, var(--card-bg) 0%, var(--screen-bg) 100%);
       border-bottom: 1px solid var(--card-border);
       margin-bottom: 2rem;
       position: relative;
@@ -95,7 +84,6 @@
       padding-bottom: 0.5rem;
     }
 
-    /* Grid adjustments for larger token cards */
     .token-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -141,7 +129,6 @@
       cursor: pointer;
       transition: all 0.2s ease;
       margin: 0.5rem;
-      position: relative;
       box-shadow: 3px 3px 0 var(--primary-text);
     }
 
@@ -165,7 +152,6 @@
       font-size: 0.9rem;
       border: 1px solid var(--card-border);
       border-radius: 8px;
-      position: relative;
       margin: 1rem 0;
       box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
     }
@@ -184,42 +170,6 @@
       font-size: 0.9rem;
       color: var(--primary-text);
       opacity: 0.8;
-    }
-
-    @media (max-width: 1400px) {
-      .token-grid {
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      }
-    }
-
-    @media (max-width: 992px) {
-      .token-grid {
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1.2rem;
-      }
-    }
-
-    @media (max-width: 768px) {
-      .token-grid {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 1rem;
-        padding: 0.8rem;
-      }
-
-      .token-card {
-        padding: 0.6rem;
-      }
-    }
-
-    @media (max-width: 375px) {
-      .token-grid {
-        gap: 0.8rem;
-        padding: 0.5rem;
-      }
-
-      .token-card {
-        padding: 0.5rem;
-      }
     }
   </style>
 </head>
@@ -257,9 +207,7 @@
       </div>
       <div class="card">
         <h2 class="section-title">Total Pending Rewards</h2>
-        <div id="total-rewards" class="big-number">
-          0 A$
-        </div>
+        <div id="total-rewards" class="big-number">0 A$</div>
       </div>
     </section>
 
@@ -287,13 +235,12 @@
     // Global variables for ethers.js and contracts
     let provider, signer;
     let tokenContract, stakingContract, nftContract;
-    // Use an array to hold multiple selected token IDs
-    let selectedTokenIds = [];
+    let selectedTokenIds = []; // To hold multiple selected token IDs
 
-    // Contract addresses
+    // Contract addresses (actualiza el address de PunkQuest aquí)
     const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
-    const STAKING_ADDRESS = "0xeEC1A809acB57acABa196C6677f65EcC4c6f4491";
+    const STAKING_ADDRESS = "0xa0885B8Ce2a8633eEB3270Fc009A226289545379";
 
     // Minimal ABIs
     const tokenABI = [
@@ -306,12 +253,9 @@
       "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
       "function tokenURI(uint256 tokenId) view returns (string)"
     ];
-    // Expanded staking ABI (with fee functions)
     const stakingABI = [
       "function stake(uint256 tokenId) external",
-      "function claimRewards(uint256 tokenId) external returns (uint256)",
       "function unstake(uint256 tokenId) external",
-      "function pendingRewards(uint256 tokenId) view returns (uint256)",
       "function getTokenDetailedInfo(uint256 tokenId) view returns (uint256, uint256, uint256, uint256, uint256, int256, uint256)",
       "function activationFee() view returns (uint256)",
       "function exitFee() view returns (uint256)"
@@ -338,7 +282,6 @@
         const count = balance.toNumber();
         const gridContainer = document.getElementById("tokens-grid");
         gridContainer.innerHTML = "";
-        // Reset selected tokens
         selectedTokenIds = [];
         for (let i = 0; i < count; i++) {
           const tokenId = (await nftContract.tokenOfOwnerByIndex(walletAddress, i)).toString();
@@ -366,15 +309,13 @@
           card.appendChild(overlay);
           col.appendChild(card);
           gridContainer.appendChild(col);
-          // Toggle selection on click (multiple selection allowed)
+          // Toggle selection on click (allow multiple selections)
           card.addEventListener("click", () => {
             const tokenIdStr = card.dataset.tokenId;
             if (selectedTokenIds.includes(tokenIdStr)) {
-              // Deselect token
               selectedTokenIds = selectedTokenIds.filter(id => id !== tokenIdStr);
               card.classList.remove("selected-token");
             } else {
-              // Select token
               selectedTokenIds.push(tokenIdStr);
               card.classList.add("selected-token");
             }
@@ -398,10 +339,8 @@
       let statsHTML = "";
       for (const tokenId of selectedTokenIds) {
         try {
-          // Attempt to fetch token details
           const info = await stakingContract.getTokenDetailedInfo(tokenId);
           // info returns: [stakeStart, lastClaim, fastLevelBonus, itemBonus, specialBoost, fixedAdjustment, pendingReward]
-          // Check if token is staked (stakeStart != 0)
           if (info[0].toString() === "0") {
             statsHTML += `<strong>Token ${tokenId}:</strong> Not staked.<br>`;
           } else {
@@ -426,14 +365,13 @@
             `;
           }
         } catch (error) {
-          // If call fails, show a friendly message
           statsHTML += `<strong>Token ${tokenId}:</strong> Unable to retrieve stats. It may not be staked.<br>`;
         }
       }
       statsContainer.innerHTML = statsHTML;
     }
 
-    // Calculate and display total aggregate rewards for all tokens in the wallet
+    // Calculate and display the total aggregate rewards
     async function loadAggregateRewards() {
       try {
         const walletAddress = await signer.getAddress();
@@ -477,12 +415,9 @@
           const walletAddress = await signer.getAddress();
           const shortAddress = walletAddress.substring(0, 6) + '...' + walletAddress.substring(walletAddress.length - 4);
           document.getElementById("wallet-info").innerHTML = '<p class="wallet-address">Connected: ' + shortAddress + '</p>';
-          
           tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
           stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
           nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
-          
-          // Load fee information, tokens and statistics
           displayFeeInfo();
           loadTokens();
         } catch (error) {
@@ -498,7 +433,6 @@
       if (selectedTokenIds.length === 0) return alert("Please select one or more tokens first.");
       try {
         const walletAddress = await signer.getAddress();
-        // Get activation fee from the contract
         const activationFee = await stakingContract.activationFee();
         const currentAllowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
         if (currentAllowance.lt(activationFee)) {
@@ -507,14 +441,12 @@
           await approveTx.wait();
           document.getElementById("general-output").textContent = "Approval successful. Proceeding with staking...";
         }
-        // Stake each selected token
         for (const tokenId of selectedTokenIds) {
           try {
             const tx = await stakingContract.stake(tokenId);
             await tx.wait();
             document.getElementById("general-output").innerHTML += `<br>Token ${tokenId} staked successfully.`;
           } catch (e) {
-            // If error indicates that the token is already staked, show friendly message
             if (e.message.toLowerCase().includes("already staked")) {
               document.getElementById("general-output").innerHTML += `<br>Token ${tokenId} is already staked.`;
             } else {
@@ -535,7 +467,6 @@
       if (selectedTokenIds.length === 0) return alert("Please select one or more tokens first.");
       try {
         const walletAddress = await signer.getAddress();
-        // Get exit fee from the contract
         const exitFee = await stakingContract.exitFee();
         const currentAllowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
         if (currentAllowance.lt(exitFee)) {
@@ -544,14 +475,12 @@
           await approveTx.wait();
           document.getElementById("general-output").textContent = "Approval successful. Proceeding with unstaking...";
         }
-        // Unstake each selected token
         for (const tokenId of selectedTokenIds) {
           try {
             const tx = await stakingContract.unstake(tokenId);
             await tx.wait();
             document.getElementById("general-output").innerHTML += `<br>Token ${tokenId} unstaked successfully.`;
           } catch (e) {
-            // If error indicates that the token is not staked, show friendly message
             if (e.message.toLowerCase().includes("not staked")) {
               document.getElementById("general-output").innerHTML += `<br>Token ${tokenId} is not staked.`;
             } else {
@@ -559,14 +488,14 @@
             }
           }
         }
-        // After unstake, reload tokens to update status
+        // Reload tokens after unstake to update status
         loadTokens();
       } catch (error) {
         document.getElementById("general-output").innerHTML = "Error while unstaking: " + error.message;
       }
     });
 
-    // Refresh stats button for selected tokens and aggregate rewards
+    // Refresh stats button (selected tokens and aggregate rewards)
     document.getElementById("refresh-info").addEventListener("click", () => {
       refreshTokenStats();
       loadAggregateRewards();
