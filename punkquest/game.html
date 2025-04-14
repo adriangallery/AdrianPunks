@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PunkQuest Retro - Stake & Claim Rewards</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Modern fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+  <!-- Styles -->
+  <style>
+    :root {
+      --bg-color: #f8f9fa;
+      --primary-text: #2c3e50;
+      --accent-red: #ff6b6b;
+      --accent-blue: #4dabf7;
+      --card-bg: #ffffff;
+      --card-border: #e9ecef;
+      --screen-bg: #ffffff;
+      --scanline-color: rgba(0,0,0,0.03);
+      --pixel-shadow: -1px -1px 0 var(--accent-red), 1px 1px 0 var(--accent-blue);
+    }
+    body {
+      background-color: var(--bg-color);
+      color: var(--primary-text);
+      font-family: 'Space Grotesk', sans-serif;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+      background-image: repeating-linear-gradient(0deg, var(--scanline-color), var(--scanline-color) 1px, transparent 1px, transparent 4px);
+    }
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 20px;
+      background: var(--screen-bg);
+      border: 1px solid var(--card-border);
+      box-shadow: 0 0 0 1px var(--accent-red), 0 0 0 2px var(--accent-blue), 0 4px 6px rgba(0,0,0,0.1);
+      border-radius: 8px;
+    }
+    header {
+      text-align: center;
+      padding: 2rem;
+      background: linear-gradient(180deg, var(--card-bg) 0%, var(--screen-bg) 100%);
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 2rem;
+    }
+    header h1 {
+      font-size: 2.5rem;
+      margin: 0;
+      color: var(--primary-text);
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+    header p {
+      margin-top: 1rem;
+      font-size: 1rem;
+      color: var(--primary-text);
+      opacity: 0.8;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .section-title {
+      font-size: 1.4rem;
+      margin-bottom: 1.5rem;
+      color: var(--primary-text);
+      font-weight: 600;
+      border-bottom: 2px solid var(--card-border);
+      padding-bottom: 0.5rem;
+    }
+    .token-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      padding: 1rem;
+    }
+    .token-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-height: 200px;
+    }
+    .token-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .token-card img {
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      border-radius: 4px;
+    }
+    .selected-token {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 2px var(--accent-blue);
+    }
+    .btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.8rem;
+      padding: 0.8rem 1.2rem;
+      background: var(--card-bg);
+      border: 2px solid var(--primary-text);
+      color: var(--primary-text);
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin: 0.5rem;
+      box-shadow: 3px 3px 0 var(--primary-text);
+    }
+    .btn:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 5px 5px 0 var(--primary-text);
+      border-color: var(--accent-blue);
+    }
+    .btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: none;
+      border-color: var(--accent-red);
+    }
+    .terminal {
+      background: var(--card-bg);
+      color: var(--primary-text);
+      padding: 1rem;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.9rem;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      margin: 1rem 0;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+    }
+    #total-rewards {
+      font-size: 2.5rem;
+      color: var(--primary-text);
+      text-align: center;
+      margin: 1rem 0;
+      padding: 1rem;
+      font-weight: 600;
+    }
+    .wallet-address {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.9rem;
+      color: var(--primary-text);
+      opacity: 0.8;
+    }
+    @keyframes rewardsUpdate {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    .rewards-update {
+      animation: rewardsUpdate 0.5s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header Section -->
+    <header>
+      <h1>PunkQuest</h1>
+      <p>Your journey begins here</p>
+    </header>
+
+    <!-- Wallet Connection Section -->
+    <section id="wallet-connection" class="mb-4">
+      <button id="connect-wallet" class="btn">Connect Wallet</button>
+      <div id="wallet-info" class="mt-2"></div>
+    </section>
+
+    <!-- Total Pending Rewards Section -->
+    <section id="total-rewards-section" class="mb-4">
+      <div class="card">
+        <h2 class="section-title">Total Pending Rewards</h2>
+        <div id="total-rewards" class="big-number">0 A$</div>
+      </div>
+    </section>
+
+    <!-- "My Tokens" Section -->
+    <section id="tokens-section" class="mb-4">
+      <div class="card">
+        <h2 class="section-title">My Tokens</h2>
+        <div id="tokens-grid" class="row row-cols-2 row-cols-sm-3 row-cols-md-4 g-3 token-grid">
+          <!-- Tokens will be loaded dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Token Statistics Section -->
+    <section id="token-stats" class="mb-4">
+      <div class="card">
+        <h2 class="section-title">Token Statistics</h2>
+        <div id="individual-token-stats" class="terminal">
+          Select one or more tokens to view detailed statistics.
+        </div>
+      </div>
+    </section>
+
+    <!-- Additional Gamification Details Section -->
+    <section id="additional-stats" class="mb-4">
+      <div class="card">
+        <h2 class="section-title">Additional Gamification Details</h2>
+        <div id="multiplier-breakdown" class="terminal">
+          <!-- Multiplier breakdown info will be displayed here -->
+        </div>
+        <div id="reward-breakdown" class="terminal">
+          <!-- Reward breakdown info will be displayed here -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Actions Section -->
+    <section id="stake-actions" class="mb-4">
+      <div class="card">
+        <h2 class="section-title">Actions</h2>
+        <button id="stake-token" class="btn mb-3">Stake Token(s)</button>
+        <button id="unstake-token" class="btn mb-3">Unstake Token(s)</button>
+        <button id="refresh-info" class="btn mb-3">Refresh Stats</button>
+        <div id="action-output" class="terminal"></div>
+        <!-- Fee information -->
+        <div id="fee-info" class="terminal"></div>
+      </div>
+    </section>
+
+    <!-- General Output Message -->
+    <div id="general-output" class="terminal"></div>
+  </div>
+
+  <!-- Bootstrap 5 JS and Ethers.js Library -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script>
+    // Global variables for ethers.js and contracts
+    let provider, signer;
+    let tokenContract, stakingContract, nftContract;
+    let selectedTokenIds = []; // To hold multiple selected token IDs
+    let rewardsUpdateInterval; // For auto update
+
+    // Contract addresses (update the PunkQuest contract address here)
+    const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
+    const STAKING_ADDRESS = "0x01406664fcc698ae3b42c4012fee4eff1ddbebd7";
+
+    // Minimal ABIs (we assume the additional read functions are included in the deployed contract)
+    const tokenABI = [
+      "function balanceOf(address owner) view returns (uint256)",
+      "function approve(address spender, uint256 amount) returns (bool)",
+      "function allowance(address owner, address spender) view returns (uint256)"
+    ];
+    const nftABI = [
+      "function balanceOf(address owner) view returns (uint256)",
+      "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+      "function tokenURI(uint256 tokenId) view returns (string)"
+    ];
+    const stakingABI = [
+      "function stake(uint256 tokenId) external",
+      "function unstake(uint256 tokenId) external",
+      "function getTokenDetailedInfo(uint256 tokenId) view returns (uint256, uint256, uint256, uint256, uint256, int256, uint256)",
+      "function getTokenMultiplierBreakdown(uint256 tokenId) view returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256)",
+      "function getTokenRewardBreakdown(uint256 tokenId) view returns (uint256, uint256, uint256, int256, uint256)",
+      "function activationFee() view returns (uint256)",
+      "function exitFee() view returns (uint256)"
+    ];
+
+    // Helper functions to format amounts
+    function formatAmount(amount) {
+      const value = parseFloat(ethers.utils.formatUnits(amount, 18));
+      return value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " $A";
+    }
+    function formatReward(amount) {
+      const value = parseFloat(ethers.utils.formatUnits(amount, 18));
+      return value.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + " A$";
+    }
+
+    // Load tokens and display the grid
+    async function loadTokens() {
+      try {
+        const walletAddress = await signer.getAddress();
+        const response = await fetch("/punkquest/adrianpunks.json");
+        const data = await response.json();
+        const jsonCollection = data.collection;
+        const balance = await nftContract.balanceOf(walletAddress);
+        const count = balance.toNumber();
+        const gridContainer = document.getElementById("tokens-grid");
+        gridContainer.innerHTML = "";
+        selectedTokenIds = [];
+        for (let i = 0; i < count; i++) {
+          const tokenId = (await nftContract.tokenOfOwnerByIndex(walletAddress, i)).toString();
+          const tokenInfo = jsonCollection.find(item => {
+            if (item.name) {
+              const parts = item.name.split("#");
+              return parts.length === 2 && parts[1] === tokenId;
+            }
+            return false;
+          });
+          const imgSrc = tokenInfo ? tokenInfo.image : `https://via.placeholder.com/150?text=Token+${tokenId}`;
+          const col = document.createElement("div");
+          col.className = "col";
+          const card = document.createElement("div");
+          card.className = "card token-card";
+          card.dataset.tokenId = tokenId;
+          const img = document.createElement("img");
+          img.src = imgSrc;
+          img.alt = "Token " + tokenId;
+          const overlay = document.createElement("div");
+          overlay.style.textAlign = "center";
+          overlay.style.marginTop = "0.5rem";
+          overlay.textContent = "Token " + tokenId;
+          card.appendChild(img);
+          card.appendChild(overlay);
+          col.appendChild(card);
+          gridContainer.appendChild(col);
+          // Toggle selection on click (allow multiple selections)
+          card.addEventListener("click", () => {
+            const tokenIdStr = card.dataset.tokenId;
+            if (selectedTokenIds.includes(tokenIdStr)) {
+              selectedTokenIds = selectedTokenIds.filter(id => id !== tokenIdStr);
+              card.classList.remove("selected-token");
+            } else {
+              selectedTokenIds.push(tokenIdStr);
+              card.classList.add("selected-token");
+            }
+            document.getElementById("action-output").textContent = "Selected tokens: " + selectedTokenIds.join(", ");
+            refreshTokenStats();
+            refreshAdditionalStats();
+          });
+        }
+        loadAggregateRewards();
+      } catch (error) {
+        document.getElementById("general-output").textContent = "Error loading tokens: " + error.message;
+      }
+    }
+
+    // Refresh statistics for each selected token
+    async function refreshTokenStats() {
+      const statsContainer = document.getElementById("individual-token-stats");
+      if (selectedTokenIds.length === 0) {
+        statsContainer.innerHTML = "Select one or more tokens to view detailed statistics.";
+        return;
+      }
+      let statsHTML = "";
+      for (const tokenId of selectedTokenIds) {
+        try {
+          const info = await stakingContract.getTokenDetailedInfo(tokenId);
+          if (info[0].toString() === "0") {
+            statsHTML += `<strong>Token ${tokenId}:</strong> Not staked.<br>`;
+          } else {
+            const stakeStart = new Date(info[0].toNumber() * 1000).toLocaleString();
+            const lastClaim = new Date(info[1].toNumber() * 1000).toLocaleString();
+            const pendingReward = formatReward(info[6]);
+            statsHTML += `
+              <strong>Token ${tokenId}:</strong><br>
+              Stake started: ${stakeStart}<br>
+              Last claim: ${lastClaim}<br>
+              Pending Rewards: ${pendingReward}<br><br>
+            `;
+          }
+        } catch (error) {
+          statsHTML += `<strong>Token ${tokenId}:</strong> Unable to retrieve stats.<br>`;
+        }
+      }
+      statsContainer.innerHTML = statsHTML;
+    }
+
+    // Refresh additional gamification details: multiplier breakdown and reward breakdown
+    async function refreshAdditionalStats() {
+      const multiplierContainer = document.getElementById("multiplier-breakdown");
+      const rewardBreakdownContainer = document.getElementById("reward-breakdown");
+      if (selectedTokenIds.length === 0) {
+        multiplierContainer.innerHTML = "Select token(s) to view multiplier breakdown.";
+        rewardBreakdownContainer.innerHTML = "Select token(s) to view reward breakdown.";
+        return;
+      }
+      let multHTML = "";
+      let rewardHTML = "";
+      for (const tokenId of selectedTokenIds) {
+        try {
+          // Call the additional function getTokenMultiplierBreakdown(tokenId)
+          const mData = await stakingContract.getTokenMultiplierBreakdown(tokenId);
+          // Expected return: (baseMultiplier, levelBonus, fastBonus, itemsBonus, socialBonus, specialBonus, effectiveMultiplier)
+          multHTML += `<strong>Token ${tokenId} Multiplier Breakdown:</strong><br>
+                        Base: ${ethers.utils.formatUnits(mData[0], 18)}<br>
+                        Level Bonus: ${ethers.utils.formatUnits(mData[1], 18)}<br>
+                        Fast Bonus: ${ethers.utils.formatUnits(mData[2], 18)}<br>
+                        Items Bonus: ${ethers.utils.formatUnits(mData[3], 18)}<br>
+                        Social Bonus: ${ethers.utils.formatUnits(mData[4], 18)}<br>
+                        Special Bonus: ${ethers.utils.formatUnits(mData[5], 18)}<br>
+                        Effective Multiplier: ${ethers.utils.formatUnits(mData[6], 18)}<br><br>`;
+        } catch (error) {
+          multHTML += `<strong>Token ${tokenId}:</strong> Multiplier breakdown unavailable.<br>`;
+        }
+        try {
+          // Call the additional function getTokenRewardBreakdown(tokenId)
+          const rData = await stakingContract.getTokenRewardBreakdown(tokenId);
+          // Expected return: (baseRewardWithoutMultipliers, rewardWithMultipliers, additionalFromMultipliers, fixedAdjustment, totalPendingReward)
+          rewardHTML += `<strong>Token ${tokenId} Reward Breakdown:</strong><br>
+                         Base Reward (no multipliers): ${formatReward(rData[0])}<br>
+                         Reward with Multipliers: ${formatReward(rData[1])}<br>
+                         Additional from Multipliers: ${formatReward(rData[2])}<br>
+                         Fixed Adjustment: ${rData[3].toString()}<br>
+                         Total Pending Reward: ${formatReward(rData[4])}<br><br>`;
+        } catch (error) {
+          rewardHTML += `<strong>Token ${tokenId}:</strong> Reward breakdown unavailable.<br>`;
+        }
+      }
+      multiplierContainer.innerHTML = multHTML;
+      rewardBreakdownContainer.innerHTML = rewardHTML;
+    }
+
+    // Calculate and display total aggregate rewards
+    async function loadAggregateRewards() {
+      try {
+        const walletAddress = await signer.getAddress();
+        const balance = await nftContract.balanceOf(walletAddress);
+        const count = balance.toNumber();
+        let totalRewards = ethers.BigNumber.from(0);
+        for (let i = 0; i < count; i++) {
+          const tokenId = (await nftContract.tokenOfOwnerByIndex(walletAddress, i)).toString();
+          try {
+            const info = await stakingContract.getTokenDetailedInfo(tokenId);
+            totalRewards = totalRewards.add(info[6]);
+          } catch (e) {
+            console.error("Error fetching stats for token " + tokenId);
+          }
+        }
+        const rewardsElement = document.getElementById("total-rewards");
+        rewardsElement.classList.add('rewards-update');
+        rewardsElement.textContent = formatReward(totalRewards);
+        setTimeout(() => {
+          rewardsElement.classList.remove('rewards-update');
+        }, 500);
+      } catch (error) {
+        console.error("Error calculating total rewards:", error);
+        document.getElementById("general-output").textContent = "Error calculating total rewards: " + error.message;
+      }
+    }
+
+    // Display fee information (activationFee and exitFee)
+    async function displayFeeInfo() {
+      try {
+        const activationFee = await stakingContract.activationFee();
+        const exitFee = await stakingContract.exitFee();
+        const feeText = `Stake Cost: ${formatAmount(activationFee)} | Unstake Cost: ${formatAmount(exitFee)}`;
+        document.getElementById("fee-info").textContent = feeText;
+      } catch (error) {
+        document.getElementById("fee-info").textContent = "Error fetching fee information: " + error.message;
+      }
+    }
+
+    // Connect wallet and initialize contracts
+    document.getElementById("connect-wallet").addEventListener("click", async () => {
+      if (window.ethereum) {
+        try {
+          await window.ethereum.request({ method: "eth_requestAccounts" });
+          provider = new ethers.providers.Web3Provider(window.ethereum);
+          signer = provider.getSigner();
+          const walletAddress = await signer.getAddress();
+          const shortAddress = walletAddress.substring(0, 6) + "..." + walletAddress.substring(walletAddress.length - 4);
+          document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddress}</p>`;
+          tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
+          stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
+          nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
+          displayFeeInfo();
+          loadTokens();
+          startAutoUpdate();
+          window.ethereum.on("accountsChanged", () => { stopAutoUpdate(); });
+          window.ethereum.on("chainChanged", () => { stopAutoUpdate(); });
+          window.ethereum.on("disconnect", () => { stopAutoUpdate(); });
+        } catch (error) {
+          document.getElementById("wallet-info").innerHTML = `<p>Error connecting wallet: ${error.message}</p>`;
+        }
+      } else {
+        document.getElementById("wallet-info").innerHTML = `<p>Please install MetaMask!</p>`;
+      }
+    });
+
+    // Auto update rewards every 15 seconds
+    function startAutoUpdate() {
+      stopAutoUpdate();
+      rewardsUpdateInterval = setInterval(async () => {
+        try {
+          await loadAggregateRewards();
+        } catch (error) {
+          console.error("Error updating rewards:", error);
+          stopAutoUpdate();
+        }
+      }, 15000);
+    }
+    function stopAutoUpdate() {
+      if (rewardsUpdateInterval) {
+        clearInterval(rewardsUpdateInterval);
+        rewardsUpdateInterval = null;
+      }
+    }
+
+    // Stake selected token(s)
+    document.getElementById("stake-token").addEventListener("click", async () => {
+      if (selectedTokenIds.length === 0) return alert("Please select one or more tokens first.");
+      try {
+        const walletAddress = await signer.getAddress();
+        const activationFee = await stakingContract.activationFee();
+        const currentAllowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
+        if (currentAllowance.lt(activationFee)) {
+          document.getElementById("general-output").textContent = "Approving spending for stake fee. Please wait...";
+          const approveTx = await tokenContract.approve(STAKING_ADDRESS, activationFee);
+          await approveTx.wait();
+          document.getElementById("general-output").textContent = "Approval successful. Proceeding with staking...";
+        }
+        for (const tokenId of selectedTokenIds) {
+          try {
+            const tx = await stakingContract.stake(tokenId);
+            await tx.wait();
+            document.getElementById("general-output").innerHTML += `<br>Token ${tokenId} staked successfully.`;
+          } catch (e) {
+            if (e.message.toLowerCase().includes("already staked")) {
+              document.getElementById("general-output").innerHTML += `<br>Token ${tokenId} is already staked.`;
+            } else {
+              document.getElementById("general-output").innerHTML += `<br>Error staking token ${tokenId}: ${e.message}`;
+            }
+          }
+        }
+        refreshTokenStats();
+        refreshAdditionalStats();
+        loadAggregateRewards();
+        displayFeeInfo();
+      } catch (error) {
+        document.getElementById("general-output").innerHTML = "Error while staking: " + error.message;
+      }
+    });
+
+    // Unstake selected token(s)
+    document.getElementById("unstake-token").addEventListener("click", async () => {
+      if (selectedTokenIds.length === 0) return alert("Please select one or more tokens first.");
+      try {
+        const walletAddress = await signer.getAddress();
+        const exitFee = await stakingContract.exitFee();
+        const currentAllowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
+        if (currentAllowance.lt(exitFee)) {
+          document.getElementById("general-output").textContent = "Approving spending for unstake fee. Please wait...";
+          const approveTx = await tokenContract.approve(STAKING_ADDRESS, exitFee);
+          await approveTx.wait();
+          document.getElementById("general-output").textContent = "Approval successful. Proceeding with unstaking...";
+        }
+        for (const tokenId of selectedTokenIds) {
+          try {
+            const tx = await stakingContract.unstake(tokenId);
+            await tx.wait();
+            document.getElementById("general-output").innerHTML += `<br>Token ${tokenId} unstaked successfully.`;
+          } catch (e) {
+            if (e.message.toLowerCase().includes("not staked")) {
+              document.getElementById("general-output").innerHTML += `<br>Token ${tokenId} is not staked.`;
+            } else {
+              document.getElementById("general-output").innerHTML += `<br>Error unstaking token ${tokenId}: ${e.message}`;
+            }
+          }
+        }
+        loadTokens();
+      } catch (error) {
+        document.getElementById("general-output").innerHTML = "Error while unstaking: " + error.message;
+      }
+    });
+
+    // Refresh stats button
+    document.getElementById("refresh-info").addEventListener("click", () => {
+      refreshTokenStats();
+      refreshAdditionalStats();
+      loadAggregateRewards();
+      displayFeeInfo();
+    });
+  </script>
+</body>
+</html>
