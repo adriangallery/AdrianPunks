@@ -271,7 +271,7 @@
         <button id="unstake-token" class="btn mb-3">Unstake Token(s)</button>
         <button id="refresh-info" class="btn mb-3">Refresh Stats</button>
         <div id="action-output" class="terminal"></div>
-        <!-- Section to show fee info -->
+        <!-- Fee information -->
         <div id="fee-info" class="terminal"></div>
       </div>
     </section>
@@ -306,7 +306,7 @@
       "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
       "function tokenURI(uint256 tokenId) view returns (string)"
     ];
-    // Expanded staking ABI to include fee variables if necessary
+    // Expanded staking ABI (with fee functions)
     const stakingABI = [
       "function stake(uint256 tokenId) external",
       "function claimRewards(uint256 tokenId) external returns (uint256)",
@@ -366,7 +366,7 @@
           card.appendChild(overlay);
           col.appendChild(card);
           gridContainer.appendChild(col);
-          // Toggle selection on click
+          // Toggle selection on click (multiple selection allowed)
           card.addEventListener("click", () => {
             const tokenIdStr = card.dataset.tokenId;
             if (selectedTokenIds.includes(tokenIdStr)) {
@@ -374,7 +374,7 @@
               selectedTokenIds = selectedTokenIds.filter(id => id !== tokenIdStr);
               card.classList.remove("selected-token");
             } else {
-              // Select token (allowing multiple selections)
+              // Select token
               selectedTokenIds.push(tokenIdStr);
               card.classList.add("selected-token");
             }
@@ -388,7 +388,7 @@
       }
     }
 
-    // Refresh statistics for selected tokens
+    // Refresh statistics for each selected token
     async function refreshTokenStats() {
       const statsContainer = document.getElementById("individual-token-stats");
       if (selectedTokenIds.length === 0) {
@@ -398,10 +398,11 @@
       let statsHTML = "";
       for (const tokenId of selectedTokenIds) {
         try {
+          // Attempt to fetch token details
           const info = await stakingContract.getTokenDetailedInfo(tokenId);
-          // info: (stakeStart, lastClaim, fastLevelBonus, itemBonus, specialBoost, fixedAdjustment, pendingReward)
-          if (info[0].eq ? info[0].eq(0) : info[0] == 0) {
-            // If stakeStart is 0, token is not staked
+          // info returns: [stakeStart, lastClaim, fastLevelBonus, itemBonus, specialBoost, fixedAdjustment, pendingReward]
+          // Check if token is staked (stakeStart != 0)
+          if (info[0].toString() === "0") {
             statsHTML += `<strong>Token ${tokenId}:</strong> Not staked.<br>`;
           } else {
             const stakeStart = new Date(info[0].toNumber() * 1000).toLocaleString();
@@ -425,14 +426,14 @@
             `;
           }
         } catch (error) {
-          // If error occurs, display a friendly message
-          statsHTML += `<strong>Token ${tokenId}:</strong> Error fetching stats: ${error.message}<br>`;
+          // If call fails, show a friendly message
+          statsHTML += `<strong>Token ${tokenId}:</strong> Unable to retrieve stats. It may not be staked.<br>`;
         }
       }
       statsContainer.innerHTML = statsHTML;
     }
 
-    // Calculate and display aggregate rewards for all tokens in the wallet
+    // Calculate and display total aggregate rewards for all tokens in the wallet
     async function loadAggregateRewards() {
       try {
         const walletAddress = await signer.getAddress();
@@ -513,12 +514,16 @@
             await tx.wait();
             document.getElementById("general-output").innerHTML += `<br>Token ${tokenId} staked successfully.`;
           } catch (e) {
-            document.getElementById("general-output").innerHTML += `<br>Error staking token ${tokenId}: ${e.message}`;
+            // If error indicates that the token is already staked, show friendly message
+            if (e.message.toLowerCase().includes("already staked")) {
+              document.getElementById("general-output").innerHTML += `<br>Token ${tokenId} is already staked.`;
+            } else {
+              document.getElementById("general-output").innerHTML += `<br>Error staking token ${tokenId}: ${e.message}`;
+            }
           }
         }
         refreshTokenStats();
         loadAggregateRewards();
-        // Update fee information in case fees change
         displayFeeInfo();
       } catch (error) {
         document.getElementById("general-output").innerHTML = "Error while staking: " + error.message;
@@ -546,10 +551,15 @@
             await tx.wait();
             document.getElementById("general-output").innerHTML += `<br>Token ${tokenId} unstaked successfully.`;
           } catch (e) {
-            document.getElementById("general-output").innerHTML += `<br>Error unstaking token ${tokenId}: ${e.message}`;
+            // If error indicates that the token is not staked, show friendly message
+            if (e.message.toLowerCase().includes("not staked")) {
+              document.getElementById("general-output").innerHTML += `<br>Token ${tokenId} is not staked.`;
+            } else {
+              document.getElementById("general-output").innerHTML += `<br>Error unstaking token ${tokenId}: ${e.message}`;
+            }
           }
         }
-        // After unstake, reload tokens (to update the staked status)
+        // After unstake, reload tokens to update status
         loadTokens();
       } catch (error) {
         document.getElementById("general-output").innerHTML = "Error while unstaking: " + error.message;
