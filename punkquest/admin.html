@@ -140,22 +140,25 @@
   <script>
     let provider, signer, punkQuestContract;
     // Update this with the deployed address of PunkQuest
-    const PUNKQUEST_ADDRESS = "0xYourPunkQuestContractAddress"; 
+    const PUNKQUEST_ADDRESS = "0xYourPunkQuestContractAddress"; // Replace with deployed address
     const punkQuestABI = [
       "function addItem(uint8 _type, uint256 _price, uint256 _bonus, uint256 _durability) external",
-      "function updateItem(uint256 _itemId, uint256 _price, uint256 _bonus, uint256 _durability) external onlyOwner",
+      "function updateItem(uint256 _itemId, uint256 _price, uint256 _bonus, uint256 _durability) external",
       "function items(uint256) view returns (uint256 price, uint256 bonus, uint256 durability, bool exists, uint8 itemType)",
       "function owner() view returns (address)"
     ];
   
+    // Connect Admin Wallet
     document.getElementById("connect-admin").addEventListener("click", async () => {
       if (window.ethereum) {
         try {
           await window.ethereum.request({ method: "eth_requestAccounts" });
           provider = new ethers.providers.Web3Provider(window.ethereum);
+          // Disable ENS resolution workaround:
+          provider.getResolver = async (name) => null;
           signer = provider.getSigner();
           const walletAddress = await signer.getAddress();
-          const shortAddr = walletAddress.substring(0,6) + "..." + walletAddress.substring(walletAddress.length -4);
+          const shortAddr = walletAddress.substring(0, 6) + "..." + walletAddress.substring(walletAddress.length - 4);
           document.getElementById("admin-wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddr}</p>`;
           punkQuestContract = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, signer);
         } catch (error) {
@@ -168,19 +171,32 @@
   
     // Create Weapon Form Submission
     document.getElementById("create-weapon-form").addEventListener("submit", async (event) => {
-      event.preventDefault();
+      event.preventDefault(); // Prevent default form submission
       if (!punkQuestContract) {
         alert("Please connect your admin wallet first.");
         return;
       }
+      // Get form values
       const priceInput = document.getElementById("weapon-price").value;
       const bonusInput = document.getElementById("weapon-bonus").value;
       const durabilityInput = document.getElementById("weapon-durability").value;
+  
+      // Convert inputs:
+      // Price -> 18 decimals.
+      let priceParsed;
+      let bonusParsed;
       try {
-        const priceParsed = ethers.utils.parseUnits(priceInput, 18);
-        // Convert bonus: if 10 is entered, then bonusParsed = 10 * 1e16 = 1e17.
-        const bonusParsed = ethers.BigNumber.from(bonusInput).mul("10000000000000000");
-        const durabilityParsed = parseInt(durabilityInput);
+        priceParsed = ethers.utils.parseUnits(priceInput, 18);
+        // If admin enters 10 for 10%, bonusParsed = 10 * 1e16 = 1e17.
+        bonusParsed = ethers.BigNumber.from(bonusInput).mul("10000000000000000");
+      } catch (error) {
+        document.getElementById("create-weapon-output").innerText = "Error parsing numbers: " + error.message;
+        return;
+      }
+      const durabilityParsed = parseInt(durabilityInput);
+  
+      // Call addItem with ItemType = 0 (Weapon)
+      try {
         const tx = await punkQuestContract.addItem(0, priceParsed, bonusParsed, durabilityParsed);
         document.getElementById("create-weapon-output").innerText = "Transaction sent... waiting for confirmation.";
         await tx.wait();
@@ -201,13 +217,13 @@
       try {
         const weaponData = await punkQuestContract.items(itemId);
         // weaponData returns (price, bonus, durability, exists, itemType)
-        if (!weaponData.exists || weaponData.itemType != 0) { // 0 = Weapon in enum
+        if (!weaponData.exists || weaponData.itemType != 0) { // 0 = Weapon
           document.getElementById("update-weapon-output").innerText = "Weapon not found with that ID.";
           return;
         }
-        // Pre-fill the form fields. Price and bonus are in fixed point.
+        // Pre-fill form fields
         document.getElementById("update-weapon-price").value = ethers.utils.formatUnits(weaponData.price, 18);
-        // Convert bonus from fixed point to percentage: (bonus / 1e16)
+        // Convert bonus from fixed point to percentage: bonus / 1e16
         document.getElementById("update-weapon-bonus").value = ethers.utils.formatUnits(weaponData.bonus, 16);
         document.getElementById("update-weapon-durability").value = weaponData.durability.toString();
         document.getElementById("update-weapon-form").style.display = "block";
