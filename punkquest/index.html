@@ -95,9 +95,10 @@
       padding-bottom: 0.5rem;
     }
 
+    /* Ajuste del grid para que las tarjetas sean más grandes */
     .token-grid {
       display: grid;
-      grid-template-columns: repeat(5, 1fr); /* 5 tokens por fila en desktop */
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 1.5rem;
       padding: 1rem;
     }
@@ -109,7 +110,7 @@
       padding: 0.8rem;
       cursor: pointer;
       transition: all 0.2s ease;
-      aspect-ratio: 1; /* Mantener proporción cuadrada */
+      min-height: 200px;  /* Tamaño mínimo para agrandar la tarjeta */
     }
 
     .token-card:hover {
@@ -119,8 +120,8 @@
 
     .token-card img {
       width: 100%;
-      height: 100%;
-      object-fit: contain; /* Mantener proporción de la imagen */
+      height: auto; /* Permite que la imagen mantenga su aspecto natural */
+      object-fit: contain;
       border-radius: 4px;
     }
 
@@ -141,8 +142,7 @@
       transition: all 0.2s ease;
       margin: 0.5rem;
       position: relative;
-      box-shadow: 
-        3px 3px 0 var(--primary-text);
+      box-shadow: 3px 3px 0 var(--primary-text);
     }
 
     .btn:hover {
@@ -190,20 +190,20 @@
     /* Ajustes responsivos para el grid */
     @media (max-width: 1400px) {
       .token-grid {
-        grid-template-columns: repeat(4, 1fr); /* 4 tokens por fila en pantallas grandes */
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       }
     }
 
     @media (max-width: 992px) {
       .token-grid {
-        grid-template-columns: repeat(3, 1fr); /* 3 tokens por fila en tablets */
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1.2rem;
       }
     }
 
     @media (max-width: 768px) {
       .token-grid {
-        grid-template-columns: repeat(2, 1fr); /* 2 tokens por fila en móviles grandes */
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
         gap: 1rem;
         padding: 0.8rem;
       }
@@ -398,13 +398,19 @@
           Bonificación por ítems: ${itemBonus}<br>
           Boost especial: ${specialBoost}<br>
           Ajuste fijo: ${fixedAdjustment}<br><br>
-          <span style="font-size:2rem; color: var(--accent);">
+          <span style="font-size:2rem; color: var(--accent-blue);">
             Rewards Pendientes: ${pendingReward}
           </span>
         `;
         document.getElementById("individual-token-stats").innerHTML = statsHTML;
       } catch (error) {
-        document.getElementById("individual-token-stats").textContent = "Error: " + error.message;
+        console.error("Error en refreshTokenStats:", error);
+        // Si el error indica que el token no está staked, mostrar mensaje amigable
+        if (error.message.includes("execution reverted")) {
+          document.getElementById("individual-token-stats").textContent = "Este token aún no está staked. Realiza el stake para ver las estadísticas.";
+        } else {
+          document.getElementById("individual-token-stats").textContent = "Error: " + error.message;
+        }
       }
     }
 
