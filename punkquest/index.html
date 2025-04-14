@@ -171,6 +171,15 @@
       color: var(--primary-text);
       opacity: 0.8;
     }
+
+    @keyframes rewardsUpdate {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    .rewards-update {
+      animation: rewardsUpdate 0.5s ease;
+    }
   </style>
 </head>
 <body>
@@ -240,6 +249,7 @@
     let provider, signer;
     let tokenContract, stakingContract, nftContract;
     let selectedTokenIds = []; // To hold multiple selected token IDs
+    let rewardsUpdateInterval; // Para el intervalo de actualización
 
     // Contract addresses (actualiza el address de PunkQuest aquí)
     const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
@@ -391,8 +401,16 @@
             console.error("Error fetching stats for token " + tokenId + ": " + e.message);
           }
         }
-        document.getElementById("total-rewards").textContent = formatReward(totalRewards);
+        const rewardsElement = document.getElementById("total-rewards");
+        // Añadir clase para animación
+        rewardsElement.classList.add('rewards-update');
+        rewardsElement.textContent = formatReward(totalRewards);
+        // Remover clase después de la animación
+        setTimeout(() => {
+          rewardsElement.classList.remove('rewards-update');
+        }, 500);
       } catch (error) {
+        console.error("Error calculating total rewards:", error);
         document.getElementById("general-output").textContent = "Error calculating total rewards: " + error.message;
       }
     }
@@ -424,6 +442,20 @@
           nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
           displayFeeInfo();
           loadTokens();
+          
+          // Iniciar actualización automática de rewards
+          startAutoUpdate();
+          
+          // Limpiar intervalo anterior si existe
+          window.ethereum.on('accountsChanged', function () {
+            stopAutoUpdate();
+          });
+          window.ethereum.on('chainChanged', function() {
+            stopAutoUpdate();
+          });
+          window.ethereum.on('disconnect', function() {
+            stopAutoUpdate();
+          });
         } catch (error) {
           document.getElementById("wallet-info").innerHTML = "<p>Error connecting wallet: " + error.message + "</p>";
         }
@@ -431,6 +463,30 @@
         document.getElementById("wallet-info").innerHTML = "<p>Please install MetaMask!</p>";
       }
     });
+
+    // Función para iniciar la actualización automática
+    function startAutoUpdate() {
+      // Limpiar intervalo anterior si existe
+      stopAutoUpdate();
+      
+      // Actualizar cada 15 segundos
+      rewardsUpdateInterval = setInterval(async () => {
+        try {
+          await loadAggregateRewards();
+        } catch (error) {
+          console.error("Error updating rewards:", error);
+          stopAutoUpdate(); // Detener si hay error
+        }
+      }, 15000); // 15 segundos
+    }
+
+    // Función para detener la actualización automática
+    function stopAutoUpdate() {
+      if (rewardsUpdateInterval) {
+        clearInterval(rewardsUpdateInterval);
+        rewardsUpdateInterval = null;
+      }
+    }
 
     // Stake selected token(s)
     document.getElementById("stake-token").addEventListener("click", async () => {
