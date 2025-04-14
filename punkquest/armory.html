@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PunkQuest Armory - Buy & Equip Weapons</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Modern fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #f8f9fa;
+      --primary-text: #2c3e50;
+      --accent-red: #ff6b6b;
+      --accent-blue: #4dabf7;
+      --card-bg: #ffffff;
+      --card-border: #e9ecef;
+      --screen-bg: #ffffff;
+      --scanline-color: rgba(0,0,0,0.03);
+    }
+    body {
+      background-color: var(--bg-color);
+      color: var(--primary-text);
+      font-family: 'Space Grotesk', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-image: repeating-linear-gradient(0deg, var(--scanline-color), var(--scanline-color) 1px, transparent 1px, transparent 4px);
+    }
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 20px;
+      background: var(--screen-bg);
+      border: 1px solid var(--card-border);
+      box-shadow: 0 0 0 1px var(--accent-red), 0 0 0 2px var(--accent-blue), 0 4px 6px rgba(0,0,0,0.1);
+      border-radius: 8px;
+    }
+    header {
+      text-align: center;
+      padding: 2rem;
+      background: linear-gradient(180deg, var(--card-bg) 0%, var(--screen-bg) 100%);
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 2rem;
+    }
+    header h1 {
+      font-size: 2.5rem;
+      margin: 0;
+      color: var(--primary-text);
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+    header p {
+      margin-top: 1rem;
+      font-size: 1rem;
+      color: var(--primary-text);
+      opacity: 0.8;
+    }
+    .section-title {
+      font-size: 1.4rem;
+      margin-bottom: 1rem;
+      color: var(--primary-text);
+      font-weight: 600;
+      border-bottom: 2px solid var(--card-border);
+      padding-bottom: 0.5rem;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+    .weapon-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.5rem;
+      text-align: center;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      cursor: pointer;
+    }
+    .weapon-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .weapon-card img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      border-radius: 4px;
+    }
+    .btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.8rem;
+      padding: 0.5rem 1rem;
+      background: var(--card-bg);
+      border: 2px solid var(--primary-text);
+      color: var(--primary-text);
+      text-transform: uppercase;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      box-shadow: 2px 2px 0 var(--primary-text);
+    }
+    .btn:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 4px 4px 0 var(--accent-blue);
+      border-color: var(--accent-blue);
+    }
+    .terminal {
+      background: var(--card-bg);
+      color: var(--primary-text);
+      padding: 1rem;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.9rem;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>PunkQuest Armory</h1>
+      <p>Explore weapons, purchase & equip them on your AdrianPunks</p>
+    </header>
+    
+    <!-- Wallet Connection Section -->
+    <section id="wallet-connection" class="mb-4">
+      <button id="connect-wallet" class="btn">Connect Wallet</button>
+      <div id="wallet-info" class="mt-2"></div>
+    </section>
+    
+    <!-- Available Weapons Grid -->
+    <section id="weapons-section" class="mb-4">
+      <div class="card">
+        <h2 class="section-title">Available Weapons</h2>
+        <div id="weapons-grid" class="grid">
+          <!-- Weapon cards will be loaded here -->
+        </div>
+      </div>
+    </section>
+    
+    <!-- My Inventory Section -->
+    <section id="inventory-section" class="mb-4">
+      <div class="card">
+        <h2 class="section-title">My Inventory</h2>
+        <div id="inventory-list" class="terminal">
+          <!-- Inventory details will be displayed here -->
+        </div>
+      </div>
+    </section>
+    
+    <!-- Actions Section for Equipping -->
+    <section id="actions-section" class="mb-4">
+      <div class="card">
+        <h2 class="section-title">Equip Weapon</h2>
+        <div class="terminal">
+          <label for="equip-token-id">Enter AdrianPunk Token ID:</label>
+          <input type="number" id="equip-token-id" class="form-control" placeholder="e.g., 1" />
+          <label for="equip-weapon-id">Enter Weapon ID (from inventory):</label>
+          <input type="number" id="equip-weapon-id" class="form-control" placeholder="e.g., 1" />
+          <button id="equip-btn" class="btn">Equip Weapon</button>
+          <div id="equip-output" class="terminal mt-2"></div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- General Output Section -->
+    <section id="general-output-section" class="mb-4">
+      <div id="general-output" class="terminal"></div>
+    </section>
+  </div>
+  
+  <!-- Bootstrap 5 JS and Ethers.js Library -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script>
+    // Global variables
+    let provider, signer, punkQuestContract;
+    // Actualiza estas direcciones con las correspondientes de tu entorno
+    const PUNKQUEST_ADDRESS = "0x01406664fcc698ae3b42c4012fee4eff1ddbebd7";
+    const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const NFT_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
+    
+    const punkQuestABI = [
+      "function buyItem(uint256 itemId, uint256 quantity) external",
+      "function equipItem(uint256 tokenId, uint256 itemId) external",
+      "function inventory(address, uint256) view returns (uint256)"
+      // Agrega más funciones si fuese necesario
+    ];
+    const tokenABI = [
+      "function balanceOf(address owner) view returns (uint256)",
+      "function approve(address spender, uint256 amount) returns (bool)",
+      "function allowance(address owner, address spender) view returns (uint256)"
+    ];
+    const nftABI = [
+      "function ownerOf(uint256 tokenId) view returns (address)"
+    ];
+  
+    // Conexión de wallet
+    document.getElementById("connect-wallet").addEventListener("click", async () => {
+      if (window.ethereum) {
+        try {
+          await window.ethereum.request({ method: "eth_requestAccounts" });
+          provider = new ethers.providers.Web3Provider(window.ethereum);
+          // Deshabilitar resolver ENS
+          provider.getResolver = async (name) => null;
+          signer = provider.getSigner();
+          const walletAddress = await signer.getAddress();
+          const shortAddress = walletAddress.substring(0,6) + "..." + walletAddress.substring(walletAddress.length -4);
+          document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddress}</p>`;
+          punkQuestContract = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, signer);
+          // Puedes inicializar también tokenContract y nftContract si es necesario para otros reads.
+          loadWeapons();
+          loadInventory();
+        } catch (error) {
+          document.getElementById("wallet-info").innerHTML = `<p>Error connecting wallet: ${error.message}</p>`;
+        }
+      } else {
+        document.getElementById("wallet-info").innerHTML = `<p>Please install MetaMask!</p>`;
+      }
+    });
+    
+    // Función para cargar las armas desde weapons.json y mostrarlas en el grid
+    async function loadWeapons() {
+      try {
+        const response = await fetch("weapons.json");
+        const weaponsData = await response.json();
+        const weaponsGrid = document.getElementById("weapons-grid");
+        weaponsGrid.innerHTML = "";
+        weaponsData.forEach(weapon => {
+          // Crear tarjeta para cada weapon
+          const card = document.createElement("div");
+          card.className = "weapon-card";
+          card.innerHTML = `
+            <img src="${weapon.image}" alt="Weapon ${weapon.name}">
+            <h4>${weapon.name}</h4>
+            <p>Price: ${weapon.price} A$</p>
+            <p>Bonus: ${weapon.bonus}</p>
+            <p>Durability: ${weapon.durability}</p>
+            <p>${weapon.description}</p>
+            <button class="btn buy-btn" data-id="${weapon.id}">Buy</button>
+          `;
+          weaponsGrid.appendChild(card);
+        });
+        // Agregar evento a los botones Buy
+        const buyButtons = document.getElementsByClassName("buy-btn");
+        for (let btn of buyButtons) {
+          btn.addEventListener("click", async (e) => {
+            const weaponId = e.target.getAttribute("data-id");
+            try {
+              const tx = await punkQuestContract.buyItem(weaponId, 1);
+              document.getElementById("general-output").innerText = "Buying weapon... waiting for confirmation.";
+              await tx.wait();
+              document.getElementById("general-output").innerText = "Weapon purchased successfully!";
+              loadInventory(); // Actualiza inventario después de comprar.
+            } catch (error) {
+              document.getElementById("general-output").innerText = "Error buying weapon: " + error.message;
+            }
+          });
+        }
+      } catch (error) {
+        document.getElementById("general-output").innerText = "Error loading weapons: " + error.message;
+      }
+    }
+    
+    // Función para cargar el inventario del usuario para armas
+    async function loadInventory() {
+      try {
+        const walletAddress = await signer.getAddress();
+        // Suponemos que en weapons.json se listan armas con IDs conocidos.
+        const response = await fetch("weapons.json");
+        const weaponsData = await response.json();
+        let inventoryHTML = "<ul>";
+        for (let weapon of weaponsData) {
+          // Llamar a la función getter del mapping inventory(address, itemId)
+          const quantity = await punkQuestContract.inventory(walletAddress, weapon.id);
+          if (quantity.gt(0)) {
+            inventoryHTML += `<li>Weapon ${weapon.name} (ID: ${weapon.id}) - Quantity: ${quantity.toString()}
+              <button class="btn equip-btn" data-id="${weapon.id}">Equip</button>
+            </li>`;
+          }
+        }
+        inventoryHTML += "</ul>";
+        document.getElementById("inventory-list").innerHTML = inventoryHTML;
+        
+        // Agregar evento a los botones Equip en inventario
+        const equipButtons = document.getElementsByClassName("equip-btn");
+        for (let btn of equipButtons) {
+          btn.addEventListener("click", async (e) => {
+            const weaponId = e.target.getAttribute("data-id");
+            const tokenId = prompt("Enter your AdrianPunk Token ID to equip this weapon:");
+            if (!tokenId) return;
+            try {
+              const tx = await punkQuestContract.equipItem(tokenId, weaponId);
+              document.getElementById("general-output").innerText = "Equipping weapon... waiting for confirmation.";
+              await tx.wait();
+              document.getElementById("general-output").innerText = "Weapon equipped successfully on token " + tokenId;
+            } catch (error) {
+              document.getElementById("general-output").innerText = "Error equipping weapon: " + error.message;
+            }
+          });
+        }
+      } catch (error) {
+        document.getElementById("general-output").innerText = "Error loading inventory: " + error.message;
+      }
+    }
+  </script>
+</body>
+</html>
