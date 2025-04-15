@@ -472,7 +472,7 @@
 
         if (allowance.lt(totalCost)) {
           document.getElementById("general-output").innerText = "Approving spending for batch purchase. Please wait...";
-          const approveTx = await tokenContract.approve(PUNKQUEST_ADDRESS, totalCost);
+          const approveTx = await tokenContract.approve(PUNKQUEST_ADDRESS, totalCost, { gasLimit: 100000 });
           await approveTx.wait();
         }
 
@@ -481,16 +481,28 @@
         const quantities = shoppingCart.map(item => item.quantity);
 
         document.getElementById("general-output").innerText = "Submitting batch purchase transaction...";
-        const tx = await punkQuestContract.batchBuyItems(itemIds, quantities);
+        const tx = await punkQuestContract.batchBuyItems(itemIds, quantities, { 
+          gasLimit: 500000,
+          gasPrice: ethers.utils.parseUnits("50", "gwei")
+        });
         await tx.wait();
         document.getElementById("general-output").innerText = "Batch purchase successful!";
         
-        // Clear cart
+        // Clear cart and reload inventory
         shoppingCart = [];
         updateCartUI();
+        loadUserInventory();
       } catch (error) {
         console.error("Error during batch purchase:", error);
-        document.getElementById("general-output").innerText = "Error during batch purchase: " + error.message;
+        let errorMessage = "Error during batch purchase: ";
+        if (error.code === "UNPREDICTABLE_GAS_LIMIT") {
+          errorMessage += "Transaction may require more gas. Please try again with a higher gas limit.";
+        } else if (error.message.includes("execution reverted")) {
+          errorMessage += "Transaction reverted. Please check if you have enough tokens and try again.";
+        } else {
+          errorMessage += error.message;
+        }
+        document.getElementById("general-output").innerText = errorMessage;
       }
     });
   
