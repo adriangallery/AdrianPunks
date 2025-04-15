@@ -307,12 +307,12 @@
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script>
     let provider, signer, punkQuestContract, tokenContract;
-    // Use the correct contract addresses.
+    // Contratos con las direcciones correctas.
     const PUNKQUEST_ADDRESS = "0xb253c1C784bA13ca1C45daB6777210a83cEA4f73";
     const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     const NFT_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
   
-    // ABI for required methods.
+    // ABI para los métodos requeridos.
     const punkQuestABI = [
       "function batchBuyItems(uint256[] calldata itemIds, uint256[] calldata quantities) external",
       "function buyItem(uint256 itemId, uint256 quantity) external",
@@ -335,7 +335,7 @@
       return price + " tokens";
     }
   
-    // Connect wallet and instantiate contracts.
+    // Conecta la wallet e instancia los contratos.
     document.getElementById("connect-wallet").addEventListener("click", async () => {
       if(window.ethereum) {
         try {
@@ -358,7 +358,7 @@
       }
     });
   
-    // Get nextItemId from the contract.
+    // Obtiene el siguiente itemId del contrato.
     async function getNextItemId() {
       try {
         const nextId = await punkQuestContract.nextItemId();
@@ -369,7 +369,7 @@
       }
     }
   
-    // Load items from JSON files from the "punkquest/" folder.
+    // Carga los items del archivo JSON (por ejemplo, "weapons.json").
     async function loadItems() {
       try {
         const response = await fetch('weapons.json');
@@ -377,6 +377,8 @@
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const items = await response.json();
+        // Guardamos los items globalmente para usarlos en el inventario.
+        allItems = items;
         displayItems(items);
       } catch (error) {
         console.error("Error loading items:", error);
@@ -384,11 +386,11 @@
       }
     }
   
-    // Display items in the grid
+    // Muestra los items en forma de tarjeta en la grilla.
     function displayItems(items) {
       const itemsGrid = document.getElementById("itemsGrid");
       itemsGrid.innerHTML = "";
-
+  
       items.forEach(item => {
         const card = document.createElement("div");
         card.className = "item-card";
@@ -418,8 +420,8 @@
         `;
         itemsGrid.appendChild(card);
       });
-
-      // Attach event listeners for "Add to Cart" buttons
+  
+      // Asigna los event listeners a los botones "Add to Cart".
       const addButtons = document.getElementsByClassName("add-to-cart-btn");
       for (let btn of addButtons) {
         btn.addEventListener("click", (e) => {
@@ -437,7 +439,7 @@
       }
     }
   
-    // Add item to shopping cart.
+    // Agrega un item al carrito de compras.
     function addToCart(item) {
       const existing = shoppingCart.find(i => i.id === item.id);
       if (existing) {
@@ -448,7 +450,7 @@
       updateCartUI();
     }
   
-    // Update shopping cart UI and total cost.
+    // Actualiza la UI del carrito y el coste total.
     function updateCartUI() {
       const cartList = document.getElementById("cart-list");
       if (shoppingCart.length === 0) {
@@ -468,7 +470,7 @@
       }
     }
   
-    // Handle batch purchase.
+    // Maneja la compra en lote (batch purchase) con un gasLimit manual.
     document.getElementById("buy-all-btn").addEventListener("click", async () => {
       if (shoppingCart.length === 0) {
         alert("Your cart is empty.");
@@ -489,7 +491,8 @@
           await approveTx.wait();
         }
         document.getElementById("general-output").innerText = "Submitting batch purchase transaction...";
-        const tx = await punkQuestContract.batchBuyItems(itemIds, quantities);
+        // Se añade manualmente un gasLimit para evitar el error de estimación.
+        const tx = await punkQuestContract.batchBuyItems(itemIds, quantities, { gasLimit: 500000 });
         await tx.wait();
         document.getElementById("general-output").innerText = "Batch purchase successful!";
         shoppingCart = [];
@@ -500,7 +503,7 @@
       }
     });
   
-    // Toggle item description.
+    // Alterna la visualización de la descripción del item.
     function toggleDescription(button) {
       const itemDetails = button.closest('.item-details');
       const description = itemDetails.querySelector('.item-description');
@@ -508,7 +511,7 @@
       button.classList.toggle('active');
     }
   
-    // Load the user's inventory.
+    // Carga el inventario del usuario.
     async function loadUserInventory() {
       try {
         const walletAddress = await signer.getAddress();
