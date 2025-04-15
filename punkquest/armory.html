@@ -76,7 +76,7 @@
       gap: 1rem;
       padding: 1rem;
     }
-    /* Responsive grid: 2 columns on mobile, 4 columns on tablet/desktop */
+    /* Responsive grid: 2 columnas en móvil, 4 columnas en tablet/desktop */
     @media (max-width: 575px) {
       .items-grid { grid-template-columns: repeat(2, 1fr); }
     }
@@ -267,7 +267,7 @@
       <div class="card">
         <h2 class="section-title">Available Items</h2>
         <div id="itemsGrid" class="items-grid">
-          <!-- Item cards will be loaded here -->
+          <!-- Aquí se cargarán las tarjetas de cada ítem -->
         </div>
       </div>
     </section>
@@ -276,12 +276,8 @@
     <section id="cart-section" class="mb-4">
       <div class="card">
         <h2 class="section-title">Shopping Cart</h2>
-        <div id="cart-list" class="terminal">
-          Your cart is empty.
-        </div>
-        <div id="cart-total" class="terminal">
-          Total: 0 A$
-        </div>
+        <div id="cart-list" class="terminal">Your cart is empty.</div>
+        <div id="cart-total" class="terminal">Total: 0 A$</div>
         <button id="buy-all-btn" class="btn" disabled>Buy All</button>
       </div>
     </section>
@@ -290,9 +286,7 @@
     <section id="inventory-section" class="mb-4">
       <div class="card">
         <h2 class="section-title">My Inventory Items</h2>
-        <div id="inventory-items" class="terminal">
-          Loading inventory...
-        </div>
+        <div id="inventory-items" class="terminal">Loading inventory...</div>
       </div>
     </section>
     
@@ -307,12 +301,12 @@
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script>
     let provider, signer, punkQuestContract, tokenContract;
-    // Contratos con las direcciones correctas.
+    // Direcciones de contrato (actualiza si es necesario)
     const PUNKQUEST_ADDRESS = "0xb253c1C784bA13ca1C45daB6777210a83cEA4f73";
     const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     const NFT_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
   
-    // ABI para los métodos requeridos.
+    // ABI de los métodos requeridos.
     const punkQuestABI = [
       "function batchBuyItems(uint256[] calldata itemIds, uint256[] calldata quantities) external",
       "function buyItem(uint256 itemId, uint256 quantity) external",
@@ -328,14 +322,11 @@
       "function ownerOf(uint256 tokenId) view returns (address)"
     ];
   
+    // Variable para almacenar los ítems (usados para el inventario)
     let shoppingCart = [];
     let allItems = [];
   
-    function formatPrice(price) {
-      return price + " tokens";
-    }
-  
-    // Conecta la wallet e instancia los contratos.
+    // Conectar wallet e inicializar contratos
     document.getElementById("connect-wallet").addEventListener("click", async () => {
       if(window.ethereum) {
         try {
@@ -358,26 +349,14 @@
       }
     });
   
-    // Obtiene el siguiente itemId del contrato.
-    async function getNextItemId() {
-      try {
-        const nextId = await punkQuestContract.nextItemId();
-        return nextId.toNumber();
-      } catch (error) {
-        console.error("Error getting nextItemId:", error);
-        return 0;
-      }
-    }
-  
-    // Carga los items del archivo JSON (por ejemplo, "weapons.json").
+    // Función para cargar los ítems del archivo JSON (por ejemplo, weapons.json)
     async function loadItems() {
       try {
         const response = await fetch('weapons.json');
-        if (!response.ok) {
+        if(!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const items = await response.json();
-        // Guardamos los items globalmente para usarlos en el inventario.
         allItems = items;
         displayItems(items);
       } catch (error) {
@@ -386,14 +365,14 @@
       }
     }
   
-    // Muestra los items en forma de tarjeta en la grilla.
+    // Función para mostrar los ítems en tarjetas en la grilla
     function displayItems(items) {
       const itemsGrid = document.getElementById("itemsGrid");
       itemsGrid.innerHTML = "";
-  
       items.forEach(item => {
         const card = document.createElement("div");
         card.className = "item-card";
+        // Se usa parseFloat para formatear el precio para el usuario
         const price = parseFloat(item.price);
         const formattedPrice = price >= 1000 ? `${(price/1000).toFixed(1)}K` : price;
         card.innerHTML = `
@@ -421,9 +400,9 @@
         itemsGrid.appendChild(card);
       });
   
-      // Asigna los event listeners a los botones "Add to Cart".
+      // Asignar event listeners a cada botón "Add to Cart"
       const addButtons = document.getElementsByClassName("add-to-cart-btn");
-      for (let btn of addButtons) {
+      for(let btn of addButtons) {
         btn.addEventListener("click", (e) => {
           const itemId = e.target.getAttribute("data-id");
           const itemPrice = e.target.getAttribute("data-price");
@@ -431,18 +410,19 @@
           const itemType = e.target.getAttribute("data-type");
           const qtyInput = document.getElementById(`qty-${itemId}`);
           const quantity = parseInt(qtyInput.value);
-          if (quantity > 0) {
-            addToCart({ id: Number(itemId), name: itemName, price: itemPrice, quantity: quantity, type: itemType });
+          if(quantity > 0) {
+            // Se agrega el ítem al carrito (el precio se toma tal cual viene en el JSON, en formato legible)
+            addToCart({ id: Number(itemId), name: itemName, price: itemPrice.toString(), quantity: quantity, type: itemType });
             qtyInput.value = 0;
           }
         });
       }
     }
   
-    // Agrega un item al carrito de compras.
+    // Agregar ítem al carrito y actualizar UI
     function addToCart(item) {
       const existing = shoppingCart.find(i => i.id === item.id);
-      if (existing) {
+      if(existing) {
         existing.quantity += item.quantity;
       } else {
         shoppingCart.push(item);
@@ -450,16 +430,17 @@
       updateCartUI();
     }
   
-    // Actualiza la UI del carrito y el coste total.
+    // Actualizar la UI del carrito y calcular el costo total
     function updateCartUI() {
       const cartList = document.getElementById("cart-list");
-      if (shoppingCart.length === 0) {
+      if(shoppingCart.length === 0) {
         cartList.innerHTML = "Your cart is empty.";
       } else {
         let html = "<table class='table'><thead><tr><th>Item</th><th>Qty</th><th>Cost</th></tr></thead><tbody>";
         let total = ethers.BigNumber.from(0);
         shoppingCart.forEach(item => {
-          const cost = ethers.utils.parseUnits(item.price, 18).mul(item.quantity);
+          // Se convierte el precio de texto a wei: por ejemplo, "100" a 100 * 1e18, y se multiplica por la cantidad.
+          const cost = ethers.utils.parseUnits(item.price.toString(), 18).mul(item.quantity);
           total = total.add(cost);
           html += `<tr><td>${item.name} (${item.type})</td><td>${item.quantity}</td><td>${item.price} x ${item.quantity}</td></tr>`;
         });
@@ -470,9 +451,9 @@
       }
     }
   
-    // Maneja la compra en lote (batch purchase) con gasLimit manual y aprobación previa.
+    // Función para manejar la compra en lote (batch purchase)
     document.getElementById("buy-all-btn").addEventListener("click", async () => {
-      if (shoppingCart.length === 0) {
+      if(shoppingCart.length === 0) {
         alert("Your cart is empty.");
         return;
       }
@@ -480,28 +461,30 @@
       const quantities = shoppingCart.map(item => item.quantity);
       let totalCost = ethers.BigNumber.from(0);
       shoppingCart.forEach(item => {
-        totalCost = totalCost.add(ethers.utils.parseUnits(item.price, 18).mul(item.quantity));
+        totalCost = totalCost.add(ethers.utils.parseUnits(item.price.toString(), 18).mul(item.quantity));
       });
       try {
         const walletAddress = await signer.getAddress();
-        // Revisamos el allowance disponible.
+        // Revisar el allowance del token
         let allowance = await tokenContract.allowance(walletAddress, PUNKQUEST_ADDRESS);
-        // Si no es suficiente, aprobamos un monto muy alto para evitar futuros re-aprobes.
-        if (allowance.lt(totalCost)) {
+        // Si el allowance es menor al monto total calculado, se hace approve por ese monto exacto
+        if(allowance.lt(totalCost)) {
           document.getElementById("general-output").innerText = "Approving spending for batch purchase. Please wait...";
-          const approveTx = await tokenContract.approve(PUNKQUEST_ADDRESS, ethers.constants.MaxUint256);
-          await approveTx.wait();
-          // Reconsultamos el allowance
+          // Si allowance no es 0, lo reseteamos a 0 (algunos tokens lo requieren)
+          if(!allowance.isZero()) {
+            await tokenContract.approve(PUNKQUEST_ADDRESS, 0).then(tx => tx.wait());
+          }
+          await tokenContract.approve(PUNKQUEST_ADDRESS, totalCost).then(tx => tx.wait());
+          // Confirmar que el allowance se ha actualizado
           allowance = await tokenContract.allowance(walletAddress, PUNKQUEST_ADDRESS);
-          if (allowance.lt(totalCost)) {
+          if(allowance.lt(totalCost)) {
             throw new Error("Approval failed, allowance is insufficient.");
           }
         }
   
         document.getElementById("general-output").innerText = "Submitting batch purchase transaction...";
-        // Se añade manualmente un gasLimit para evitar el error de estimación.
-        const tx = await punkQuestContract.batchBuyItems(itemIds, quantities, { gasLimit: 500000 });
-        await tx.wait();
+        // Ejecutar la compra en lote con un gasLimit manual para evitar problemas de estimación
+        await punkQuestContract.batchBuyItems(itemIds, quantities, { gasLimit: 500000 }).then(tx => tx.wait());
         document.getElementById("general-output").innerText = "Batch purchase successful!";
         shoppingCart = [];
         updateCartUI();
@@ -511,7 +494,7 @@
       }
     });
   
-    // Alterna la visualización de la descripción del item.
+    // Función para alternar la visualización de la descripción del ítem.
     function toggleDescription(button) {
       const itemDetails = button.closest('.item-details');
       const description = itemDetails.querySelector('.item-description');
@@ -519,14 +502,14 @@
       button.classList.toggle('active');
     }
   
-    // Carga el inventario del usuario.
+    // Función para cargar el inventario del usuario, consultando el contrato
     async function loadUserInventory() {
       try {
         const walletAddress = await signer.getAddress();
         let inventoryHTML = "<table class='table'><thead><tr><th>Item</th><th>Quantity</th></tr></thead><tbody>";
-        for (let item of allItems) {
+        for(let item of allItems) {
           const qty = await punkQuestContract.inventory(walletAddress, item.id);
-          if (qty.gt(0)) {
+          if(qty.gt(0)) {
             inventoryHTML += `<tr><td>${item.name} (${item.type}, ID: ${item.id})</td><td>${qty.toString()}</td></tr>`;
           }
         }
