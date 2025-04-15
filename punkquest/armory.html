@@ -372,71 +372,14 @@
     // Load items from JSON files (using path "punkquest/...")
     async function loadItems() {
       try {
-        const nextId = await getNextItemId();
-        const responseWeapons = await fetch("punkquest/weapons.json");
-        if (!responseWeapons.ok) {
-          throw new Error(`HTTP error! status: ${responseWeapons.status}`);
+        const response = await fetch('/punkquest/weapons.json');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const weaponsData = await responseWeapons.json();
-        const responseArmors = await fetch("punkquest/armor.json");
-        const armorsData = await responseArmors.json();
-  
-        // Show items with id <= nextId - 1.
-        const activeWeapons = weaponsData.filter(item => item.id <= (nextId - 1) && item.type === "Weapon");
-        const activeArmors = armorsData.filter(item => item.id <= (nextId - 1) && item.type === "Armor");
-  
-        allItems = activeWeapons.concat(activeArmors);
-  
-        const itemsGrid = document.getElementById("itemsGrid");
-        itemsGrid.innerHTML = "";
-  
-        allItems.forEach(item => {
-          const card = document.createElement("div");
-          card.className = "item-card";
-          const price = parseFloat(item.price);
-          const formattedPrice = price >= 1000 ? `${(price/1000).toFixed(1)}K` : price;
-          card.innerHTML = `
-            <div class="item-image">
-              <img src="${item.image}" alt="${item.name}">
-              <div class="durability-badge">${item.durability}</div>
-              <div class="bonus-badge">${item.bonus}</div>
-            </div>
-            <div class="item-details">
-              <div class="item-name">
-                ${item.name}
-                <button class="description-toggle" onclick="toggleDescription(this)">▼</button>
-              </div>
-              <div class="item-description">${item.description}</div>
-            </div>
-            <div class="quantity-controls">
-              <div class="quantity-input">
-                <label for="qty-${item.id}">Qty:</label>
-                <input type="number" id="qty-${item.id}" value="0" min="0" />
-              </div>
-              <div class="price-display">${formattedPrice} $A</div>
-            </div>
-            <button class="btn add-to-cart-btn" data-id="${item.id}" data-price="${item.price}" data-name="${item.name}" data-type="${item.type}">Add to Cart</button>
-          `;
-          itemsGrid.appendChild(card);
-        });
-  
-        const addButtons = document.getElementsByClassName("add-to-cart-btn");
-        for (let btn of addButtons) {
-          btn.addEventListener("click", (e) => {
-            const itemId = e.target.getAttribute("data-id");
-            const itemPrice = e.target.getAttribute("data-price");
-            const itemName = e.target.getAttribute("data-name");
-            const itemType = e.target.getAttribute("data-type");
-            const qtyInput = document.getElementById(`qty-${itemId}`);
-            const quantity = parseInt(qtyInput.value);
-            if (quantity > 0) {
-              addToCart({ id: Number(itemId), name: itemName, price: itemPrice, quantity: quantity, type: itemType });
-              qtyInput.value = 0;
-            }
-          });
-        }
+        const items = await response.json();
+        displayItems(items);
       } catch (error) {
-        console.error('Error loading items:', error);
+        console.error("Error loading items:", error);
         document.getElementById("general-output").innerText = "Error loading items: " + error.message;
       }
     }
