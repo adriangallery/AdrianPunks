@@ -451,46 +451,45 @@
       }
     }
   
-    // Función para realizar la compra en lote (batch purchase) con el cálculo correcto para approve.
+    // Function to handle batch purchase (Buy All button).
     document.getElementById("buy-all-btn").addEventListener("click", async () => {
       if (shoppingCart.length === 0) {
         alert("Your cart is empty.");
         return;
       }
-      const itemIds = shoppingCart.map(item => Number(item.id));
-      const quantities = shoppingCart.map(item => item.quantity);
-      let totalCost = ethers.BigNumber.from(0);
-      // Calcular el costo total usando parseUnits para cada ítem
-      shoppingCart.forEach(item => {
-        totalCost = totalCost.add(ethers.utils.parseUnits(item.price.toString(), 18).mul(item.quantity));
-      });
+
       try {
+        // Calculate total cost in wei
+        let totalCost = ethers.BigNumber.from(0);
+        shoppingCart.forEach(item => {
+          const itemPrice = ethers.utils.parseUnits(item.price, 18);
+          const itemQuantity = ethers.BigNumber.from(item.quantity);
+          totalCost = totalCost.add(itemPrice.mul(itemQuantity));
+        });
+
         const walletAddress = await signer.getAddress();
-        // Consultar el allowance actual
-        let allowance = await tokenContract.allowance(walletAddress, PUNKQUEST_ADDRESS);
-        // Si el allowance es menor que el costo total, aprobar EXACTAMENTE totalCost
+        const allowance = await tokenContract.allowance(walletAddress, PUNKQUEST_ADDRESS);
+
         if (allowance.lt(totalCost)) {
           document.getElementById("general-output").innerText = "Approving spending for batch purchase. Please wait...";
-          if (!allowance.isZero()) {
-            // Reiniciar allowance a 0 si es necesario
-            await tokenContract.approve(PUNKQUEST_ADDRESS, 0).then(tx => tx.wait());
-          }
-          await tokenContract.approve(PUNKQUEST_ADDRESS, totalCost).then(tx => tx.wait());
-          // Confirmar que el allowance se ha actualizado
-          allowance = await tokenContract.allowance(walletAddress, PUNKQUEST_ADDRESS);
-          if (allowance.lt(totalCost)) {
-            throw new Error("Approval failed, allowance is insufficient.");
-          }
+          const approveTx = await tokenContract.approve(PUNKQUEST_ADDRESS, totalCost);
+          await approveTx.wait();
         }
-  
+
+        // Prepare arrays for itemIds and quantities
+        const itemIds = shoppingCart.map(item => item.id);
+        const quantities = shoppingCart.map(item => item.quantity);
+
         document.getElementById("general-output").innerText = "Submitting batch purchase transaction...";
-        // Ejecutar la compra en lote con un gasLimit manual
-        await punkQuestContract.batchBuyItems(itemIds, quantities, { gasLimit: 500000 }).then(tx => tx.wait());
+        const tx = await punkQuestContract.batchBuyItems(itemIds, quantities);
+        await tx.wait();
         document.getElementById("general-output").innerText = "Batch purchase successful!";
+        
+        // Clear cart
         shoppingCart = [];
         updateCartUI();
-        loadUserInventory();
       } catch (error) {
+        console.error("Error during batch purchase:", error);
         document.getElementById("general-output").innerText = "Error during batch purchase: " + error.message;
       }
     });
