@@ -470,7 +470,7 @@
       }
     }
   
-    // Maneja la compra en lote (batch purchase) con un gasLimit manual.
+    // Maneja la compra en lote (batch purchase) con gasLimit manual y aprobación previa.
     document.getElementById("buy-all-btn").addEventListener("click", async () => {
       if (shoppingCart.length === 0) {
         alert("Your cart is empty.");
@@ -484,12 +484,20 @@
       });
       try {
         const walletAddress = await signer.getAddress();
-        const allowance = await tokenContract.allowance(walletAddress, PUNKQUEST_ADDRESS);
+        // Revisamos el allowance disponible.
+        let allowance = await tokenContract.allowance(walletAddress, PUNKQUEST_ADDRESS);
+        // Si no es suficiente, aprobamos un monto muy alto para evitar futuros re-aprobes.
         if (allowance.lt(totalCost)) {
           document.getElementById("general-output").innerText = "Approving spending for batch purchase. Please wait...";
-          const approveTx = await tokenContract.approve(PUNKQUEST_ADDRESS, totalCost);
+          const approveTx = await tokenContract.approve(PUNKQUEST_ADDRESS, ethers.constants.MaxUint256);
           await approveTx.wait();
+          // Reconsultamos el allowance
+          allowance = await tokenContract.allowance(walletAddress, PUNKQUEST_ADDRESS);
+          if (allowance.lt(totalCost)) {
+            throw new Error("Approval failed, allowance is insufficient.");
+          }
         }
+  
         document.getElementById("general-output").innerText = "Submitting batch purchase transaction...";
         // Se añade manualmente un gasLimit para evitar el error de estimación.
         const tx = await punkQuestContract.batchBuyItems(itemIds, quantities, { gasLimit: 500000 });
