@@ -267,7 +267,7 @@
       <div class="card">
         <h2 class="section-title">Available Items</h2>
         <div id="itemsGrid" class="items-grid">
-          <!-- Aquí se cargarán las tarjetas de cada ítem -->
+          <!-- Las tarjetas de cada ítem se cargarán aquí -->
         </div>
       </div>
     </section>
@@ -301,12 +301,12 @@
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script>
     let provider, signer, punkQuestContract, tokenContract;
-    // Direcciones de contrato (actualiza si es necesario)
+    // Direcciones de contrato (ajústalas según corresponda)
     const PUNKQUEST_ADDRESS = "0xb253c1C784bA13ca1C45daB6777210a83cEA4f73";
     const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     const NFT_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
   
-    // ABI de los métodos requeridos.
+    // ABI de los métodos requeridos
     const punkQuestABI = [
       "function batchBuyItems(uint256[] calldata itemIds, uint256[] calldata quantities) external",
       "function buyItem(uint256 itemId, uint256 quantity) external",
@@ -322,7 +322,6 @@
       "function ownerOf(uint256 tokenId) view returns (address)"
     ];
   
-    // Variable para almacenar los ítems (usados para el inventario)
     let shoppingCart = [];
     let allItems = [];
   
@@ -335,7 +334,7 @@
           provider.getResolver = async (name) => null;
           signer = provider.getSigner();
           const walletAddress = await signer.getAddress();
-          const shortAddress = walletAddress.substring(0, 6) + "..." + walletAddress.substring(walletAddress.length - 4);
+          const shortAddress = walletAddress.substring(0,6) + "..." + walletAddress.substring(walletAddress.length - 4);
           document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddress}</p>`;
           punkQuestContract = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, signer);
           tokenContract = new ethers.Contract(TOKEN_ADDRESS, tokenABI, signer);
@@ -349,11 +348,11 @@
       }
     });
   
-    // Función para cargar los ítems del archivo JSON (por ejemplo, weapons.json)
+    // Cargar ítems desde el JSON (por ejemplo, weapons.json)
     async function loadItems() {
       try {
         const response = await fetch('weapons.json');
-        if(!response.ok) {
+        if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const items = await response.json();
@@ -365,15 +364,15 @@
       }
     }
   
-    // Función para mostrar los ítems en tarjetas en la grilla
+    // Mostrar ítems en tarjetas
     function displayItems(items) {
       const itemsGrid = document.getElementById("itemsGrid");
       itemsGrid.innerHTML = "";
       items.forEach(item => {
         const card = document.createElement("div");
         card.className = "item-card";
-        // Se usa parseFloat para formatear el precio para el usuario
         const price = parseFloat(item.price);
+        // Para el usuario se muestra el precio amigable (ejemplo "100")
         const formattedPrice = price >= 1000 ? `${(price/1000).toFixed(1)}K` : price;
         card.innerHTML = `
           <div class="item-image">
@@ -400,9 +399,9 @@
         itemsGrid.appendChild(card);
       });
   
-      // Asignar event listeners a cada botón "Add to Cart"
+      // Asignar event listeners a los botones "Add to Cart"
       const addButtons = document.getElementsByClassName("add-to-cart-btn");
-      for(let btn of addButtons) {
+      for (let btn of addButtons) {
         btn.addEventListener("click", (e) => {
           const itemId = e.target.getAttribute("data-id");
           const itemPrice = e.target.getAttribute("data-price");
@@ -410,8 +409,8 @@
           const itemType = e.target.getAttribute("data-type");
           const qtyInput = document.getElementById(`qty-${itemId}`);
           const quantity = parseInt(qtyInput.value);
-          if(quantity > 0) {
-            // Se agrega el ítem al carrito (el precio se toma tal cual viene en el JSON, en formato legible)
+          if (quantity > 0) {
+            // Se agrega el ítem al carrito; item.price viene del JSON (por ejemplo, "100")
             addToCart({ id: Number(itemId), name: itemName, price: itemPrice.toString(), quantity: quantity, type: itemType });
             qtyInput.value = 0;
           }
@@ -419,10 +418,10 @@
       }
     }
   
-    // Agregar ítem al carrito y actualizar UI
+    // Agregar ítem al carrito
     function addToCart(item) {
       const existing = shoppingCart.find(i => i.id === item.id);
-      if(existing) {
+      if (existing) {
         existing.quantity += item.quantity;
       } else {
         shoppingCart.push(item);
@@ -433,57 +432,59 @@
     // Actualizar la UI del carrito y calcular el costo total
     function updateCartUI() {
       const cartList = document.getElementById("cart-list");
-      if(shoppingCart.length === 0) {
+      if (shoppingCart.length === 0) {
         cartList.innerHTML = "Your cart is empty.";
       } else {
         let html = "<table class='table'><thead><tr><th>Item</th><th>Qty</th><th>Cost</th></tr></thead><tbody>";
         let total = ethers.BigNumber.from(0);
         shoppingCart.forEach(item => {
-          // Se convierte el precio de texto a wei: por ejemplo, "100" a 100 * 1e18, y se multiplica por la cantidad.
+          // Convertir el precio legible (por ejemplo, "100") a wei (100 * 10^18) y multiplicar por la cantidad.
           const cost = ethers.utils.parseUnits(item.price.toString(), 18).mul(item.quantity);
           total = total.add(cost);
           html += `<tr><td>${item.name} (${item.type})</td><td>${item.quantity}</td><td>${item.price} x ${item.quantity}</td></tr>`;
         });
         html += "</tbody></table>";
         cartList.innerHTML = html;
+        // Mostrar el total formateado a "600.0" si totalCost es 600 * 10^18
         document.getElementById("cart-total").innerText = "Total: " + ethers.utils.formatUnits(total, 18) + " A$";
         document.getElementById("buy-all-btn").disabled = total.isZero();
       }
     }
   
-    // Función para manejar la compra en lote (batch purchase)
+    // Función para realizar la compra en lote (batch purchase) con el cálculo correcto para approve.
     document.getElementById("buy-all-btn").addEventListener("click", async () => {
-      if(shoppingCart.length === 0) {
+      if (shoppingCart.length === 0) {
         alert("Your cart is empty.");
         return;
       }
       const itemIds = shoppingCart.map(item => Number(item.id));
       const quantities = shoppingCart.map(item => item.quantity);
       let totalCost = ethers.BigNumber.from(0);
+      // Calcular el costo total usando parseUnits para cada ítem
       shoppingCart.forEach(item => {
         totalCost = totalCost.add(ethers.utils.parseUnits(item.price.toString(), 18).mul(item.quantity));
       });
       try {
         const walletAddress = await signer.getAddress();
-        // Revisar el allowance del token
+        // Consultar el allowance actual
         let allowance = await tokenContract.allowance(walletAddress, PUNKQUEST_ADDRESS);
-        // Si el allowance es menor al monto total calculado, se hace approve por ese monto exacto
-        if(allowance.lt(totalCost)) {
+        // Si el allowance es menor que el costo total, aprobar EXACTAMENTE totalCost
+        if (allowance.lt(totalCost)) {
           document.getElementById("general-output").innerText = "Approving spending for batch purchase. Please wait...";
-          // Si allowance no es 0, lo reseteamos a 0 (algunos tokens lo requieren)
-          if(!allowance.isZero()) {
+          if (!allowance.isZero()) {
+            // Reiniciar allowance a 0 si es necesario
             await tokenContract.approve(PUNKQUEST_ADDRESS, 0).then(tx => tx.wait());
           }
           await tokenContract.approve(PUNKQUEST_ADDRESS, totalCost).then(tx => tx.wait());
           // Confirmar que el allowance se ha actualizado
           allowance = await tokenContract.allowance(walletAddress, PUNKQUEST_ADDRESS);
-          if(allowance.lt(totalCost)) {
+          if (allowance.lt(totalCost)) {
             throw new Error("Approval failed, allowance is insufficient.");
           }
         }
   
         document.getElementById("general-output").innerText = "Submitting batch purchase transaction...";
-        // Ejecutar la compra en lote con un gasLimit manual para evitar problemas de estimación
+        // Ejecutar la compra en lote con un gasLimit manual
         await punkQuestContract.batchBuyItems(itemIds, quantities, { gasLimit: 500000 }).then(tx => tx.wait());
         document.getElementById("general-output").innerText = "Batch purchase successful!";
         shoppingCart = [];
@@ -494,7 +495,7 @@
       }
     });
   
-    // Función para alternar la visualización de la descripción del ítem.
+    // Alternar visualización de la descripción del ítem
     function toggleDescription(button) {
       const itemDetails = button.closest('.item-details');
       const description = itemDetails.querySelector('.item-description');
@@ -502,14 +503,14 @@
       button.classList.toggle('active');
     }
   
-    // Función para cargar el inventario del usuario, consultando el contrato
+    // Función para cargar el inventario del usuario consultando el contrato
     async function loadUserInventory() {
       try {
         const walletAddress = await signer.getAddress();
         let inventoryHTML = "<table class='table'><thead><tr><th>Item</th><th>Quantity</th></tr></thead><tbody>";
-        for(let item of allItems) {
+        for (let item of allItems) {
           const qty = await punkQuestContract.inventory(walletAddress, item.id);
-          if(qty.gt(0)) {
+          if (qty.gt(0)) {
             inventoryHTML += `<tr><td>${item.name} (${item.type}, ID: ${item.id})</td><td>${qty.toString()}</td></tr>`;
           }
         }
