@@ -72,13 +72,21 @@
       border-radius: 8px;
       margin-top: 1rem;
     }
+    .section-title {
+      font-size: 1.4rem;
+      margin-bottom: 1rem;
+      color: var(--primary-text);
+      font-weight: 600;
+      border-bottom: 2px solid var(--card-border);
+      padding-bottom: 0.5rem;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
       <h1>PunkQuest Admin Panel</h1>
-      <p>Create and Update Weapons</p>
+      <p>Manage Weapons &amp; Events, plus Economic Snapshot</p>
     </header>
     
     <!-- Wallet Connection Section -->
@@ -87,30 +95,26 @@
       <div id="admin-wallet-info" class="mt-2"></div>
     </div>
     
-    <!-- Create Weapon Section -->
+    <!-- Weapons Management Section -->
     <div class="card mb-4">
       <div class="card-body">
-        <h2 class="section-title">Create New Weapon</h2>
+        <h2 class="section-title">Weapons Management</h2>
+        <!-- Create Weapon Form -->
         <form id="create-weapon-form">
           <label for="weapon-price">Price (in tokens):</label>
           <input type="number" step="any" id="weapon-price" class="form-control" placeholder="e.g., 1000" required>
-  
+          
           <label for="weapon-bonus">Bonus (%) :</label>
           <input type="number" step="any" id="weapon-bonus" class="form-control" placeholder="e.g., 10" required>
-  
+          
           <label for="weapon-durability">Durability:</label>
           <input type="number" id="weapon-durability" class="form-control" placeholder="e.g., 100" required>
-  
+          
           <button type="submit" class="btn">Create Weapon</button>
         </form>
         <div id="create-weapon-output" class="terminal"></div>
-      </div>
-    </div>
-    
-    <!-- Update Weapon Section -->
-    <div class="card mb-4">
-      <div class="card-body">
-        <h2 class="section-title">Update Weapon</h2>
+        
+        <!-- Update Weapon Form -->
         <form id="load-weapon-form">
           <label for="update-item-id">Weapon Item ID:</label>
           <input type="number" id="update-item-id" class="form-control" placeholder="e.g., 1" required>
@@ -119,19 +123,61 @@
         <form id="update-weapon-form" style="display:none;">
           <label for="update-weapon-price">New Price (in tokens):</label>
           <input type="number" step="any" id="update-weapon-price" class="form-control" placeholder="e.g., 1000" required>
-  
+          
           <label for="update-weapon-bonus">New Bonus (%) :</label>
           <input type="number" step="any" id="update-weapon-bonus" class="form-control" placeholder="e.g., 10" required>
-  
+          
           <label for="update-weapon-durability">New Durability:</label>
           <input type="number" id="update-weapon-durability" class="form-control" placeholder="e.g., 100" required>
-  
+          
           <button type="submit" class="btn">Update Weapon</button>
         </form>
         <div id="update-weapon-output" class="terminal"></div>
       </div>
     </div>
-  
+    
+    <!-- Events Management Section -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <h2 class="section-title">Events Management</h2>
+        <!-- Create Event Form -->
+        <form id="create-event-form">
+          <label for="event-name">Event Name:</label>
+          <input type="text" id="event-name" class="form-control" placeholder="e.g., Birds" required>
+          
+          <label for="event-adjustment">Adjustment (use negative for penalties, e.g., -10 for -10%):</label>
+          <input type="number" step="any" id="event-adjustment" class="form-control" placeholder="e.g., -10" required>
+          
+          <label for="event-description">Description:</label>
+          <input type="text" id="event-description" class="form-control" placeholder="Short and fun description" required>
+          
+          <button type="submit" class="btn">Create Event</button>
+        </form>
+        <div id="create-event-output" class="terminal"></div>
+        
+        <!-- Trigger Event Form -->
+        <form id="trigger-event-form">
+          <label for="trigger-token-id">Token ID:</label>
+          <input type="number" id="trigger-token-id" class="form-control" placeholder="e.g., 1" required>
+          
+          <label for="trigger-event-id">Event ID:</label>
+          <input type="number" id="trigger-event-id" class="form-control" placeholder="e.g., 1" required>
+          
+          <button type="submit" class="btn">Trigger Event</button>
+        </form>
+        <div id="trigger-event-output" class="terminal"></div>
+      </div>
+    </div>
+    
+    <!-- Economic Snapshot Section -->
+    <div class="card mb-4">
+      <div class="card-body">
+        <h2 class="section-title">Economic Snapshot</h2>
+        <button id="get-snapshot-btn" class="btn">Get Snapshot</button>
+        <div id="snapshot-output" class="terminal"></div>
+      </div>
+    </div>
+    
   </div>
   
   <!-- Bootstrap 5 JS and Ethers.js Library -->
@@ -139,22 +185,25 @@
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script>
     let provider, signer, punkQuestContract;
-    // Update this with the deployed address of PunkQuest
-    const PUNKQUEST_ADDRESS = "0xB0F8774c2D03d1972Bf2aC4766EEFcb2a3762f1A"; // Replace with deployed address
+    // Actualiza esta dirección con la de tu contrato PunkQuest desplegado
+    const PUNKQUEST_ADDRESS = "0xB0F8774c2D03d1972Bf2aC4766EEFcb2a3762f1A";
     const punkQuestABI = [
       "function addItem(uint8 _type, uint256 _price, uint256 _bonus, uint256 _durability) external",
       "function updateItem(uint256 _itemId, uint256 _price, uint256 _bonus, uint256 _durability) external",
       "function items(uint256) view returns (uint256 price, uint256 bonus, uint256 durability, bool exists, uint8 itemType)",
+      "function addEventDefinition(string memory name, int256 adjustment, string memory description) external onlyOwner",
+      "function triggerEvent(uint256 tokenId, uint256 eventId) external onlyOwner",
+      "function getEconomicSnapshot() view returns (uint256 totalStaked, uint256 totalItemsCreated, uint256 totalItemsPurchased, uint256 totalItemsEquipped)",
       "function owner() view returns (address)"
     ];
   
-    // Connect Admin Wallet
+    // Conexión del Admin Wallet
     document.getElementById("connect-admin").addEventListener("click", async () => {
       if (window.ethereum) {
         try {
           await window.ethereum.request({ method: "eth_requestAccounts" });
           provider = new ethers.providers.Web3Provider(window.ethereum);
-          // Disable ENS resolution workaround:
+          // Deshabilitar ENS resolver
           provider.getResolver = async (name) => null;
           signer = provider.getSigner();
           const walletAddress = await signer.getAddress();
@@ -169,33 +218,27 @@
       }
     });
   
-    // Create Weapon Form Submission
+    // --- Weapons Management ---
+    // Crear arma
     document.getElementById("create-weapon-form").addEventListener("submit", async (event) => {
-      event.preventDefault(); // Prevent default form submission
+      event.preventDefault();
       if (!punkQuestContract) {
         alert("Please connect your admin wallet first.");
         return;
       }
-      // Get form values
       const priceInput = document.getElementById("weapon-price").value;
       const bonusInput = document.getElementById("weapon-bonus").value;
       const durabilityInput = document.getElementById("weapon-durability").value;
-  
-      // Convert inputs:
-      // Price -> 18 decimals.
-      let priceParsed;
-      let bonusParsed;
+      let priceParsed, bonusParsed;
       try {
         priceParsed = ethers.utils.parseUnits(priceInput, 18);
-        // If admin enters 10 for 10%, bonusParsed = 10 * 1e16 = 1e17.
+        // Si ingresa 10 para 10%, bonusParsed = 10 * 1e16 = 1e17.
         bonusParsed = ethers.BigNumber.from(bonusInput).mul("10000000000000000");
       } catch (error) {
         document.getElementById("create-weapon-output").innerText = "Error parsing numbers: " + error.message;
         return;
       }
       const durabilityParsed = parseInt(durabilityInput);
-  
-      // Call addItem with ItemType = 0 (Weapon)
       try {
         const tx = await punkQuestContract.addItem(0, priceParsed, bonusParsed, durabilityParsed);
         document.getElementById("create-weapon-output").innerText = "Transaction sent... waiting for confirmation.";
@@ -207,7 +250,7 @@
       }
     });
   
-    // Load Weapon Data for Update
+    // Actualizar arma
     document.getElementById("load-weapon-btn").addEventListener("click", async () => {
       if (!punkQuestContract) {
         alert("Please connect your admin wallet first.");
@@ -216,14 +259,11 @@
       const itemId = document.getElementById("update-item-id").value;
       try {
         const weaponData = await punkQuestContract.items(itemId);
-        // weaponData returns (price, bonus, durability, exists, itemType)
-        if (!weaponData.exists || weaponData.itemType != 0) { // 0 = Weapon
+        if (!weaponData.exists || weaponData.itemType != 0) {
           document.getElementById("update-weapon-output").innerText = "Weapon not found with that ID.";
           return;
         }
-        // Pre-fill form fields
         document.getElementById("update-weapon-price").value = ethers.utils.formatUnits(weaponData.price, 18);
-        // Convert bonus from fixed point to percentage: bonus / 1e16
         document.getElementById("update-weapon-bonus").value = ethers.utils.formatUnits(weaponData.bonus, 16);
         document.getElementById("update-weapon-durability").value = weaponData.durability.toString();
         document.getElementById("update-weapon-form").style.display = "block";
@@ -233,7 +273,6 @@
       }
     });
   
-    // Update Weapon Form Submission
     document.getElementById("update-weapon-form").addEventListener("submit", async (event) => {
       event.preventDefault();
       if (!punkQuestContract) {
@@ -256,6 +295,76 @@
         document.getElementById("update-weapon-form").style.display = "none";
       } catch (error) {
         document.getElementById("update-weapon-output").innerText = "Error updating weapon: " + error.message;
+      }
+    });
+  
+    // --- Events Management ---
+    // Crear un nuevo evento
+    document.getElementById("create-event-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!punkQuestContract) {
+        alert("Please connect your admin wallet first.");
+        return;
+      }
+      const eventName = document.getElementById("event-name").value;
+      const eventAdjustmentInput = document.getElementById("event-adjustment").value;
+      const eventDescription = document.getElementById("event-description").value;
+      let eventAdjustment;
+      // Convertir el ajuste a fixed point (por ejemplo, -10 significa -10% y se convertirá a -1e17 si usas 1e17 para 10%)
+      try {
+        // Multiplicamos el valor ingresado (ej. -10) por 1e16 para obtener -1e17
+        eventAdjustment = int256(ethers.BigNumber.from(eventAdjustmentInput).mul("10000000000000000"));
+      } catch (error) {
+        document.getElementById("create-event-output").innerText = "Error parsing adjustment: " + error.message;
+        return;
+      }
+      try {
+        const tx = await punkQuestContract.addEventDefinition(eventName, eventAdjustment, eventDescription);
+        document.getElementById("create-event-output").innerText = "Event creation tx sent... waiting for confirmation.";
+        await tx.wait();
+        document.getElementById("create-event-output").innerText = "Event created successfully!";
+        document.getElementById("create-event-form").reset();
+      } catch (error) {
+        document.getElementById("create-event-output").innerText = "Error creating event: " + error.message;
+      }
+    });
+  
+    // Disparar un evento manualmente
+    document.getElementById("trigger-event-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!punkQuestContract) {
+        alert("Please connect your admin wallet first.");
+        return;
+      }
+      const tokenId = document.getElementById("trigger-token-id").value;
+      const eventId = document.getElementById("trigger-event-id").value;
+      try {
+        const tx = await punkQuestContract.triggerEvent(tokenId, eventId);
+        document.getElementById("trigger-event-output").innerText = "Event triggering tx sent... waiting for confirmation.";
+        await tx.wait();
+        document.getElementById("trigger-event-output").innerText = "Event triggered successfully for token " + tokenId;
+      } catch (error) {
+        document.getElementById("trigger-event-output").innerText = "Error triggering event: " + error.message;
+      }
+    });
+  
+    // --- Economic Snapshot ---
+    document.getElementById("get-snapshot-btn").addEventListener("click", async () => {
+      if (!punkQuestContract) {
+        alert("Please connect your admin wallet first.");
+        return;
+      }
+      try {
+        const snapshot = await punkQuestContract.getEconomicSnapshot();
+        const output = `
+Total Staked: ${snapshot.totalStaked.toString()}
+Total Items Created: ${snapshot.totalItemsCreated.toString()}
+Total Items Purchased: ${snapshot.totalItemsPurchased.toString()}
+Total Items Equipped: ${snapshot.totalItemsEquipped.toString()}
+        `;
+        document.getElementById("snapshot-output").innerText = output;
+      } catch (error) {
+        document.getElementById("snapshot-output").innerText = "Error fetching snapshot: " + error.message;
       }
     });
   </script>
