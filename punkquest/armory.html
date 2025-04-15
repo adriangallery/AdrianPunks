@@ -76,7 +76,7 @@
       gap: 1rem;
       padding: 1rem;
     }
-    /* Responsive grid: 2 columns on mobile, 4 on desktop */
+    /* Responsive grid: 2 columns on mobile, 4 on tablet/desktop */
     @media (max-width: 575px) {
       .items-grid { grid-template-columns: repeat(2, 1fr); }
     }
@@ -148,19 +148,11 @@
       color: var(--primary-text);
       font-size: 1.1rem;
     }
-    .description-toggle {
-      background: none;
-      border: none;
-      color: var(--accent-blue);
-      cursor: pointer;
-      font-size: 0.8rem;
-      padding: 0.25rem 0.5rem;
-      margin: 0.5rem 0;
+    .item-details p {
+      margin: 0.25rem 0;
+      font-size: 0.9rem;
+      color: var(--primary-text);
       opacity: 0.8;
-      transition: opacity 0.2s ease;
-    }
-    .description-toggle:hover {
-      opacity: 1;
     }
     .item-description {
       margin: 0;
@@ -176,6 +168,20 @@
     .item-description.expanded {
       max-height: 200px;
       margin: 0.5rem 0;
+    }
+    .description-toggle {
+      background: none;
+      border: none;
+      color: var(--accent-blue);
+      cursor: pointer;
+      font-size: 0.8rem;
+      padding: 0.25rem 0.5rem;
+      margin: 0.5rem 0;
+      opacity: 0.8;
+      transition: opacity 0.2s ease;
+    }
+    .description-toggle:hover {
+      opacity: 1;
     }
     .quantity-controls {
       display: flex;
@@ -241,38 +247,6 @@
       border-radius: 8px;
       margin-top: 1rem;
     }
-    @media (max-width: 575px) {
-      .item-card {
-        min-height: 350px;
-      }
-      .item-details h4 {
-        font-size: 1rem;
-      }
-      .quantity-controls {
-        flex-direction: column;
-        gap: 0.5rem;
-      }
-    }
-    .item-name {
-      font-size: 1.1rem;
-      font-weight: bold;
-      margin-bottom: 0.5rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .item-name .description-toggle {
-      background: none;
-      border: none;
-      color: #666;
-      cursor: pointer;
-      padding: 0;
-      font-size: 1rem;
-      transition: transform 0.3s ease;
-    }
-    .item-name .description-toggle.active {
-      transform: rotate(180deg);
-    }
   </style>
 </head>
 <body>
@@ -290,9 +264,9 @@
     
     <!-- Items Display Section -->
     <section id="items-section" class="mb-4">
-      <div class="armory-container">
-        <h2>Available Items</h2>
-        <div class="items-grid" id="itemsGrid">
+      <div class="card">
+        <h2 class="section-title">Available Items</h2>
+        <div id="itemsGrid" class="items-grid">
           <!-- Items will be loaded here -->
         </div>
       </div>
@@ -312,6 +286,16 @@
       </div>
     </section>
     
+    <!-- User Inventory Section -->
+    <section id="inventory-section" class="mb-4">
+      <div class="card">
+        <h2 class="section-title">My Inventory Items</h2>
+        <div id="inventory-items" class="terminal">
+          Loading inventory...
+        </div>
+      </div>
+    </section>
+    
     <!-- General Output Section -->
     <section id="general-output-section" class="mb-4">
       <div id="general-output" class="terminal"></div>
@@ -322,17 +306,16 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script>
-    // Global variables for wallet and contracts
     let provider, signer, punkQuestContract, tokenContract;
-    // Replace these addresses with your deployed contract addresses
+    // Use your deployed contract addresses.
     const PUNKQUEST_ADDRESS = "0xb253c1C784bA13ca1C45daB6777210a83cEA4f73";
     const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     const NFT_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
   
-    // ABI segments for the required methods (make sure your contract includes batchBuyItems)
+    // ABI for required methods
     const punkQuestABI = [
-      "function buyItem(uint256 itemId, uint256 quantity) external", // for single item
-      "function batchBuyItems(uint256[] calldata itemIds, uint256[] calldata quantities) external", // new batch function
+      "function batchBuyItems(uint256[] calldata itemIds, uint256[] calldata quantities) external",
+      "function buyItem(uint256 itemId, uint256 quantity) external",
       "function inventory(address, uint256) view returns (uint256)",
       "function nextItemId() view returns (uint256)"
     ];
@@ -345,22 +328,20 @@
       "function ownerOf(uint256 tokenId) view returns (address)"
     ];
   
-    // A shopping cart as an array of objects { id, name, price, quantity, type }
     let shoppingCart = [];
-    let allItems = []; // to store merged items (weapons and armors)
+    let allItems = [];
   
-    // Format price function
     function formatPrice(price) {
       return price + " tokens";
     }
   
-    // Connect Wallet
+    // Connect wallet and instantiate contracts
     document.getElementById("connect-wallet").addEventListener("click", async () => {
-      if (window.ethereum) {
+      if(window.ethereum) {
         try {
           await window.ethereum.request({ method: "eth_requestAccounts" });
           provider = new ethers.providers.Web3Provider(window.ethereum);
-          provider.getResolver = async (name) => null; // disable ENS resolution
+          provider.getResolver = async (name) => null;
           signer = provider.getSigner();
           const walletAddress = await signer.getAddress();
           const shortAddress = walletAddress.substring(0, 6) + "..." + walletAddress.substring(walletAddress.length - 4);
@@ -368,6 +349,7 @@
           punkQuestContract = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, signer);
           tokenContract = new ethers.Contract(TOKEN_ADDRESS, tokenABI, signer);
           loadItems();
+          loadUserInventory();
         } catch (error) {
           document.getElementById("wallet-info").innerHTML = `<p>Error: ${error.message}</p>`;
         }
@@ -376,40 +358,42 @@
       }
     });
   
-    // Get nextItemId from contract
+    // Retrieve nextItemId from the contract.
     async function getNextItemId() {
       try {
         const nextId = await punkQuestContract.nextItemId();
         return nextId.toNumber();
       } catch (error) {
-        console.error("Error getting nextItemId: ", error);
+        console.error("Error getting nextItemId:", error);
         return 0;
       }
     }
   
-    // Load items from weapons.json and armor.json and merge into one list.
+    // Load items from weapons.json and armor.json and merge them.
     async function loadItems() {
       try {
         const nextId = await getNextItemId();
-        const responseWeapons = await fetch('weapons.json');
+        const responseWeapons = await fetch("weapons.json");
         if (!responseWeapons.ok) {
           throw new Error(`HTTP error! status: ${responseWeapons.status}`);
         }
         const weaponsData = await responseWeapons.json();
-        if (!Array.isArray(weaponsData)) {
-          throw new Error('Invalid JSON format: expected an array');
-        }
-
-        // Filter for only items that have already been created (id < nextId)
-        const activeWeapons = weaponsData.filter(item => item.id < nextId && item.type === "Weapon");
-        
-        // Now display all items in the grid
+        const responseArmors = await fetch("armor.json");
+        const armorsData = await responseArmors.json();
+  
+        // Use <= (nextId - 1) so that items with id equal to nextId-1 are shown.
+        const activeWeapons = weaponsData.filter(item => item.id <= (nextId - 1) && item.type === "Weapon");
+        const activeArmors = armorsData.filter(item => item.id <= (nextId - 1) && item.type === "Armor");
+  
+        allItems = activeWeapons.concat(activeArmors);
+  
         const itemsGrid = document.getElementById("itemsGrid");
         itemsGrid.innerHTML = "";
-
-        activeWeapons.forEach(item => {
+  
+        allItems.forEach(item => {
           const card = document.createElement("div");
           card.className = "item-card";
+          // Format price for display: if price >= 1000, show "X K"
           const price = parseFloat(item.price);
           const formattedPrice = price >= 1000 ? `${(price/1000).toFixed(1)}K` : price;
           card.innerHTML = `
@@ -436,8 +420,7 @@
           `;
           itemsGrid.appendChild(card);
         });
-
-        // Attach event listener to each "Add to Cart" button
+  
         const addButtons = document.getElementsByClassName("add-to-cart-btn");
         for (let btn of addButtons) {
           btn.addEventListener("click", (e) => {
@@ -448,21 +431,19 @@
             const qtyInput = document.getElementById(`qty-${itemId}`);
             const quantity = parseInt(qtyInput.value);
             if (quantity > 0) {
-              addToCart({ id: itemId, name: itemName, price: itemPrice, quantity: quantity, type: itemType });
-              qtyInput.value = 0; // reset input
+              addToCart({ id: Number(itemId), name: itemName, price: itemPrice, quantity: quantity, type: itemType });
+              qtyInput.value = 0;
             }
           });
         }
-
       } catch (error) {
         console.error('Error loading items:', error);
-        document.getElementById("general-output").innerText = `Error loading items: ${error.message}`;
+        document.getElementById("general-output").innerText = "Error loading items: " + error.message;
       }
     }
   
-    // Function to add item to the shopping cart.
+    // Add item to shopping cart.
     function addToCart(item) {
-      // Check if the item is already in the cart.
       const existing = shoppingCart.find(i => i.id === item.id);
       if (existing) {
         existing.quantity += item.quantity;
@@ -472,7 +453,7 @@
       updateCartUI();
     }
   
-    // Update Cart UI: list items and show total cost.
+    // Update shopping cart UI and total cost.
     function updateCartUI() {
       const cartList = document.getElementById("cart-list");
       if (shoppingCart.length === 0) {
@@ -481,8 +462,6 @@
         let html = "<table class='table'><thead><tr><th>Item</th><th>Qty</th><th>Cost</th></tr></thead><tbody>";
         let total = ethers.BigNumber.from(0);
         shoppingCart.forEach(item => {
-          // Assume item.price is a string number in tokens (without decimals)
-          // Convert to BigNumber in 18 decimals.
           const cost = ethers.utils.parseUnits(item.price, 18).mul(item.quantity);
           total = total.add(cost);
           html += `<tr><td>${item.name} (${item.type})</td><td>${item.quantity}</td><td>${item.price} x ${item.quantity}</td></tr>`;
@@ -490,21 +469,19 @@
         html += "</tbody></table>";
         cartList.innerHTML = html;
         document.getElementById("cart-total").innerText = "Total: " + ethers.utils.formatUnits(total, 18) + " A$";
-        // Enable the Buy All button if total > 0.
         document.getElementById("buy-all-btn").disabled = total.isZero();
       }
     }
   
-    // Function to handle batch purchase (Buy All button).
+    // Batch purchase handler.
     document.getElementById("buy-all-btn").addEventListener("click", async () => {
       if (shoppingCart.length === 0) {
         alert("Your cart is empty.");
         return;
       }
-      // Prepare arrays for itemIds and quantities.
-      const itemIds = shoppingCart.map(item => item.id);
+      // Prepare arrays with item IDs as numbers and quantities.
+      const itemIds = shoppingCart.map(item => Number(item.id));
       const quantities = shoppingCart.map(item => item.quantity);
-      // Calculate total cost
       let totalCost = ethers.BigNumber.from(0);
       shoppingCart.forEach(item => {
         totalCost = totalCost.add(ethers.utils.parseUnits(item.price, 18).mul(item.quantity));
@@ -521,21 +498,39 @@
         const tx = await punkQuestContract.batchBuyItems(itemIds, quantities);
         await tx.wait();
         document.getElementById("general-output").innerText = "Batch purchase successful!";
-        // Clear cart.
         shoppingCart = [];
         updateCartUI();
-        // Optionally refresh inventory if implemented.
+        loadUserInventory(); // Refresh inventory after purchase.
       } catch (error) {
         document.getElementById("general-output").innerText = "Error during batch purchase: " + error.message;
       }
     });
-
-    // Function to toggle item description
+  
+    // Toggle description of item.
     function toggleDescription(button) {
       const itemDetails = button.closest('.item-details');
       const description = itemDetails.querySelector('.item-description');
       description.classList.toggle('expanded');
       button.classList.toggle('active');
+    }
+  
+    // Load user's inventory from the contract using the merged list.
+    async function loadUserInventory() {
+      try {
+        const walletAddress = await signer.getAddress();
+        let inventoryHTML = "<table class='table'><thead><tr><th>Item</th><th>Quantity</th></tr></thead><tbody>";
+        // Iterate through all items (from our merged list).
+        for (let item of allItems) {
+          const qty = await punkQuestContract.inventory(walletAddress, item.id);
+          if (qty.gt(0)) {
+            inventoryHTML += `<tr><td>${item.name} (${item.type}, ID: ${item.id})</td><td>${qty.toString()}</td></tr>`;
+          }
+        }
+        inventoryHTML += "</tbody></table>";
+        document.getElementById("inventory-items").innerHTML = inventoryHTML;
+      } catch (error) {
+        document.getElementById("inventory-items").innerText = "Error loading inventory: " + error.message;
+      }
     }
   </script>
 </body>
