@@ -239,15 +239,15 @@
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script>
     // Global variables for ethers.js and contracts
-    let provider, signer;
+    let provider, signer, punkQuestContract;
     let tokenContract, stakingContract, nftContract;
     let selectedTokenIds = []; // To hold multiple selected token IDs
     let rewardsUpdateInterval; // For auto update
 
-    // Contract addresses (update the PunkQuest contract address here)
-    const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
-    const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
-    const STAKING_ADDRESS = "0x01406664fcc698ae3b42c4012fee4eff1ddbebd7";
+    // Update this with the deployed address of PunkQuest
+    const PUNKQUEST_ADDRESS = "0xB0F8774c2D03d1972Bf2aC4766EEFcb2a3762f1A";
+    const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const NFT_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
 
     // Minimal ABIs (we assume the additional read functions are included in the deployed contract)
     const tokenABI = [
@@ -465,9 +465,9 @@
           const walletAddress = await signer.getAddress();
           const shortAddress = walletAddress.substring(0, 6) + "..." + walletAddress.substring(walletAddress.length - 4);
           document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddress}</p>`;
-          tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
-          stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
-          nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
+          tokenContract = new ethers.Contract(TOKEN_ADDRESS, tokenABI, signer);
+          stakingContract = new ethers.Contract(PUNKQUEST_ADDRESS, stakingABI, signer);
+          nftContract = new ethers.Contract(NFT_ADDRESS, nftABI, signer);
           displayFeeInfo();
           loadTokens();
           startAutoUpdate();
@@ -507,10 +507,10 @@
       try {
         const walletAddress = await signer.getAddress();
         const activationFee = await stakingContract.activationFee();
-        const currentAllowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
+        const currentAllowance = await tokenContract.allowance(walletAddress, PUNKQUEST_ADDRESS);
         if (currentAllowance.lt(activationFee)) {
           document.getElementById("general-output").textContent = "Approving spending for stake fee. Please wait...";
-          const approveTx = await tokenContract.approve(STAKING_ADDRESS, activationFee);
+          const approveTx = await tokenContract.approve(PUNKQUEST_ADDRESS, activationFee);
           await approveTx.wait();
           document.getElementById("general-output").textContent = "Approval successful. Proceeding with staking...";
         }
@@ -542,10 +542,10 @@
       try {
         const walletAddress = await signer.getAddress();
         const exitFee = await stakingContract.exitFee();
-        const currentAllowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
+        const currentAllowance = await tokenContract.allowance(walletAddress, PUNKQUEST_ADDRESS);
         if (currentAllowance.lt(exitFee)) {
           document.getElementById("general-output").textContent = "Approving spending for unstake fee. Please wait...";
-          const approveTx = await tokenContract.approve(STAKING_ADDRESS, exitFee);
+          const approveTx = await tokenContract.approve(PUNKQUEST_ADDRESS, exitFee);
           await approveTx.wait();
           document.getElementById("general-output").textContent = "Approval successful. Proceeding with unstaking...";
         }
