@@ -271,3 +271,161 @@
         : type === 'success'
           ? 'var(--accent-blue)'
           : 'var(--primary-text)';
+    }
+
+    async function connectWallet() {
+      try {
+        if (typeof web3Provider === 'undefined') {
+          web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+          signer = web3Provider.getSigner();
+          tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
+          stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
+          nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
+          await updateWalletInfo();
+          await updateTokens();
+          await updateTotalRewards();
+          document.getElementById('connect-wallet').textContent = 'Wallet Connected';
+        }
+      } catch (error) {
+        console.error('Error connecting to wallet:', error);
+        showMessage('Error connecting to wallet', 'error');
+      }
+    }
+
+    async function updateWalletInfo() {
+      try {
+        const balance = await signer.getBalance();
+        const formattedBalance = formatAmount(balance);
+        document.getElementById('wallet-info').textContent = `Balance: ${formattedBalance} A$`;
+      } catch (error) {
+        console.error('Error getting wallet balance:', error);
+        showMessage('Error getting wallet balance', 'error');
+      }
+    }
+
+    async function updateTokens() {
+      try {
+        const totalTokens = await tokenContract.balanceOf(signer.address);
+        const tokens = [];
+        for (let i = 0; i < totalTokens; i++) {
+          const tokenId = await tokenContract.tokenOfOwnerByIndex(signer.address, i);
+          tokens.push(tokenId.toString());
+        }
+        displayTokens(tokens);
+      } catch (error) {
+        console.error('Error getting tokens:', error);
+        showMessage('Error getting tokens', 'error');
+      }
+    }
+
+    async function updateTotalRewards() {
+      try {
+        const totalRewards = await readStakingContract.stakes(signer.address);
+        const formattedRewards = formatAmount(totalRewards.totalRewards);
+        document.getElementById('total-rewards').textContent = formattedRewards;
+      } catch (error) {
+        console.error('Error getting total rewards:', error);
+        showMessage('Error getting total rewards', 'error');
+      }
+    }
+
+    function displayTokens(tokens) {
+      const tokenGrid = document.getElementById('tokens-grid');
+      tokenGrid.innerHTML = '';
+      tokens.forEach(tokenId => {
+        const tokenCard = document.createElement('div');
+        tokenCard.className = 'token-card';
+        tokenCard.innerHTML = `
+          <img src="https://ipfs.io/ipfs/QmNrhZHUaEqxhyLfqoq1mtHSipkWHeT31LNHb1QEbDHgncaI/QmNrhZHUaEqxhyLfqoq1mtHSipkWHeT31LNHb1QEbDHgncaI.png" alt="Token ${tokenId}">
+          <p>${tokenId}</p>
+        `;
+        tokenCard.onclick = () => {
+          if (selectedTokenIds.includes(tokenId)) {
+            selectedTokenIds = selectedTokenIds.filter(id => id !== tokenId);
+            tokenCard.classList.remove('selected-token');
+          } else {
+            selectedTokenIds.push(tokenId);
+            tokenCard.classList.add('selected-token');
+          }
+        };
+        tokenGrid.appendChild(tokenCard);
+      });
+    }
+
+    async function stakeTokens() {
+      try {
+        const totalFee = await stakingContract.activationFee();
+        const approveTx = await tokenContract.approve(
+          STAKING_ADDRESS,
+          totalFee,
+          {
+            gasLimit: 100000
+          }
+        );
+        const stakeTx = await stakingContract.batchStake(selectedTokenIds, {
+          gasLimit: 300000
+        });
+        await approveTx.wait();
+        await stakeTx.wait();
+        showMessage('Tokens staked successfully', 'success');
+        await updateTotalRewards();
+      } catch (error) {
+        console.error('Error staking tokens:', error);
+        showMessage('Error staking tokens', 'error');
+      }
+    }
+
+    async function unstakeTokens() {
+      try {
+        const totalFee = await stakingContract.exitFee();
+        const approveTx = await tokenContract.approve(
+          STAKING_ADDRESS,
+          totalFee,
+          {
+            gasLimit: 100000
+          }
+        );
+        const unstakeTx = await stakingContract.batchUnstake(selectedTokenIds, {
+          gasLimit: 300000
+        });
+        await approveTx.wait();
+        await unstakeTx.wait();
+        showMessage('Tokens unstaked successfully', 'success');
+        await updateTotalRewards();
+      } catch (error) {
+        console.error('Error unstaking tokens:', error);
+        showMessage('Error unstaking tokens', 'error');
+      }
+    }
+
+    async function claimRewards() {
+      try {
+        const totalFee = await stakingContract.claimFee();
+        const approveTx = await tokenContract.approve(
+          STAKING_ADDRESS,
+          totalFee,
+          {
+            gasLimit: 100000
+          }
+        );
+        const claimTx = await stakingContract.batchClaimRewards(selectedTokenIds, {
+          gasLimit: 300000
+        });
+        await approveTx.wait();
+        await claimTx.wait();
+        showMessage('Rewards claimed successfully', 'success');
+        await updateTotalRewards();
+      } catch (error) {
+        console.error('Error claiming rewards:', error);
+        showMessage('Error claiming rewards', 'error');
+      }
+    }
+
+    document.getElementById('connect-wallet').onclick = connectWallet;
+    document.getElementById('stake-token').onclick = stakeTokens;
+    document.getElementById('unstake-token').onclick = unstakeTokens;
+    document.getElementById('claim-token').onclick = claimRewards;
+    document.getElementById('refresh-info').onclick = updateTotalRewards;
+  </script>
+</body>
+</html>
