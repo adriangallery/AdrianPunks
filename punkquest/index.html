@@ -413,51 +413,23 @@
 
     // Stake tokens in batch
     async function stakeTokens() {
+      if (selectedTokenIds.length === 0) return alert('Please select tokens to stake.');
       try {
-        if (!window.ethereum) {
-          throw new Error('MetaMask no está instalado');
+        const walletAddress = await signer.getAddress();
+        const activationFee = await stakingContract.activationFee();
+        const totalFee = activationFee.mul(selectedTokenIds.length);
+        const allowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
+        if (allowance.lt(totalFee)) {
+          document.getElementById('general-output').textContent = 'Approving spending...';
+          const tx = await tokenContract.approve(STAKING_ADDRESS, totalFee);
+          await tx.wait();
         }
-
-        const selectedCards = document.querySelectorAll('.token-card.selected');
-        if (selectedCards.length === 0) {
-          throw new Error('Por favor, selecciona al menos un token');
-        }
-
-        const selectedTokens = Array.from(selectedCards).map(card => parseInt(card.dataset.tokenId));
-        
-        // Calcular el coste total en el frontend
-        const activationFee = ethers.utils.parseEther("0.1"); // 0.1 ADRIAN por token
-        const totalCost = activationFee.mul(selectedTokens.length);
-
-        // Solicitar aprobación directamente con el importe calculado
-        const approveTx = await tokenContract.approve(
-          stakingContract.address,
-          totalCost,
-          {
-            customData: {
-              title: "PunkQuest - Staking Approval",
-              description: `Aprobando ${ethers.utils.formatEther(totalCost)} ADRIAN para staking de ${selectedTokens.length} tokens`
-            }
-          }
-        );
-        await approveTx.wait();
-
-        // Ejecutar batchStake
-        const stakeTx = await stakingContract.batchStake(selectedTokens, {
-          customData: {
-            title: "PunkQuest - Staking",
-            description: `Staking ${selectedTokens.length} tokens`
-          }
-        });
-        await stakeTx.wait();
-
-        // Actualizar UI
-        await loadTokens();
-        await displayAggregateRewards();
-        showMessage('Tokens staked exitosamente', 'success');
-      } catch (error) {
-        console.error('Error en stakeTokens:', error);
-        showMessage(error.message || 'Error al hacer stake de los tokens', 'error');
+        const txStake = await stakingContract.batchStake(selectedTokenIds);
+        await txStake.wait();
+        document.getElementById('general-output').textContent = 'Staked: ' + selectedTokenIds.join(', ');
+        loadTokens();
+      } catch (e) {
+        document.getElementById('general-output').textContent = 'Error staking: ' + e.message;
       }
     }
 
