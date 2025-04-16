@@ -135,7 +135,7 @@
       font-size: 0.9rem;
       border: 1px solid var(--card-border);
       border-radius: 8px;
-      margin-top: 1rem;
+      margin: 1rem 0;
       box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
     }
     #total-rewards {
@@ -225,48 +225,69 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script>
-    let provider, signer, tokenContract, stakingContract, nftContract;
-    let selectedTokenIds = [];
-    let rewardsUpdateInterval;
+    // Global variables for ethers.js and contracts
+    let provider, signer;
+    let tokenContract, stakingContract, nftContract;
+    let selectedTokenIds = []; // To hold multiple selected token IDs
+    let rewardsUpdateInterval; // For auto update
 
-    // Contrato de Reward Token, NFT y Staking (actualiza si es necesario)
-    const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
-    const NFT_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
+    // Contract addresses (update with your deployed contract addresses)
+    const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
     const STAKING_ADDRESS = "0x64c46fca3f46442c7abd5303dc1c56a79f4e4273";
 
-    // ABI mínimos del contrato de staking incluyendo batchStake and batchUnstake
+    // PunkQuest ABI
     const stakingABI = [
-      "function stake(uint256 tokenId) external",
-      "function unstake(uint256 tokenId) external",
-      "function batchStake(uint256[] calldata tokenIds) external",
-      "function batchUnstake(uint256[] calldata tokenIds) external",
-      "function getTokenDetailedInfo(uint256 tokenId) view returns (uint256, uint256, uint256, uint256, uint256, int256, uint256)",
-      "function activationFee() view returns (uint256)",
-      "function exitFee() view returns (uint256)"
+      "function batchStake(uint256[] tokenIds) external",
+      "function batchUnstake(uint256[] tokenIds) external",
+      "function batchClaimRewards(uint256[] tokenIds) external returns (uint256)",
+      "function activationFee() external view returns (uint256)",
+      "function exitFee() external view returns (uint256)",
+      "function claimFee() external view returns (uint256)",
+      "function stakes(uint256) external view returns (uint256 stakeStart, uint256 lastClaim)",
+      "function tokenArmory(uint256) external view returns (uint256 weaponId, uint256 armorId, uint256 bonus, uint256 lastEventTimestamp)",
+      "function tokenFastLevelBonus(uint256) external view returns (uint256)",
+      "function tokenItemsBonus(uint256) external view returns (uint256)",
+      "function tokenFixedAdjustment(uint256) external view returns (int256)",
+      "function specialTokenBoost(uint256) external view returns (uint256)",
+      "function baseRewardRate() external view returns (uint256)",
+      "function socialBoostBonus() external view returns (uint256)",
+      "function socialBoostActiveUntil() external view returns (uint256)",
+      "function isSocialBoostActive() external view returns (bool)",
+      "function totalStaked() external view returns (uint256)"
     ];
+
+    // Token ABI
     const tokenABI = [
       "function balanceOf(address owner) view returns (uint256)",
       "function approve(address spender, uint256 amount) returns (bool)",
       "function allowance(address owner, address spender) view returns (uint256)"
     ];
+
+    // NFT ABI
     const nftABI = [
       "function balanceOf(address owner) view returns (uint256)",
       "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
       "function tokenURI(uint256 tokenId) view returns (string)"
     ];
 
+    // Helper functions to format amounts
     function formatAmount(amount) {
       const value = parseFloat(ethers.utils.formatUnits(amount, 18));
-      return value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " A$";
+      return value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " $A";
     }
     function formatReward(amount) {
       const value = parseFloat(ethers.utils.formatUnits(amount, 18));
       return value.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 }) + " A$";
     }
 
+    // Load tokens and display the grid
     async function loadTokens() {
       try {
         const walletAddress = await signer.getAddress();
+        const response = await fetch("/punkquest/adrianpunks.json");
+        const data = await response.json();
+        const jsonCollection = data.collection;
         const balance = await nftContract.balanceOf(walletAddress);
         const count = balance.toNumber();
         const gridContainer = document.getElementById("tokens-grid");
@@ -274,8 +295,14 @@
         selectedTokenIds = [];
         for (let i = 0; i < count; i++) {
           const tokenId = (await nftContract.tokenOfOwnerByIndex(walletAddress, i)).toString();
-          // Reemplaza con tu propia lógica para obtener la imagen y metadata
-          const imgSrc = `https://via.placeholder.com/150?text=Token+${tokenId}`;
+          const tokenInfo = jsonCollection.find(item => {
+            if (item.name) {
+              const parts = item.name.split("#");
+              return parts.length === 2 && parts[1] === tokenId;
+            }
+            return false;
+          });
+          const imgSrc = tokenInfo ? tokenInfo.image : `https://via.placeholder.com/150?text=Token+${tokenId}`;
           const col = document.createElement("div");
           col.className = "col";
           const card = document.createElement("div");
@@ -292,6 +319,7 @@
           card.appendChild(overlay);
           col.appendChild(card);
           gridContainer.appendChild(col);
+          // Toggle selection on click (allow multiple selections)
           card.addEventListener("click", () => {
             const tokenIdStr = card.dataset.tokenId;
             if (selectedTokenIds.includes(tokenIdStr)) {
@@ -311,6 +339,7 @@
       }
     }
 
+    // Refresh statistics for each selected token
     async function refreshTokenStats() {
       const statsContainer = document.getElementById("individual-token-stats");
       if (selectedTokenIds.length === 0) {
@@ -321,6 +350,7 @@
       for (const tokenId of selectedTokenIds) {
         try {
           const info = await stakingContract.getTokenDetailedInfo(tokenId);
+          // info returns: [stakeStart, lastClaim, fastLevelBonus, itemBonus, specialBoost, fixedAdjustment, pendingReward]
           if (info[0].toString() === "0") {
             statsHTML += `<strong>Token ${tokenId}:</strong> Not staked.<br>`;
           } else {
@@ -345,12 +375,13 @@
             `;
           }
         } catch (error) {
-          statsHTML += `<strong>Token ${tokenId}:</strong> Unable to retrieve stats.<br>`;
+          statsHTML += `<strong>Token ${tokenId}:</strong> Unable to retrieve stats. It may not be staked.<br>`;
         }
       }
       statsContainer.innerHTML = statsHTML;
     }
 
+    // Calculate and display the total aggregate rewards
     async function loadAggregateRewards() {
       try {
         const walletAddress = await signer.getAddress();
@@ -373,10 +404,12 @@
           rewardsElement.classList.remove('rewards-update');
         }, 500);
       } catch (error) {
+        console.error("Error calculating total rewards:", error);
         document.getElementById("general-output").textContent = "Error calculating total rewards: " + error.message;
       }
     }
 
+    // Display fee information (activationFee and exitFee)
     async function displayFeeInfo() {
       try {
         const activationFee = await stakingContract.activationFee();
@@ -384,11 +417,11 @@
         const feeText = `Stake Cost: ${formatAmount(activationFee)} | Unstake Cost: ${formatAmount(exitFee)}`;
         document.getElementById("fee-info").textContent = feeText;
       } catch (error) {
-        document.getElementById("fee-info").textContent = "Error fetching fee info: " + error.message;
+        document.getElementById("fee-info").textContent = "Error fetching fee information: " + error.message;
       }
     }
 
-    // Conectar wallet e inicializar contratos
+    // Connect wallet and initialize contracts
     document.getElementById("connect-wallet").addEventListener("click", async () => {
       if (window.ethereum) {
         try {
@@ -396,18 +429,23 @@
           provider = new ethers.providers.Web3Provider(window.ethereum);
           signer = provider.getSigner();
           const walletAddress = await signer.getAddress();
-          const shortAddress = walletAddress.substring(0,6) + "..." + walletAddress.substring(walletAddress.length - 4);
+          const shortAddress = walletAddress.substring(0, 6) + '...' + walletAddress.substring(walletAddress.length - 4);
           document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddress}</p>`;
-          tokenContract = new ethers.Contract(TOKEN_ADDRESS, tokenABI, signer);
-          // Incluimos las funciones batchStake y batchUnstake en el ABI
+          tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
           stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
-          nftContract = new ethers.Contract(NFT_ADDRESS, nftABI, signer);
+          nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
           displayFeeInfo();
           loadTokens();
           startAutoUpdate();
-          window.ethereum.on('accountsChanged', stopAutoUpdate);
-          window.ethereum.on('chainChanged', stopAutoUpdate);
-          window.ethereum.on('disconnect', stopAutoUpdate);
+          window.ethereum.on('accountsChanged', function () {
+            stopAutoUpdate();
+          });
+          window.ethereum.on('chainChanged', function() {
+            stopAutoUpdate();
+          });
+          window.ethereum.on('disconnect', function() {
+            stopAutoUpdate();
+          });
         } catch (error) {
           document.getElementById("wallet-info").innerHTML = `<p>Error connecting wallet: ${error.message}</p>`;
         }
@@ -416,6 +454,7 @@
       }
     });
 
+    // Auto update rewards every 15 seconds
     function startAutoUpdate() {
       stopAutoUpdate();
       rewardsUpdateInterval = setInterval(async () => {
@@ -434,66 +473,131 @@
       }
     }
 
-    // --- Stake Action (Batch) ---
-    document.getElementById("stake-token").addEventListener("click", async () => {
-      if (selectedTokenIds.length === 0) return alert("Select at least one token.");
+    // Calculate total fees for batch operations
+    async function calculateTotalFees(tokenIds, operation) {
       try {
-        const walletAddress = await signer.getAddress();
         const activationFee = await stakingContract.activationFee();
-        // Monto total que se requerirá para el stake batch
-        const totalActivationFee = activationFee.mul(selectedTokenIds.length);
-        const currentAllowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
-        if (currentAllowance.lt(totalActivationFee)) {
-          document.getElementById("general-output").textContent = "Approving stake fee (" + formatAmount(totalActivationFee) + "). Please wait...";
-          const approveTx = await tokenContract.approve(STAKING_ADDRESS, totalActivationFee);
-          await approveTx.wait();
-          document.getElementById("general-output").textContent = "Approval successful. Proceeding with stake...";
-        }
-        // Llamamos batchStake una sola vez
-        const tx = await stakingContract.batchStake(selectedTokenIds);
-        await tx.wait();
-        document.getElementById("general-output").innerHTML = "All selected tokens staked successfully.";
-        // Limpiar selección y actualizar stats
-        selectedTokenIds = [];
-        document.querySelectorAll(".token-card").forEach(card => card.classList.remove("selected-token"));
-        refreshTokenStats();
-        loadAggregateRewards();
-        displayFeeInfo();
-      } catch (error) {
-        document.getElementById("general-output").innerHTML = "Error staking: " + error.message;
-      }
-    });
-
-    // --- Unstake Action (Batch) ---
-    document.getElementById("unstake-token").addEventListener("click", async () => {
-      if (selectedTokenIds.length === 0) return alert("Select at least one token.");
-      try {
-        const walletAddress = await signer.getAddress();
         const exitFee = await stakingContract.exitFee();
-        // Calcular el total de fees para unstake batch
-        const totalExitFee = exitFee.mul(selectedTokenIds.length);
-        const currentAllowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
-        if (currentAllowance.lt(totalExitFee)) {
-          document.getElementById("general-output").textContent = "Approving unstake fee (" + formatAmount(totalExitFee) + "). Please wait...";
-          const approveTx = await tokenContract.approve(STAKING_ADDRESS, totalExitFee);
-          await approveTx.wait();
-          document.getElementById("general-output").textContent = "Approval successful. Proceeding with unstake...";
+        const claimFee = await stakingContract.claimFee();
+        
+        let totalFee = ethers.BigNumber.from(0);
+        if (operation === 'stake') {
+          totalFee = activationFee.mul(tokenIds.length);
+        } else if (operation === 'unstake') {
+          totalFee = exitFee.mul(tokenIds.length);
+        } else if (operation === 'claim') {
+          totalFee = claimFee.mul(tokenIds.length);
         }
-        const tx = await stakingContract.batchUnstake(selectedTokenIds);
-        await tx.wait();
-        document.getElementById("general-output").innerHTML = "All selected tokens unstaked successfully.";
-        // Limpiar selección y actualizar tokens
-        selectedTokenIds = [];
-        loadTokens();
+        
+        return totalFee;
       } catch (error) {
-        document.getElementById("general-output").innerHTML = "Error unstaking: " + error.message;
+        console.error("Error calculating fees:", error);
+        return ethers.BigNumber.from(0);
       }
-    });
+    }
 
-    document.getElementById("refresh-info").addEventListener("click", () => {
-      refreshTokenStats();
-      loadAggregateRewards();
-      displayFeeInfo();
+    // Handle batch stake
+    async function handleBatchStake() {
+      if (selectedTokenIds.length === 0) {
+        showMessage("Please select at least one token to stake", "error");
+        return;
+      }
+
+      try {
+        const totalFee = await calculateTotalFees(selectedTokenIds, 'stake');
+        const allowance = await tokenContract.allowance(await signer.getAddress(), STAKING_ADDRESS);
+        
+        if (allowance.lt(totalFee)) {
+          showMessage(`Approving ${ethers.utils.formatEther(totalFee)} ADRIAN tokens for staking...`, "info");
+          const approveTx = await tokenContract.approve(STAKING_ADDRESS, totalFee);
+          await approveTx.wait();
+          showMessage("Approval successful!", "success");
+        }
+
+        showMessage(`Staking ${selectedTokenIds.length} tokens...`, "info");
+        const stakeTx = await stakingContract.batchStake(selectedTokenIds);
+        await stakeTx.wait();
+        showMessage("Staking successful!", "success");
+        
+        // Refresh token list and stats
+        await loadTokens();
+        updateTokenStats();
+      } catch (error) {
+        console.error("Error in batch stake:", error);
+        showMessage("Error staking tokens. Please try again.", "error");
+      }
+    }
+
+    // Handle batch unstake
+    async function handleBatchUnstake() {
+      if (selectedTokenIds.length === 0) {
+        showMessage("Please select at least one token to unstake", "error");
+        return;
+      }
+
+      try {
+        const totalFee = await calculateTotalFees(selectedTokenIds, 'unstake');
+        const allowance = await tokenContract.allowance(await signer.getAddress(), STAKING_ADDRESS);
+        
+        if (allowance.lt(totalFee)) {
+          showMessage(`Approving ${ethers.utils.formatEther(totalFee)} ADRIAN tokens for unstaking...`, "info");
+          const approveTx = await tokenContract.approve(STAKING_ADDRESS, totalFee);
+          await approveTx.wait();
+          showMessage("Approval successful!", "success");
+        }
+
+        showMessage(`Unstaking ${selectedTokenIds.length} tokens...`, "info");
+        const unstakeTx = await stakingContract.batchUnstake(selectedTokenIds);
+        await unstakeTx.wait();
+        showMessage("Unstaking successful!", "success");
+        
+        // Refresh token list and stats
+        await loadTokens();
+      } catch (error) {
+        console.error("Error in batch unstake:", error);
+        showMessage("Error unstaking tokens. Please try again.", "error");
+      }
+    }
+
+    // Handle batch claim rewards
+    async function handleBatchClaimRewards() {
+      if (selectedTokenIds.length === 0) {
+        showMessage("Please select at least one token to claim rewards", "error");
+        return;
+      }
+
+      try {
+        const totalFee = await calculateTotalFees(selectedTokenIds, 'claim');
+        const allowance = await tokenContract.allowance(await signer.getAddress(), STAKING_ADDRESS);
+        
+        if (allowance.lt(totalFee)) {
+          showMessage(`Approving ${ethers.utils.formatEther(totalFee)} ADRIAN tokens for claiming...`, "info");
+          const approveTx = await tokenContract.approve(STAKING_ADDRESS, totalFee);
+          await approveTx.wait();
+          showMessage("Approval successful!", "success");
+        }
+
+        showMessage(`Claiming rewards for ${selectedTokenIds.length} tokens...`, "info");
+        const claimTx = await stakingContract.batchClaimRewards(selectedTokenIds);
+        const receipt = await claimTx.wait();
+        const totalClaimed = receipt.events.find(e => e.event === "RewardClaimed").args.reward;
+        showMessage(`Successfully claimed ${ethers.utils.formatEther(totalClaimed)} ADRIAN tokens!`, "success");
+        
+        // Refresh rewards display
+        await loadAggregateRewards();
+      } catch (error) {
+        console.error("Error in batch claim rewards:", error);
+        showMessage("Error claiming rewards. Please try again.", "error");
+      }
+    }
+
+    // Update event listeners
+    document.getElementById('stake-token').addEventListener('click', handleBatchStake);
+    document.getElementById('unstake-token').addEventListener('click', handleBatchUnstake);
+    document.getElementById('refresh-info').addEventListener('click', async () => {
+      await loadTokens();
+      updateTokenStats();
+      await loadAggregateRewards();
     });
   </script>
 </body>
