@@ -422,6 +422,21 @@
       }, 5000);
     }
 
+    // Función para seleccionar/deseleccionar tokens
+    function toggleTokenSelection(card) {
+      card.classList.toggle('selected');
+      updateSelectedTokensCount();
+    }
+
+    // Función para actualizar el contador de tokens seleccionados
+    function updateSelectedTokensCount() {
+      const selectedCount = document.querySelectorAll('.token-card.selected').length;
+      const selectedTokensCount = document.getElementById('selected-tokens-count');
+      if (selectedTokensCount) {
+        selectedTokensCount.textContent = selectedCount;
+      }
+    }
+
     // Stake tokens in batch
     async function stakeTokens() {
       try {
@@ -429,13 +444,12 @@
           throw new Error('MetaMask no está instalado');
         }
 
-        const selectedTokens = Array.from(document.querySelectorAll('.token-card.selected'))
-          .map(card => parseInt(card.dataset.tokenId));
-
-        if (selectedTokens.length === 0) {
+        const selectedCards = document.querySelectorAll('.token-card.selected');
+        if (selectedCards.length === 0) {
           throw new Error('Por favor, selecciona al menos un token');
         }
 
+        const selectedTokens = Array.from(selectedCards).map(card => parseInt(card.dataset.tokenId));
         const activationFee = await stakingContract.activationFee();
         const totalCost = activationFee.mul(selectedTokens.length);
 
@@ -468,21 +482,6 @@
       } catch (error) {
         console.error('Error en stakeTokens:', error);
         showMessage(error.message || 'Error al hacer stake de los tokens', 'error');
-      }
-    }
-
-    // Función para seleccionar/deseleccionar tokens
-    function toggleTokenSelection(card) {
-      card.classList.toggle('selected');
-      updateSelectedTokensCount();
-    }
-
-    // Función para actualizar el contador de tokens seleccionados
-    function updateSelectedTokensCount() {
-      const selectedCount = document.querySelectorAll('.token-card.selected').length;
-      const selectedTokensCount = document.getElementById('selected-tokens-count');
-      if (selectedTokensCount) {
-        selectedTokensCount.textContent = selectedCount;
       }
     }
 
