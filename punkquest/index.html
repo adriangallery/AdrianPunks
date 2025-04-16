@@ -44,7 +44,6 @@
       background: linear-gradient(180deg, var(--card-bg) 0%, var(--screen-bg) 100%);
       border-bottom: 1px solid var(--card-border);
       margin-bottom: 2rem;
-      position: relative;
     }
     header h1 {
       font-size: 2.5rem;
@@ -210,17 +209,20 @@
     <div id="general-output" class="terminal"></div>
   </div>
 
+  <!-- Bootstrap 5 JS and Ethers.js Library -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script>
-    // Lectura RPC para view (Infura key)
+    // RPC solo lectura (Infura Key)
     const readProvider = new ethers.providers.JsonRpcProvider('https://mainnet.infura.io/v3/YOUR_INFURA_KEY');
     let web3Provider, signer;
 
+    // Contratos
     const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
     const STAKING_ADDRESS  = "0x64c46fca3f46442c7abd5303dc1c56a79f4e4273";
 
+    // ABIs
     const tokenABI = [
       "function balanceOf(address) view returns (uint256)",
       "function allowance(address,address) view returns (uint256)",
@@ -236,7 +238,7 @@
       "function batchStake(uint256[] calldata) external",
       "function batchUnstake(uint256[] calldata) external",
       "function batchClaimRewards(uint256[] calldata) external returns (uint256)",
-      "function stakes(uint256) view returns (uint256 stakeStart, uint256 lastClaim)",
+      "function stakes(uint256) view returns (uint256 stakeStart, uint256 lastClaim),",
       "function tokenFastLevelBonus(uint256) view returns (uint256)",
       "function tokenItemsBonus(uint256) view returns (uint256)",
       "function specialTokenBoost(uint256) view returns (uint256)",
@@ -245,60 +247,27 @@
     const nftABI = [
       "function balanceOf(address) view returns (uint256)",
       "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
-      "function tokenURI(uint256) view returns (string)"
     ];
 
+    // Contratos de lectura
     const readTokenContract   = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, readProvider);
     const readStakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, readProvider);
+
+    // Contratos de escritura (MetaMask)
     let tokenContract, stakingContract, nftContract;
     let selectedTokenIds = [];
 
+    // Funciones utilitarias
     function formatAmount(amount) {
-      return parseFloat(ethers.utils.formatUnits(amount, 18)).toLocaleString('en-US',{minFractionDigits:1,maxFractionDigits:1});
+      return parseFloat(ethers.utils.formatUnits(amount, 18))
+        .toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
     }
-    function formatReward(amount) {
-      return parseFloat(ethers.utils.formatUnits(amount, 18)).toLocaleString('en-US',{minFractionDigits:4,maxFractionDigits:4}) + ' A$';
-    }
-    function showMessage(msg, type='info') {
-      const o = document.getElementById('general-output');
-      const e = document.createElement('div'); e.textContent = msg;
-      e.style.color = type==='error'? 'var(--accent-red)' : type==='success'? 'var(--accent-blue)' : 'var(--primary-text)';
-      o.prepend(e); setTimeout(()=>e.remove(),5000);
-    }
-
-    async function handleBatchStake() {
-      if(!signer) return showMessage('Conecta la wallet primero','error');
-      if(selectedTokenIds.length===0) return showMessage('Selecciona al menos un token','error');
-      const user = await signer.getAddress();
-      const singleFee = await readStakingContract.activationFee();
-      const totalFee  = singleFee.mul(selectedTokenIds.length);
-      const allowance = await readTokenContract.allowance(user, STAKING_ADDRESS);
-      if(allowance.lt(totalFee)) {
-        showMessage(`Aprobando ${formatAmount(totalFee)} tokens...`);
-        const tx = await tokenContract.approve(STAKING_ADDRESS, totalFee);
-        await tx.wait(); showMessage('¡Aprobación OK!','success');
-      }
-      try{
-        showMessage(`Staking ${selectedTokenIds.length} tokens...`);
-        const tx2 = await stakingContract.batchStake(selectedTokenIds);
-        await tx2.wait(); showMessage('Staking exitoso 🎉','success');
-        loadTokens(); loadAggregateRewards();
-      } catch(e){ console.error(e); showMessage('Error en batchStake','error'); }
-    }
-
-    document.getElementById('connect-wallet').onclick = async ()=>{
-      if(!window.ethereum) return showMessage('Instala MetaMask!','error');
-      await window.ethereum.request({method:'eth_requestAccounts'});
-      web3Provider = new ethers.providers.Web3Provider(window.ethereum);
-      signer = web3Provider.getSigner();
-      tokenContract   = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
-      stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
-      nftContract     = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
-      const addr = await signer.getAddress();
-      document.getElementById('wallet-info').innerHTML = `<p class="wallet-address">Conectado: ${addr.slice(0,6)}…${addr.slice(-4)}</p>`;
-      displayFeeInfo(); loadTokens(); startAutoUpdate();
-    };
-
-    document.getElementById('stake-token').onclick = handleBatchStake;
-    document.getElementById('unstake-token').onclick = async ()=>{/* similar lógica */};
-    document.getElementById('claim
+    function showMessage(msg, type = 'info') {
+      const out = document.getElementById('general-output');
+      const el = document.createElement('div');
+      el.textContent = msg;
+      el.style.color = type === 'error'
+        ? 'var(--accent-red)'
+        : type === 'success'
+          ? 'var(--accent-blue)'
+          : 'var(--primary-text)';
