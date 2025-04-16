@@ -6,9 +6,9 @@
   <title>PunkQuest Retro - Stake & Claim Rewards</title>
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <!-- Modern fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/market/styles.css">
   <style>
+    /* Original PunkQuest visual styles */
     :root {
       --bg-color: #f8f9fa;
       --primary-text: #2c3e50;
@@ -74,90 +74,105 @@
       border-bottom: 2px solid var(--card-border);
       padding-bottom: 0.5rem;
     }
-    .token-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1.5rem;
-      padding: 1rem;
+    /* end original PunkQuest CSS */
+
+    /* Market-specific tweaks */
+    #tokenBalance {
+      margin-top: 10px;
     }
-    .token-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 8px;
-      padding: 0.8rem;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      min-height: 200px;
+    @media (max-width: 768px) {
+      #tokenBalance {
+        margin-top: 70px;
+      }
+      .card-title {
+        font-size: 1rem;
+        line-height: 1.2;
+        margin-bottom: 0.25rem;
+      }
+      .nft-card .card-body {
+        padding: 0.5rem;
+      }
+      .nft-card .card-text {
+        font-size: 0.85rem;
+      }
+      .action-btn {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.6rem;
+      }
+      .action-btn.dropdown-toggle::after {
+        margin-left: 0.3rem;
+      }
     }
-    .token-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    .modal-dialog {
+      max-width: 500px;
     }
-    .token-card img {
-      width: 100%;
-      height: auto;
-      object-fit: contain;
-      border-radius: 4px;
+    .modal-body img {
+      max-width: 300px;
+      margin: 0 auto;
+      display: block;
     }
-    .selected-token {
-      border-color: var(--accent-blue);
-      box-shadow: 0 0 0 2px var(--accent-blue);
+    .modal-backdrop {
+      opacity: 0.5;
     }
-    .btn {
-      font-family: 'Press Start 2P', monospace;
-      font-size: 0.8rem;
-      padding: 0.8rem 1.2rem;
-      background: var(--card-bg);
-      border: 2px solid var(--primary-text);
-      color: var(--primary-text);
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      margin: 0.5rem;
-      box-shadow: 3px 3px 0 var(--primary-text);
+    body.modal-open {
+      overflow: auto !important;
+      padding-right: 0 !important;
     }
-    .btn:hover {
-      transform: translate(-2px, -2px);
-      box-shadow: 5px 5px 0 var(--primary-text);
-      border-color: var(--accent-blue);
+    .offer-form {
+      transition: all 0.3s ease;
+      opacity: 1;
+      transform: translateY(0);
     }
-    .btn:active {
-      transform: translate(2px, 2px);
-      box-shadow: none;
-      border-color: var(--accent-red);
+    .offer-form.hiding {
+      opacity: 0;
+      transform: translateY(-10px);
     }
-    .terminal {
-      background: var(--card-bg);
-      color: var(--primary-text);
-      padding: 1rem;
-      font-family: 'Space Mono', monos-serif;
+    .modal-body {
+      max-height: 80vh;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+    }
+    .trait-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      font-size: 0.9em;
+      padding: 8px 12px;
+    }
+    .trait-categories {
+      max-height: 400px;
+      overflow-y: auto;
+      padding-right: 10px;
+    }
+    .trait-category {
+      margin-bottom: 1rem;
+    }
+    .trait-category-title {
       font-size: 0.9rem;
-      border: 1px solid var(--card-border);
-      border-radius: 8px;
-      margin: 1rem 0;
-      box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
-    }
-    #total-rewards {
-      font-size: 2.5rem;
-      color: var(--primary-text);
-      text-align: center;
-      margin: 1rem 0;
-      padding: 1rem;
       font-weight: 600;
+      color: #333;
     }
-    .wallet-address {
-      font-family: 'Space Mono', monos-serif;
-      font-size: 0.9rem;
-      color: var(--primary-text);
-      opacity: 0.8;
+    .trait-values {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 0.5rem;
     }
-    @keyframes rewardsUpdate {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.05); }
-      100% { transform: scale(1); }
+    .trait-value-item button {
+      font-size: 0.8rem;
+      padding: 0.25rem 0.5rem;
     }
-    .rewards-update {
-      animation: rewardsUpdate 0.5s ease;
+    #activeFilters {
+      margin-bottom: 1rem;
+    }
+    #activeFilters .badge {
+      font-size: 0.8rem;
+      padding: 0.35rem 0.65rem;
+    }
+    #traitFilterMenu {
+      max-height: 80vh;
+      overflow-y: auto;
     }
   </style>
 </head>
@@ -213,9 +228,9 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script>
-    // RPC solo lectura (Infura Key)
-    const readProvider = new ethers.providers.JsonRpcProvider('https://mainnet.infura.io/v3/YOUR_INFURA_KEY');
     let web3Provider, signer;
+    let tokenContract, stakingContract, nftContract;
+    let selectedTokenIds = [];
 
     // Contratos
     const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
@@ -235,68 +250,82 @@
       "function activationFee() view returns (uint256)",
       "function exitFee() view returns (uint256)",
       "function claimFee() view returns (uint256)",
-      "function batchStake(uint256[] calldata) external",
-      "function batchUnstake(uint256[] calldata) external",
-      "function batchClaimRewards(uint256[] calldata) external returns (uint256)",
-      "function stakes(uint256) view returns (uint256 stakeStart, uint256 lastClaim),",
-      "function tokenFastLevelBonus(uint256) view returns (uint256)",
-      "function tokenItemsBonus(uint256) view returns (uint256)",
-      "function specialTokenBoost(uint256) view returns (uint256)",
-      "function tokenFixedAdjustment(uint256) view returns (int256)"
+      "function batchStake(uint256[]) returns ()",
+      "function batchUnstake(uint256[]) returns ()",
+      "function batchClaimRewards(uint256[]) returns (uint256)",
+      "function stakes(uint256) view returns (uint256,uint256)",
+      "function totalStaked() view returns (uint256)"
     ];
     const nftABI = [
       "function balanceOf(address) view returns (uint256)",
-      "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+      "function tokenOfOwnerByIndex(address,uint256) view returns (uint256)",
+      "function ownerOf(uint256) view returns (address)"
     ];
-
-    // Contratos de lectura
-    const readTokenContract   = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, readProvider);
-    const readStakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, readProvider);
-
-    // Contratos de escritura (MetaMask)
-    let tokenContract, stakingContract, nftContract;
-    let selectedTokenIds = [];
-
-    // Funciones utilitarias
-    function formatAmount(amount) {
-      return parseFloat(ethers.utils.formatUnits(amount, 18))
-        .toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-    }
-    function showMessage(msg, type = 'info') {
-      const out = document.getElementById('general-output');
-      const el = document.createElement('div');
-      el.textContent = msg;
-      el.style.color = type === 'error'
-        ? 'var(--accent-red)'
-        : type === 'success'
-          ? 'var(--accent-blue)'
-          : 'var(--primary-text)';
-    }
 
     async function connectWallet() {
       try {
-        if (typeof web3Provider === 'undefined') {
-          web3Provider = new ethers.providers.Web3Provider(window.ethereum);
-          signer = web3Provider.getSigner();
-          tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
-          stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
-          nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
-          await updateWalletInfo();
-          await updateTokens();
-          await updateTotalRewards();
-          document.getElementById('connect-wallet').textContent = 'Wallet Connected';
+        if (typeof window.ethereum === 'undefined') {
+          showMessage('Please install MetaMask to use this application', 'error');
+          return;
         }
+
+        // Solicitar conexión a la wallet
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        
+        // Inicializar el provider y el signer
+        web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = web3Provider.getSigner();
+        
+        // Inicializar los contratos
+        tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
+        stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
+        nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
+
+        // Actualizar la información de la wallet
+        await updateWalletInfo();
+        await updateTokens();
+        await updateTotalRewards();
+        
+        // Actualizar el botón de conexión
+        document.getElementById('connect-wallet').textContent = 'Wallet Connected';
+        document.getElementById('connect-wallet').disabled = true;
+
+        // Escuchar cambios en la cuenta
+        window.ethereum.on('accountsChanged', handleAccountsChanged);
+        window.ethereum.on('chainChanged', handleChainChanged);
+
       } catch (error) {
         console.error('Error connecting to wallet:', error);
-        showMessage('Error connecting to wallet', 'error');
+        showMessage('Error connecting to wallet: ' + error.message, 'error');
       }
+    }
+
+    function handleAccountsChanged(accounts) {
+      if (accounts.length === 0) {
+        // Wallet desconectada
+        document.getElementById('connect-wallet').textContent = 'Connect Wallet';
+        document.getElementById('connect-wallet').disabled = false;
+        document.getElementById('wallet-info').textContent = '';
+        document.getElementById('total-rewards').textContent = '0 A$';
+        document.getElementById('tokens-grid').innerHTML = '';
+      } else {
+        // Actualizar la información con la nueva cuenta
+        updateWalletInfo();
+        updateTokens();
+        updateTotalRewards();
+      }
+    }
+
+    function handleChainChanged(chainId) {
+      // Recargar la página cuando cambie la red
+      window.location.reload();
     }
 
     async function updateWalletInfo() {
       try {
         const balance = await signer.getBalance();
-        const formattedBalance = formatAmount(balance);
-        document.getElementById('wallet-info').textContent = `Balance: ${formattedBalance} A$`;
+        const formattedBalance = ethers.utils.formatEther(balance);
+        document.getElementById('wallet-info').textContent = `Balance: ${formattedBalance} ETH`;
       } catch (error) {
         console.error('Error getting wallet balance:', error);
         showMessage('Error getting wallet balance', 'error');
@@ -305,10 +334,10 @@
 
     async function updateTokens() {
       try {
-        const totalTokens = await tokenContract.balanceOf(signer.address);
+        const balance = await nftContract.balanceOf(await signer.getAddress());
         const tokens = [];
-        for (let i = 0; i < totalTokens; i++) {
-          const tokenId = await tokenContract.tokenOfOwnerByIndex(signer.address, i);
+        for (let i = 0; i < balance.toNumber(); i++) {
+          const tokenId = await nftContract.tokenOfOwnerByIndex(await signer.getAddress(), i);
           tokens.push(tokenId.toString());
         }
         displayTokens(tokens);
@@ -320,9 +349,20 @@
 
     async function updateTotalRewards() {
       try {
-        const totalRewards = await readStakingContract.stakes(signer.address);
-        const formattedRewards = formatAmount(totalRewards.totalRewards);
-        document.getElementById('total-rewards').textContent = formattedRewards;
+        let totalRewards = ethers.BigNumber.from(0);
+        const balance = await nftContract.balanceOf(await signer.getAddress());
+        
+        for (let i = 0; i < balance.toNumber(); i++) {
+          const tokenId = await nftContract.tokenOfOwnerByIndex(await signer.getAddress(), i);
+          const stakeInfo = await stakingContract.stakes(tokenId);
+          if (stakeInfo[0].gt(0)) { // Si está staked
+            const rewards = await stakingContract.batchClaimRewards([tokenId]);
+            totalRewards = totalRewards.add(rewards);
+          }
+        }
+        
+        const formattedRewards = ethers.utils.formatEther(totalRewards);
+        document.getElementById('total-rewards').textContent = `${formattedRewards} A$`;
       } catch (error) {
         console.error('Error getting total rewards:', error);
         showMessage('Error getting total rewards', 'error');
@@ -334,10 +374,15 @@
       tokenGrid.innerHTML = '';
       tokens.forEach(tokenId => {
         const tokenCard = document.createElement('div');
-        tokenCard.className = 'token-card';
+        tokenCard.className = 'col token-card';
         tokenCard.innerHTML = `
-          <img src="https://ipfs.io/ipfs/QmNrhZHUaEqxhyLfqoq1mtHSipkWHeT31LNHb1QEbDHgncaI/QmNrhZHUaEqxhyLfqoq1mtHSipkWHeT31LNHb1QEbDHgncaI.png" alt="Token ${tokenId}">
-          <p>${tokenId}</p>
+          <div class="card h-100">
+            <img src="https://ipfs.io/ipfs/QmNrhZHUaEqxhyLfqoq1mtHSipkWHeT31LNHb1QEbDHgncaI/QmNrhZHUaEqxhyLfqoq1mtHSipkWHeT31LNHb1QEbDHgncaI.png" 
+                 class="card-img-top" alt="Token ${tokenId}">
+            <div class="card-body">
+              <h5 class="card-title">Token #${tokenId}</h5>
+            </div>
+          </div>
         `;
         tokenCard.onclick = () => {
           if (selectedTokenIds.includes(tokenId)) {
@@ -347,80 +392,28 @@
             selectedTokenIds.push(tokenId);
             tokenCard.classList.add('selected-token');
           }
+          updateTokenStats();
         };
         tokenGrid.appendChild(tokenCard);
       });
     }
 
-    async function stakeTokens() {
-      try {
-        const totalFee = await stakingContract.activationFee();
-        const approveTx = await tokenContract.approve(
-          STAKING_ADDRESS,
-          totalFee,
-          {
-            gasLimit: 100000
-          }
-        );
-        const stakeTx = await stakingContract.batchStake(selectedTokenIds, {
-          gasLimit: 300000
-        });
-        await approveTx.wait();
-        await stakeTx.wait();
-        showMessage('Tokens staked successfully', 'success');
-        await updateTotalRewards();
-      } catch (error) {
-        console.error('Error staking tokens:', error);
-        showMessage('Error staking tokens', 'error');
+    function updateTokenStats() {
+      const statsDiv = document.getElementById('individual-token-stats');
+      if (selectedTokenIds.length === 0) {
+        statsDiv.textContent = 'Select one or more tokens to view detailed statistics.';
+        return;
       }
+      statsDiv.textContent = `Selected ${selectedTokenIds.length} token(s)`;
     }
 
-    async function unstakeTokens() {
-      try {
-        const totalFee = await stakingContract.exitFee();
-        const approveTx = await tokenContract.approve(
-          STAKING_ADDRESS,
-          totalFee,
-          {
-            gasLimit: 100000
-          }
-        );
-        const unstakeTx = await stakingContract.batchUnstake(selectedTokenIds, {
-          gasLimit: 300000
-        });
-        await approveTx.wait();
-        await unstakeTx.wait();
-        showMessage('Tokens unstaked successfully', 'success');
-        await updateTotalRewards();
-      } catch (error) {
-        console.error('Error unstaking tokens:', error);
-        showMessage('Error unstaking tokens', 'error');
-      }
+    function showMessage(message, type = 'info') {
+      const output = document.getElementById('action-output');
+      output.textContent = message;
+      output.className = `terminal ${type}`;
     }
 
-    async function claimRewards() {
-      try {
-        const totalFee = await stakingContract.claimFee();
-        const approveTx = await tokenContract.approve(
-          STAKING_ADDRESS,
-          totalFee,
-          {
-            gasLimit: 100000
-          }
-        );
-        const claimTx = await stakingContract.batchClaimRewards(selectedTokenIds, {
-          gasLimit: 300000
-        });
-        await approveTx.wait();
-        await claimTx.wait();
-        showMessage('Rewards claimed successfully', 'success');
-        await updateTotalRewards();
-      } catch (error) {
-        console.error('Error claiming rewards:', error);
-        showMessage('Error claiming rewards', 'error');
-      }
-    }
-
+    // Asignar eventos a los botones
     document.getElementById('connect-wallet').onclick = connectWallet;
     document.getElementById('stake-token').onclick = stakeTokens;
     document.getElementById('unstake-token').onclick = unstakeTokens;
