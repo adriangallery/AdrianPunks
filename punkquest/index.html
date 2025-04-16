@@ -314,192 +314,164 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script>
-    let web3Provider, signer;
+    let provider, signer;
     let tokenContract, stakingContract, nftContract;
     let selectedTokenIds = [];
+    let rewardsUpdateInterval;
 
-    // Contratos
     const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
-    const STAKING_ADDRESS  = "0x64c46fca3f46442c7abd5303dc1c56a79f4e4273";
+    const STAKING_ADDRESS = "0x64c46fca3f46442c7abd5303dc1c56a79f4e4273";
 
     // ABIs
     const tokenABI = [
       "function balanceOf(address) view returns (uint256)",
       "function allowance(address,address) view returns (uint256)",
       "function approve(address,uint256) returns (bool)",
-      "function decimals() view returns (uint8)",
-      "function symbol() view returns (string)",
-      "function name() view returns (string)"
+      "function decimals() view returns (uint8)"
     ];
     const stakingABI = [
       "function activationFee() view returns (uint256)",
       "function exitFee() view returns (uint256)",
-      "function claimFee() view returns (uint256)",
       "function batchStake(uint256[]) returns ()",
       "function batchUnstake(uint256[]) returns ()",
-      "function batchClaimRewards(uint256[]) returns (uint256)",
-      "function stakes(uint256) view returns (uint256,uint256)",
-      "function totalStaked() view returns (uint256)"
+      "function batchClaimRewards(uint256[]) returns (uint256)"
     ];
     const nftABI = [
       "function balanceOf(address) view returns (uint256)",
-      "function tokenOfOwnerByIndex(address,uint256) view returns (uint256)",
-      "function ownerOf(uint256) view returns (address)"
+      "function tokenOfOwnerByIndex(address,uint256) view returns (uint256)"
     ];
 
-    async function connectWallet() {
-      try {
-        if (typeof window.ethereum === 'undefined') {
-          showMessage('Please install MetaMask to use this application', 'error');
-          return;
-        }
+    // Helpers to format amounts
+    function formatAmount(amount) {
+      const value = parseFloat(ethers.utils.formatUnits(amount, 18));
+      return value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " $ADRIAN";
+    }
 
-        // Solicitar conexión a la wallet
+    // Display fee info
+    async function displayFeeInfo() {
+      if (!stakingContract) return;
+      try {
+        const activationFee = await stakingContract.activationFee();
+        const exitFee = await stakingContract.exitFee();
+        document.getElementById('fee-info').textContent = `Stake Cost: ${formatAmount(activationFee)} | Unstake Cost: ${formatAmount(exitFee)}`;
+      } catch (e) {
+        document.getElementById('fee-info').textContent = "Error fetching fee info: " + e.message;
+      }
+    }
+
+    // Load tokens with images from JSON
+    async function loadTokens() {
+      try {
+        const walletAddress = await signer.getAddress();
+        const response = await fetch('/punkquest/adrianpunks.json');
+        const data = await response.json();
+        const collection = data.collection;
+        const balance = await nftContract.balanceOf(walletAddress);
+        const count = balance.toNumber();
+        const grid = document.getElementById('tokens-grid');
+        grid.innerHTML = '';
+        selectedTokenIds = [];
+        for (let i = 0; i < count; i++) {
+          const tokenId = (await nftContract.tokenOfOwnerByIndex(walletAddress, i)).toString();
+          const tokenInfo = collection.find(item => {
+            const parts = item.name?.split("#");
+            return parts?.[1] === tokenId;
+          });
+          const imgSrc = tokenInfo ? tokenInfo.image : `https://via.placeholder.com/150?text=Token+${tokenId}`;
+          const col = document.createElement('div'); col.className = 'col';
+          const card = document.createElement('div'); card.className = 'card token-card'; card.dataset.tokenId = tokenId;
+          const img = document.createElement('img'); img.src = imgSrc; img.alt = `Token ${tokenId}`;
+          const label = document.createElement('div'); label.style.textAlign = 'center'; label.style.marginTop = '0.5rem'; label.textContent = `Token ${tokenId}`;
+          card.append(img, label);
+          card.addEventListener('click', () => {
+            const id = card.dataset.tokenId;
+            if (selectedTokenIds.includes(id)) {
+              selectedTokenIds = selectedTokenIds.filter(x => x !== id);
+              card.classList.remove('selected-token');
+            } else {
+              selectedTokenIds.push(id);
+              card.classList.add('selected-token');
+            }
+            document.getElementById('action-output').textContent = 'Selected tokens: ' + selectedTokenIds.join(', ');
+            displayFeeInfo();
+          });
+          col.appendChild(card);
+          grid.appendChild(col);
+        }
+        displayAggregateRewards();
+        displayFeeInfo();
+      } catch (error) {
+        document.getElementById('general-output').textContent = "Error loading tokens: " + error.message;
+      }
+    }
+
+    // Display aggregate rewards (placeholder)
+    async function displayAggregateRewards() {
+      // Implement based on stakingContract details
+    }
+
+    // Stake tokens in batch
+    async function stakeTokens() {
+      if (selectedTokenIds.length === 0) return alert('Please select tokens to stake.');
+      try {
+        const walletAddress = await signer.getAddress();
+        const activationFee = await stakingContract.activationFee();
+        const totalFee = activationFee.mul(selectedTokenIds.length);
+        const allowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
+        if (allowance.lt(totalFee)) {
+          document.getElementById('general-output').textContent = 'Approving spending...';
+          const tx = await tokenContract.approve(STAKING_ADDRESS, totalFee);
+          await tx.wait();
+        }
+        const txStake = await stakingContract.batchStake(selectedTokenIds);
+        await txStake.wait();
+        document.getElementById('general-output').textContent = 'Staked: ' + selectedTokenIds.join(', ');
+        loadTokens();
+      } catch (e) {
+        document.getElementById('general-output').textContent = 'Error staking: ' + e.message;
+      }
+    }
+
+    document.getElementById('connect-wallet').addEventListener('click', async () => {
+      if (!window.ethereum) {
+        document.getElementById('wallet-info').innerHTML = '<p>Please install MetaMask!</p>';
+        return;
+      }
+      try {
         await window.ethereum.request({ method: 'eth_requestAccounts' });
-        
-        // Inicializar el provider y el signer
-        web3Provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = web3Provider.getSigner();
-        
-        // Inicializar los contratos
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
         tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
         stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
         nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
 
-        // Actualizar la información de la wallet
-        await updateWalletInfo();
-        await updateTokens();
-        await updateTotalRewards();
-        
-        // Actualizar el botón de conexión
-        document.getElementById('connect-wallet').textContent = 'Wallet Connected';
-        document.getElementById('connect-wallet').disabled = true;
+        const address = await signer.getAddress();
+        const shortAddr = address.substring(0,6) + '...' + address.slice(-4);
+        const rawBalance = await tokenContract.balanceOf(address);
+        const decimals = await tokenContract.decimals();
+        const bal = parseFloat(ethers.utils.formatUnits(rawBalance, decimals)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('wallet-info').innerHTML = `<p class="wallet-address">Connected: ${shortAddr}</p><p class="wallet-address">Balance: ${bal} $ADRIAN</p>`;
 
-        // Escuchar cambios en la cuenta
-        window.ethereum.on('accountsChanged', handleAccountsChanged);
-        window.ethereum.on('chainChanged', handleChainChanged);
-
+        loadTokens();
+        // Optionally start auto-update
+        window.ethereum.on('accountsChanged', () => location.reload());
+        window.ethereum.on('chainChanged', () => location.reload());
       } catch (error) {
-        console.error('Error connecting to wallet:', error);
-        showMessage('Error connecting to wallet: ' + error.message, 'error');
+        document.getElementById('wallet-info').innerHTML = `<p>Error: ${error.message}</p>`;
       }
-    }
+    });
 
-    function handleAccountsChanged(accounts) {
-      if (accounts.length === 0) {
-        // Wallet desconectada
-        document.getElementById('connect-wallet').textContent = 'Connect Wallet';
-        document.getElementById('connect-wallet').disabled = false;
-        document.getElementById('wallet-info').textContent = '';
-        document.getElementById('total-rewards').textContent = '0 A$';
-        document.getElementById('tokens-grid').innerHTML = '';
-      } else {
-        // Actualizar la información con la nueva cuenta
-        updateWalletInfo();
-        updateTokens();
-        updateTotalRewards();
-      }
-    }
-
-    function handleChainChanged(chainId) {
-      // Recargar la página cuando cambie la red
-      window.location.reload();
-    }
-
-    async function updateWalletInfo() {
-      try {
-        const balance = await signer.getBalance();
-        const formattedBalance = ethers.utils.formatEther(balance);
-        document.getElementById('wallet-info').textContent = `Balance: ${formattedBalance} ETH`;
-      } catch (error) {
-        console.error('Error getting wallet balance:', error);
-        showMessage('Error getting wallet balance', 'error');
-      }
-    }
-
-    async function updateTokens() {
-      try {
-        const balance = await nftContract.balanceOf(await signer.getAddress());
-        const tokens = [];
-        for (let i = 0; i < balance.toNumber(); i++) {
-          const tokenId = await nftContract.tokenOfOwnerByIndex(await signer.getAddress(), i);
-          tokens.push(tokenId.toString());
-        }
-        displayTokens(tokens);
-      } catch (error) {
-        console.error('Error getting tokens:', error);
-        showMessage('Error getting tokens', 'error');
-      }
-    }
-
-    async function updateTotalRewards() {
-      try {
-        let totalRewards = ethers.BigNumber.from(0);
-        const balance = await nftContract.balanceOf(await signer.getAddress());
-        
-        for (let i = 0; i < balance.toNumber(); i++) {
-          const tokenId = await nftContract.tokenOfOwnerByIndex(await signer.getAddress(), i);
-          const stakeInfo = await stakingContract.stakes(tokenId);
-          if (stakeInfo[0].gt(0)) { // Si está staked
-            const rewards = await stakingContract.batchClaimRewards([tokenId]);
-            totalRewards = totalRewards.add(rewards);
-          }
-        }
-        
-        const formattedRewards = ethers.utils.formatEther(totalRewards);
-        document.getElementById('total-rewards').textContent = `${formattedRewards} A$`;
-      } catch (error) {
-        console.error('Error getting total rewards:', error);
-        showMessage('Error getting total rewards', 'error');
-      }
-    }
-
-    function displayTokens(tokens) {
-      const tokenGrid = document.getElementById('tokens-grid');
-      tokenGrid.innerHTML = '';
-      tokens.forEach(tokenId => {
-        const tokenCard = document.createElement('div');
-        tokenCard.className = 'token-card';
-        tokenCard.innerHTML = `
-          <img src="https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/${tokenId}.png" alt="Token ${tokenId}">
-          <p>${tokenId}</p>
-        `;
-        tokenCard.onclick = () => {
-          if (selectedTokenIds.includes(tokenId)) {
-            selectedTokenIds = selectedTokenIds.filter(id => id !== tokenId);
-            tokenCard.classList.remove('selected-token');
-          } else {
-            selectedTokenIds.push(tokenId);
-            tokenCard.classList.add('selected-token');
-          }
-          updateTokenStats();
-        };
-        tokenGrid.appendChild(tokenCard);
-      });
-    }
-
-    function updateTokenStats() {
-      const statsDiv = document.getElementById('individual-token-stats');
-      if (selectedTokenIds.length === 0) {
-        statsDiv.textContent = 'Select one or more tokens to view detailed statistics.';
-        return;
-      }
-      statsDiv.textContent = `Selected ${selectedTokenIds.length} token(s)`;
-    }
-
-    function showMessage(message, type = 'info') {
-      const output = document.getElementById('action-output');
-      output.textContent = message;
-      output.className = `terminal ${type}`;
-    }
-
-    // Asignar eventos a los botones
-    document.getElementById('connect-wallet').onclick = connectWallet;
-    document.getElementById('stake-token').onclick = stakeTokens;
-    document.getElementById('unstake-token').onclick = unstakeTokens;
-    document.getElementById('claim-token').onclick = claimRewards;
-    document.getElementById('refresh-info').onclick = updateTotalRewards;
+    document.getElementById('stake-token').addEventListener('click', stakeTokens);
+    document.getElementById('unstake-token').addEventListener('click', () => {
+      // Implement batchUnstake similar to stakeTokens
+    });
+    document.getElementById('claim-token').addEventListener('click', () => {
+      // Implement batchClaimRewards if desired
+    });
+    document.getElementById('refresh-info').addEventListener('click', () => {
+      loadTokens();
+    });
   </script>
 </body>
 </html>
