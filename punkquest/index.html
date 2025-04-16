@@ -415,15 +415,20 @@
     async function stakeTokens() {
       if (selectedTokenIds.length === 0) return alert('Please select tokens to stake.');
       try {
-        const walletAddress = await signer.getAddress();
         const activationFee = await stakingContract.activationFee();
         const totalFee = activationFee.mul(selectedTokenIds.length);
-        const allowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
-        if (allowance.lt(totalFee)) {
-          document.getElementById('general-output').textContent = 'Approving spending...';
-          const tx = await tokenContract.approve(STAKING_ADDRESS, totalFee);
-          await tx.wait();
-        }
+        document.getElementById('general-output').textContent = 'Approving spending...';
+        const approveTx = await tokenContract.approve(STAKING_ADDRESS, totalFee);
+        await approveTx.wait();
+        document.getElementById('general-output').textContent = 'Approval confirmed. Staking tokens...';
+        const stakeTx = await stakingContract.batchStake(selectedTokenIds);
+        await stakeTx.wait();
+        document.getElementById('general-output').textContent = 'Staked: ' + selectedTokenIds.join(', ');
+        loadTokens();
+      } catch (e) {
+        document.getElementById('general-output').textContent = 'Error staking: ' + e.message;
+      }
+    }
         const txStake = await stakingContract.batchStake(selectedTokenIds);
         await txStake.wait();
         document.getElementById('general-output').textContent = 'Staked: ' + selectedTokenIds.join(', ');
