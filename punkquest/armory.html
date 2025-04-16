@@ -445,13 +445,13 @@
         });
         html += "</tbody></table>";
         cartList.innerHTML = html;
-        // Mostrar el total formateado a "600.0" si totalCost es 600 * 10^18
+        // Mostrar el total formateado a "300.0" A$ si el total es 300 * 10^18
         document.getElementById("cart-total").innerText = "Total: " + ethers.utils.formatUnits(total, 18) + " A$";
         document.getElementById("buy-all-btn").disabled = total.isZero();
       }
     }
   
-    // Function to handle batch purchase (Buy All button).
+    // Función para manejar la compra en lote (botón Buy All).
     document.getElementById("buy-all-btn").addEventListener("click", async () => {
       if (shoppingCart.length === 0) {
         alert("Your cart is empty.");
@@ -459,7 +459,7 @@
       }
 
       try {
-        // Calculate total cost in wei
+        // Calcular el costo total en wei a partir de los valores ya formateados (por ejemplo, 300 A$ se convierte a 300*10^18)
         let totalCost = ethers.BigNumber.from(0);
         shoppingCart.forEach(item => {
           const itemPrice = ethers.utils.parseUnits(item.price, 18);
@@ -472,23 +472,22 @@
 
         if (allowance.lt(totalCost)) {
           document.getElementById("general-output").innerText = "Approving spending for batch purchase. Please wait...";
-          const approveTx = await tokenContract.approve(PUNKQUEST_ADDRESS, totalCost, { gasLimit: 100000 });
+          // Se utiliza el totalCost calculado sin parámetros manuales de gas
+          const approveTx = await tokenContract.approve(PUNKQUEST_ADDRESS, totalCost);
           await approveTx.wait();
         }
 
-        // Prepare arrays for itemIds and quantities
+        // Preparar arreglos para itemIds y quantities
         const itemIds = shoppingCart.map(item => item.id);
         const quantities = shoppingCart.map(item => item.quantity);
 
         document.getElementById("general-output").innerText = "Submitting batch purchase transaction...";
-        const tx = await punkQuestContract.batchBuyItems(itemIds, quantities, { 
-          gasLimit: 500000,
-          gasPrice: ethers.utils.parseUnits("50", "gwei")
-        });
+        // Llamada a la función batchBuyItems sin parámetros manuales de gas
+        const tx = await punkQuestContract.batchBuyItems(itemIds, quantities);
         await tx.wait();
         document.getElementById("general-output").innerText = "Batch purchase successful!";
         
-        // Clear cart and reload inventory
+        // Limpiar carrito y recargar inventario del usuario
         shoppingCart = [];
         updateCartUI();
         loadUserInventory();
