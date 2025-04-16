@@ -536,13 +536,29 @@
         
         if (allowance.lt(totalFee)) {
           showMessage(`Approving ${ethers.utils.formatEther(totalFee)} ADRIAN tokens for staking...`, "info");
-          const approveTx = await tokenContract.approve(STAKING_ADDRESS, totalFee);
+          const approveTx = await tokenContract.approve(
+            STAKING_ADDRESS,
+            totalFee,
+            {
+              gasLimit: 100000,
+              customData: {
+                title: "PunkQuest - Staking Approval",
+                description: `This approval allows PunkQuest to stake ${selectedTokenIds.length} tokens. The total fee is ${ethers.utils.formatEther(totalFee)} ADRIAN tokens.`
+              }
+            }
+          );
           await approveTx.wait();
           showMessage("Approval successful!", "success");
         }
 
         showMessage(`Staking ${selectedTokenIds.length} tokens...`, "info");
-        const stakeTx = await stakingContract.batchStake(selectedTokenIds);
+        const stakeTx = await stakingContract.batchStake(selectedTokenIds, {
+          gasLimit: 300000,
+          customData: {
+            title: "PunkQuest - Staking Tokens",
+            description: `Staking ${selectedTokenIds.length} tokens in PunkQuest.`
+          }
+        });
         await stakeTx.wait();
         showMessage("Staking successful!", "success");
         
@@ -568,13 +584,29 @@
         
         if (allowance.lt(totalFee)) {
           showMessage(`Approving ${ethers.utils.formatEther(totalFee)} ADRIAN tokens for unstaking...`, "info");
-          const approveTx = await tokenContract.approve(STAKING_ADDRESS, totalFee);
+          const approveTx = await tokenContract.approve(
+            STAKING_ADDRESS,
+            totalFee,
+            {
+              gasLimit: 100000,
+              customData: {
+                title: "PunkQuest - Unstaking Approval",
+                description: `This approval allows PunkQuest to unstake ${selectedTokenIds.length} tokens. The total fee is ${ethers.utils.formatEther(totalFee)} ADRIAN tokens.`
+              }
+            }
+          );
           await approveTx.wait();
           showMessage("Approval successful!", "success");
         }
 
         showMessage(`Unstaking ${selectedTokenIds.length} tokens...`, "info");
-        const unstakeTx = await stakingContract.batchUnstake(selectedTokenIds);
+        const unstakeTx = await stakingContract.batchUnstake(selectedTokenIds, {
+          gasLimit: 300000,
+          customData: {
+            title: "PunkQuest - Unstaking Tokens",
+            description: `Unstaking ${selectedTokenIds.length} tokens from PunkQuest.`
+          }
+        });
         await unstakeTx.wait();
         showMessage("Unstaking successful!", "success");
         
@@ -599,13 +631,29 @@
         
         if (allowance.lt(totalFee)) {
           showMessage(`Approving ${ethers.utils.formatEther(totalFee)} ADRIAN tokens for claiming...`, "info");
-          const approveTx = await tokenContract.approve(STAKING_ADDRESS, totalFee);
+          const approveTx = await tokenContract.approve(
+            STAKING_ADDRESS,
+            totalFee,
+            {
+              gasLimit: 100000,
+              customData: {
+                title: "PunkQuest - Claim Rewards Approval",
+                description: `This approval allows PunkQuest to claim rewards for ${selectedTokenIds.length} tokens. The total fee is ${ethers.utils.formatEther(totalFee)} ADRIAN tokens.`
+              }
+            }
+          );
           await approveTx.wait();
           showMessage("Approval successful!", "success");
         }
 
         showMessage(`Claiming rewards for ${selectedTokenIds.length} tokens...`, "info");
-        const claimTx = await stakingContract.batchClaimRewards(selectedTokenIds);
+        const claimTx = await stakingContract.batchClaimRewards(selectedTokenIds, {
+          gasLimit: 300000,
+          customData: {
+            title: "PunkQuest - Claiming Rewards",
+            description: `Claiming rewards for ${selectedTokenIds.length} tokens from PunkQuest.`
+          }
+        });
         const receipt = await claimTx.wait();
         const totalClaimed = receipt.events.find(e => e.event === "RewardClaimed").args.reward;
         showMessage(`Successfully claimed ${ethers.utils.formatEther(totalClaimed)} ADRIAN tokens!`, "success");
