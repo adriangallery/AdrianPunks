@@ -318,6 +318,7 @@
     let tokenContract, stakingContract, nftContract;
     let selectedTokenIds = [];
     let rewardsUpdateInterval;
+    let updateInterval;
 
     const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
@@ -335,7 +336,8 @@
       "function exitFee() view returns (uint256)",
       "function batchStake(uint256[]) returns ()",
       "function batchUnstake(uint256[]) returns ()",
-      "function batchClaimRewards(uint256[]) returns (uint256)"
+      "function batchClaimRewards(uint256[]) returns (uint256)",
+      "function getAggregateRewards(address) view returns (uint256)"
     ];
     const nftABI = [
       "function balanceOf(address) view returns (uint256)",
@@ -408,7 +410,44 @@
 
     // Display aggregate rewards (placeholder)
     async function displayAggregateRewards() {
-      // Implement based on stakingContract details
+      try {
+        if (!window.ethereum) {
+          throw new Error('MetaMask no está instalado');
+        }
+
+        const walletAddress = await signer.getAddress();
+        const rewards = await stakingContract.getAggregateRewards(walletAddress);
+        const formattedRewards = ethers.utils.formatEther(rewards);
+        
+        const rewardsElement = document.getElementById('aggregate-rewards');
+        if (rewardsElement) {
+          rewardsElement.textContent = `${formattedRewards} ADRIAN`;
+        }
+      } catch (error) {
+        console.error('Error al cargar recompensas:', error);
+        const rewardsElement = document.getElementById('aggregate-rewards');
+        if (rewardsElement) {
+          rewardsElement.textContent = 'Error al cargar recompensas';
+        }
+      }
+    }
+
+    // Función para actualizar automáticamente las recompensas
+    function startAutoUpdate() {
+      if (updateInterval) {
+        clearInterval(updateInterval);
+      }
+      updateInterval = setInterval(async () => {
+        await displayAggregateRewards();
+      }, 15000); // Actualizar cada 15 segundos
+    }
+
+    // Función para detener la actualización automática
+    function stopAutoUpdate() {
+      if (updateInterval) {
+        clearInterval(updateInterval);
+        updateInterval = null;
+      }
     }
 
     // Stake tokens in batch
