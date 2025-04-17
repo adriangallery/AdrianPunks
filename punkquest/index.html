@@ -494,7 +494,7 @@
         for (const tokenId of selectedTokenIds) {
           try {
             const [stakeStart, lastClaim] = await stakingContract.stakes(tokenId);
-            const rewards = await stakingContract.getAggregateRewards(await signer.getAddress());
+            const rewards = await stakingContract.getRewards(tokenId);
             
             const isStaked = stakeStart.gt(0);
             const stakingDuration = isStaked ? Math.floor((Date.now() / 1000 - stakeStart.toNumber()) / 3600) : 0;
@@ -511,11 +511,11 @@
               </div>
             `;
           } catch (error) {
-            if (error.code === 'CALL_EXCEPTION' && error.message.includes('over rate limit')) {
+            if (error.code === 'CALL_EXCEPTION') {
               statsHTML += `
                 <div class="token-stats-item">
                   <h3>Token #${tokenId}</h3>
-                  <p style="color: var(--accent-red);">Error: Rate limit exceeded. Please try again in a few moments.</p>
+                  <p style="color: var(--accent-red);">Error: Token not staked or no rewards available</p>
                 </div>
               `;
             } else {
