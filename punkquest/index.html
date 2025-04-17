@@ -492,36 +492,52 @@
         let statsHTML = '<div class="token-stats-container">';
         
         for (const tokenId of selectedTokenIds) {
-          const [weaponId, armorId, bonus, lastEventTimestamp] = await stakingContract.tokenArmory(tokenId);
-          const fastLevelBonus = await stakingContract.tokenFastLevelBonus(tokenId);
-          const fixedAdjustment = await stakingContract.tokenFixedAdjustment(tokenId);
-          const itemsBonus = await stakingContract.tokenItemsBonus(tokenId);
-          const [stakeStart, lastClaim] = await stakingContract.stakes(tokenId);
-          
-          const isStaked = stakeStart.gt(0);
-          const stakingDuration = isStaked ? Math.floor((Date.now() / 1000 - stakeStart.toNumber()) / 3600) : 0;
-          
-          statsHTML += `
-            <div class="token-stats-item">
-              <h3>Token #${tokenId}</h3>
-              <p>Status: ${isStaked ? 'Staked' : 'Not Staked'}</p>
-              ${isStaked ? `
-                <p>Staking Duration: ${stakingDuration} hours</p>
-                <p>Last Claim: ${new Date(lastClaim.toNumber() * 1000).toLocaleString()}</p>
-              ` : ''}
-              <p>Armory Bonus: ${bonus.toString()}</p>
-              <p>Fast Level Bonus: ${fastLevelBonus.toString()}</p>
-              <p>Items Bonus: ${itemsBonus.toString()}</p>
-              <p>Fixed Adjustment: ${fixedAdjustment.toString()}</p>
-              <p>Last Event: ${lastEventTimestamp.gt(0) ? new Date(lastEventTimestamp.toNumber() * 1000).toLocaleString() : 'Never'}</p>
-            </div>
-          `;
+          try {
+            const [stakeStart, lastClaim] = await stakingContract.stakes(tokenId);
+            const rewards = await stakingContract.getAggregateRewards(await signer.getAddress());
+            
+            const isStaked = stakeStart.gt(0);
+            const stakingDuration = isStaked ? Math.floor((Date.now() / 1000 - stakeStart.toNumber()) / 3600) : 0;
+            
+            statsHTML += `
+              <div class="token-stats-item">
+                <h3>Token #${tokenId}</h3>
+                <p>Status: ${isStaked ? 'Staked' : 'Not Staked'}</p>
+                ${isStaked ? `
+                  <p>Staking Duration: ${stakingDuration} hours</p>
+                  <p>Last Claim: ${new Date(lastClaim.toNumber() * 1000).toLocaleString()}</p>
+                  <p>Pending Rewards: ${formatAmount(rewards)}</p>
+                ` : ''}
+              </div>
+            `;
+          } catch (error) {
+            if (error.code === 'CALL_EXCEPTION' && error.message.includes('over rate limit')) {
+              statsHTML += `
+                <div class="token-stats-item">
+                  <h3>Token #${tokenId}</h3>
+                  <p style="color: var(--accent-red);">Error: Rate limit exceeded. Please try again in a few moments.</p>
+                </div>
+              `;
+            } else {
+              statsHTML += `
+                <div class="token-stats-item">
+                  <h3>Token #${tokenId}</h3>
+                  <p style="color: var(--accent-red);">Error: ${error.message}</p>
+                </div>
+              `;
+            }
+          }
         }
         
         statsHTML += '</div>';
         document.getElementById('individual-token-stats').innerHTML = statsHTML;
       } catch (error) {
-        document.getElementById('individual-token-stats').textContent = "Error fetching token statistics: " + error.message;
+        document.getElementById('individual-token-stats').innerHTML = `
+          <div class="token-stats-item">
+            <h3>Error</h3>
+            <p style="color: var(--accent-red);">Error fetching token statistics: ${error.message}</p>
+          </div>
+        `;
       }
     }
 
