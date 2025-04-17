@@ -359,7 +359,7 @@
 
     const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
-    const STAKING_ADDRESS = "0x64c46fca3f46442c7abd5303dc1c56a79f4e4273";
+    const STAKING_ADDRESS = "0xaf22843e195b792a3f874562ab7cee751066665e";
 
     // ABIs
     const tokenABI = [
@@ -372,11 +372,9 @@
       "function batchStake(uint256[]) returns ()",
       "function batchUnstake(uint256[]) returns ()",
       "function batchClaimRewards(uint256[]) returns (uint256)",
-      "function getAggregateRewards(address) view returns (uint256)",
-      "function tokenArmory(uint256) view returns (uint256,uint256,uint256,uint256)",
-      "function tokenFastLevelBonus(uint256) view returns (uint256)",
-      "function tokenFixedAdjustment(uint256) view returns (int256)",
-      "function tokenItemsBonus(uint256) view returns (uint256)",
+      "function getTokenDetailedInfo(uint256) view returns (uint256,uint256,uint256,uint256,uint256,int256,uint256)",
+      "function getTokenStats(uint256) view returns (uint256,uint256)",
+      "function getTokenArmoryDetails(uint256) view returns (uint256,uint256,uint256[],uint256)",
       "function stakes(uint256) view returns (uint256,uint256)",
       "function baseRewardRate() view returns (uint256)",
       "function activationFee() view returns (uint256)",
@@ -394,7 +392,10 @@
       "function isSocialBoostActive() view returns (bool)",
       "function totalStaked() view returns (uint256)",
       "function totalItemsEquipped() view returns (uint256)",
-      "function totalItemsPurchased() view returns (uint256)"
+      "function totalItemsPurchased() view returns (uint256)",
+      "function pendingPassiveReward(uint256) view returns (uint256)",
+      "function pendingGameReward(uint256) view returns (uint256)",
+      "function pendingTotalReward(uint256) view returns (uint256)"
     ];
     const nftABI = [
       "function balanceOf(address) view returns (uint256)",
@@ -481,11 +482,8 @@
         for (let i = 0; i < count; i++) {
           try {
             const tokenId = (await nftContract.tokenOfOwnerByIndex(walletAddress, i)).toString();
-            const [stakeStart, lastClaim] = await stakingContract.stakes(tokenId);
-            if (stakeStart.gt(0)) {
-              const rewards = await stakingContract.getRewards(tokenId);
-              totalRewards = totalRewards.add(rewards);
-            }
+            const rewards = await stakingContract.pendingTotalReward(tokenId);
+            totalRewards = totalRewards.add(rewards);
           } catch (error) {
             console.error(`Error fetching rewards for token ${i}:`, error);
           }
@@ -513,8 +511,9 @@
         
         for (const tokenId of selectedTokenIds) {
           try {
-            const [stakeStart, lastClaim] = await stakingContract.stakes(tokenId);
-            const rewards = await stakingContract.getRewards(tokenId);
+            const [stakeStart, lastClaim, fastLevel, itemsBonus, specialBonus, fixedAdjustment, pendingRewards] = await stakingContract.getTokenDetailedInfo(tokenId);
+            const [passiveRewards, gameRewards] = await stakingContract.getTokenStats(tokenId);
+            const [weaponId, armorId, extraItems, lastEvent] = await stakingContract.getTokenArmoryDetails(tokenId);
             
             const isStaked = stakeStart.gt(0);
             const stakingDuration = isStaked ? Math.floor((Date.now() / 1000 - stakeStart.toNumber()) / 3600) : 0;
@@ -526,7 +525,14 @@
                 ${isStaked ? `
                   <p>Staking Duration: ${stakingDuration} hours</p>
                   <p>Last Claim: ${new Date(lastClaim.toNumber() * 1000).toLocaleString()}</p>
-                  <p>Pending Rewards: ${formatAmount(rewards)}</p>
+                  <p>Fast Level: ${fastLevel.toString()}</p>
+                  <p>Items Bonus: ${formatAmount(itemsBonus)}</p>
+                  <p>Special Bonus: ${formatAmount(specialBonus)}</p>
+                  <p>Fixed Adjustment: ${formatAmount(fixedAdjustment)}</p>
+                  <p>Passive Rewards: ${formatAmount(passiveRewards)}</p>
+                  <p>Game Rewards: ${formatAmount(gameRewards)}</p>
+                  <p>Total Pending: ${formatAmount(pendingRewards)}</p>
+                  <p>Last Event: ${new Date(lastEvent.toNumber() * 1000).toLocaleString()}</p>
                 ` : ''}
               </div>
             `;
