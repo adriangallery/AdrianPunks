@@ -471,13 +471,33 @@
       if (!stakingContract || !signer) return;
       try {
         const walletAddress = await signer.getAddress();
-        const totalRewards = await stakingContract.getAggregateRewards(walletAddress);
+        let totalRewards = ethers.BigNumber.from(0);
+        
+        // Obtener todos los tokens del usuario
+        const balance = await nftContract.balanceOf(walletAddress);
+        const count = balance.toNumber();
+        
+        // Sumar las recompensas de cada token
+        for (let i = 0; i < count; i++) {
+          try {
+            const tokenId = (await nftContract.tokenOfOwnerByIndex(walletAddress, i)).toString();
+            const [stakeStart, lastClaim] = await stakingContract.stakes(tokenId);
+            if (stakeStart.gt(0)) {
+              const rewards = await stakingContract.getRewards(tokenId);
+              totalRewards = totalRewards.add(rewards);
+            }
+          } catch (error) {
+            console.error(`Error fetching rewards for token ${i}:`, error);
+          }
+        }
+        
         const rewardsElement = document.getElementById('total-rewards');
         rewardsElement.textContent = formatAmount(totalRewards);
         rewardsElement.classList.add('rewards-update');
         setTimeout(() => rewardsElement.classList.remove('rewards-update'), 500);
       } catch (error) {
         console.error("Error fetching aggregate rewards:", error);
+        document.getElementById('total-rewards').textContent = "Error loading rewards";
       }
     }
 
@@ -494,7 +514,7 @@
         for (const tokenId of selectedTokenIds) {
           try {
             const [stakeStart, lastClaim] = await stakingContract.stakes(tokenId);
-            const rewards = await stakingContract.getAggregateRewards(await signer.getAddress());
+            const rewards = await stakingContract.getRewards(tokenId);
             
             const isStaked = stakeStart.gt(0);
             const stakingDuration = isStaked ? Math.floor((Date.now() / 1000 - stakeStart.toNumber()) / 3600) : 0;
@@ -506,7 +526,7 @@
                 ${isStaked ? `
                   <p>Staking Duration: ${stakingDuration} hours</p>
                   <p>Last Claim: ${new Date(lastClaim.toNumber() * 1000).toLocaleString()}</p>
-                  <p>Total Pending Rewards: ${formatAmount(rewards)}</p>
+                  <p>Pending Rewards: ${formatAmount(rewards)}</p>
                 ` : ''}
               </div>
             `;
