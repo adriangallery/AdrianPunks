@@ -173,7 +173,7 @@
     <section id="total-rewards-section" class="mb-4">
       <div class="card">
         <h2 class="section-title">Total Pending Rewards</h2>
-        <div id="total-rewards" class="big-number">0 A$</div>
+        <div id="total-rewards" class="big-number">0 $ADRIAN</div>
       </div>
     </section>
 
@@ -233,8 +233,7 @@
       "function batchUnstake(uint256[]) returns ()",
       "function batchClaimRewards(uint256[]) returns (uint256)",
       "function getAggregateRewards(address) view returns (uint256)",
-      "function stakes(uint256) view returns (uint256 stakeStart, uint256 lastClaim)",
-      "function baseRewardRate() view returns (uint256)"
+      "function claimRewards(uint256) returns (uint256)"
     ];
     const nftABI = [
       "function balanceOf(address) view returns (uint256)",
@@ -244,7 +243,7 @@
     // Helpers to format amounts
     function formatAmount(amount) {
       const value = parseFloat(ethers.utils.formatUnits(amount, 18));
-      return value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " ADRIAN";
+      return value.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " $ADRIAN";
     }
 
     // Display fee info
@@ -257,6 +256,40 @@
       } catch (e) {
         document.getElementById('fee-info').textContent = "Error fetching fee info: " + e.message;
       }
+    }
+
+    // Display total pending rewards
+    async function displayAggregateRewards() {
+      if (!stakingContract) return;
+      try {
+        const walletAddress = await signer.getAddress();
+        const rewards = await stakingContract.getAggregateRewards(walletAddress);
+        const el = document.getElementById('total-rewards');
+        el.textContent = formatAmount(rewards);
+        el.classList.add('rewards-update');
+        setTimeout(() => el.classList.remove('rewards-update'), 500);
+      } catch (e) {
+        document.getElementById('total-rewards').textContent = 'Error loading rewards';
+      }
+    }
+
+    // Display individual token statistics
+    async function displayTokenStats() {
+      const statsEl = document.getElementById('individual-token-stats');
+      if (selectedTokenIds.length === 0) {
+        statsEl.textContent = 'Select one or more tokens to view detailed statistics.';
+        return;
+      }
+      let statsText = '';
+      for (const id of selectedTokenIds) {
+        try {
+          const pending = await stakingContract.callStatic.claimRewards(id);
+          statsText += `Token ${id}: ${formatAmount(pending)}\n`;
+        } catch (e) {
+          statsText += `Token ${id}: Error (${e.message})\n`;
+        }
+      }
+      statsEl.textContent = statsText;
     }
 
     // Load tokens with images from JSON
@@ -280,8 +313,8 @@
           const imgSrc = tokenInfo ? tokenInfo.image : `https://via.placeholder.com/150?text=Token+${tokenId}`;
           const col = document.createElement('div'); col.className = 'col';
           const card = document.createElement('div'); card.className = 'card token-card'; card.dataset.tokenId = tokenId;
-          const img = document.createElement('img'); img.src = imgSrc; img.alt = `Token ${tokenId}`;
-          const label = document.createElement('div'); label.style.textAlign = 'center'; label.style.marginTop = '0.5rem'; label.textContent = `Token ${tokenId}`;
+          const img = document.createElement('img'); img.src = imgSrc;	img.alt = `Token ${tokenId}`;
+          const label = document.createElement('div'); label.style.textAlign = 'center';	label.style.marginTop = '0.5rem';	label.textContent = `Token ${tokenId}`;
           card.append(img, label);
           card.addEventListener('click', async () => {
             const id = card.dataset.tokenId;
@@ -307,39 +340,6 @@
       }
     }
 
-    // Display total pending rewards
-    async function displayAggregateRewards() {
-      try {
-        const walletAddress = await signer.getAddress();
-        const rewards = await stakingContract.getAggregateRewards(walletAddress);
-        const rewardsEl = document.getElementById('total-rewards');
-        rewardsEl.textContent = formatAmount(rewards);
-        rewardsEl.classList.add('rewards-update');
-        setTimeout(() => rewardsEl.classList.remove('rewards-update'), 500);
-      } catch (error) {
-        document.getElementById('total-rewards').textContent = 'Error loading rewards';
-      }
-    }
-
-    // Display individual token stats
-    async function displayTokenStats() {
-      const statsEl = document.getElementById('individual-token-stats');
-      if (selectedTokenIds.length === 0) {
-        statsEl.textContent = 'Select one or more tokens to view detailed statistics.';
-        return;
-      }
-      let statsText = '';
-      for (const id of selectedTokenIds) {
-        try {
-          const reward = await stakingContract.callStatic.claimRewards(id);
-          statsText += `Token ${id}: ${ethers.utils.formatEther(reward)} ADRIAN\n`;
-        } catch (e) {
-          statsText += `Token ${id}: Error (${e.message})\n`;
-        }
-      }
-      statsEl.textContent = statsText;
-    }
-
     // Auto-update rewards every 15 seconds
     function startAutoUpdate() {
       if (updateInterval) clearInterval(updateInterval);
@@ -354,59 +354,4 @@
         const activationFee = await stakingContract.activationFee();
         const totalFee = activationFee.mul(selectedTokenIds.length);
         const allowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
-        if (allowance.lt(totalFee)) {
-          document.getElementById('general-output').textContent = 'Approving spending...';
-          const tx = await tokenContract.approve(STAKING_ADDRESS, totalFee);
-          await tx.wait();
-        }
-        const txStake = await stakingContract.batchStake(selectedTokenIds);
-        await txStake.wait();
-        document.getElementById('general-output').textContent = 'Staked: ' + selectedTokenIds.join(', ');
-        loadTokens();
-      } catch (e) {
-        document.getElementById('general-output').textContent = 'Error staking: ' + e.message;
-      }
-    }
-
-    document.getElementById('connect-wallet').addEventListener('click', async () => {
-      if (!window.ethereum) {
-        document.getElementById('wallet-info').innerHTML = '<p>Please install MetaMask!</p>';
-        return;
-      }
-      try {
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-        tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
-        stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
-        nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
-
-        const address = await signer.getAddress();
-        const shortAddr = address.substring(0,6) + '...' + address.slice(-4);
-        const rawBalance = await tokenContract.balanceOf(address);
-        const decimals = await tokenContract.decimals();
-        const bal = parseFloat(ethers.utils.formatUnits(rawBalance, decimals)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        document.getElementById('wallet-info').innerHTML = `<p class="wallet-address">Connected: ${shortAddr}</p><p class="wallet-address">Balance: ${bal} ADRIAN</p>`;
-
-        await loadTokens();
-        startAutoUpdate();
-        window.ethereum.on('accountsChanged', () => location.reload());
-        window.ethereum.on('chainChanged', () => location.reload());
-      } catch (error) {
-        document.getElementById('wallet-info').innerHTML = `<p>Error: ${error.message}</p>`;
-      }
-    });
-
-    document.getElementById('stake-token').addEventListener('click', stakeTokens);
-    document.getElementById('unstake-token').addEventListener('click', () => {
-      // Implement batchUnstake similarly
-    });
-    document.getElementById('claim-token').addEventListener('click', () => {
-      // Implement batchClaimRewards if desired
-    });
-    document.getElementById('refresh-info').addEventListener('click', () => {
-      loadTokens();
-    });
-  </script>
-</body>
-</html>
+        if (allowance.lt(totalFeeback... truncated for brevity due to message length constraints
