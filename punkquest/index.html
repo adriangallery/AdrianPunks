@@ -355,6 +355,7 @@
     let provider, signer;
     let tokenContract, stakingContract, nftContract;
     let selectedTokenIds = [];
+    let allMyTokenIds = [];
     let rewardsUpdateInterval;
 
     const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
@@ -375,6 +376,7 @@
       "function getTokenDetailedInfo(uint256) view returns (uint256,uint256,uint256,uint256,uint256,int256,uint256)",
       "function getTokenStats(uint256) view returns (uint256,uint256)",
       "function getTokenArmoryDetails(uint256) view returns (uint256,uint256,uint256[],uint256)",
+      "function getWalletStats(address,uint256[]) view returns (uint256[],uint256,uint256)",
       "function stakes(uint256) view returns (uint256,uint256)",
       "function baseRewardRate() view returns (uint256)",
       "function activationFee() view returns (uint256)",
@@ -432,8 +434,10 @@
         const grid = document.getElementById('tokens-grid');
         grid.innerHTML = '';
         selectedTokenIds = [];
+        allMyTokenIds = [];
         for (let i = 0; i < count; i++) {
           const tokenId = (await nftContract.tokenOfOwnerByIndex(walletAddress, i)).toString();
+          allMyTokenIds.push(tokenId);
           const tokenInfo = collection.find(item => {
             const parts = item.name?.split("#");
             return parts?.[1] === tokenId;
@@ -469,32 +473,21 @@
 
     // Display aggregate rewards
     async function displayAggregateRewards() {
-      if (!stakingContract || !signer) return;
+      if (!stakingContract || !signer || allMyTokenIds.length === 0) return;
       try {
         const walletAddress = await signer.getAddress();
-        let totalRewards = ethers.BigNumber.from(0);
-        
-        // Obtener todos los tokens del usuario
-        const balance = await nftContract.balanceOf(walletAddress);
-        const count = balance.toNumber();
-        
-        // Sumar las recompensas de cada token
-        for (let i = 0; i < count; i++) {
-          try {
-            const tokenId = (await nftContract.tokenOfOwnerByIndex(walletAddress, i)).toString();
-            const rewards = await stakingContract.pendingTotalReward(tokenId);
-            totalRewards = totalRewards.add(rewards);
-          } catch (error) {
-            console.error(`Error fetching rewards for token ${i}:`, error);
-          }
-        }
-        
+        const [, pendingPassive, pendingGame] = await stakingContract.getWalletStats(
+          walletAddress,
+          allMyTokenIds
+        );
+        const total = pendingPassive.add(pendingGame);
+
         const rewardsElement = document.getElementById('total-rewards');
-        rewardsElement.textContent = formatAmount(totalRewards);
+        rewardsElement.textContent = formatAmount(total);
         rewardsElement.classList.add('rewards-update');
         setTimeout(() => rewardsElement.classList.remove('rewards-update'), 500);
-      } catch (error) {
-        console.error("Error fetching aggregate rewards:", error);
+      } catch (err) {
+        console.error("Error fetching wallet stats:", err);
         document.getElementById('total-rewards').textContent = "Error loading rewards";
       }
     }
@@ -508,6 +501,8 @@
 
       try {
         let statsHTML = '<div class="token-stats-container">';
+        
+        selectedTokenIds.sort((a, b) => Number(a) - Number(b));
         
         for (const tokenId of selectedTokenIds) {
           try {
