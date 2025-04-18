@@ -494,74 +494,81 @@
 
     // Display token statistics
     async function displayTokenStats() {
+      const out = document.getElementById('individual-token-stats');
+
       if (selectedTokenIds.length === 0) {
-        document.getElementById('individual-token-stats').textContent = "Select one or more tokens to view detailed statistics.";
+        out.textContent = 'Select one or more tokens to view detailed statistics.';
         return;
       }
 
       try {
-        let statsHTML = '<div class="token-stats-container">';
-        
+        let html = '<div class="token-stats-container">';
         selectedTokenIds.sort((a, b) => Number(a) - Number(b));
-        
+
         for (const tokenId of selectedTokenIds) {
           try {
-            const [stakeStart, lastClaim, fastLevel, itemsBonus, specialBonus, fixedAdjustment] = await stakingContract.getTokenDetailedInfo(tokenId);
-            const [weaponId, armorId, extraItems, lastEvent] = await stakingContract.getTokenArmoryDetails(tokenId);
-            const pendingPassive = await stakingContract.pendingPassiveReward(tokenId);
-            const pendingGame = await stakingContract.pendingGameReward(tokenId);
-            
+            /* ── 1. Pedimos todos los datos de golpe ── */
+            const [
+              stakeStart,
+              lastClaim,
+              fastLevel,
+              itemsBonus,
+              specialBonus,
+              fixedAdjustment,
+              pendingTotal
+            ] = await stakingContract.getTokenDetailedInfo(tokenId);
+
+            /* Si NO está staked no llamamos a las funciones que revertirían */
+            let pendingPassive   = ethers.constants.Zero;
+            let pendingGame      = ethers.constants.Zero;
+            let weaponId = 0, armorId = 0, extraItems = [], lastEvent = 0;
+
             const isStaked = stakeStart.gt(0);
-            const stakingDuration = isStaked ? Math.floor((Date.now() / 1000 - stakeStart.toNumber()) / 3600) : 0;
-            
-            const totalRewards = pendingPassive.add(pendingGame);
-            
-            statsHTML += `
+
+            if (isStaked) {
+              /* ── 2. Estas llamadas sólo si realmente está staked ── */
+              [pendingPassive, pendingGame] = await stakingContract.getTokenStats(tokenId);
+              [weaponId, armorId, extraItems, lastEvent] =
+                await stakingContract.getTokenArmoryDetails(tokenId);
+            }
+
+            const stakingHrs   = isStaked
+              ? Math.floor((Date.now()/1000 - stakeStart.toNumber()) / 3600)
+              : 0;
+
+            html += `
               <div class="token-stats-item">
                 <h3>Token #${tokenId}</h3>
                 <p>Status: ${isStaked ? 'Staked' : 'Not Staked'}</p>
                 ${isStaked ? `
-                  <p>Staking Duration: ${stakingDuration} hours</p>
-                  <p>Last Claim: ${new Date(lastClaim.toNumber() * 1000).toLocaleString()}</p>
-                  <p>Fast Level: ${fastLevel.toString()}</p>
-                  <p>Items Bonus: ${formatAmount(itemsBonus)} $ADRIAN</p>
-                  <p>Special Bonus: ${formatAmount(specialBonus)} $ADRIAN</p>
-                  <p>Fixed Adjustment: ${formatAmount(fixedAdjustment)} $ADRIAN</p>
-                  <p>Passive Rewards: ${formatAmount(pendingPassive)} $ADRIAN</p>
-                  <p>Game Rewards: ${formatAmount(pendingGame)} $ADRIAN</p>
-                  <p>Total Pending: ${formatAmount(totalRewards)} $ADRIAN</p>
-                  <p>Last Event: ${lastEvent.gt(0) ? new Date(lastEvent.toNumber() * 1000).toLocaleString() : 'No events yet'}</p>
+                  <p>Staking Duration: ${stakingHrs} hours</p>
+                  <p>Last Claim: ${new Date(lastClaim.toNumber()*1000).toLocaleString()}</p>
+                  <p>Fast Level Bonus: ${formatAmount(fastLevel)}</p>
+                  <p>Items Bonus: ${formatAmount(itemsBonus)}</p>
+                  <p>Special Bonus: ${formatAmount(specialBonus)}</p>
+                  <p>Fixed Adjustment: ${formatAmount(fixedAdjustment)}</p>
+                  <p>Passive Rewards: ${formatAmount(pendingPassive)}</p>
+                  <p>Game Rewards: ${formatAmount(pendingGame)}</p>
+                  <p><strong>Total Pending: ${formatAmount(pendingTotal)}</strong></p>
+                  <p>Last Event: ${lastEvent > 0
+                    ? new Date(lastEvent.toNumber()*1000).toLocaleString()
+                    : 'No events yet'}</p>
                 ` : ''}
-              </div>
-            `;
-          } catch (error) {
-            if (error.code === 'CALL_EXCEPTION') {
-              statsHTML += `
-                <div class="token-stats-item">
-                  <h3>Token #${tokenId}</h3>
-                  <p style="color: var(--accent-red);">Error: Token not staked or no rewards available</p>
-                </div>
-              `;
-            } else {
-              statsHTML += `
-                <div class="token-stats-item">
-                  <h3>Token #${tokenId}</h3>
-                  <p style="color: var(--accent-red);">Error: ${error.message}</p>
-                </div>
-              `;
-            }
+              </div>`;
+          } catch (innerErr) {
+            html += `<div class="token-stats-item">
+                       <h3>Token #${tokenId}</h3>
+                       <p style="color:var(--accent-red);">Error: ${innerErr.message}</p>
+                     </div>`;
           }
         }
-        
-        statsHTML += '</div>';
-        document.getElementById('individual-token-stats').innerHTML = statsHTML;
-      } catch (error) {
-        document.getElementById('individual-token-stats').innerHTML = `
-          <div class="token-stats-item">
-            <h3>Error</h3>
-            <p style="color: var(--accent-red);">Error fetching token statistics: ${error.message}</p>
-          </div>
-        `;
+
+        out.innerHTML = html + '</div>';
+      } catch (err) {
+        out.innerHTML = `<div class="token-stats-item">
+                           <h3>Error</h3>
+                           <p style="color:var(--accent-red);">${err.message}</p>
+                         </div>`;
       }
     }
 
