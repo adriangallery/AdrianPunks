@@ -330,8 +330,8 @@
         }
         // Configurar el provider de MetaMask
         const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
-        // Configurar el provider de Etherscan para consultas
-        const etherscanProvider = new ethers.providers.JsonRpcProvider("https://mainnet.base.org", {
+        // Configurar el provider de Base para consultas usando un endpoint alternativo
+        const etherscanProvider = new ethers.providers.JsonRpcProvider("https://base.llamarpc.com", {
           name: "base",
           chainId: 8453
         });
@@ -354,6 +354,11 @@
         console.error("Error connecting wallet:", error);
         document.getElementById("status").innerText = "Error connecting wallet: " + error.message;
       }
+    }
+    
+    // Función auxiliar para añadir retraso entre llamadas
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
     }
     
     function getTierName(i) {
@@ -388,17 +393,19 @@
         const currentTimestamp = Math.floor(Date.now() / 1000);
         debugInfo += `<p>Current Timestamp: ${currentTimestamp}</p>`;
         
-        // Obtener todos los salePhases de una vez
+        // Obtener todos los salePhases de una vez con retraso
         const salePhasesPromises = [];
         for (let i = 0; i < 8; i++) {
           salePhasesPromises.push(adrianPunksContract.salePhases(i));
+          await sleep(100); // 100ms de retraso entre llamadas
         }
         const salePhases = await Promise.all(salePhasesPromises);
         
-        // Obtener toda la información de whitelist de una vez
+        // Obtener toda la información de whitelist de una vez con retraso
         const whitelistPromises = [];
         for (let i = 0; i < 8; i++) {
           whitelistPromises.push(adrianPunksContract.getWhitelistInfo(i, userAccount));
+          await sleep(100); // 100ms de retraso entre llamadas
         }
         const whitelistInfo = await Promise.all(whitelistPromises);
         
