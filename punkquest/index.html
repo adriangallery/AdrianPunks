@@ -581,6 +581,7 @@
         await txStake.wait();
         document.getElementById('general-output').textContent = 'Staked: ' + selectedTokenIds.join(', ');
         loadTokens();
+        displayAggregateRewards();
       } catch (e) {
         document.getElementById('general-output').textContent = 'Error staking: ' + e.message;
       }
@@ -616,8 +617,36 @@
     });
 
     document.getElementById('stake-token').addEventListener('click', stakeTokens);
-    document.getElementById('unstake-token').addEventListener('click', () => {
-      // Implement batchUnstake similar to stakeTokens
+    document.getElementById('unstake-token').addEventListener('click', async () => {
+      if (selectedTokenIds.length === 0) {
+        alert('Please select token(s) first'); return;
+      }
+
+      const general_output = document.getElementById('general-output');
+      try {
+        const wallet = await signer.getAddress();
+        const exitFee  = await stakingContract.exitFee();
+        const totalFee = exitFee.mul(selectedTokenIds.length);
+        const allowance = await tokenContract.allowance(wallet, STAKING_ADDRESS);
+
+        if (allowance.lt(totalFee)) {
+          general_output.textContent = 'Approving exit fee…';
+          const txA = await tokenContract.approve(STAKING_ADDRESS, totalFee);
+          await txA.wait();
+        }
+
+        general_output.textContent = 'Unstaking…';
+        const tx = await stakingContract.batchUnstake(selectedTokenIds);
+        await tx.wait();
+
+        general_output.textContent = 'Unstaked: ' + selectedTokenIds.join(', ');
+        selectedTokenIds = [];                 // limpiamos selección
+        loadTokens();                          // refresca grilla
+        displayAggregateRewards();             // refresca recompensas globales
+      } catch (err) {
+        general_output.textContent = 'Error unstaking: ' + err.message;
+        console.error(err);
+      }
     });
     document.getElementById('claim-token').addEventListener('click', () => {
       // Implement batchClaimRewards if desired
