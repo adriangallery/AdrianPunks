@@ -178,6 +178,56 @@
         margin-bottom: 10px;
       }
     }
+
+    .success-popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--background);
+      padding: 2rem;
+      border-radius: 1rem;
+      box-shadow: 0 0 20px rgba(0,0,0,0.3);
+      text-align: center;
+      z-index: 1000;
+      display: none;
+      border: 2px solid var(--accent-green);
+    }
+
+    .success-popup h2 {
+      color: var(--accent-green);
+      margin-bottom: 1rem;
+    }
+
+    .success-popup p {
+      margin-bottom: 1.5rem;
+    }
+
+    .market-button {
+      background: var(--accent-green);
+      color: var(--background);
+      padding: 0.8rem 1.5rem;
+      border-radius: 0.5rem;
+      text-decoration: none;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+
+    .market-button:hover {
+      background: var(--accent-green-hover);
+      transform: translateY(-2px);
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.7);
+      z-index: 999;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -226,6 +276,14 @@
     <div id="status"></div>
   </div>
  
+  <!-- Añadir el popup y overlay -->
+  <div class="overlay" id="overlay"></div>
+  <div class="success-popup" id="successPopup">
+    <h2>MINT SUCCESSFUL!</h2>
+    <p>Now you can dump them here:</p>
+    <a href="https://adrianpunks.com/market" class="market-button">AdrianMarket</a>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     // Direcciones de contratos
@@ -439,6 +497,7 @@
         statusDiv.innerText = "Mint successful!";
         loadWhitelistInfo();
         updateMintedCounter();
+        showSuccessPopup();
       } catch (error) {
         console.error("Error during mint:", error);
         statusDiv.innerText = "Error: " + (error.data?.message || error.message);
@@ -496,10 +555,24 @@
         statusDiv.innerText = "Max Mint successful!";
         loadWhitelistInfo();
         updateMintedCounter();
+        showSuccessPopup();
       } catch (error) {
         console.error("Error during max mint:", error);
         statusDiv.innerText = "Error: " + (error.data?.message || error.message);
       }
+    }
+    
+    function showSuccessPopup() {
+      const popup = document.getElementById('successPopup');
+      const overlay = document.getElementById('overlay');
+      popup.style.display = 'block';
+      overlay.style.display = 'block';
+      
+      // Cerrar popup al hacer clic en el overlay
+      overlay.onclick = function() {
+        popup.style.display = 'none';
+        overlay.style.display = 'none';
+      };
     }
     
     document.getElementById("connectWalletButton").addEventListener("click", connectWallet);
