@@ -639,12 +639,15 @@
 
         if (allowance.lt(totalFee)) {
           general_output.textContent = 'Approving exit fee…';
-          const txA = await tokenContract.approve(STAKING_ADDRESS, totalFee);
+          // Aprobamos una cantidad mayor para evitar problemas de gas
+          const txA = await tokenContract.approve(STAKING_ADDRESS, totalFee.mul(2));
           await txA.wait();
         }
 
         general_output.textContent = 'Unstaking…';
-        const tx = await stakingContract.batchUnstake(selectedTokenIds);
+        const tx = await stakingContract.batchUnstake(selectedTokenIds, {
+          gasLimit: 300000 // Añadimos un límite de gas explícito
+        });
         await tx.wait();
 
         general_output.textContent = 'Unstaked: ' + selectedTokenIds.join(', ');
