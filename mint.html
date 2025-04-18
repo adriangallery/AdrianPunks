@@ -328,13 +328,19 @@
           document.getElementById("status").innerText = "Please install MetaMask.";
           return;
         }
-        provider = new ethers.providers.Web3Provider(window.ethereum);
+        // Configurar el provider de MetaMask
+        const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+        // Configurar el provider de Etherscan para consultas
+        const etherscanProvider = new ethers.providers.EtherscanProvider("base", "XZHRTDQ4EX39SIQMR3M9F14W7AWCJX8UIQ");
+        // Usar el provider de MetaMask para transacciones
+        provider = web3Provider;
         await provider.send("eth_requestAccounts", []);
         signer = provider.getSigner();
         userAccount = await signer.getAddress();
         document.getElementById("status").innerText = "Wallet connected: " + userAccount;
-        adrianPunksContract = new ethers.Contract(adrianPunksAddress, adrianPunksABI, signer);
-        adrianTokenContract = new ethers.Contract(adrianTokenAddress, erc20ABI, signer);
+        // Usar el provider de Etherscan para consultas de contrato
+        adrianPunksContract = new ethers.Contract(adrianPunksAddress, adrianPunksABI, etherscanProvider);
+        adrianTokenContract = new ethers.Contract(adrianTokenAddress, erc20ABI, etherscanProvider);
         document.getElementById("connectWalletButton").disabled = true;
         document.getElementById("mintForm").style.display = "block";
         document.getElementById("mintedCounter").style.display = "block";
