@@ -505,38 +505,45 @@
         let html = '<div class="token-stats-container">';
         selectedTokenIds.sort((a, b) => Number(a) - Number(b));
 
-        for (const tokenId of selectedTokenIds) {
-          try {
-            const [stakeStart, lastClaim] = await stakingContract.stakes(tokenId);
-            const pendingRewards = await stakingContract.pendingPassiveReward(tokenId);
-            const isStaked = stakeStart.gt(0);
-            const stakingHrs = isStaked
-              ? Math.floor((Date.now()/1000 - stakeStart.toNumber()) / 3600)
-              : 0;
+        // Obtener todos los stakes de una vez
+        const stakesPromises = selectedTokenIds.map(tokenId => 
+          stakingContract.stakes(tokenId).catch(() => [ethers.BigNumber.from(0), ethers.BigNumber.from(0)])
+        );
+        const stakes = await Promise.all(stakesPromises);
 
-            html += `
-              <div class="token-stats-item">
-                <h3>Token #${tokenId}</h3>
-                <p>Status: ${isStaked ? 'Staked' : 'Not Staked'}</p>
-                ${isStaked ? `
-                  <p>Staking Duration: ${stakingHrs} hours</p>
-                  <p>Last Claim: ${new Date(lastClaim.toNumber()*1000).toLocaleString()}</p>
-                  <p>Pending Rewards: ${formatAmount(pendingRewards)}</p>
-                ` : ''}
-              </div>`;
-          } catch (innerErr) {
-            html += `<div class="token-stats-item">
-                       <h3>Token #${tokenId}</h3>
-                       <p style="color:var(--accent-red);">Error: ${innerErr.message}</p>
-                     </div>`;
-          }
+        // Obtener todos los pending rewards de una vez
+        const rewardsPromises = selectedTokenIds.map(tokenId => 
+          stakingContract.pendingPassiveReward(tokenId).catch(() => ethers.BigNumber.from(0))
+        );
+        const pendingRewards = await Promise.all(rewardsPromises);
+
+        for (let i = 0; i < selectedTokenIds.length; i++) {
+          const tokenId = selectedTokenIds[i];
+          const [stakeStart, lastClaim] = stakes[i];
+          const pendingReward = pendingRewards[i];
+          const isStaked = stakeStart.gt(0);
+          const stakingHrs = isStaked
+            ? Math.floor((Date.now()/1000 - stakeStart.toNumber()) / 3600)
+            : 0;
+
+          html += `
+            <div class="token-stats-item">
+              <h3>Token #${tokenId}</h3>
+              <p>Status: ${isStaked ? 'Staked' : 'Not Staked'}</p>
+              ${isStaked ? `
+                <p>Staking Duration: ${stakingHrs} hours</p>
+                <p>Last Claim: ${new Date(lastClaim.toNumber()*1000).toLocaleString()}</p>
+                <p>Pending Rewards: ${pendingReward.toNumber()} $ADRIAN</p>
+              ` : ''}
+            </div>`;
         }
 
         out.innerHTML = html + '</div>';
       } catch (err) {
+        console.error("Error fetching token stats:", err);
         out.innerHTML = `<div class="token-stats-item">
                            <h3>Error</h3>
-                           <p style="color:var(--accent-red);">${err.message}</p>
+                           <p style="color:var(--accent-red);">Error loading stats. Please try again later.</p>
                          </div>`;
       }
     }
