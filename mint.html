@@ -388,8 +388,22 @@
         const currentTimestamp = Math.floor(Date.now() / 1000);
         debugInfo += `<p>Current Timestamp: ${currentTimestamp}</p>`;
         
+        // Obtener todos los salePhases de una vez
+        const salePhasesPromises = [];
         for (let i = 0; i < 8; i++) {
-          const phase = await adrianPunksContract.salePhases(i);
+          salePhasesPromises.push(adrianPunksContract.salePhases(i));
+        }
+        const salePhases = await Promise.all(salePhasesPromises);
+        
+        // Obtener toda la información de whitelist de una vez
+        const whitelistPromises = [];
+        for (let i = 0; i < 8; i++) {
+          whitelistPromises.push(adrianPunksContract.getWhitelistInfo(i, userAccount));
+        }
+        const whitelistInfo = await Promise.all(whitelistPromises);
+        
+        for (let i = 0; i < 8; i++) {
+          const phase = salePhases[i];
           const saleStartTimestamp = phase.saleStart.toNumber();
           const saleStartDate = new Date(saleStartTimestamp * 1000);
           const localTimeString = saleStartDate.toLocaleString(undefined, {
@@ -414,7 +428,7 @@
             priceFormatted = `${priceNumber.toFixed(0)} $A`;
           }
           
-          const walletInfo = await adrianPunksContract.getWhitelistInfo(i, userAccount);
+          const walletInfo = whitelistInfo[i];
           let allowedForWallet = walletInfo.isWhitelisted ? walletInfo.allowed : ethers.BigNumber.from("0");
           let mintedForWallet = walletInfo.isWhitelisted ? walletInfo.minted : ethers.BigNumber.from("0");
           let remainingForWallet = walletInfo.isWhitelisted ? walletInfo.remaining : ethers.BigNumber.from("0");
