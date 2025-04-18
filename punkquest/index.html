@@ -505,6 +505,9 @@
         let html = '<div class="token-stats-container">';
         selectedTokenIds.sort((a, b) => Number(a) - Number(b));
 
+        // Obtenemos el baseRewardRate una sola vez
+        const baseRewardRate = await stakingContract.baseRewardRate();
+
         for (const tokenId of selectedTokenIds) {
           try {
             const [stakeStart, lastClaim] = await stakingContract.stakes(tokenId);
@@ -513,6 +516,14 @@
               ? Math.floor((Date.now()/1000 - stakeStart.toNumber()) / 3600)
               : 0;
 
+            // Calculamos las recompensas pendientes
+            let pendingRewards = ethers.constants.Zero;
+            if (isStaked) {
+              const deltaSeconds = Math.floor(Date.now()/1000 - lastClaim.toNumber());
+              const passiveTokens = Math.floor(deltaSeconds * baseRewardRate.toNumber() / 1e18);
+              pendingRewards = ethers.BigNumber.from(passiveTokens);
+            }
+
             html += `
               <div class="token-stats-item">
                 <h3>Token #${tokenId}</h3>
@@ -520,6 +531,7 @@
                 ${isStaked ? `
                   <p>Staking Duration: ${stakingHrs} hours</p>
                   <p>Last Claim: ${new Date(lastClaim.toNumber()*1000).toLocaleString()}</p>
+                  <p>Pending Rewards: ${formatAmount(pendingRewards)}</p>
                 ` : ''}
               </div>`;
           } catch (innerErr) {
