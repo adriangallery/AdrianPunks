@@ -521,7 +521,17 @@
             
             // Buscar la información del token en el JSON
             const tokenInfo = jsonCollection.find(item => item.id === tokenId.toString());
-            const imgUrl = tokenInfo?.image || `https://via.placeholder.com/150?text=Token+${tokenId}`;
+            let imgUrl;
+            if (tokenInfo?.image) {
+              imgUrl = tokenInfo.image;
+            } else {
+              // Determinar la ruta IPFS según el ID del token
+              const baseUrl = tokenId.lt(501) 
+                ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
+                : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
+              const extension = tokenId.lt(501) ? '.gif' : '.png';
+              imgUrl = `${baseUrl}${tokenId}${extension}`;
+            }
             
             const tokenCard = document.createElement("div");
             tokenCard.className = "col";
