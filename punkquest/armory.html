@@ -327,23 +327,34 @@
 
     // Conectar wallet e inicializar contratos
     document.getElementById("connect-wallet").addEventListener("click", async () => {
-      if(window.ethereum) {
-        try {
-          await window.ethereum.request({ method: "eth_requestAccounts" });
-          provider = new ethers.providers.Web3Provider(window.ethereum);
-          signer = provider.getSigner();
-          const walletAddress = await signer.getAddress();
-          const shortAddress = walletAddress.substring(0,6) + "..." + walletAddress.substring(walletAddress.length - 4);
-          document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddress}</p>`;
-          punkQuestContract = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, signer);
-          tokenContract = new ethers.Contract(TOKEN_ADDRESS, tokenABI, signer);
-          loadItems();
-          loadUserInventory();
-        } catch (error) {
-          document.getElementById("wallet-info").innerHTML = `<p>Error: ${error.message}</p>`;
+      try {
+        if (!window.ethereum) {
+          document.getElementById("wallet-info").innerHTML = `<p>Please install MetaMask!</p>`;
+          return;
         }
-      } else {
-        document.getElementById("wallet-info").innerHTML = `<p>Please install MetaMask!</p>`;
+        // Configurar el provider de MetaMask
+        const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+        // Configurar el provider de Base para consultas usando Infura
+        const etherscanProvider = new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+          name: "base",
+          chainId: 8453
+        });
+        // Usar el provider de MetaMask para transacciones
+        provider = web3Provider;
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        const walletAddress = await signer.getAddress();
+        const shortAddress = walletAddress.substring(0,6) + "..." + walletAddress.substring(walletAddress.length - 4);
+        document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddress}</p>`;
+        punkQuestContract = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, etherscanProvider);
+        tokenContract = new ethers.Contract(TOKEN_ADDRESS, tokenABI, etherscanProvider);
+        document.getElementById("connect-wallet").disabled = true;
+        document.getElementById("armoryForm").style.display = "block";
+        await loadItems();
+        loadUserInventory();
+      } catch (error) {
+        console.error("Error connecting wallet:", error);
+        document.getElementById("wallet-info").innerHTML = `<p>Error: ${error.message}</p>`;
       }
     });
 

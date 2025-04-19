@@ -571,35 +571,41 @@
       }
     }
 
-    document.getElementById('connect-wallet').addEventListener('click', async () => {
-      if (!window.ethereum) {
-        document.getElementById('wallet-info').innerHTML = '<p>Please install MetaMask!</p>';
-        return;
-      }
+    async function connectWallet() {
       try {
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
-        provider = new ethers.providers.Web3Provider(window.ethereum);
+        if (!window.ethereum) {
+          document.getElementById("status").innerText = "Please install MetaMask.";
+          return;
+        }
+        // Configurar el provider de MetaMask
+        const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+        // Configurar el provider de Base para consultas usando Infura
+        const etherscanProvider = new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+          name: "base",
+          chainId: 8453
+        });
+        // Usar el provider de MetaMask para transacciones
+        provider = web3Provider;
+        await provider.send("eth_requestAccounts", []);
         signer = provider.getSigner();
-        tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, tokenABI, signer);
-        stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, signer);
-        nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, signer);
-
-        const address = await signer.getAddress();
-        const shortAddr = address.substring(0,6) + '...' + address.slice(-4);
-        const rawBalance = await tokenContract.balanceOf(address);
-        const decimals = await tokenContract.decimals();
-        const bal = parseFloat(ethers.utils.formatUnits(rawBalance, decimals)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        document.getElementById('wallet-info').innerHTML = `<p class="wallet-address">Connected: ${shortAddr}</p><p class="wallet-address">Balance: ${bal} $ADRIAN</p>`;
-
-        loadTokens();
-        // Optionally start auto-update
-        window.ethereum.on('accountsChanged', () => location.reload());
-        window.ethereum.on('chainChanged', () => location.reload());
+        userAccount = await signer.getAddress();
+        document.getElementById("status").innerText = "Wallet connected: " + userAccount;
+        // Usar el provider de Base para consultas de contrato
+        stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, etherscanProvider);
+        tokenContract = new ethers.Contract(TOKEN_ADDRESS, erc20ABI, etherscanProvider);
+        document.getElementById("connectWalletButton").disabled = true;
+        document.getElementById("stakeForm").style.display = "block";
+        document.getElementById("mintedCounter").style.display = "block";
+        document.getElementById("totalCounter").style.display = "block";
+        await updateMintedCounter();
+        loadWhitelistInfo();
       } catch (error) {
-        document.getElementById('wallet-info').innerHTML = `<p>Error: ${error.message}</p>`;
+        console.error("Error connecting wallet:", error);
+        document.getElementById("status").innerText = "Error connecting wallet: " + error.message;
       }
-    });
+    }
 
+    document.getElementById('connect-wallet').addEventListener('click', connectWallet);
     document.getElementById('stake-token').addEventListener('click', stakeTokens);
     document.getElementById('unstake-token').addEventListener('click', async () => {
       if (selectedTokenIds.length === 0) {
