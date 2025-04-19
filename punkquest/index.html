@@ -471,7 +471,8 @@
     ];
     const nftABI = [
       "function balanceOf(address) view returns (uint256)",
-      "function tokenOfOwnerByIndex(address,uint256) view returns (uint256)"
+      "function tokenOfOwnerByIndex(address,uint256) view returns (uint256)",
+      "function ownerOf(uint256) view returns (address)"
     ];
 
     // Helpers to format amounts
@@ -509,29 +510,34 @@
 
         // Cargar cada token
         for (let i = 0; i < totalTokens; i++) {
-          const tokenId = await nftContract.tokenOfOwnerByIndex(ownerAddress, i);
-          const isStaked = await stakingContract.isStaked(tokenId);
-          
-          const tokenCard = document.createElement("div");
-          tokenCard.className = "col";
-          tokenCard.innerHTML = `
-            <div class="card h-100 ${isStaked ? 'staked' : ''}">
-              <img src="https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/${tokenId}.png" 
-                   class="card-img-top" alt="Token ${tokenId}">
-              <div class="card-body">
-                <h5 class="card-title">Token #${tokenId}</h5>
-                <p class="card-text">Status: ${isStaked ? 'Staked' : 'Not Staked'}</p>
-                <div class="form-check">
-                  <input class="form-check-input token-checkbox" type="checkbox" 
-                         value="${tokenId}" id="token-${tokenId}">
-                  <label class="form-check-label" for="token-${tokenId}">
-                    Select for action
-                  </label>
+          try {
+            const tokenId = await nftContract.tokenOfOwnerByIndex(ownerAddress, i);
+            const isStaked = await stakingContract.stakes(tokenId).then(res => res[0].gt(0));
+            
+            const tokenCard = document.createElement("div");
+            tokenCard.className = "col";
+            tokenCard.innerHTML = `
+              <div class="card h-100 ${isStaked ? 'staked' : ''}">
+                <img src="https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/${tokenId}.png" 
+                     class="card-img-top" alt="Token ${tokenId}">
+                <div class="card-body">
+                  <h5 class="card-title">Token #${tokenId}</h5>
+                  <p class="card-text">Status: ${isStaked ? 'Staked' : 'Not Staked'}</p>
+                  <div class="form-check">
+                    <input class="form-check-input token-checkbox" type="checkbox" 
+                           value="${tokenId}" id="token-${tokenId}">
+                    <label class="form-check-label" for="token-${tokenId}">
+                      Select for action
+                    </label>
+                  </div>
                 </div>
               </div>
-            </div>
-          `;
-          tokensGrid.appendChild(tokenCard);
+            `;
+            tokensGrid.appendChild(tokenCard);
+          } catch (tokenError) {
+            console.error(`Error loading token ${i}:`, tokenError);
+            continue;
+          }
         }
 
         // Agregar event listeners a los checkboxes
