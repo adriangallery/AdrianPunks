@@ -574,7 +574,7 @@
     async function connectWallet() {
       try {
         if (!window.ethereum) {
-          document.getElementById("status").innerText = "Please install MetaMask.";
+          document.getElementById("wallet-info").innerText = "Please install MetaMask.";
           return;
         }
         // Configurar el provider de MetaMask
@@ -588,20 +588,21 @@
         provider = web3Provider;
         await provider.send("eth_requestAccounts", []);
         signer = provider.getSigner();
-        userAccount = await signer.getAddress();
-        document.getElementById("status").innerText = "Wallet connected: " + userAccount;
+        const walletAddress = await signer.getAddress();
+        const shortAddress = walletAddress.substring(0,6) + "..." + walletAddress.substring(walletAddress.length - 4);
+        document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddress}</p>`;
         // Usar el provider de Base para consultas de contrato
         stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, etherscanProvider);
         tokenContract = new ethers.Contract(TOKEN_ADDRESS, erc20ABI, etherscanProvider);
-        document.getElementById("connectWalletButton").disabled = true;
-        document.getElementById("stakeForm").style.display = "block";
-        document.getElementById("mintedCounter").style.display = "block";
-        document.getElementById("totalCounter").style.display = "block";
-        await updateMintedCounter();
-        loadWhitelistInfo();
+        document.getElementById("connect-wallet").disabled = true;
+        document.getElementById("stake-actions").style.display = "block";
+        document.getElementById("tokens-section").style.display = "block";
+        document.getElementById("total-rewards-section").style.display = "block";
+        await loadTokens();
+        displayAggregateRewards();
       } catch (error) {
         console.error("Error connecting wallet:", error);
-        document.getElementById("status").innerText = "Error connecting wallet: " + error.message;
+        document.getElementById("wallet-info").innerText = "Error connecting wallet: " + error.message;
       }
     }
 
