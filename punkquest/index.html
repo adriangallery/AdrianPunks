@@ -690,6 +690,11 @@
         stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, etherscanProvider);
         tokenContract = new ethers.Contract(TOKEN_ADDRESS, erc20ABI, etherscanProvider);
         nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, etherscanProvider);
+
+        // Crear contratos con signer para transacciones
+        const stakingContractWithSigner = stakingContract.connect(signer);
+        const tokenContractWithSigner = tokenContract.connect(signer);
+
         document.getElementById("connect-wallet").disabled = true;
         document.getElementById("stake-actions").style.display = "block";
         document.getElementById("tokens-section").style.display = "block";
@@ -720,12 +725,12 @@
         if (allowance.lt(totalFee)) {
           general_output.textContent = 'Approving exit fee…';
           // Aprobamos una cantidad mayor para evitar problemas de gas
-          const txA = await tokenContract.approve(STAKING_ADDRESS, totalFee.mul(2));
+          const txA = await tokenContractWithSigner.approve(STAKING_ADDRESS, totalFee.mul(2));
           await txA.wait();
         }
 
         general_output.textContent = 'Unstaking…';
-        const tx = await stakingContract.batchUnstake(selectedTokenIds, {
+        const tx = await stakingContractWithSigner.batchUnstake(selectedTokenIds, {
           gasLimit: 300000 // Añadimos un límite de gas explícito
         });
         await tx.wait();
