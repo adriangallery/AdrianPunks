@@ -517,33 +517,30 @@
             const tokenCard = document.createElement("div");
             tokenCard.className = "col";
             tokenCard.innerHTML = `
-              <div class="card h-100 ${isStaked ? 'staked' : ''}">
+              <div class="card h-100 token-card ${isStaked ? 'staked' : ''}" data-token-id="${tokenId}">
                 <img src="https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/${tokenId}.png" 
                      class="card-img-top" alt="Token ${tokenId}">
                 <div class="card-body">
                   <h5 class="card-title">Token #${tokenId}</h5>
                   <p class="card-text">Status: ${isStaked ? 'Staked' : 'Not Staked'}</p>
-                  <div class="form-check">
-                    <input class="form-check-input token-checkbox" type="checkbox" 
-                           value="${tokenId}" id="token-${tokenId}">
-                    <label class="form-check-label" for="token-${tokenId}">
-                      Select for action
-                    </label>
-                  </div>
                 </div>
               </div>
             `;
             tokensGrid.appendChild(tokenCard);
+
+            // Agregar event listener para selección
+            const card = tokenCard.querySelector('.token-card');
+            card.addEventListener('click', () => {
+              selectedTokenIds = [tokenId];
+              document.querySelectorAll('.token-card').forEach(c => c.classList.remove('selected-token'));
+              card.classList.add('selected-token');
+              displayTokenStats();
+            });
           } catch (tokenError) {
             console.error(`Error loading token ${i}:`, tokenError);
             continue;
           }
         }
-
-        // Agregar event listeners a los checkboxes
-        document.querySelectorAll('.token-checkbox').forEach(checkbox => {
-          checkbox.addEventListener('change', updateSelectedTokens);
-        });
       } catch (error) {
         console.error("Error loading tokens:", error);
         document.getElementById("tokens-grid").innerHTML = 
@@ -685,15 +682,6 @@
         console.error("Error connecting wallet:", error);
         document.getElementById("wallet-info").innerText = "Error connecting wallet: " + error.message;
       }
-    }
-
-    // Función para actualizar los tokens seleccionados
-    function updateSelectedTokens() {
-      selectedTokenIds = [];
-      document.querySelectorAll('.token-checkbox:checked').forEach(checkbox => {
-        selectedTokenIds.push(ethers.BigNumber.from(checkbox.value));
-      });
-      displayTokenStats();
     }
 
     // Event Listeners
