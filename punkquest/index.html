@@ -644,7 +644,7 @@
     }
 
     // Stake tokens in batch
-    async function stakeTokens() {
+    document.getElementById('stake-token').addEventListener('click', async () => {
       if (selectedTokenIds.length === 0) return alert('Please select tokens to stake.');
       try {
         const walletAddress = await signer.getAddress();
@@ -653,10 +653,10 @@
         const allowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
         if (allowance.lt(totalFee)) {
           document.getElementById('general-output').textContent = 'Approving spending...';
-          const tx = await tokenContract.approve(STAKING_ADDRESS, totalFee);
+          const tx = await tokenContract.connect(signer).approve(STAKING_ADDRESS, totalFee);
           await tx.wait();
         }
-        const txStake = await stakingContract.batchStake(selectedTokenIds);
+        const txStake = await stakingContract.connect(signer).batchStake(selectedTokenIds);
         await txStake.wait();
         document.getElementById('general-output').textContent = 'Staked: ' + selectedTokenIds.join(', ');
         loadTokens(walletAddress);
@@ -664,7 +664,7 @@
       } catch (e) {
         document.getElementById('general-output').textContent = 'Error staking: ' + e.message;
       }
-    }
+    });
 
     async function connectWallet() {
       try {
@@ -709,7 +709,6 @@
 
     // Event Listeners
     document.getElementById('connect-wallet').addEventListener('click', connectWallet);
-    document.getElementById('stake-token').addEventListener('click', stakeTokens);
     document.getElementById('unstake-token').addEventListener('click', async () => {
       if (selectedTokenIds.length === 0) {
         alert('Please select token(s) first'); return;
@@ -744,13 +743,41 @@
         console.error(err);
       }
     });
-    document.getElementById('claim-token').addEventListener('click', () => {
-      // Implement batchClaimRewards if desired
+    document.getElementById('claim-token').addEventListener('click', async () => {
+      if (selectedTokenIds.length === 0) {
+        alert('Please select token(s) first');
+        return;
+      }
+
+      const general_output = document.getElementById('general-output');
+      try {
+        const wallet = await signer.getAddress();
+        const claimFee = await stakingContract.claimFee();
+        const totalFee = claimFee.mul(selectedTokenIds.length);
+        const allowance = await tokenContract.allowance(wallet, STAKING_ADDRESS);
+
+        if (allowance.lt(totalFee)) {
+          general_output.textContent = 'Approving claim fee…';
+          const txA = await tokenContract.connect(signer).approve(STAKING_ADDRESS, totalFee.mul(2));
+          await txA.wait();
+        }
+
+        general_output.textContent = 'Claiming rewards…';
+        const tx = await stakingContract.connect(signer).batchClaimRewards(selectedTokenIds);
+        await tx.wait();
+
+        general_output.textContent = 'Rewards claimed for tokens: ' + selectedTokenIds.join(', ');
+        displayAggregateRewards();
+      } catch (err) {
+        general_output.textContent = 'Error claiming rewards: ' + err.message;
+        console.error(err);
+      }
     });
     document.getElementById('refresh-info').addEventListener('click', async () => {
       try {
         const address = await signer.getAddress();
         await loadTokens(address);
+        displayAggregateRewards();
       } catch (error) {
         console.error("Error refreshing tokens:", error);
         document.getElementById("tokens-grid").innerHTML = 
