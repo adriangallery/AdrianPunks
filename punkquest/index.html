@@ -508,14 +508,20 @@
           return;
         }
 
+        // Cargar el JSON con la información de los tokens
+        const response = await fetch('/punkquest/adrianpunks.json');
+        const data = await response.json();
+        const jsonCollection = data.collection;
+
         // Cargar cada token
         for (let i = 0; i < totalTokens; i++) {
           try {
             const tokenId = await nftContract.tokenOfOwnerByIndex(ownerAddress, i);
             const isStaked = await stakingContract.stakes(tokenId).then(res => res[0].gt(0));
             
-            // Determinar la extensión del archivo basado en el token ID
-            const extension = tokenId.lt(1000) ? '.gif' : '.png';
+            // Buscar la información del token en el JSON
+            const tokenInfo = jsonCollection.find(item => item.id === tokenId.toString());
+            const extension = tokenInfo?.extension || '.png';
             
             const tokenCard = document.createElement("div");
             tokenCard.className = "col";
