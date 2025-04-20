@@ -766,16 +766,15 @@
       try {
         const wallet = await signer.getAddress();
 
-        // Calcular todos los fees necesarios
-        const [exitFee, claimFee, repairFee] = await Promise.all([
+        // Calcular los fees necesarios
+        const [exitFee, claimFee] = await Promise.all([
           stakingContract.exitFee(),
-          stakingContract.claimFee(),
-          stakingContract.repairFee()
+          stakingContract.claimFee()
         ]);
 
-        // Calcular el total de fees por token
-        const feesPerToken = exitFee.add(claimFee).add(repairFee);
-        const totalFee = feesPerToken.mul(selectedTokenIds.length);
+        // Calcular el total de fees por token (2*exitFee + claimFee)
+        const perToken = exitFee.mul(2).add(claimFee);
+        const totalFee = perToken.mul(selectedTokenIds.length);
 
         // Comprobar / aprobar allowance
         const allowance = await tokenContract.allowance(wallet, STAKING_ADDRESS);
