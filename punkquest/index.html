@@ -583,13 +583,13 @@
         return;
       }
       
-      if (allMyTokenIds.length === 0) {
-        document.getElementById('total-rewards').textContent = "0 $ADRIAN";
-        return;
-      }
-
       try {
         const walletAddress = await signer.getAddress();
+        if (!allMyTokenIds || allMyTokenIds.length === 0) {
+          document.getElementById('total-rewards').textContent = "0 $ADRIAN";
+          return;
+        }
+
         const [tokenIds, pendingPassive, pendingGame] = await stakingContract.getWalletStats(
           walletAddress,
           allMyTokenIds
@@ -735,8 +735,16 @@
         document.getElementById("stake-actions").style.display = "block";
         document.getElementById("tokens-section").style.display = "block";
         document.getElementById("total-rewards-section").style.display = "block";
+        
+        // Cargar tokens y actualizar rewards
         await loadTokens(walletAddress);
-        displayAggregateRewards();
+        await displayAggregateRewards();
+        
+        // Configurar actualización periódica de rewards
+        if (rewardsUpdateInterval) {
+          clearInterval(rewardsUpdateInterval);
+        }
+        rewardsUpdateInterval = setInterval(displayAggregateRewards, 30000); // Actualizar cada 30 segundos
       } catch (error) {
         console.error("Error connecting wallet:", error);
         document.getElementById("wallet-info").innerText = "Error connecting wallet: " + error.message;
