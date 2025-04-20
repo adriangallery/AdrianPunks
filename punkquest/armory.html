@@ -484,6 +484,8 @@
       try {
         // Verificar que los items existen
         const nextItemId = await punkQuestRead.nextItemId();
+        console.log("Next Item ID:", nextItemId.toString());
+        
         const invalidItems = shoppingCart.filter(item => item.id >= nextItemId);
         if (invalidItems.length > 0) {
           const invalidNames = invalidItems.map(item => item.name).join(", ");
@@ -506,20 +508,36 @@
           await tx.wait();
         }
 
-        const ids  = shoppingCart.map(i => i.id);
-        const qtys = shoppingCart.map(i => i.quantity);
+        // Asegurarnos de que los IDs son números válidos
+        const ids = shoppingCart.map(i => {
+          const id = Number(i.id);
+          console.log("Item ID:", id, "Type:", typeof id);
+          return id;
+        });
+        const qtys = shoppingCart.map(i => Number(i.quantity));
+
+        console.log("IDs to buy:", ids);
+        console.log("Quantities:", qtys);
 
         document.getElementById("general-output").innerText = "Submitting batch buy…";
-        const tx = await punkQuestWrite.batchBuyItems(ids, qtys);
-        await tx.wait();
+        
+        // Intentar comprar un solo item primero para debug
+        if (ids.length === 1) {
+          console.log("Trying single item purchase...");
+          const tx = await punkQuestWrite.buyItem(ids[0], qtys[0]);
+          await tx.wait();
+        } else {
+          const tx = await punkQuestWrite.batchBuyItems(ids, qtys);
+          await tx.wait();
+        }
 
-        document.getElementById("general-output").innerText = "Batch purchase successful!";
+        document.getElementById("general-output").innerText = "Purchase successful!";
         shoppingCart = [];
         updateCartUI();
         loadUserInventory();
       } catch (err) {
         console.error("batch buy error", err);
-        let errorMessage = "Error during batch purchase: ";
+        let errorMessage = "Error during purchase: ";
         if (err.message.includes("Item does not exist")) {
           errorMessage += "Uno o más items no existen en el contrato.";
         } else if (err.message.includes("Los siguientes items no existen")) {
