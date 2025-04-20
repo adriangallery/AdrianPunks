@@ -286,7 +286,7 @@
     <section id="inventory-section" class="mb-4">
       <div class="card">
         <h2 class="section-title">My Inventory Items</h2>
-        <div id="inventory-items" class="terminal">Loading inventory...</div>
+        <div id="inventory-items" class="terminal">Connect wallet to load inventory…</div>
       </div>
     </section>
     
@@ -300,289 +300,268 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script>
-    let provider, signer, punkQuestContract;
-    // Actualiza la dirección del contrato al nuevo CA
-    const PUNKQUEST_ADDRESS = "0xaf22843e195b792a3f874562ab7cee751066665e";
-    const NFT_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";  // Dirección del contrato NFT
-    let allItems = []; // Almacenará todos los items del JSON
+    // ─── CONSTANTS ─────────────────────────────────────────────────────────────
+    const INFURA_PROJECT_ID = "cc0c8013b1e044dcba79d4f7ec3b2ba1"; // Project ID de Infura
+    const NETWORK = "homestead";                       // mainnet (o la red que uses)
+    
+    const PUNKQUEST_ADDRESS = "0x64c46fca3f46442c7abd5303dc1c56a79f4e4273";
+    const TOKEN_ADDRESS     = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const NFT_ADDRESS       = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
 
-    // Cargar datos de items desde el archivo JSON
-    async function loadItemsData() {
-      try {
-        const response = await fetch('weapons.json');
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        allItems = await response.json();
-        console.log('Items data loaded:', allItems);
-      } catch (error) {
-        console.error('Error loading items data:', error);
-      }
-    }
-
-    // Cargar datos al iniciar
-    loadItemsData();
-
+    // ─── ABI de los métodos requeridos ─────────────────────────────────────────
     const punkQuestABI = [
-      "function items(uint256) view returns (uint256 price, uint256 bonus, uint256 durability, bool exists, uint8 itemType, bool degradable)",
-      "function purchaseItem(uint256 itemId) external",
-      "function equipItem(uint256 tokenId, uint256 itemId) external",
-      "function unequipItem(uint256 tokenId, uint256 itemId) external",
-      "function repairItem(uint256 tokenId, uint256 itemId) external",
-      "function getTokenItems(uint256 tokenId) view returns (uint256[] memory)",
-      "function getTokenEquippedItems(uint256 tokenId) view returns (uint256[] memory)",
-      "function getTokenItemDurability(uint256 tokenId, uint256 itemId) view returns (uint256)",
-      "function getTokenItemBonus(uint256 tokenId, uint256 itemId) view returns (uint256)",
-      "function getTokenItemPrice(uint256 tokenId, uint256 itemId) view returns (uint256)",
-      "function getTokenItemType(uint256 tokenId, uint256 itemId) view returns (uint8)",
-      "function getTokenItemDegradable(uint256 tokenId, uint256 itemId) view returns (bool)",
-      "function getTokenItemExists(uint256 tokenId, uint256 itemId) view returns (bool)",
-      "function getTokenItemCount(uint256 tokenId) view returns (uint256)",
-      "function getTokenEquippedItemCount(uint256 tokenId) view returns (uint256)",
-      "function getTokenItemList(uint256 tokenId) view returns (uint256[] memory)",
-      "function getTokenEquippedItemList(uint256 tokenId) view returns (uint256[] memory)",
-      "function getTokenItemDurabilityList(uint256 tokenId) view returns (uint256[] memory)",
-      "function getTokenItemBonusList(uint256 tokenId) view returns (uint256[] memory)",
-      "function getTokenItemPriceList(uint256 tokenId) view returns (uint256[] memory)",
-      "function getTokenItemTypeList(uint256 tokenId) view returns (uint8[] memory)",
-      "function getTokenItemDegradableList(uint256 tokenId) view returns (bool[] memory)",
-      "function getTokenItemExistsList(uint256 tokenId) view returns (bool[] memory)",
-      "function getTokenItemCountList(uint256[] memory tokenIds) view returns (uint256[] memory)",
-      "function getTokenEquippedItemCountList(uint256[] memory tokenIds) view returns (uint256[] memory)",
-      "function getTokenItemListList(uint256[] memory tokenIds) view returns (uint256[][] memory)",
-      "function getTokenEquippedItemListList(uint256[] memory tokenIds) view returns (uint256[][] memory)",
-      "function getTokenItemDurabilityListList(uint256[] memory tokenIds) view returns (uint256[][] memory)",
-      "function getTokenItemBonusListList(uint256[] memory tokenIds) view returns (uint256[][] memory)",
-      "function getTokenItemPriceListList(uint256[] memory tokenIds) view returns (uint256[][] memory)",
-      "function getTokenItemTypeListList(uint256[] memory tokenIds) view returns (uint8[][] memory)",
-      "function getTokenItemDegradableListList(uint256[] memory tokenIds) view returns (bool[][] memory)",
-      "function getTokenItemExistsListList(uint256[] memory tokenIds) view returns (bool[][] memory)"
+      "function batchBuyItems(uint256[] calldata ids, uint256[] calldata qtys) external",
+      "function buyItem(uint256 id, uint qty) external",
+      "function inventory(address, uint256) view returns (uint256)",
+      "function nextItemId() view returns (uint256)",
+      // Advanced inventory helpers
+      "function ownedItems(address, uint256) view returns (uint256 instanceId, uint256 templateId, uint256 durability, bool degraded)"
     ];
-    const nftABI = [
+
+    const tokenABI = [
       "function balanceOf(address owner) view returns (uint256)",
-      "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+      "function approve(address spender, uint256 amount) returns (bool)",
+      "function allowance(address owner, address spender) view returns (uint256)"
+    ];
+
+    const nftABI = [
       "function ownerOf(uint256 tokenId) view returns (address)"
     ];
 
+    // ─── GLOBALS ───────────────────────────────────────────────────────────────
+    let infuraProvider;          // proveedor sólo‑lectura Infura
+    let web3Provider;            // proveedor inyectado por MetaMask (firmar)
+    let signer;                  // signer del usuario
+
+    let punkQuestReadContract;   // contrato sólo‑lectura (Infura)
+    let tokenReadContract;
+
+    let punkQuestWriteContract;  // contrato read+write (MetaMask)
+    let tokenWriteContract;
+
+    let shoppingCart = [];
+    let allItems = [];
+
+    // ─── INIT ──────────────────────────────────────────────────────────────────
+    window.addEventListener("DOMContentLoaded", async () => {
+      // Infura provider (read‑only) disponible desde el principio
+      infuraProvider      = new ethers.providers.InfuraProvider(NETWORK, INFURA_PROJECT_ID);
+      punkQuestReadContract = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, infuraProvider);
+      tokenReadContract     = new ethers.Contract(TOKEN_ADDRESS,  tokenABI,  infuraProvider);
+
+      await loadItems(); // Podemos mostrar los ítems sin necesidad de wallet
+    });
+
+    // ─── WALLET CONNECTION ─────────────────────────────────────────────────────
     document.getElementById("connect-wallet").addEventListener("click", async () => {
-      if (window.ethereum) {
-        try {
-          await window.ethereum.request({ method: "eth_requestAccounts" });
-          // Configurar el provider de MetaMask para transacciones
-          const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
-          signer = web3Provider.getSigner();
-          
-          // Configurar el provider de Base para consultas usando Infura
-          const etherscanProvider = new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
-            name: "base",
-            chainId: 8453
-          });
-          
-          const walletAddress = await signer.getAddress();
-          const shortAddr = walletAddress.substring(0, 6) + "..." + walletAddress.substring(walletAddress.length - 4);
-          document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddr}</p>`;
-          
-          // Crear instancia del contrato con el provider de Infura para consultas
-          punkQuestContract = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, etherscanProvider);
-          
-          // Cargar tokens del usuario
-          await loadTokens();
-        } catch (error) {
-          document.getElementById("wallet-info").innerHTML = `<p>Error connecting: ${error.message}</p>`;
-        }
-      } else {
+      if (!window.ethereum) {
         document.getElementById("wallet-info").innerHTML = `<p>Please install MetaMask!</p>`;
+        return;
+      }
+      try {
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+
+        web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer       = web3Provider.getSigner();
+
+        const walletAddress = await signer.getAddress();
+        const shortAddr = walletAddress.substring(0, 6) + "…" + walletAddress.slice(-4);
+        document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddr}</p>`;
+
+        // Instanciar contratos con signer
+        punkQuestWriteContract = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, signer);
+        tokenWriteContract     = new ethers.Contract(TOKEN_ADDRESS,  tokenABI,  signer);
+
+        // Cargar inventario del usuario
+        loadUserInventory();
+
+      } catch (err) {
+        document.getElementById("wallet-info").innerHTML = `<p>Error: ${err.message}</p>`;
       }
     });
 
-    // Función para cargar tokens del usuario
-    async function loadTokens() {
-      if (!punkQuestContract) return;
-      
+    // ─── LOAD ITEMS (from weapons.json) ────────────────────────────────────────
+    async function loadItems() {
       try {
-        // Obtener la dirección de la wallet conectada
-        const walletAddress = await signer.getAddress();
-        
-        // Obtener el balance de tokens del usuario
-        const nftContract = new ethers.Contract(
-          NFT_ADDRESS,
-          nftABI,
-          punkQuestContract.provider
-        );
-        
-        const balance = await nftContract.balanceOf(walletAddress);
-        const tokenIds = [];
-        
-        // Obtener los IDs de los tokens
-        for (let i = 0; i < balance.toNumber(); i++) {
-          const tokenId = await nftContract.tokenOfOwnerByIndex(walletAddress, i);
-          tokenIds.push(tokenId);
-        }
-        
-        const tokenContainer = document.getElementById("itemsGrid");
-        tokenContainer.innerHTML = "";
-        
-        if (tokenIds.length === 0) {
-          tokenContainer.innerHTML = "<p>No tokens found in your wallet.</p>";
-          return;
-        }
-        
-        for (const tokenId of tokenIds) {
-          const tokenCard = document.createElement("div");
-          tokenCard.className = "item-card";
-          tokenCard.innerHTML = `
-            <div class="item-image">
-              <img src="https://emerald-above-tick-265.mypinata.cloud/ipfs/bafybeicmy7xqtfe4xji4dcffiwkzodbotujre63wzavbbp7im673p2io5a/${tokenId}.png" alt="Token ${tokenId}">
-            </div>
-            <div class="item-details">
-              <h4>Token #${tokenId}</h4>
-              <button class="btn" onclick="selectToken(${tokenId})">Select</button>
-            </div>
-          `;
-          tokenContainer.appendChild(tokenCard);
-        }
-      } catch (error) {
-        console.error("Error loading tokens:", error);
-        document.getElementById("itemsGrid").innerHTML = "<p>Error loading tokens. Please try again.</p>";
+        const res = await fetch("weapons.json");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        allItems = await res.json();
+        displayItems(allItems);
+      } catch (err) {
+        console.error("loadItems() error", err);
+        document.getElementById("general-output").innerText = `Error loading items: ${err.message}`;
       }
     }
 
-    // Función para seleccionar un token
-    window.selectToken = async function(tokenId) {
-      if (!punkQuestContract) return;
-      
-      try {
-        const items = await punkQuestContract.getTokenItems(tokenId);
-        const equippedItems = await punkQuestContract.getTokenEquippedItems(tokenId);
-        
-        const itemsContainer = document.getElementById("inventory-items");
-        itemsContainer.innerHTML = "";
-        
-        if (items.length === 0) {
-          itemsContainer.innerHTML = "<p>No items found for this token.</p>";
-          return;
-        }
-        
-        for (const itemId of items) {
-          // Buscar el item en el array allItems por su ID
-          const itemData = allItems.find(item => item.id === itemId.toNumber());
-          if (!itemData) {
-            console.log(`Item ID ${itemId} not found in JSON`);
-            continue;
+    // ─── DISPLAY ITEMS ─────────────────────────────────────────────────────────
+    function displayItems(items) {
+      const grid = document.getElementById("itemsGrid");
+      grid.innerHTML = "";
+
+      items.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "item-card";
+
+        const price = parseFloat(item.price);
+        const friendlyPrice = price >= 1000 ? `${(price / 1000).toFixed(1)}K` : price;
+
+        card.innerHTML = `
+          <div class="item-image">
+            <img src="${item.image}" alt="${item.name}">
+            <div class="durability-badge">${item.durability}</div>
+            <div class="bonus-badge">+${item.bonus}%</div>
+          </div>
+          <div class="item-details">
+            <div class="item-name">
+              ${item.name}
+              <button class="description-toggle" onclick="toggleDescription(this)">▼</button>
+            </div>
+            <div class="item-description">${item.description}</div>
+          </div>
+          <div class="quantity-controls">
+            <div class="quantity-input">
+              <label for="qty-${item.id}">Qty:</label>
+              <input type="number" id="qty-${item.id}" value="0" min="0" />
+            </div>
+            <div class="price-display">${friendlyPrice} $A</div>
+          </div>
+          <button class="btn add-to-cart-btn" data-id="${item.id}" data-price="${item.price}" data-name="${item.name}" data-type="${item.type}">Add to Cart</button>
+        `;
+        grid.appendChild(card);
+      });
+
+      // Delegar listeners
+      Array.from(document.getElementsByClassName("add-to-cart-btn")).forEach(btn => {
+        btn.addEventListener("click", e => {
+          const { id, price, name, type } = e.currentTarget.dataset;
+          const qty = parseInt(document.getElementById(`qty-${id}`).value);
+          if (qty > 0) {
+            addToCart({ id: Number(id), name, price: price.toString(), quantity: qty, type });
+            document.getElementById(`qty-${id}`).value = 0;
           }
+        });
+      });
+    }
 
-          const isEquipped = equippedItems.includes(itemId);
-          const durability = await punkQuestContract.getTokenItemDurability(tokenId, itemId);
-          
-          const itemCard = document.createElement("div");
-          itemCard.className = "item-card";
-          itemCard.innerHTML = `
-            <div class="item-image">
-              <img src="${itemData.image}" alt="${itemData.name}">
-              <div class="durability-badge">${durability}/${itemData.durability}</div>
-              <div class="bonus-badge">${itemData.bonus}</div>
-            </div>
-            <div class="item-details">
-              <div class="item-name">
-                ${itemData.name}
-                <button class="description-toggle" onclick="toggleDescription(this)">▼</button>
-              </div>
-              <div class="item-description">${itemData.description}</div>
-              <p>Type: ${itemData.type}</p>
-              <p>Price: ${itemData.price} tokens</p>
-              <p>Status: ${isEquipped ? "Equipped" : "Not Equipped"}</p>
-              <button class="btn" onclick="equipItem(${tokenId}, ${itemId})" ${isEquipped ? "disabled" : ""}>Equip</button>
-              <button class="btn" onclick="unequipItem(${tokenId}, ${itemId})" ${!isEquipped ? "disabled" : ""}>Unequip</button>
-              <button class="btn" onclick="repairItem(${tokenId}, ${itemId})">Repair</button>
-            </div>
-          `;
-          itemsContainer.appendChild(itemCard);
+    // ─── CART ──────────────────────────────────────────────────────────────────
+    function addToCart(item) {
+      const existing = shoppingCart.find(i => i.id === item.id);
+      if (existing) existing.quantity += item.quantity; else shoppingCart.push(item);
+      updateCartUI();
+    }
+
+    function updateCartUI() {
+      const cartList  = document.getElementById("cart-list");
+      const cartTotal = document.getElementById("cart-total");
+      const buyBtn    = document.getElementById("buy-all-btn");
+
+      if (shoppingCart.length === 0) {
+        cartList.innerHTML = "Your cart is empty.";
+        cartTotal.innerText = "Total: 0 A$";
+        buyBtn.disabled = true;
+        return;
+      }
+
+      let html = "<table class='table'><thead><tr><th>Item</th><th>Qty</th><th>Cost</th></tr></thead><tbody>";
+      let total = ethers.BigNumber.from(0);
+
+      shoppingCart.forEach(({ name, type, price, quantity }) => {
+        const cost = ethers.utils.parseUnits(price.toString(), 18).mul(quantity);
+        total = total.add(cost);
+        html += `<tr><td>${name} (${type})</td><td>${quantity}</td><td>${price} × ${quantity}</td></tr>`;
+      });
+
+      cartList.innerHTML = html + "</tbody></table>";
+      cartTotal.innerText  = `Total: ${ethers.utils.formatUnits(total, 18)} A$`;
+      buyBtn.disabled      = total.isZero();
+    }
+
+    // ─── BUY ALL ───────────────────────────────────────────────────────────────
+    document.getElementById("buy-all-btn").addEventListener("click", async () => {
+      if (!signer) { alert("Connect wallet first"); return; }
+      if (shoppingCart.length === 0) { alert("Your cart is empty."); return; }
+
+      try {
+        let totalCost = ethers.BigNumber.from(0);
+        shoppingCart.forEach(({ price, quantity }) => {
+          const cost   = ethers.utils.parseUnits(price, 18).mul(quantity);
+          totalCost = totalCost.add(cost);
+        });
+
+        const walletAddress = await signer.getAddress();
+        const allowance = await tokenWriteContract.allowance(walletAddress, PUNKQUEST_ADDRESS);
+
+        if (allowance.lt(totalCost)) {
+          document.getElementById("general-output").innerText = "Approving tokens…";
+          const tx = await tokenWriteContract.approve(PUNKQUEST_ADDRESS, totalCost);
+          await tx.wait();
         }
-      } catch (error) {
-        console.error("Error loading items:", error);
-        document.getElementById("inventory-items").innerHTML = "<p>Error loading items. Please try again.</p>";
-      }
-    };
 
-    // Función para mostrar/ocultar descripción
-    window.toggleDescription = function(button) {
-      const itemDetails = button.closest('.item-details');
-      const description = itemDetails.querySelector('.item-description');
-      description.classList.toggle('expanded');
-      button.classList.toggle('active');
-    };
+        const ids  = shoppingCart.map(i => i.id);
+        const qtys = shoppingCart.map(i => i.quantity);
 
-    // Función para equipar un item
-    window.equipItem = async function(tokenId, itemId) {
-      if (!punkQuestContract) return;
-      
-      try {
-        const punkQuestContractWithSigner = new ethers.Contract(
-          PUNKQUEST_ADDRESS,
-          punkQuestABI,
-          new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
-            name: "base",
-            chainId: 8453
-          })
-        ).connect(signer);
-
-        const tx = await punkQuestContractWithSigner.equipItem(tokenId, itemId);
-        document.getElementById("transaction-output").innerText = "Transaction sent... waiting for confirmation.";
+        document.getElementById("general-output").innerText = "Submitting batch buy…";
+        const tx = await punkQuestWriteContract.batchBuyItems(ids, qtys);
         await tx.wait();
-        document.getElementById("transaction-output").innerText = "Item equipped successfully!";
-        await selectToken(tokenId);
-      } catch (error) {
-        document.getElementById("transaction-output").innerText = "Error equipping item: " + error.message;
+
+        document.getElementById("general-output").innerText = "Batch purchase successful!";
+        shoppingCart = [];
+        updateCartUI();
+        loadUserInventory();
+      } catch (err) {
+        console.error("batch buy error", err);
+        document.getElementById("general-output").innerText = `Error during batch purchase: ${err.message}`;
       }
-    };
+    });
 
-    // Función para desequipar un item
-    window.unequipItem = async function(tokenId, itemId) {
-      if (!punkQuestContract) return;
-      
-      try {
-        const punkQuestContractWithSigner = new ethers.Contract(
-          PUNKQUEST_ADDRESS,
-          punkQuestABI,
-          new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
-            name: "base",
-            chainId: 8453
-          })
-        ).connect(signer);
+    // ─── DESCRIPTION TOGGLE ────────────────────────────────────────────────────
+    function toggleDescription(btn) {
+      const desc = btn.closest('.item-details').querySelector('.item-description');
+      desc.classList.toggle('expanded');
+      btn.classList.toggle('active');
+    }
 
-        const tx = await punkQuestContractWithSigner.unequipItem(tokenId, itemId);
-        document.getElementById("transaction-output").innerText = "Transaction sent... waiting for confirmation.";
-        await tx.wait();
-        document.getElementById("transaction-output").innerText = "Item unequipped successfully!";
-        await selectToken(tokenId);
-      } catch (error) {
-        document.getElementById("transaction-output").innerText = "Error unequipping item: " + error.message;
+    // ─── USER INVENTORY (supports new contract with instances) ─────────────────
+    async function loadUserInventory() {
+      if (!signer) return; // wallet not connected yet
+
+      const walletAddress = await signer.getAddress();
+      let inventoryHTML = "<table class='table'><thead><tr><th>Item</th><th>Quantity</th></tr></thead><tbody>";
+
+      // 1️⃣ Plantilla‑based inventory (legacy buyItem)
+      for (const item of allItems) {
+        try {
+          const qty = await punkQuestWriteContract.inventory(walletAddress, item.id);
+          if (qty.gt(0)) {
+            inventoryHTML += `<tr><td>${item.name} (${item.type}, tpl ID ${item.id})</td><td>${qty}</td></tr>`;
+          }
+        } catch (_) { /* ignore */ }
       }
-    };
 
-    // Función para reparar un item
-    window.repairItem = async function(tokenId, itemId) {
-      if (!punkQuestContract) return;
-      
-      try {
-        const punkQuestContractWithSigner = new ethers.Contract(
-          PUNKQUEST_ADDRESS,
-          punkQuestABI,
-          new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
-            name: "base",
-            chainId: 8453
-          })
-        ).connect(signer);
-
-        const tx = await punkQuestContractWithSigner.repairItem(tokenId, itemId);
-        document.getElementById("transaction-output").innerText = "Transaction sent... waiting for confirmation.";
-        await tx.wait();
-        document.getElementById("transaction-output").innerText = "Item repaired successfully!";
-        await selectToken(tokenId);
-      } catch (error) {
-        document.getElementById("transaction-output").innerText = "Error repairing item: " + error.message;
+      // 2️⃣ Instance‑based inventory (batchBuyItems)
+      const counts = {}; // templateId → qty
+      for (let idx = 0; ; idx++) {
+        try {
+          const owned = await punkQuestWriteContract.ownedItems(walletAddress, idx);
+          const templateId = Number(owned.templateId);
+          counts[templateId] = (counts[templateId] || 0) + 1;
+        } catch (err) {
+          // out‑of‑bounds → break
+          break;
+        }
       }
-    };
+      Object.entries(counts).forEach(([tplId, qty]) => {
+        const item = allItems.find(i => i.id == tplId);
+        if (item) {
+          inventoryHTML += `<tr><td>${item.name} (${item.type}, tpl ID ${tplId})</td><td>${qty}</td></tr>`;
+        } else {
+          inventoryHTML += `<tr><td>Unknown template #${tplId}</td><td>${qty}</td></tr>`;
+        }
+      });
+
+      inventoryHTML += "</tbody></table>";
+      document.getElementById("inventory-items").innerHTML = inventoryHTML;
+    }
   </script>
 </body>
 </html>
