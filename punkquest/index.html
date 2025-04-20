@@ -766,14 +766,21 @@
       try {
         const wallet = await signer.getAddress();
 
-        // El fee correcto para unstake
-        const exitFee = await stakingContract.exitFee();
-        const totalFee = exitFee.mul(selectedTokenIds.length);
+        // Calcular todos los fees necesarios
+        const [exitFee, claimFee, repairFee] = await Promise.all([
+          stakingContract.exitFee(),
+          stakingContract.claimFee(),
+          stakingContract.repairFee()
+        ]);
+
+        // Calcular el total de fees por token
+        const feesPerToken = exitFee.add(claimFee).add(repairFee);
+        const totalFee = feesPerToken.mul(selectedTokenIds.length);
 
         // Comprobar / aprobar allowance
         const allowance = await tokenContract.allowance(wallet, STAKING_ADDRESS);
         if (allowance.lt(totalFee)) {
-          out.textContent = 'Approving exit fee…';
+          out.textContent = 'Approving fees…';
           const txA = await tokenContract
                        .connect(signer)
                        .approve(STAKING_ADDRESS, totalFee);
@@ -803,7 +810,7 @@
           if (err.message.includes('not staked')) {
             errorMessage = "Oops! Some of these tokens aren't staked! 🎮";
           } else if (err.message.includes('allowance') || err.message.includes('Approval failed')) {
-            errorMessage = "Oops! We need to approve the exit fee first! Please try again! 🎮";
+            errorMessage = "Oops! We need to approve the fees first! Please try again! 🎮";
           } else if (err.message.includes('429')) {
             errorMessage = "Too many requests! Let's take a short break and try again in a moment! ⏳";
           } else {
