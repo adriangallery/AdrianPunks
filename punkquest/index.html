@@ -681,7 +681,24 @@
         loadTokens(walletAddress);
         displayAggregateRewards();
       } catch (e) {
-        document.getElementById('general-output').textContent = 'Error staking: ' + e.message;
+        let errorMessage = 'Error staking: ';
+        if (e.code === 'CALL_EXCEPTION') {
+          // Verificar si los tokens ya están staked
+          const stakesPromises = selectedTokenIds.map(tokenId => 
+            stakingContract.stakes(tokenId).then(res => res[0].gt(0))
+          );
+          const stakes = await Promise.all(stakesPromises);
+          if (stakes.some(isStaked => isStaked)) {
+            errorMessage = 'Oops! Some of these tokens are already staked! 🎮';
+          } else if (e.message.includes('429')) {
+            errorMessage = 'Too many requests! Let\'s take a short break and try again in a moment! ⏳';
+          } else {
+            errorMessage = 'Something went wrong! Please try again later! 🎮';
+          }
+        } else {
+          errorMessage = 'Error staking: ' + e.message;
+        }
+        document.getElementById('general-output').textContent = errorMessage;
       }
     });
 
