@@ -419,7 +419,7 @@
 
         const price = parseFloat(item.price);
         const friendlyPrice = price >= 1000 ? `${(price / 1000).toFixed(1)}K` : price;
-        const tokenId = itemTokenIds[item.id] || "N/A";
+        const tokenId = itemTokenIds[item.id];
 
         card.innerHTML = `
           <div class="item-image">
@@ -433,7 +433,7 @@
               <button class="description-toggle" onclick="toggleDescription(this)">▼</button>
             </div>
             <div class="item-description">${item.description}</div>
-            <div class="token-id">Token ID: ${tokenId}</div>
+            <div class="token-id">Token ID: ${tokenId || "No disponible"}</div>
           </div>
           <div class="quantity-controls">
             <div class="quantity-input">
@@ -442,7 +442,7 @@
             </div>
             <div class="price-display">${friendlyPrice} $A</div>
           </div>
-          <button class="btn add-to-cart-btn" data-id="${tokenId}" data-price="${item.price}" data-name="${item.name}" data-type="${item.type}" data-json-id="${item.id}">Add to Cart</button>
+          <button class="btn add-to-cart-btn" ${!tokenId ? 'disabled' : ''} data-id="${tokenId || ''}" data-price="${item.price}" data-name="${item.name}" data-type="${item.type}" data-json-id="${item.id}">${tokenId ? 'Add to Cart' : 'No disponible'}</button>
         `;
         grid.appendChild(card);
       });
@@ -451,6 +451,8 @@
       Array.from(document.getElementsByClassName("add-to-cart-btn")).forEach(btn => {
         btn.addEventListener("click", e => {
           const { id, price, name, type, jsonId } = e.currentTarget.dataset;
+          if (!id) return; // No permitir compras sin token ID
+          
           const qty = parseInt(document.getElementById(`qty-${jsonId}`).value);
           if (qty > 0) {
             addToCart({ id: Number(id), name, price: price.toString(), quantity: qty, type });
@@ -462,6 +464,10 @@
 
     // ─── CART ──────────────────────────────────────────────────────────────────
     function addToCart(item) {
+      if (!item.id || isNaN(item.id)) {
+        console.error("Invalid item ID:", item);
+        return;
+      }
       const existing = shoppingCart.find(i => i.id === item.id);
       if (existing) existing.quantity += item.quantity; else shoppingCart.push(item);
       updateCartUI();
