@@ -764,15 +764,14 @@
       const general_output = document.getElementById('general-output');
       try {
         const wallet = await signer.getAddress();
-        const exitFee = await stakingContract.exitFee();
-        const totalFee = exitFee.mul(selectedTokenIds.length);
+        const claimFee = await stakingContract.claimFee();
+        const totalFee = claimFee.mul(selectedTokenIds.length);
         const allowance = await tokenContract.allowance(wallet, STAKING_ADDRESS);
 
         if (allowance.lt(totalFee)) {
           general_output.textContent = 'Approving exit fee…';
-          // Aprobamos una cantidad mucho mayor para evitar problemas de allowance
-          const maxAmount = ethers.constants.MaxUint256;
-          const txA = await tokenContract.connect(signer).approve(STAKING_ADDRESS, maxAmount);
+          // Aprobamos el claimFee multiplicado por el número de tokens
+          const txA = await tokenContract.connect(signer).approve(STAKING_ADDRESS, totalFee);
           await txA.wait();
         }
 
