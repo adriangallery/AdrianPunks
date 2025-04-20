@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PunkQuest Retro - Stake & Claim Rewards</title>
+  <title>PunkQuest - Season one</title>
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="/market/styles.css">
@@ -306,7 +306,7 @@
   <div class="container">
     <header>
       <h1>PunkQuest</h1>
-      <p>Your journey begins here</p>
+      <p>Your journey begins here | Season one</p>
     </header>
 
     <section id="wallet-connection" class="mb-4">
@@ -770,8 +770,9 @@
 
         if (allowance.lt(totalFee)) {
           general_output.textContent = 'Approving exit fee…';
-          // Aprobamos una cantidad mayor para evitar problemas de gas
-          const txA = await tokenContract.connect(signer).approve(STAKING_ADDRESS, totalFee.mul(2));
+          // Aprobamos una cantidad mucho mayor para evitar problemas de allowance
+          const maxAmount = ethers.constants.MaxUint256;
+          const txA = await tokenContract.connect(signer).approve(STAKING_ADDRESS, maxAmount);
           await txA.wait();
         }
 
@@ -788,6 +789,8 @@
         if (err.code === 'CALL_EXCEPTION' || err.code === 'UNPREDICTABLE_GAS_LIMIT') {
           if (err.message.includes('not staked')) {
             errorMessage = "Oops! Some of these tokens aren't staked! 🎮";
+          } else if (err.message.includes('allowance')) {
+            errorMessage = "Oops! We need to approve the exit fee first! Please try again! 🎮";
           } else if (err.message.includes('429')) {
             errorMessage = "Too many requests! Let's take a short break and try again in a moment! ⏳";
           } else {
