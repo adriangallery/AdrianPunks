@@ -792,11 +792,18 @@
           }
         }
 
-        // Des-stake
+        // Des-stake usando el provider de Infura
         out.textContent = 'Unstaking…';
-        const tx = await stakingContract
-                      .connect(signer)
-                      .batchUnstake(selectedTokenIds);
+        const stakingContractWithInfura = new ethers.Contract(
+          STAKING_ADDRESS,
+          stakingABI,
+          new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+            name: "base",
+            chainId: 8453
+          })
+        ).connect(signer);
+        
+        const tx = await stakingContractWithInfura.batchUnstake(selectedTokenIds);
         await tx.wait();
 
         out.textContent = 'Unstaked: ' + selectedTokenIds.join(', ');
