@@ -531,7 +531,26 @@
         showSuccessPopup();
       } catch (error) {
         console.error("Error during mint:", error);
-        statusDiv.innerText = "Error: " + (error.data?.message || error.message);
+        let errorMessage = "Error: ";
+        if (error.code === 'UNPREDICTABLE_GAS_LIMIT' && error.message.includes('Sale phase not started')) {
+          errorMessage = "⏳ Hold on, adventurer! The minting gates aren't open yet! Check back soon for the grand opening! 🎮";
+        } else if (error.code === 'CALL_EXCEPTION' || error.code === 'UNPREDICTABLE_GAS_LIMIT') {
+          // Verificar si los tokens ya están staked
+          const stakesPromises = tiers.map(tier => 
+            adrianPunksContract.getWhitelistInfo(tier, userAccount).then(res => res.remaining.gt(0))
+          );
+          const stakes = await Promise.all(stakesPromises);
+          if (stakes.some(isStaked => isStaked) || error.message.includes('staked')) {
+            errorMessage = "Oops! Some of these tokens are already staked! 🎮";
+          } else if (error.message.includes('429')) {
+            errorMessage = "Too many requests! Let's take a short break and try again in a moment! ⏳";
+          } else {
+            errorMessage = "Something went wrong! Please try again later! 🎮";
+          }
+        } else {
+          errorMessage = "Error: " + (error.data?.message || error.message);
+        }
+        statusDiv.innerText = errorMessage;
       }
     }
     
