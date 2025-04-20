@@ -315,7 +315,7 @@
       "function buyItem(uint256 id, uint qty) external",
       "function inventory(address, uint256) view returns (uint256)",
       "function nextItemId() view returns (uint256)",
-      // Advanced inventory helpers
+      "function getItemTokenId(uint256 itemId) view returns (uint256)",
       "function ownedItems(address, uint256) view returns (uint256 instanceId, uint256 templateId, uint256 durability, bool degraded)"
     ];
 
@@ -339,6 +339,7 @@
 
     let shoppingCart = [];
     let allItems = [];
+    let itemTokenIds = {}; // Mapeo de item.id -> tokenId
 
     // ─── INIT ──────────────────────────────────────────────────────────────────
     window.addEventListener("DOMContentLoaded", async () => {
@@ -386,6 +387,20 @@
         const res = await fetch("weapons.json");
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         allItems = await res.json();
+        
+        // Obtener los token IDs del contrato
+        for (const item of allItems) {
+          try {
+            const tokenId = await punkQuestRead.getItemTokenId(item.id);
+            if (tokenId && tokenId.gt(0)) {
+              itemTokenIds[item.id] = tokenId.toNumber();
+              console.log(`Item ${item.id} -> Token ID ${tokenId}`);
+            }
+          } catch (err) {
+            console.warn(`No se pudo obtener token ID para item ${item.id}:`, err);
+          }
+        }
+        
         displayItems(allItems);
       } catch (err) {
         console.error("loadItems() error", err);
@@ -404,6 +419,7 @@
 
         const price = parseFloat(item.price);
         const friendlyPrice = price >= 1000 ? `${(price / 1000).toFixed(1)}K` : price;
+        const tokenId = itemTokenIds[item.id] || "N/A";
 
         card.innerHTML = `
           <div class="item-image">
@@ -417,6 +433,7 @@
               <button class="description-toggle" onclick="toggleDescription(this)">▼</button>
             </div>
             <div class="item-description">${item.description}</div>
+            <div class="token-id">Token ID: ${tokenId}</div>
           </div>
           <div class="quantity-controls">
             <div class="quantity-input">
@@ -425,7 +442,7 @@
             </div>
             <div class="price-display">${friendlyPrice} $A</div>
           </div>
-          <button class="btn add-to-cart-btn" data-id="1" data-price="${item.price}" data-name="${item.name}" data-type="${item.type}">Add to Cart</button>
+          <button class="btn add-to-cart-btn" data-id="${tokenId}" data-price="${item.price}" data-name="${item.name}" data-type="${item.type}">Add to Cart</button>
         `;
         grid.appendChild(card);
       });
