@@ -375,8 +375,26 @@
       if (!punkQuestContract) return;
       
       try {
-        const tokenIds = await punkQuestContract.getTokenList();
-        const tokenContainer = document.getElementById("token-container");
+        // Obtener la dirección de la wallet conectada
+        const walletAddress = await signer.getAddress();
+        
+        // Obtener el balance de tokens del usuario
+        const tokenContract = new ethers.Contract(
+          "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea", // Dirección del contrato de tokens
+          ["function balanceOf(address) view returns (uint256)"],
+          punkQuestContract.provider
+        );
+        
+        const balance = await tokenContract.balanceOf(walletAddress);
+        const tokenIds = [];
+        
+        // Obtener los IDs de los tokens
+        for (let i = 0; i < balance.toNumber(); i++) {
+          const tokenId = await tokenContract.tokenOfOwnerByIndex(walletAddress, i);
+          tokenIds.push(tokenId);
+        }
+        
+        const tokenContainer = document.getElementById("itemsGrid");
         tokenContainer.innerHTML = "";
         
         if (tokenIds.length === 0) {
@@ -386,17 +404,21 @@
         
         for (const tokenId of tokenIds) {
           const tokenCard = document.createElement("div");
-          tokenCard.className = "token-card";
+          tokenCard.className = "item-card";
           tokenCard.innerHTML = `
-            <img src="https://ipfs.io/ipfs/QmYw8JYQZJZJZJZJZJZJZJZJZJZJZJZJZJZJZJZJZJZJZJZ/${tokenId}.png" alt="Token ${tokenId}">
-            <p>Token ID: ${tokenId}</p>
-            <button class="btn" onclick="selectToken(${tokenId})">Select</button>
+            <div class="item-image">
+              <img src="https://ipfs.io/ipfs/QmYw8JYQZJZJZJZJZJZJZJZJZJZJZJZJZJZJZJZJZJZJZJZ/${tokenId}.png" alt="Token ${tokenId}">
+            </div>
+            <div class="item-details">
+              <h4>Token #${tokenId}</h4>
+              <button class="btn" onclick="selectToken(${tokenId})">Select</button>
+            </div>
           `;
           tokenContainer.appendChild(tokenCard);
         }
       } catch (error) {
         console.error("Error loading tokens:", error);
-        document.getElementById("token-container").innerHTML = "<p>Error loading tokens. Please try again.</p>";
+        document.getElementById("itemsGrid").innerHTML = "<p>Error loading tokens. Please try again.</p>";
       }
     }
 
