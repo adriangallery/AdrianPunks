@@ -304,6 +304,22 @@
     // Actualiza la dirección del contrato al nuevo CA
     const PUNKQUEST_ADDRESS = "0xaf22843e195b792a3f874562ab7cee751066665e";
     const NFT_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";  // Dirección del contrato NFT
+    let itemsData = {}; // Almacenará los datos de los items
+
+    // Cargar datos de items desde el archivo JSON
+    async function loadItemsData() {
+      try {
+        const response = await fetch('weapons.json');
+        itemsData = await response.json();
+        console.log('Items data loaded:', itemsData);
+      } catch (error) {
+        console.error('Error loading items data:', error);
+      }
+    }
+
+    // Cargar datos al iniciar
+    loadItemsData();
+
     const punkQuestABI = [
       "function items(uint256) view returns (uint256 price, uint256 bonus, uint256 durability, bool exists, uint8 itemType, bool degradable)",
       "function purchaseItem(uint256 itemId) external",
@@ -436,7 +452,7 @@
         const items = await punkQuestContract.getTokenItems(tokenId);
         const equippedItems = await punkQuestContract.getTokenEquippedItems(tokenId);
         
-        const itemsContainer = document.getElementById("items-container");
+        const itemsContainer = document.getElementById("inventory-items");
         itemsContainer.innerHTML = "";
         
         if (items.length === 0) {
@@ -445,28 +461,35 @@
         }
         
         for (const itemId of items) {
-          const itemData = await punkQuestContract.items(itemId);
+          const itemData = itemsData[itemId.toString()];
+          if (!itemData) continue;
+
           const isEquipped = equippedItems.includes(itemId);
           const durability = await punkQuestContract.getTokenItemDurability(tokenId, itemId);
           
           const itemCard = document.createElement("div");
           itemCard.className = "item-card";
           itemCard.innerHTML = `
-            <h3>Item ID: ${itemId}</h3>
-            <p>Price: ${ethers.utils.formatUnits(itemData.price, 18)} tokens</p>
-            <p>Bonus: ${ethers.utils.formatUnits(itemData.bonus, 16)}%</p>
-            <p>Durability: ${durability}/${itemData.durability}</p>
-            <p>Type: ${itemData.itemType === 0 ? "Weapon" : "Armor"}</p>
-            <p>Status: ${isEquipped ? "Equipped" : "Not Equipped"}</p>
-            <button class="btn" onclick="equipItem(${tokenId}, ${itemId})" ${isEquipped ? "disabled" : ""}>Equip</button>
-            <button class="btn" onclick="unequipItem(${tokenId}, ${itemId})" ${!isEquipped ? "disabled" : ""}>Unequip</button>
-            <button class="btn" onclick="repairItem(${tokenId}, ${itemId})">Repair</button>
+            <div class="item-image">
+              <img src="${itemData.image}" alt="${itemData.name}">
+              <div class="durability-badge">${durability}/${itemData.durability}</div>
+              <div class="bonus-badge">+${itemData.bonus}%</div>
+            </div>
+            <div class="item-details">
+              <h4>${itemData.name}</h4>
+              <p>Type: ${itemData.type}</p>
+              <p>Price: ${ethers.utils.formatUnits(itemData.price, 18)} tokens</p>
+              <p>Status: ${isEquipped ? "Equipped" : "Not Equipped"}</p>
+              <button class="btn" onclick="equipItem(${tokenId}, ${itemId})" ${isEquipped ? "disabled" : ""}>Equip</button>
+              <button class="btn" onclick="unequipItem(${tokenId}, ${itemId})" ${!isEquipped ? "disabled" : ""}>Unequip</button>
+              <button class="btn" onclick="repairItem(${tokenId}, ${itemId})">Repair</button>
+            </div>
           `;
           itemsContainer.appendChild(itemCard);
         }
       } catch (error) {
         console.error("Error loading items:", error);
-        document.getElementById("items-container").innerHTML = "<p>Error loading items. Please try again.</p>";
+        document.getElementById("inventory-items").innerHTML = "<p>Error loading items. Please try again.</p>";
       }
     };
 
