@@ -482,18 +482,18 @@
       if (shoppingCart.length === 0) { alert("Your cart is empty."); return; }
 
       try {
-        let totalCost = ethers.BigNumber.from(0);
-        shoppingCart.forEach(({ price, quantity }) => {
-          const cost   = ethers.utils.parseUnits(price, 18).mul(quantity);
-          totalCost = totalCost.add(cost);
-        });
+        // Calcular el total directamente desde el carrito
+        const totalCost = shoppingCart.reduce((total, item) => {
+          return total + (parseInt(item.price) * item.quantity);
+        }, 0);
 
         const walletAddress = await signer.getAddress();
         const allowance = await tokenWriteContract.allowance(walletAddress, PUNKQUEST_ADDRESS);
+        const totalCostBN = ethers.utils.parseUnits(totalCost.toString(), 18);
 
-        if (allowance.lt(totalCost)) {
+        if (allowance.lt(totalCostBN)) {
           document.getElementById("general-output").innerText = "Approving tokens…";
-          const tx = await tokenWriteContract.approve(PUNKQUEST_ADDRESS, totalCost);
+          const tx = await tokenWriteContract.approve(PUNKQUEST_ADDRESS, totalCostBN);
           await tx.wait();
         }
 
