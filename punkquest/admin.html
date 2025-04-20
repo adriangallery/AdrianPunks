@@ -189,29 +189,61 @@
   <script>
     let provider, signer, punkQuestContract;
     // Actualiza la dirección del contrato al nuevo CA
-    const PUNKQUEST_ADDRESS = "0x64c46fca3f46442c7abd5303dc1c56a79f4e4273";
+    const PUNKQUEST_ADDRESS = "0xaf22843e195b792a3f874562ab7cee751066665e";
     const punkQuestABI = [
-      "function addItem(uint8 _type, uint256 _price, uint256 _bonus, uint256 _durability) external",
+      "function addItem(uint8 _type, uint256 _price, uint256 _bonus, uint256 _durability, bool _degradable) external",
       "function updateItem(uint256 _itemId, uint256 _price, uint256 _bonus, uint256 _durability) external",
       "function items(uint256) view returns (uint256 price, uint256 bonus, uint256 durability, bool exists, uint8 itemType, bool degradable)",
       "function addAdvancedEventDefinition(string memory name, int256 adjustment, string memory description, uint256 degradeAmount) external",
-      "function triggerEvent(uint256 tokenId, uint256 eventId) external",
-      "function getEconomicSnapshot() view returns (uint256 totalStaked, uint256 totalItemsCreated, uint256 totalItemsPurchased, uint256 totalItemsEquipped)",
-      "function owner() view returns (address)"
+      "function triggerAdvancedEvent(uint256 tokenId, uint256 eventId) external",
+      "function getEconomicSnapshot() view returns (uint256 staked, uint256 totalItems, uint256 purchased, uint256 equipped)",
+      "function owner() view returns (address)",
+      "function setBaseRewardRate(uint256 v) external",
+      "function setActivationFee(uint256 v) external",
+      "function setExitFee(uint256 v) external",
+      "function setClaimFee(uint256 v) external",
+      "function setRepairFee(uint256 v) external",
+      "function setExtraSlotCost(uint256 v) external",
+      "function setFastLevelUpgradeFee(uint256 v) external",
+      "function setFastLevelUpgradeBonusIncrement(uint256 v) external",
+      "function setMaxFastLevelBonus(uint256 v) external",
+      "function setMaxSlots(uint256 v) external",
+      "function setEventParameters(uint256 c, uint256 chance, uint256 pos, uint256 neg) external",
+      "function setEventsPaused(bool p) external",
+      "function setLevelParameters(uint256[] memory th, uint256[] memory bn) external",
+      "function setSocialStakingParameters(uint256 m, uint256 b, uint256 d) external",
+      "function setArtistWallet(address w) external",
+      "function setFeeWallet(address w) external",
+      "function depositRewardFunds(uint256 a) external",
+      "function withdrawRewardFunds(uint256 a, address to) external"
     ];
 
     document.getElementById("connect-admin").addEventListener("click", async () => {
       if (window.ethereum) {
         try {
           await window.ethereum.request({ method: "eth_requestAccounts" });
-          provider = new ethers.providers.Web3Provider(window.ethereum);
-          // Deshabilitar ENS resolver
-          provider.getResolver = async (name) => null;
-          signer = provider.getSigner();
+          // Configurar el provider de MetaMask para transacciones
+          const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+          signer = web3Provider.getSigner();
+          
+          // Configurar el provider de Base para consultas usando Infura
+          const etherscanProvider = new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+            name: "base",
+            chainId: 8453
+          });
+          
           const walletAddress = await signer.getAddress();
           const shortAddr = walletAddress.substring(0, 6) + "..." + walletAddress.substring(walletAddress.length - 4);
           document.getElementById("admin-wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddr}</p>`;
-          punkQuestContract = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, signer);
+          
+          // Crear instancia del contrato con el provider de Infura para consultas
+          punkQuestContract = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, etherscanProvider);
+          
+          // Verificar que la wallet conectada sea el owner
+          const owner = await punkQuestContract.owner();
+          if (owner.toLowerCase() !== walletAddress.toLowerCase()) {
+            document.getElementById("admin-wallet-info").innerHTML += `<p class="text-danger">Warning: Connected wallet is not the contract owner!</p>`;
+          }
         } catch (error) {
           document.getElementById("admin-wallet-info").innerHTML = `<p>Error connecting: ${error.message}</p>`;
         }
@@ -242,7 +274,17 @@
       }
       const durabilityParsed = parseInt(durabilityInput);
       try {
-        const tx = await punkQuestContract.addItem(0, priceParsed, bonusParsed, durabilityParsed);
+        // Crear una nueva instancia del contrato con el signer para la transacción
+        const punkQuestContractWithSigner = new ethers.Contract(
+          PUNKQUEST_ADDRESS,
+          punkQuestABI,
+          new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+            name: "base",
+            chainId: 8453
+          })
+        ).connect(signer);
+
+        const tx = await punkQuestContractWithSigner.addItem(0, priceParsed, bonusParsed, durabilityParsed, true);
         document.getElementById("create-weapon-output").innerText = "Transaction sent... waiting for confirmation.";
         await tx.wait();
         document.getElementById("create-weapon-output").innerText = "Weapon created successfully!";
@@ -286,16 +328,30 @@
       const priceInput = document.getElementById("update-weapon-price").value;
       const bonusInput = document.getElementById("update-weapon-bonus").value;
       const durabilityInput = document.getElementById("update-weapon-durability").value;
+      let priceParsed, bonusParsed;
       try {
-        const priceParsed = ethers.utils.parseUnits(priceInput, 18);
-        const bonusParsed = ethers.BigNumber.from(bonusInput).mul("10000000000000000");
-        const durabilityParsed = parseInt(durabilityInput);
-        const tx = await punkQuestContract.updateItem(itemId, priceParsed, bonusParsed, durabilityParsed);
+        priceParsed = ethers.utils.parseUnits(priceInput, 18);
+        bonusParsed = ethers.BigNumber.from(bonusInput).mul("10000000000000000");
+      } catch (error) {
+        document.getElementById("update-weapon-output").innerText = "Error parsing numbers: " + error.message;
+        return;
+      }
+      const durabilityParsed = parseInt(durabilityInput);
+      try {
+        const punkQuestContractWithSigner = new ethers.Contract(
+          PUNKQUEST_ADDRESS,
+          punkQuestABI,
+          new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+            name: "base",
+            chainId: 8453
+          })
+        ).connect(signer);
+
+        const tx = await punkQuestContractWithSigner.updateItem(itemId, priceParsed, bonusParsed, durabilityParsed);
         document.getElementById("update-weapon-output").innerText = "Transaction sent... waiting for confirmation.";
         await tx.wait();
         document.getElementById("update-weapon-output").innerText = "Weapon updated successfully!";
         document.getElementById("update-weapon-form").reset();
-        document.getElementById("update-weapon-form").style.display = "none";
       } catch (error) {
         document.getElementById("update-weapon-output").innerText = "Error updating weapon: " + error.message;
       }
@@ -309,20 +365,26 @@
         alert("Please connect your admin wallet first.");
         return;
       }
-      const eventName = document.getElementById("adv-event-name").value;
-      const eventAdjustmentInput = document.getElementById("adv-event-adjustment").value;
-      const eventDescription = document.getElementById("adv-event-description").value;
-      const degradeAmountInput = document.getElementById("adv-degrade-amount").value;
-      let eventAdjustment;
+      const name = document.getElementById("adv-event-name").value;
+      const adjustment = document.getElementById("adv-event-adjustment").value;
+      const description = document.getElementById("adv-event-description").value;
+      const degradeAmount = document.getElementById("adv-degrade-amount").value;
       try {
-        eventAdjustment = ethers.BigNumber.from(eventAdjustmentInput).mul("10000000000000000"); // para convertir, por ejemplo, -10 a -1e17
-      } catch (error) {
-        document.getElementById("create-advanced-event-output").innerText = "Error parsing adjustment: " + error.message;
-        return;
-      }
-      const degradeAmount = parseInt(degradeAmountInput);
-      try {
-        const tx = await punkQuestContract.addAdvancedEventDefinition(eventName, eventAdjustment, eventDescription, degradeAmount);
+        const punkQuestContractWithSigner = new ethers.Contract(
+          PUNKQUEST_ADDRESS,
+          punkQuestABI,
+          new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+            name: "base",
+            chainId: 8453
+          })
+        ).connect(signer);
+
+        const tx = await punkQuestContractWithSigner.addAdvancedEventDefinition(
+          name,
+          adjustment,
+          description,
+          degradeAmount
+        );
         document.getElementById("create-advanced-event-output").innerText = "Transaction sent... waiting for confirmation.";
         await tx.wait();
         document.getElementById("create-advanced-event-output").innerText = "Advanced event created successfully!";
@@ -342,10 +404,20 @@
       const tokenId = document.getElementById("trigger-token-id").value;
       const eventId = document.getElementById("trigger-event-id").value;
       try {
-        const tx = await punkQuestContract.triggerEvent(tokenId, eventId);
+        const punkQuestContractWithSigner = new ethers.Contract(
+          PUNKQUEST_ADDRESS,
+          punkQuestABI,
+          new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+            name: "base",
+            chainId: 8453
+          })
+        ).connect(signer);
+
+        const tx = await punkQuestContractWithSigner.triggerAdvancedEvent(tokenId, eventId);
         document.getElementById("trigger-advanced-event-output").innerText = "Transaction sent... waiting for confirmation.";
         await tx.wait();
-        document.getElementById("trigger-advanced-event-output").innerText = "Advanced event triggered successfully for token " + tokenId;
+        document.getElementById("trigger-advanced-event-output").innerText = "Advanced event triggered successfully!";
+        document.getElementById("trigger-advanced-event-form").reset();
       } catch (error) {
         document.getElementById("trigger-advanced-event-output").innerText = "Error triggering advanced event: " + error.message;
       }
@@ -360,10 +432,10 @@
       try {
         const snapshot = await punkQuestContract.getEconomicSnapshot();
         const output = `
-Total Staked: ${snapshot.totalStaked.toString()}
-Total Items Created: ${snapshot.totalItemsCreated.toString()}
-Total Items Purchased: ${snapshot.totalItemsPurchased.toString()}
-Total Items Equipped: ${snapshot.totalItemsEquipped.toString()}
+Total Staked: ${snapshot.staked.toString()}
+Total Items Created: ${snapshot.totalItems.toString()}
+Total Items Purchased: ${snapshot.purchased.toString()}
+Total Items Equipped: ${snapshot.equipped.toString()}
         `;
         document.getElementById("snapshot-output").innerText = output;
       } catch (error) {
