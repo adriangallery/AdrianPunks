@@ -778,6 +778,12 @@
                        .connect(signer)
                        .approve(STAKING_ADDRESS, totalFee);
           await txA.wait();
+          
+          // Verificar que la aprobación se haya completado
+          const newAllowance = await tokenContract.allowance(wallet, STAKING_ADDRESS);
+          if (newAllowance.lt(totalFee)) {
+            throw new Error('Approval failed or insufficient allowance');
+          }
         }
 
         // Des-stake
@@ -796,7 +802,7 @@
         if (err.code === 'CALL_EXCEPTION' || err.code === 'UNPREDICTABLE_GAS_LIMIT') {
           if (err.message.includes('not staked')) {
             errorMessage = "Oops! Some of these tokens aren't staked! 🎮";
-          } else if (err.message.includes('allowance')) {
+          } else if (err.message.includes('allowance') || err.message.includes('Approval failed')) {
             errorMessage = "Oops! We need to approve the exit fee first! Please try again! 🎮";
           } else if (err.message.includes('429')) {
             errorMessage = "Too many requests! Let's take a short break and try again in a moment! ⏳";
