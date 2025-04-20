@@ -302,7 +302,7 @@
   <script>
     // ─── CONSTANTS ─────────────────────────────────────────────────────────────
     const INFURA_PROJECT_ID = "cc0c8013b1e044dcba79d4f7ec3b2ba1"; // Project ID de Infura
-    const NETWORK = "homestead";                       // mainnet (o la red que uses)
+    const NETWORK = "base";                            // Base network
     
     const PUNKQUEST_ADDRESS = "0x64c46fca3f46442c7abd5303dc1c56a79f4e4273";
     const TOKEN_ADDRESS     = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
@@ -345,7 +345,13 @@
     // ─── INIT ──────────────────────────────────────────────────────────────────
     window.addEventListener("DOMContentLoaded", async () => {
       // Infura provider (read‑only) disponible desde el principio
-      infuraProvider      = new ethers.providers.InfuraProvider(NETWORK, INFURA_PROJECT_ID);
+      infuraProvider      = new ethers.providers.JsonRpcProvider(
+        `https://base-mainnet.infura.io/v3/${INFURA_PROJECT_ID}`,
+        {
+          name: "base",
+          chainId: 8453
+        }
+      );
       punkQuestReadContract = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, infuraProvider);
       tokenReadContract     = new ethers.Contract(TOKEN_ADDRESS,  tokenABI,  infuraProvider);
 
@@ -361,16 +367,23 @@
       try {
         await window.ethereum.request({ method: "eth_requestAccounts" });
 
-        web3Provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer       = web3Provider.getSigner();
+        // Configurar el provider de Infura para todas las operaciones
+        const infuraProvider = new ethers.providers.JsonRpcProvider(
+          `https://base-mainnet.infura.io/v3/${INFURA_PROJECT_ID}`,
+          {
+            name: "base",
+            chainId: 8453
+          }
+        );
+        signer = infuraProvider.getSigner();
 
         const walletAddress = await signer.getAddress();
         const shortAddr = walletAddress.substring(0, 6) + "…" + walletAddress.slice(-4);
         document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddr}</p>`;
 
         // Instanciar contratos con signer
-        punkQuestWriteContract = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, signer);
-        tokenWriteContract     = new ethers.Contract(TOKEN_ADDRESS,  tokenABI,  signer);
+        punkQuestWriteContract = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, infuraProvider);
+        tokenWriteContract     = new ethers.Contract(TOKEN_ADDRESS,  tokenABI,  infuraProvider);
 
         // Cargar inventario del usuario
         loadUserInventory();
