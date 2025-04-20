@@ -764,7 +764,7 @@
       const general_output = document.getElementById('general-output');
       try {
         const wallet = await signer.getAddress();
-        const exitFee  = await stakingContract.exitFee();
+        const exitFee = await stakingContract.exitFee();
         const totalFee = exitFee.mul(selectedTokenIds.length);
         const allowance = await tokenContract.allowance(wallet, STAKING_ADDRESS);
 
@@ -776,17 +776,27 @@
         }
 
         general_output.textContent = 'Unstaking…';
-        const tx = await stakingContract.connect(signer).batchUnstake(selectedTokenIds, {
-          gasLimit: 300000 // Añadimos un límite de gas explícito
-        });
+        const tx = await stakingContract.connect(signer).batchUnstake(selectedTokenIds);
         await tx.wait();
 
         general_output.textContent = 'Unstaked: ' + selectedTokenIds.join(', ');
         selectedTokenIds = [];                 // limpiamos selección
-        loadTokens(wallet);                          // refresca grilla
+        loadTokens(wallet);                    // refresca grilla
         displayAggregateRewards();             // refresca recompensas globales
       } catch (err) {
-        general_output.textContent = 'Error unstaking: ' + err.message;
+        let errorMessage = 'Error unstaking: ';
+        if (err.code === 'CALL_EXCEPTION' || err.code === 'UNPREDICTABLE_GAS_LIMIT') {
+          if (err.message.includes('not staked')) {
+            errorMessage = "Oops! Some of these tokens aren't staked! 🎮";
+          } else if (err.message.includes('429')) {
+            errorMessage = "Too many requests! Let's take a short break and try again in a moment! ⏳";
+          } else {
+            errorMessage = "Something went wrong! Please try again later! 🎮";
+          }
+        } else {
+          errorMessage += err.message;
+        }
+        general_output.textContent = errorMessage;
         console.error(err);
       }
     });
