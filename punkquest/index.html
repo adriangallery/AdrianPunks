@@ -758,43 +758,45 @@
     document.getElementById('connect-wallet').addEventListener('click', connectWallet);
     document.getElementById('unstake-token').addEventListener('click', async () => {
       if (selectedTokenIds.length === 0) {
-        alert('Please select token(s) first'); return;
+        alert('Please select token(s) first');
+        return;
       }
 
-      const general_output = document.getElementById('general-output');
+      const out = document.getElementById('general-output');
       try {
         const wallet = await signer.getAddress();
-        const claimFee = await stakingContract.claimFee();
-        const totalFee = claimFee.mul(selectedTokenIds.length);
-        const allowance = await tokenContract.allowance(wallet, STAKING_ADDRESS);
 
+        // El fee correcto para unstake
+        const exitFee = await stakingContract.exitFee();
+        const totalFee = exitFee.mul(selectedTokenIds.length);
+
+        // Comprobar / aprobar allowance
+        const allowance = await tokenContract.allowance(wallet, STAKING_ADDRESS);
         if (allowance.lt(totalFee)) {
-          general_output.textContent = 'Approving exit fee…';
-          // Aprobamos el claimFee multiplicado por el número de tokens
-          const txA = await tokenContract.connect(signer).approve(STAKING_ADDRESS, totalFee);
+          out.textContent = 'Approving exit fee…';
+          const txA = await tokenContract
+                       .connect(signer)
+                       .approve(STAKING_ADDRESS, totalFee);
           await txA.wait();
-          
-          // Verificamos que la aprobación se haya completado
-          const newAllowance = await tokenContract.allowance(wallet, STAKING_ADDRESS);
-          if (newAllowance.lt(totalFee)) {
-            throw new Error('Approval failed or insufficient allowance');
-          }
         }
 
-        general_output.textContent = 'Unstaking…';
-        const tx = await stakingContract.connect(signer).batchUnstake(selectedTokenIds);
+        // Des-stake
+        out.textContent = 'Unstaking…';
+        const tx = await stakingContract
+                      .connect(signer)
+                      .batchUnstake(selectedTokenIds);
         await tx.wait();
 
-        general_output.textContent = 'Unstaked: ' + selectedTokenIds.join(', ');
-        selectedTokenIds = [];                 // limpiamos selección
-        loadTokens(wallet);                    // refresca grilla
-        displayAggregateRewards();             // refresca recompensas globales
+        out.textContent = 'Unstaked: ' + selectedTokenIds.join(', ');
+        selectedTokenIds = [];
+        loadTokens(wallet);
+        displayAggregateRewards();
       } catch (err) {
         let errorMessage = 'Error unstaking: ';
         if (err.code === 'CALL_EXCEPTION' || err.code === 'UNPREDICTABLE_GAS_LIMIT') {
           if (err.message.includes('not staked')) {
             errorMessage = "Oops! Some of these tokens aren't staked! 🎮";
-          } else if (err.message.includes('allowance') || err.message.includes('Approval failed')) {
+          } else if (err.message.includes('allowance')) {
             errorMessage = "Oops! We need to approve the exit fee first! Please try again! 🎮";
           } else if (err.message.includes('429')) {
             errorMessage = "Too many requests! Let's take a short break and try again in a moment! ⏳";
@@ -804,7 +806,7 @@
         } else {
           errorMessage += err.message;
         }
-        general_output.textContent = errorMessage;
+        out.textContent = errorMessage;
         console.error(err);
       }
     });
