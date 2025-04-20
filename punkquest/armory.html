@@ -304,14 +304,17 @@
     // Actualiza la dirección del contrato al nuevo CA
     const PUNKQUEST_ADDRESS = "0xaf22843e195b792a3f874562ab7cee751066665e";
     const NFT_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";  // Dirección del contrato NFT
-    let itemsData = {}; // Almacenará los datos de los items
+    let allItems = []; // Almacenará todos los items del JSON
 
     // Cargar datos de items desde el archivo JSON
     async function loadItemsData() {
       try {
         const response = await fetch('weapons.json');
-        itemsData = await response.json();
-        console.log('Items data loaded:', itemsData);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        allItems = await response.json();
+        console.log('Items data loaded:', allItems);
       } catch (error) {
         console.error('Error loading items data:', error);
       }
@@ -461,8 +464,8 @@
         }
         
         for (const itemId of items) {
-          // Buscar el item en el JSON por su ID
-          const itemData = itemsData.find(item => item.id === itemId.toNumber());
+          // Buscar el item en el array allItems por su ID
+          const itemData = allItems.find(item => item.id === itemId.toNumber());
           if (!itemData) {
             console.log(`Item ID ${itemId} not found in JSON`);
             continue;
@@ -477,13 +480,16 @@
             <div class="item-image">
               <img src="${itemData.image}" alt="${itemData.name}">
               <div class="durability-badge">${durability}/${itemData.durability}</div>
-              <div class="bonus-badge">+${itemData.bonus}</div>
+              <div class="bonus-badge">${itemData.bonus}</div>
             </div>
             <div class="item-details">
-              <h4>${itemData.name}</h4>
+              <div class="item-name">
+                ${itemData.name}
+                <button class="description-toggle" onclick="toggleDescription(this)">▼</button>
+              </div>
+              <div class="item-description">${itemData.description}</div>
               <p>Type: ${itemData.type}</p>
               <p>Price: ${itemData.price} tokens</p>
-              <p>Description: ${itemData.description}</p>
               <p>Status: ${isEquipped ? "Equipped" : "Not Equipped"}</p>
               <button class="btn" onclick="equipItem(${tokenId}, ${itemId})" ${isEquipped ? "disabled" : ""}>Equip</button>
               <button class="btn" onclick="unequipItem(${tokenId}, ${itemId})" ${!isEquipped ? "disabled" : ""}>Unequip</button>
@@ -496,6 +502,14 @@
         console.error("Error loading items:", error);
         document.getElementById("inventory-items").innerHTML = "<p>Error loading items. Please try again.</p>";
       }
+    };
+
+    // Función para mostrar/ocultar descripción
+    window.toggleDescription = function(button) {
+      const itemDetails = button.closest('.item-details');
+      const description = itemDetails.querySelector('.item-description');
+      description.classList.toggle('expanded');
+      button.classList.toggle('active');
     };
 
     // Función para equipar un item
