@@ -516,12 +516,13 @@
         const allowance = await adrianTokenContract.allowance(userAccount, adrianPunksAddress);
         if (allowance.lt(totalCost)) {
           statusDiv.innerText = "Approving tokens for minting...";
-          const approveTx = await adrianTokenContract.approve(adrianPunksAddress, totalCost);
+          const approveTx = await adrianTokenContract.connect(signer).approve(adrianPunksAddress, totalCost);
           await approveTx.wait();
         }
         
         statusDiv.innerText = "Sending mint transaction...";
-        const mintTx = await adrianPunksContract.mint(tiers, amounts);
+        const mintContractWithSigner = adrianPunksContract.connect(signer);
+        const mintTx = await mintContractWithSigner.mint(tiers, amounts);
         statusDiv.innerText = "Transaction sent. Waiting for confirmation...";
         await mintTx.wait();
         statusDiv.innerText = "Mint successful!";
