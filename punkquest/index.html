@@ -675,7 +675,18 @@
           const tx = await tokenContract.connect(signer).approve(STAKING_ADDRESS, totalFee);
           await tx.wait();
         }
-        const txStake = await stakingContract.connect(signer).batchStake(selectedTokenIds);
+
+        // Stake usando el provider de Infura
+        const stakingContractWithInfura = new ethers.Contract(
+          STAKING_ADDRESS,
+          stakingABI,
+          new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+            name: "base",
+            chainId: 8453
+          })
+        ).connect(signer);
+
+        const txStake = await stakingContractWithInfura.batchStake(selectedTokenIds);
         await txStake.wait();
         document.getElementById('general-output').textContent = 'Staked: ' + selectedTokenIds.join(', ');
         loadTokens(walletAddress);
