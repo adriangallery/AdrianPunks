@@ -468,11 +468,11 @@
       shoppingCart.forEach(({ name, type, price, quantity }) => {
         const cost = ethers.utils.parseUnits(price.toString(), 18).mul(quantity);
         total = total.add(cost);
-        html += `<tr><td>${name} (${type})</td><td>${quantity}</td><td>${price} × ${quantity}</td></tr>`;
+        html += `<tr><td>${name} (${type})</td><td>${quantity}</td><td>${price} × ${quantity}</td></tr>`;
       });
 
       cartList.innerHTML = html + "</tbody></table>";
-      cartTotal.innerText  = `Total: ${ethers.utils.formatUnits(total, 18)} A$`;
+      cartTotal.innerText  = `Total: ${ethers.utils.formatUnits(total, 18)} A$`;
       buyBtn.disabled      = total.isZero();
     }
 
@@ -482,6 +482,14 @@
       if (shoppingCart.length === 0) { alert("Your cart is empty."); return; }
 
       try {
+        // Verificar que los items existen
+        const nextItemId = await punkQuestRead.nextItemId();
+        const invalidItems = shoppingCart.filter(item => item.id >= nextItemId);
+        if (invalidItems.length > 0) {
+          const invalidNames = invalidItems.map(item => item.name).join(", ");
+          throw new Error(`Los siguientes items no existen: ${invalidNames}`);
+        }
+
         // Total cost in BigNumber desde el principio
         let totalCost = ethers.BigNumber.from(0);
         shoppingCart.forEach(({ price, quantity }) => {
@@ -511,7 +519,15 @@
         loadUserInventory();
       } catch (err) {
         console.error("batch buy error", err);
-        document.getElementById("general-output").innerText = `Error during batch purchase: ${err.message}`;
+        let errorMessage = "Error during batch purchase: ";
+        if (err.message.includes("Item does not exist")) {
+          errorMessage += "Uno o más items no existen en el contrato.";
+        } else if (err.message.includes("Los siguientes items no existen")) {
+          errorMessage = err.message;
+        } else {
+          errorMessage += err.message;
+        }
+        document.getElementById("general-output").innerText = errorMessage;
       }
     });
 
@@ -534,7 +550,7 @@
         try {
           const qty = await punkQuestWrite.inventory(walletAddress, item.id);
           if (qty.gt(0)) {
-            inventoryHTML += `<tr><td>${item.name} (${item.type}, tpl ID ${item.id})</td><td>${qty}</td></tr>`;
+            inventoryHTML += `<tr><td>${item.name} (${item.type}, tpl ID ${item.id})</td><td>${qty}</td></tr>`;
           }
         } catch (_) { /* ignore */ }
       }
@@ -554,7 +570,7 @@
       Object.entries(counts).forEach(([tplId, qty]) => {
         const item = allItems.find(i => i.id == tplId);
         if (item) {
-          inventoryHTML += `<tr><td>${item.name} (${item.type}, tpl ID ${tplId})</td><td>${qty}</td></tr>`;
+          inventoryHTML += `<tr><td>${item.name} (${item.type}, tpl ID ${tplId})</td><td>${qty}</td></tr>`;
         } else {
           inventoryHTML += `<tr><td>Unknown template #${tplId}</td><td>${qty}</td></tr>`;
         }
