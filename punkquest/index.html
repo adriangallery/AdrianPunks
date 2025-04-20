@@ -682,13 +682,13 @@
         displayAggregateRewards();
       } catch (e) {
         let errorMessage = 'Error staking: ';
-        if (e.code === 'CALL_EXCEPTION') {
+        if (e.code === 'CALL_EXCEPTION' || e.code === 'UNPREDICTABLE_GAS_LIMIT') {
           // Verificar si los tokens ya están staked
           const stakesPromises = selectedTokenIds.map(tokenId => 
             stakingContract.stakes(tokenId).then(res => res[0].gt(0))
           );
           const stakes = await Promise.all(stakesPromises);
-          if (stakes.some(isStaked => isStaked)) {
+          if (stakes.some(isStaked => isStaked) || e.message.includes('staked')) {
             errorMessage = 'Oops! Some of these tokens are already staked! 🎮';
           } else if (e.message.includes('429')) {
             errorMessage = 'Too many requests! Let\'s take a short break and try again in a moment! ⏳';
