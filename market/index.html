@@ -800,19 +800,29 @@
         card.className = 'card nft-card';
         card.style.cursor = 'pointer';
         card.onclick = () => showNFTDetails(nft.name);
+        
+        // Formatear el precio para mostrar K o M si es necesario
+        const formattedPrice = listing ? 
+          (parseFloat(ethers.utils.formatUnits(listing.price, 18)) >= 1000000 ? 
+            (parseFloat(ethers.utils.formatUnits(listing.price, 18)) / 1000000).toFixed(1) + 'M' :
+            parseFloat(ethers.utils.formatUnits(listing.price, 18)) >= 1000 ? 
+            (parseFloat(ethers.utils.formatUnits(listing.price, 18)) / 1000).toFixed(1) + 'K' :
+            parseFloat(ethers.utils.formatUnits(listing.price, 18)).toFixed(1)) : '';
+
         card.innerHTML = `
           <img src="${nft.image}" class="card-img-top" alt="${nft.name}" onerror="this.src='placeholder.png'">
           <div class="card-body">
             <h5 class="card-title">${nft.name}</h5>
             <p class="card-text">Rarity: ${nft.rarity.toFixed(2)}</p>
             ${listing ? `
-              <div class="price-tag alert alert-info py-1 px-2 mb-0">
-                <small>Listed: ${(parseFloat(ethers.utils.formatUnits(listing.price, 18)) >= 1000000 ? 
-                  (parseFloat(ethers.utils.formatUnits(listing.price, 18)) / 1000000).toFixed(1) + 'M' :
-                  parseFloat(ethers.utils.formatUnits(listing.price, 18)) >= 1000 ? 
-                  (parseFloat(ethers.utils.formatUnits(listing.price, 18)) / 1000).toFixed(1) + 'K' :
-                  parseFloat(ethers.utils.formatUnits(listing.price, 18)).toFixed(1))} $A</small>
+              <div class="price-tag alert alert-info py-1 px-2 mb-2">
+                <small>Listed: ${formattedPrice} $A</small>
               </div>
+              <button class="btn btn-primary btn-sm w-100" 
+                onclick="event.stopPropagation(); buyToken(${listing.id}, '${listing.price}')"
+                style="font-size: 0.8rem;">
+                Buy Now
+              </button>
             ` : ''}
           </div>
         `;
