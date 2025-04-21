@@ -800,24 +800,88 @@
         card.className = 'card nft-card';
         card.style.cursor = 'pointer';
         card.onclick = () => showNFTDetails(nft.name);
+        
+        // Formatear el precio para mostrar K o M si es necesario
+        const formattedPrice = listing ? 
+          (parseFloat(ethers.utils.formatUnits(listing.price, 18)) >= 1000000 ? 
+            (parseFloat(ethers.utils.formatUnits(listing.price, 18)) / 1000000).toFixed(1) + 'M' :
+            parseFloat(ethers.utils.formatUnits(listing.price, 18)) >= 1000 ? 
+            (parseFloat(ethers.utils.formatUnits(listing.price, 18)) / 1000).toFixed(1) + 'K' :
+            parseFloat(ethers.utils.formatUnits(listing.price, 18)).toFixed(1)) : '';
+
         card.innerHTML = `
           <img src="${nft.image}" class="card-img-top" alt="${nft.name}" onerror="this.src='placeholder.png'">
           <div class="card-body">
             <h5 class="card-title">${nft.name}</h5>
             <p class="card-text">Rarity: ${nft.rarity.toFixed(2)}</p>
             ${listing ? `
-              <div class="price-tag alert alert-info py-1 px-2 mb-0">
-                <small>Listed: ${(parseFloat(ethers.utils.formatUnits(listing.price, 18)) >= 1000000 ? 
-                  (parseFloat(ethers.utils.formatUnits(listing.price, 18)) / 1000000).toFixed(1) + 'M' :
-                  parseFloat(ethers.utils.formatUnits(listing.price, 18)) >= 1000 ? 
-                  (parseFloat(ethers.utils.formatUnits(listing.price, 18)) / 1000).toFixed(1) + 'K' :
-                  parseFloat(ethers.utils.formatUnits(listing.price, 18)).toFixed(1))} $A</small>
+              <div class="price-tag alert alert-info py-1 px-2 mb-2">
+                <small>Listed: ${formattedPrice} $A</small>
+              </div>
+              <div class="d-grid gap-2">
+                <button class="btn btn-primary btn-sm check-approve-btn" 
+                  onclick="event.stopPropagation(); checkAndApproveListing('${listing.id}', '${listing.price}')"
+                  style="font-size: 0.8rem;">
+                  Check Approval
+                </button>
+                <button class="btn btn-success btn-sm buy-btn" 
+                  onclick="event.stopPropagation(); buyToken('${listing.id}', '${listing.price}')"
+                  style="font-size: 0.8rem; display: none;">
+                  Buy Now
+                </button>
               </div>
             ` : ''}
           </div>
         `;
         grid.appendChild(card);
+
+        // Si hay un listing activo, verificar la aprobación
+        if (listing) {
+          checkApproval(card, listing.price);
+        }
       });
+    }
+
+    async function checkApproval(card, price) {
+      try {
+        if (!userAccount) return;
+        const allowance = await tokenContract.allowance(userAccount, NEW_MARKET_ADDRESS);
+        const checkBtn = card.querySelector('.check-approve-btn');
+        const buyBtn = card.querySelector('.buy-btn');
+        
+        if (allowance.gte(price)) {
+          checkBtn.style.display = 'none';
+          buyBtn.style.display = 'block';
+        } else {
+          checkBtn.style.display = 'block';
+          buyBtn.style.display = 'none';
+        }
+      } catch (error) {
+        console.error("Error checking approval:", error);
+      }
+    }
+
+    async function checkAndApproveListing(listingId, price) {
+      try {
+        if (!userAccount) {
+          alert("Please connect your wallet first");
+          return;
+        }
+        const tx = await tokenContract.approve(NEW_MARKET_ADDRESS, price);
+        await tx.wait();
+        
+        // Actualizar los botones después de la aprobación
+        const cards = document.querySelectorAll('.nft-card');
+        cards.forEach(card => {
+          const cardListingId = card.querySelector('.buy-btn')?.getAttribute('onclick')?.match(/'(\d+)'/)?.[1];
+          if (cardListingId === listingId) {
+            checkApproval(card, price);
+          }
+        });
+      } catch (error) {
+        console.error("Error approving tokens:", error);
+        alert("Error approving tokens: " + error.message);
+      }
     }
     
     async function showNFTDetails(nftName) {
@@ -1740,8 +1804,47 @@
     }
     
     document.addEventListener('DOMContentLoaded', async () => {
-      await initContracts();
-      loadNFTs();
+      // Configurar el provider de Infura para lecturas
+      readProvider = new ethers.providers.JsonRpcProvider(INFURA_URL, {
+        chainId: CHAIN_ID,
+        name: 'base'
+      });
+
+      // Inicializar contratos de solo lectura
+      tokenReadContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
+      nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+      marketplaceReadContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, readProvider);
+      newMarketplaceReadContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, readProvider);
+
+      // Cargar NFTs usando el provider de solo lectura
+      await loadNFTs();
+
+      // Si ya hay una wallet conectada, inicializar contratos
+      if (window.ethereum && window.ethereum.selectedAddress) {
+        await initContracts();
+      }
+
+      // Escuchar eventos de cambio de cuenta
+      if (window.ethereum) {
+        window.ethereum.on('accountsChanged', async (accounts) => {
+          if (accounts.length > 0) {
+            await initContracts();
+          } else {
+            // Resetear estado cuando se desconecta la wallet
+            userAccount = null;
+            document.getElementById("tokenBalance").innerText = "Balance: Connect Wallet";
+          }
+        });
+
+        // Escuchar eventos de cambio de red
+        window.ethereum.on('chainChanged', async (chainId) => {
+          if (chainId === '0x2105') { // Base Mainnet
+            await initContracts();
+          } else {
+            alert('Please switch to Base network');
+          }
+        });
+      }
     });
 
     // Función para cambiar el tema
