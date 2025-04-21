@@ -1,10 +1,17 @@
+// Variables globales
+if (typeof window.provider === 'undefined') window.provider = null;
+if (typeof window.signer === 'undefined') window.signer = null;
+if (typeof window.userAccount === 'undefined') window.userAccount = null;
+if (typeof window.isConnected === 'undefined') window.isConnected = false;
+
 async function connectWallet() {
   // Si ya hay una cuenta conectada, simula desconexión
-  if (userAccount) {
+  if (window.userAccount) {
     console.log("Desconectando la wallet...");
-    userAccount = null;
-    signer = null;
-    provider = null;
+    window.userAccount = null;
+    window.signer = null;
+    window.provider = null;
+    window.isConnected = false;
     
     // Actualizar el botón en desktop
     const desktopConnectBtn = document.querySelector('.desktop-connect-btn');
@@ -21,7 +28,8 @@ async function connectWallet() {
     }
     
     // Resetear el balance
-    document.getElementById('tokenBalance').innerText = 'Balance: 0 $ADRIAN';
+    const balanceElement = document.getElementById('tokenBalance');
+    if (balanceElement) balanceElement.innerText = 'Balance: 0 $ADRIAN';
     
     // Emitir evento de desconexión
     window.dispatchEvent(new CustomEvent('walletDisconnected'));
@@ -34,14 +42,15 @@ async function connectWallet() {
   // Sino, conecta la wallet
   try {
     if (window.ethereum) {
-      provider = new ethers.providers.Web3Provider(window.ethereum);
-      const accounts = await provider.send("eth_requestAccounts", []);
+      window.provider = new ethers.providers.Web3Provider(window.ethereum);
+      const accounts = await window.provider.send("eth_requestAccounts", []);
       if (accounts.length > 0) {
-        signer = provider.getSigner();
-        userAccount = await signer.getAddress();
-        console.log("Cuenta conectada:", userAccount);
+        window.signer = window.provider.getSigner();
+        window.userAccount = await window.signer.getAddress();
+        window.isConnected = true;
+        console.log("Cuenta conectada:", window.userAccount);
         
-        const shortAddress = `${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+        const shortAddress = `${window.userAccount.slice(0, 6)}...${window.userAccount.slice(-4)}`;
         
         // Actualizar el botón en desktop
         const desktopConnectBtn = document.querySelector('.desktop-connect-btn');
@@ -59,7 +68,7 @@ async function connectWallet() {
         
         // Emitir evento de conexión
         window.dispatchEvent(new CustomEvent('walletConnected', {
-          detail: { provider, address: userAccount }
+          detail: { provider: window.provider, address: window.userAccount }
         }));
         
         // Actualizar el balance
@@ -95,15 +104,17 @@ async function disconnectWallet() {
     }
     
     // Resetear el balance
-    document.getElementById('tokenBalance').innerText = 'Balance: 0 $ADRIAN';
+    const balanceElement = document.getElementById('tokenBalance');
+    if (balanceElement) balanceElement.innerText = 'Balance: 0 $ADRIAN';
     
     // Emitir evento de desconexión
     window.dispatchEvent(new CustomEvent('walletDisconnected'));
     
     // Resetear el estado de la wallet
-    userAccount = null;
-    provider = null;
-    signer = null;
+    window.userAccount = null;
+    window.provider = null;
+    window.signer = null;
+    window.isConnected = false;
     
     // Recargar la página para limpiar el estado
     window.location.reload();
@@ -119,8 +130,8 @@ function handleAccountsChanged(accounts) {
     disconnectWallet();
   } else {
     // Actualizar con la nueva dirección
-    userAccount = accounts[0];
-    const shortAddress = `${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+    window.userAccount = accounts[0];
+    const shortAddress = `${window.userAccount.slice(0, 6)}...${window.userAccount.slice(-4)}`;
     
     // Actualizar el botón en desktop
     const desktopConnectBtn = document.querySelector('.desktop-connect-btn');
@@ -138,7 +149,7 @@ function handleAccountsChanged(accounts) {
     
     // Emitir evento de conexión con nueva cuenta
     window.dispatchEvent(new CustomEvent('walletConnected', {
-      detail: { provider, address: userAccount }
+      detail: { provider: window.provider, address: window.userAccount }
     }));
     
     // Actualizar el balance
@@ -169,12 +180,13 @@ document.head.appendChild(style);
 // Al cargar la página, chequeamos si ya hay conexión y actualizamos el botón
 document.addEventListener("DOMContentLoaded", async () => {
   if (window.ethereum) {
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    const accounts = await provider.listAccounts();
+    window.provider = new ethers.providers.Web3Provider(window.ethereum);
+    const accounts = await window.provider.listAccounts();
     if (accounts.length > 0) {
-      userAccount = accounts[0];
-      signer = provider.getSigner();
-      const shortAddress = `${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+      window.userAccount = accounts[0];
+      window.signer = window.provider.getSigner();
+      window.isConnected = true;
+      const shortAddress = `${window.userAccount.slice(0, 6)}...${window.userAccount.slice(-4)}`;
       
       // Actualizar el botón en desktop
       const desktopConnectBtn = document.querySelector('.desktop-connect-btn');
@@ -189,6 +201,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         mobileConnectBtn.innerHTML = shortAddress;
         mobileConnectBtn.classList.add('connected');
       }
+      
+      // Emitir evento de conexión
+      window.dispatchEvent(new CustomEvent('walletConnected', {
+        detail: { provider: window.provider, address: window.userAccount }
+      }));
       
       // Actualizar el balance
       updateTokenBalance();
