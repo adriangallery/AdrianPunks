@@ -624,9 +624,9 @@
     
     async function initContracts() {
       // Configurar el provider de Infura para lecturas
-      readProvider = new ethers.providers.JsonRpcProvider(INFURA_URL, {
-        chainId: CHAIN_ID,
-        name: 'base'
+      readProvider = new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+        name: "base",
+        chainId: 8453
       });
 
       // Inicializar contratos de solo lectura
@@ -1445,12 +1445,17 @@
 
         // Configurar el provider de Infura si aún no está configurado
         if (!readProvider) {
-          readProvider = new ethers.providers.JsonRpcProvider(INFURA_URL, {
-            chainId: CHAIN_ID,
-            name: 'base'
+          readProvider = new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+            name: "base",
+            chainId: 8453
           });
           nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
           newMarketplaceReadContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, readProvider);
+        }
+
+        // Añadir retraso entre llamadas para evitar rate limit
+        function sleep(ms) {
+          return new Promise(resolve => setTimeout(resolve, ms));
         }
 
         // Usar el contrato de solo lectura para consultas
@@ -1462,10 +1467,11 @@
         } else {
           tokensHtml = '<div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2">';
           
-          // Obtener todos los índices de tokens de una vez
+          // Obtener todos los índices de tokens de una vez con retraso
           const tokenPromises = [];
           for (let i = 0; i < balance.toNumber(); i++) {
             tokenPromises.push(nftReadContract.tokenOfOwnerByIndex(userAccount, i));
+            await sleep(100); // 100ms de retraso entre llamadas
           }
           
           // Esperar a que todas las promesas se resuelvan
@@ -1476,7 +1482,7 @@
           const data = await response.json();
           const jsonCollection = data.collection;
 
-          // Procesar cada token
+          // Procesar cada token con retraso entre llamadas
           for (const result of tokenIds) {
             if (result.status === 'fulfilled') {
               const tokenId = result.value;
@@ -1498,6 +1504,7 @@
               let highestOffer = null;
               try {
                 const tokenOffers = await newMarketplaceReadContract.getTokenOffersForToken(NFT_ADDRESS, tokenId);
+                await sleep(100); // Retraso entre llamadas
                 const relevantOffers = tokenOffers.filter(offer => offer.exists);
                 if (relevantOffers.length > 0) {
                   highestOffer = relevantOffers.reduce((max, offer) => 
