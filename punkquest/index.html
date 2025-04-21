@@ -683,8 +683,8 @@
         tokensGrid.innerHTML = "";
         allMyTokenIds = []; // Reiniciar la lista de IDs
 
-        // Configurar Multicall3
-        const multicall = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, provider);
+        // Configurar Multicall3 con signer
+        const multicall = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, provider).connect(signer);
         
         // Obtener el balance total de NFTs
         const balance = await nftContract.balanceOf(ownerAddress);
@@ -708,7 +708,7 @@
         }
 
         // Ejecutar Multicall3
-        const multicallResults = await multicall.aggregate3(calls);
+        const multicallResults = await multicall.aggregate3.staticCall(calls);
 
         // Procesar resultados
         const tokenIds = multicallResults
@@ -726,7 +726,7 @@
         }));
 
         // Ejecutar Multicall3 para stakes
-        const stakeResults = await multicall.aggregate3(stakeCalls);
+        const stakeResults = await multicall.aggregate3.staticCall(stakeCalls);
 
         // Cargar el JSON con la información de los tokens
         const response = await fetch('/punkquest/adrianpunks.json');
