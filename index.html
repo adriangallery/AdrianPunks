@@ -324,7 +324,6 @@
         userAccount = await signer.getAddress();
         tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
         newMarketplaceContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, signer);
-        await loadNFTData();
         updateTokenBalance();
         loadFloorOffer();
       } else {
@@ -332,31 +331,26 @@
       }
     }
 
-    async function loadNFTData() {
+    async function loadFeaturedImage() {
       try {
-        // Cargamos los datos de los NFTs
         const response = await fetch('/market/adrianpunks.json');
         const data = await response.json();
-        // Solo tomamos los primeros 5 tokens
-        nftData = data.collection.slice(0, 5);
-        
-        // Seleccionamos un NFT aleatorio de los primeros 5
-        const randomIndex = Math.floor(Math.random() * nftData.length);
-        const selectedNFT = nftData[randomIndex];
-        
-        // Actualizamos la imagen y el ID
-        document.getElementById('featuredImage').src = selectedNFT.image;
-        document.getElementById('nftId').textContent = `#${selectedNFT.id}`;
-        
-        // Si hay una wallet conectada, inicializamos los contratos
-        if (window.ethereum && window.ethereum.selectedAddress) {
-          await initContracts();
-        }
+        const collection = data.collection || [];
+        // Filtrar los primeros 400 tokens
+        const first400Tokens = collection.filter(nft => {
+          const tokenId = parseInt(nft.name.split('#')[1]);
+          return tokenId <= 400;
+        });
+        // Seleccionar un token aleatorio
+        const randomIndex = Math.floor(Math.random() * first400Tokens.length);
+        const randomToken = first400Tokens[randomIndex];
+        document.getElementById('featuredImage').src = randomToken.image;
+        document.getElementById('featuredImage').alt = randomToken.name;
       } catch (error) {
-        console.error('Error loading NFT data:', error);
+        console.error('Error loading featured image:', error);
       }
     }
-    
+
     async function updateTokenBalance() {
       try {
         const balanceRaw = await tokenContract.balanceOf(userAccount);
@@ -391,26 +385,6 @@
         console.error("Error loading floor offer:", error);
         document.getElementById("floorOfferText").innerText = "Highest floor offer: 0 $ADRIAN";
         document.getElementById("floorOfferSection").classList.add("no-offer");
-      }
-    }
-
-    async function loadFeaturedImage() {
-      try {
-        const response = await fetch('/market/adrianpunks.json');
-        const data = await response.json();
-        const collection = data.collection || [];
-        // Filtrar los primeros 400 tokens
-        const first400Tokens = collection.filter(nft => {
-          const tokenId = parseInt(nft.name.split('#')[1]);
-          return tokenId <= 400;
-        });
-        // Seleccionar un token aleatorio
-        const randomIndex = Math.floor(Math.random() * first400Tokens.length);
-        const randomToken = first400Tokens[randomIndex];
-        document.getElementById('featuredImage').src = randomToken.image;
-        document.getElementById('featuredImage').alt = randomToken.name;
-      } catch (error) {
-        console.error('Error loading featured image:', error);
       }
     }
 
