@@ -241,6 +241,13 @@
       max-height: 80vh;
       overflow-y: auto;
     }
+    .action-btn.connected {
+      background-color: #28a745 !important;
+      color: white !important;
+    }
+    .action-btn.connected:hover {
+      background-color: #dc3545 !important;
+    }
   </style>
   <!-- Load ethers.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -274,6 +281,9 @@
     <!-- Botonera Principal Unificada -->
     <div class="main-actions mb-4">
       <div class="action-buttons">
+        <button class="action-btn primary" id="connectWalletBtn" onclick="connectWallet()">
+          Connect Wallet
+        </button>
         <button class="action-btn warning" onclick="openFloorOfferPopup()">
           <span class="d-none d-md-inline">Make Floor</span> Offer
         </button>
@@ -618,20 +628,33 @@
     ];
     
     async function initContracts() {
-      if (window.ethereum) {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-        userAccount = await signer.getAddress();
-        tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
-        nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
-        // Usamos el nuevo contrato para listados y trait offers
-        marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
-        newMarketplaceContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, signer);
-        await loadNFTs(); // Cargamos los NFTs después de inicializar los contratos
-        updateTokenBalance();
-        loadFloorOffer();
-      } else {
-        console.error("Ethereum provider not found.");
+      try {
+        if (window.ethereum) {
+          provider = new ethers.providers.Web3Provider(window.ethereum);
+          signer = provider.getSigner();
+          userAccount = await signer.getAddress();
+          
+          // Inicializar contratos con signer para transacciones
+          tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+          nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
+          marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
+          newMarketplaceContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, signer);
+          
+          // Inicializar contratos de solo lectura con Infura
+          readProvider = new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
+          tokenReadContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
+          nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+          marketplaceReadContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, readProvider);
+          newMarketplaceReadContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, readProvider);
+          
+          await loadNFTs(); // Cargamos los NFTs después de inicializar los contratos
+          updateTokenBalance();
+          loadFloorOffer();
+        } else {
+          console.error("Ethereum provider not found.");
+        }
+      } catch (error) {
+        console.error("Error initializing contracts:", error);
       }
     }
     
@@ -1939,6 +1962,91 @@
       });
       displayNFTs(sortedNFTs);
     }
+
+    // Funciones de conexión de wallet
+    async function connectWallet() {
+      try {
+        if (!window.ethereum) {
+          alert("Please install MetaMask!");
+          return;
+        }
+  
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        userAccount = await signer.getAddress();
+        
+        // Actualizar el botón con la dirección truncada
+        const connectBtn = document.getElementById('connectWalletBtn');
+        const shortAddress = `${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+        connectBtn.innerHTML = shortAddress;
+        connectBtn.classList.add('connected');
+        
+        // Inicializar contratos
+        await initContracts();
+        
+        // Escuchar cambios de cuenta
+        window.ethereum.on('accountsChanged', handleAccountsChanged);
+        
+        // Escuchar cambios de red
+        window.ethereum.on('chainChanged', handleChainChanged);
+        
+      } catch (error) {
+        console.error("Error connecting wallet:", error);
+        alert("Error connecting wallet: " + error.message);
+      }
+    }
+
+    function handleAccountsChanged(accounts) {
+      if (accounts.length === 0) {
+        // Usuario desconectó
+        disconnectWallet();
+      } else {
+        // Nueva cuenta
+        userAccount = accounts[0];
+        const connectBtn = document.getElementById('connectWalletBtn');
+        const shortAddress = `${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+        connectBtn.innerHTML = shortAddress;
+        initContracts();
+      }
+    }
+
+    function handleChainChanged(chainId) {
+      if (chainId === '0x2105') { // Base Mainnet
+        initContracts();
+      } else {
+        alert('Please switch to Base network');
+      }
+    }
+
+    function disconnectWallet() {
+      provider = null;
+      signer = null;
+      userAccount = null;
+      tokenContract = null;
+      nftContract = null;
+      marketplaceContract = null;
+      newMarketplaceContract = null;
+      
+      const connectBtn = document.getElementById('connectWalletBtn');
+      connectBtn.innerHTML = 'Connect Wallet';
+      connectBtn.classList.remove('connected');
+      
+      document.getElementById("tokenBalance").innerText = "Balance: Connect Wallet";
+    }
+
+    // Añadir estilos para el botón conectado
+    const style = document.createElement('style');
+    style.textContent = `
+      .action-btn.connected {
+        background-color: #28a745 !important;
+        color: white !important;
+      }
+      .action-btn.connected:hover {
+        background-color: #dc3545 !important;
+      }
+    `;
+    document.head.appendChild(style);
   </script>
 </body>
 </html>
