@@ -517,10 +517,15 @@
   <!-- Main Script: NFT loading and Contract Interactions -->
   <script>
     /*********** Global Variables and Contract Setup ***********/
+    const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
+    const CHAIN_ID = 8453;
+
     let nftData = [];
     let provider, signer, userAccount;
     let tokenContract, nftContract, marketplaceContract, newMarketplaceContract;
-    
+    let readProvider; // Provider de Infura para lecturas
+    let tokenReadContract, nftReadContract, marketplaceReadContract, newMarketplaceReadContract;
+
     // Direcciones de contratos y ABIs
     const TOKEN_ADDRESS  = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     const NFT_ADDRESS    = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
@@ -618,16 +623,26 @@
     ];
     
     async function initContracts() {
+      // Configurar el provider de Infura para lecturas
+      readProvider = new ethers.providers.JsonRpcProvider(INFURA_URL, {
+        chainId: CHAIN_ID,
+        name: 'base'
+      });
+
+      // Inicializar contratos de solo lectura
+      tokenReadContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
+      nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+      marketplaceReadContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, readProvider);
+      newMarketplaceReadContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, readProvider);
+
       if (window.ethereum) {
         provider = new ethers.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
         userAccount = await signer.getAddress();
         tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
         nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
-        // Usamos el nuevo contrato para listados y trait offers
         marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
         newMarketplaceContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, signer);
-        await loadNFTs(); // Cargamos los NFTs después de inicializar los contratos
         updateTokenBalance();
         loadFloorOffer();
       } else {
@@ -1421,8 +1436,24 @@
     async function loadMyTokensModal() {
       const container = document.getElementById('myTokensModalContent');
       container.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+      
       try {
-        // Usar el provider de solo lectura para la consulta inicial
+        if (!userAccount) {
+          container.innerHTML = '<p class="text-center text-muted">Please connect your wallet first.</p>';
+          return;
+        }
+
+        // Configurar el provider de Infura si aún no está configurado
+        if (!readProvider) {
+          readProvider = new ethers.providers.JsonRpcProvider(INFURA_URL, {
+            chainId: CHAIN_ID,
+            name: 'base'
+          });
+          nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+          newMarketplaceReadContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, readProvider);
+        }
+
+        // Usar el contrato de solo lectura para consultas
         const balance = await nftReadContract.balanceOf(userAccount);
         let tokensHtml = '';
         
@@ -1463,7 +1494,7 @@
                 imgUrl = `${baseUrl}${tokenId}${extension}`;
               }
 
-              // Intentar obtener las ofertas del token
+              // Intentar obtener las ofertas del token usando el contrato de solo lectura
               let highestOffer = null;
               try {
                 const tokenOffers = await newMarketplaceReadContract.getTokenOffersForToken(NFT_ADDRESS, tokenId);
