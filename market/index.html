@@ -1784,6 +1784,49 @@
         themeButton.classList.add('btn-secondary');
       }
     });
+
+    async function filterByActiveListings() {
+      const button = document.querySelector('button[onclick="filterByActiveListings()"]');
+      const isActive = button.classList.contains('active');
+      if (!isActive) {
+        button.classList.remove('btn-outline-primary');
+        button.classList.add('btn-primary', 'active');
+        const listedNFTs = nftData.filter(nft => {
+          const tokenId = parseInt(nft.name.split('#')[1]);
+          return activeListingsData.some(listing => listing.tokenId.toString() === tokenId.toString());
+        });
+        displayNFTs(listedNFTs);
+      } else {
+        button.classList.remove('btn-primary', 'active');
+        button.classList.add('btn-outline-primary');
+        filterAndDisplayNFTs();
+      }
+    }
+    
+    async function sortByFloorPrice() {
+      const button = document.querySelector('button[onclick="sortByFloorPrice()"]');
+      currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+      button.classList.remove('btn-outline-primary');
+      button.classList.add('btn-primary');
+      const arrowDirection = currentSortOrder === 'asc' ? '↑' : '↓';
+      button.innerHTML = `<span class="d-none d-md-inline">Sort by FP</span><span class="d-md-none">Sort FP</span> ${arrowDirection}`;
+      const priceMap = new Map();
+      activeListingsData.forEach(listing => {
+        const currentPrice = priceMap.get(listing.tokenId.toString());
+        const thisPrice = parseFloat(ethers.utils.formatUnits(listing.price, 18));
+        if (!currentPrice || thisPrice < currentPrice) {
+          priceMap.set(listing.tokenId.toString(), thisPrice);
+        }
+      });
+      const sortedNFTs = [...nftData].sort((a, b) => {
+        const tokenIdA = a.name.split('#')[1];
+        const tokenIdB = b.name.split('#')[1];
+        const priceA = priceMap.get(tokenIdA) || Number.MAX_VALUE;
+        const priceB = priceMap.get(tokenIdB) || Number.MAX_VALUE;
+        return currentSortOrder === 'asc' ? priceA - priceB : priceB - priceA;
+      });
+      displayNFTs(sortedNFTs);
+    }
   </script>
 </body>
 </html>
