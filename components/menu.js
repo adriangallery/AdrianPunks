@@ -23,6 +23,9 @@ async function connectWallet() {
     // Resetear el balance
     document.getElementById('tokenBalance').innerText = 'Balance: 0 $ADRIAN';
     
+    // Emitir evento de desconexión
+    window.dispatchEvent(new CustomEvent('walletDisconnected'));
+    
     // Recargar la página para limpiar el estado
     window.location.reload();
     return;
@@ -54,8 +57,16 @@ async function connectWallet() {
           mobileConnectBtn.classList.add('connected');
         }
         
+        // Emitir evento de conexión
+        window.dispatchEvent(new CustomEvent('walletConnected', {
+          detail: { provider, address: userAccount }
+        }));
+        
         // Actualizar el balance
         updateTokenBalance();
+
+        // Escuchar cambios de cuenta
+        window.ethereum.on('accountsChanged', handleAccountsChanged);
       }
     } else {
       alert('Please install MetaMask to use this feature!');
@@ -86,6 +97,9 @@ async function disconnectWallet() {
     // Resetear el balance
     document.getElementById('tokenBalance').innerText = 'Balance: 0 $ADRIAN';
     
+    // Emitir evento de desconexión
+    window.dispatchEvent(new CustomEvent('walletDisconnected'));
+    
     // Resetear el estado de la wallet
     userAccount = null;
     provider = null;
@@ -96,6 +110,39 @@ async function disconnectWallet() {
   } catch (error) {
     console.error('Error disconnecting wallet:', error);
     alert('Error disconnecting wallet: ' + error.message);
+  }
+}
+
+function handleAccountsChanged(accounts) {
+  if (accounts.length === 0) {
+    // Usuario desconectó desde MetaMask
+    disconnectWallet();
+  } else {
+    // Actualizar con la nueva dirección
+    userAccount = accounts[0];
+    const shortAddress = `${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
+    
+    // Actualizar el botón en desktop
+    const desktopConnectBtn = document.querySelector('.desktop-connect-btn');
+    if (desktopConnectBtn) {
+      desktopConnectBtn.innerHTML = shortAddress;
+      desktopConnectBtn.classList.add('connected');
+    }
+    
+    // Actualizar el botón en móvil
+    const mobileConnectBtn = document.querySelector('.mobile-connect-btn');
+    if (mobileConnectBtn) {
+      mobileConnectBtn.innerHTML = shortAddress;
+      mobileConnectBtn.classList.add('connected');
+    }
+    
+    // Emitir evento de conexión con nueva cuenta
+    window.dispatchEvent(new CustomEvent('walletConnected', {
+      detail: { provider, address: userAccount }
+    }));
+    
+    // Actualizar el balance
+    updateTokenBalance();
   }
 }
 
