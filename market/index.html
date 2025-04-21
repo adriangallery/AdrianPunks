@@ -6,7 +6,7 @@
   <title>AdrianPunks Market v3.12</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/market/styles.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <style>
     /* Estilos base */
@@ -248,6 +248,18 @@
 <body>
   <!-- Include the menu -->
   <div id="menu-container"></div>
+  <script>
+    // Load the menu
+    fetch('components/menu.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('menu-container').innerHTML = html;
+        const script = document.createElement('script');
+        script.src = 'components/menu.js';
+        document.head.appendChild(script);
+      })
+      .catch(error => console.error('Error loading menu:', error));
+  </script>
 
   <!-- Main Container -->
   <div class="container">
@@ -502,18 +514,12 @@
   <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   
-  <!-- Main Script -->
+  <!-- Main Script: NFT loading and Contract Interactions -->
   <script>
-    // Configuración de Infura y red
-    const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
-    const CHAIN_ID = 8453;
-
-    // Variables globales
+    /*********** Global Variables and Contract Setup ***********/
     let nftData = [];
     let provider, signer, userAccount;
     let tokenContract, nftContract, marketplaceContract, newMarketplaceContract;
-    let readProvider; // Provider de Infura para lecturas
-    let tokenReadContract, nftReadContract, marketplaceReadContract, newMarketplaceReadContract; // Contratos de solo lectura
     
     // Direcciones de contratos y ABIs
     const TOKEN_ADDRESS  = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
@@ -794,29 +800,19 @@
         card.className = 'card nft-card';
         card.style.cursor = 'pointer';
         card.onclick = () => showNFTDetails(nft.name);
-        
-        // Formatear el precio para mostrar K o M si es necesario
-        const formattedPrice = listing ? 
-          (parseFloat(ethers.utils.formatUnits(listing.price, 18)) >= 1000000 ? 
-            (parseFloat(ethers.utils.formatUnits(listing.price, 18)) / 1000000).toFixed(1) + 'M' :
-            parseFloat(ethers.utils.formatUnits(listing.price, 18)) >= 1000 ? 
-            (parseFloat(ethers.utils.formatUnits(listing.price, 18)) / 1000).toFixed(1) + 'K' :
-            parseFloat(ethers.utils.formatUnits(listing.price, 18)).toFixed(1)) : '';
-
         card.innerHTML = `
           <img src="${nft.image}" class="card-img-top" alt="${nft.name}" onerror="this.src='placeholder.png'">
           <div class="card-body">
             <h5 class="card-title">${nft.name}</h5>
             <p class="card-text">Rarity: ${nft.rarity.toFixed(2)}</p>
             ${listing ? `
-              <div class="price-tag alert alert-info py-1 px-2 mb-2">
-                <small>Listed: ${formattedPrice} $A</small>
+              <div class="price-tag alert alert-info py-1 px-2 mb-0">
+                <small>Listed: ${(parseFloat(ethers.utils.formatUnits(listing.price, 18)) >= 1000000 ? 
+                  (parseFloat(ethers.utils.formatUnits(listing.price, 18)) / 1000000).toFixed(1) + 'M' :
+                  parseFloat(ethers.utils.formatUnits(listing.price, 18)) >= 1000 ? 
+                  (parseFloat(ethers.utils.formatUnits(listing.price, 18)) / 1000).toFixed(1) + 'K' :
+                  parseFloat(ethers.utils.formatUnits(listing.price, 18)).toFixed(1))} $A</small>
               </div>
-              <button class="btn btn-primary btn-sm w-100" 
-                onclick="event.stopPropagation(); buyToken(${listing.id}, '${listing.price}')"
-                style="font-size: 0.8rem;">
-                Buy Now
-              </button>
             ` : ''}
           </div>
         `;
@@ -1744,51 +1740,8 @@
     }
     
     document.addEventListener('DOMContentLoaded', async () => {
-      try {
-        // Configurar el provider de Infura para lecturas
-        readProvider = new ethers.providers.JsonRpcProvider(INFURA_URL, {
-          chainId: CHAIN_ID,
-          name: 'base'
-        });
-
-        // Inicializar contratos de solo lectura
-        tokenReadContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
-        nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
-        marketplaceReadContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, readProvider);
-        newMarketplaceReadContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, readProvider);
-
-        // Cargar NFTs usando el provider de solo lectura
-        await loadNFTs();
-
-        // Si ya hay una wallet conectada, inicializar contratos
-        if (window.ethereum && window.ethereum.selectedAddress) {
-          await initContracts();
-        }
-
-        // Escuchar eventos de cambio de cuenta
-        if (window.ethereum) {
-          window.ethereum.on('accountsChanged', async (accounts) => {
-            if (accounts.length > 0) {
-              await initContracts();
-            } else {
-              // Resetear estado cuando se desconecta la wallet
-              userAccount = null;
-              document.getElementById("tokenBalance").innerText = "Balance: Connect Wallet";
-            }
-          });
-
-          // Escuchar eventos de cambio de red
-          window.ethereum.on('chainChanged', async (chainId) => {
-            if (chainId === '0x2105') { // Base Mainnet
-              await initContracts();
-            } else {
-              alert('Please switch to Base network');
-            }
-          });
-        }
-      } catch (error) {
-        console.error('Error initializing app:', error);
-      }
+      await initContracts();
+      loadNFTs();
     });
 
     // Función para cambiar el tema
