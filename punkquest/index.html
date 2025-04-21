@@ -731,16 +731,7 @@
             // Agregar event listener para selección múltiple
             const card = tokenCard.querySelector('.token-card');
             card.addEventListener('click', () => {
-              const idStr = tokenId.toString();
-              const idx = selectedTokenIds.findIndex(t => t.toString() === idStr);
-              if (idx === -1) {
-                selectedTokenIds.push(tokenId);
-                card.classList.add('selected-token');
-              } else {
-                selectedTokenIds.splice(idx, 1);
-                card.classList.remove('selected-token');
-              }
-              displayTokenStats();
+              handleTokenClick(tokenId, card);
             });
           } catch (tokenError) {
             console.error(`Error loading token ${i}:`, tokenError);
@@ -1059,6 +1050,35 @@
           `<p class="text-danger">Error refreshing tokens: ${error.message}</p>`;
       }
     });
+
+    async function handleTokenClick(tokenId, element) {
+      const idStr = tokenId.toString();
+      const idx = selectedTokenIds.findIndex(t => t.toString() === idStr);
+      
+      if (idx === -1) {
+        selectedTokenIds.push(tokenId);
+        element.classList.add('selected-token');
+      } else {
+        selectedTokenIds.splice(idx, 1);
+        element.classList.remove('selected-token');
+      }
+
+      // Actualizar la interfaz
+      updateSelectedTokensUI();
+      await updateTokenInfo();
+    }
+
+    function updateSelectedTokensUI() {
+      // Actualizar todos los tokens para asegurar consistencia visual
+      document.querySelectorAll('.token-card').forEach(card => {
+        const cardTokenId = card.getAttribute('data-token-id');
+        if (selectedTokenIds.some(id => id.toString() === cardTokenId)) {
+          card.classList.add('selected-token');
+        } else {
+          card.classList.remove('selected-token');
+        }
+      });
+    }
   </script>
 </body>
 </html>
