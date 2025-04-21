@@ -541,8 +541,13 @@
     const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
     const STAKING_ADDRESS = "0xaf22843e195b792a3f874562ab7cee751066665e";
     const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11";
 
     // ABIs
+    const MULTICALL3_ABI = [
+      "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) payable returns (tuple(bool success, bytes returnData)[] returnData)"
+    ];
+
     const erc20ABI = [
       {
         "constant": true,
@@ -678,6 +683,9 @@
         tokensGrid.innerHTML = "";
         allMyTokenIds = []; // Reiniciar la lista de IDs
 
+        // Configurar Multicall3
+        const multicall = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, provider);
+        
         // Obtener el balance total de NFTs
         const balance = await nftContract.balanceOf(ownerAddress);
         const totalTokens = balance.toNumber();
@@ -687,56 +695,88 @@
           return;
         }
 
+        // Preparar llamadas para Multicall3
+        const calls = [];
+        
+        // Llamadas para tokenOfOwnerByIndex
+        for (let i = 0; i < totalTokens; i++) {
+          calls.push({
+            target: AD_PUNKS_ADDRESS,
+            allowFailure: true,
+            callData: nftContract.interface.encodeFunctionData('tokenOfOwnerByIndex', [ownerAddress, i])
+          });
+        }
+
+        // Ejecutar Multicall3
+        const multicallResults = await multicall.aggregate3(calls);
+
+        // Procesar resultados
+        const tokenIds = multicallResults
+          .filter(result => result.success)
+          .map(result => {
+            const decoded = nftContract.interface.decodeFunctionResult('tokenOfOwnerByIndex', result.returnData);
+            return decoded[0];
+          });
+
+        // Preparar llamadas para verificar stakes
+        const stakeCalls = tokenIds.map(tokenId => ({
+          target: STAKING_ADDRESS,
+          allowFailure: true,
+          callData: stakingContract.interface.encodeFunctionData('stakes', [tokenId])
+        }));
+
+        // Ejecutar Multicall3 para stakes
+        const stakeResults = await multicall.aggregate3(stakeCalls);
+
         // Cargar el JSON con la información de los tokens
         const response = await fetch('/punkquest/adrianpunks.json');
         const data = await response.json();
         const jsonCollection = data.collection;
 
-        // Cargar cada token
-        for (let i = 0; i < totalTokens; i++) {
-          try {
-            const tokenId = await nftContract.tokenOfOwnerByIndex(ownerAddress, i);
-            const isStaked = await stakingContract.stakes(tokenId).then(res => res[0].gt(0));
-            
-            // Buscar la información del token en el JSON
-            const tokenInfo = jsonCollection.find(item => item.id === tokenId.toString());
-            let imgUrl;
-            if (tokenInfo?.image) {
-              imgUrl = tokenInfo.image;
-            } else {
-              const baseUrl = tokenId.lt(501) 
-                ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
-                : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
-              // Verificar si el token es uno de los que usa .gif
-              const gifTokens = [1, 13, 69, 221];
-              const extension = gifTokens.includes(tokenId.toNumber()) ? '.gif' : '.png';
-              imgUrl = `${baseUrl}${tokenId}${extension}`;
-            }
-            
-            const tokenCard = document.createElement("div");
-            tokenCard.className = "col";
-            tokenCard.innerHTML = `
-              <div class="card h-100 token-card ${isStaked ? 'staked' : ''}" data-token-id="${tokenId}">
-                <img src="${imgUrl}" alt="Token ${tokenId}">
-                <div class="card-body">
-                  <h5 class="card-title">Token #${tokenId}</h5>
-                  <p class="card-text">Status: ${isStaked ? 'Staked' : 'Not Staked'}</p>
-                </div>
-              </div>
-            `;
-            tokensGrid.appendChild(tokenCard);
-            allMyTokenIds.push(tokenId); // Agregar el ID a la lista global
-
-            // Agregar event listener para selección múltiple
-            const card = tokenCard.querySelector('.token-card');
-            card.addEventListener('click', () => {
-              handleTokenClick(tokenId, card);
-            });
-          } catch (tokenError) {
-            console.error(`Error loading token ${i}:`, tokenError);
-            continue;
+        // Procesar y mostrar cada token
+        tokenIds.forEach((tokenId, index) => {
+          const stakeResult = stakeResults[index];
+          let isStaked = false;
+          if (stakeResult.success) {
+            const [stakeStart] = stakingContract.interface.decodeFunctionResult('stakes', stakeResult.returnData);
+            isStaked = stakeStart.gt(0);
           }
-        }
+
+          // Buscar la información del token en el JSON
+          const tokenInfo = jsonCollection.find(item => item.id === tokenId.toString());
+          let imgUrl;
+          if (tokenInfo?.image) {
+            imgUrl = tokenInfo.image;
+          } else {
+            const baseUrl = tokenId.lt(501) 
+              ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
+              : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
+            const gifTokens = [1, 13, 69, 221];
+            const extension = gifTokens.includes(tokenId.toNumber()) ? '.gif' : '.png';
+            imgUrl = `${baseUrl}${tokenId}${extension}`;
+          }
+
+          const tokenCard = document.createElement("div");
+          tokenCard.className = "col";
+          tokenCard.innerHTML = `
+            <div class="card h-100 token-card ${isStaked ? 'staked' : ''}" data-token-id="${tokenId}">
+              <img src="${imgUrl}" alt="Token ${tokenId}">
+              <div class="card-body">
+                <h5 class="card-title">Token #${tokenId}</h5>
+                <p class="card-text">Status: ${isStaked ? 'Staked' : 'Not Staked'}</p>
+              </div>
+            </div>
+          `;
+          tokensGrid.appendChild(tokenCard);
+          allMyTokenIds.push(tokenId);
+
+          // Agregar event listener para selección múltiple
+          const card = tokenCard.querySelector('.token-card');
+          card.addEventListener('click', () => {
+            handleTokenClick(tokenId, card);
+          });
+        });
+
       } catch (error) {
         console.error("Error loading tokens:", error);
         document.getElementById("tokens-grid").innerHTML = 
