@@ -394,9 +394,29 @@
       }
     }
 
+    async function loadFeaturedImage() {
+      try {
+        const response = await fetch('/market/adrianpunks.json');
+        const data = await response.json();
+        const collection = data.collection || [];
+        // Filtrar los primeros 400 tokens
+        const first400Tokens = collection.filter(nft => {
+          const tokenId = parseInt(nft.name.split('#')[1]);
+          return tokenId <= 400;
+        });
+        // Seleccionar un token aleatorio
+        const randomIndex = Math.floor(Math.random() * first400Tokens.length);
+        const randomToken = first400Tokens[randomIndex];
+        document.getElementById('featuredImage').src = randomToken.image;
+        document.getElementById('featuredImage').alt = randomToken.name;
+      } catch (error) {
+        console.error('Error loading featured image:', error);
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
       // Cargar la imagen destacada inmediatamente
-      await loadNFTData();
+      await loadFeaturedImage();
       
       // Inicializar contratos si hay una wallet conectada
       if (window.ethereum) {
