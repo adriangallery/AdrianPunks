@@ -44,6 +44,11 @@ async function connectWallet() {
         
         isConnected = true;
         
+        // Emitir evento de conexión
+        window.dispatchEvent(new CustomEvent('walletConnected', {
+          detail: { provider, address }
+        }));
+        
         // Escuchar cambios de cuenta
         window.ethereum.on('accountsChanged', handleAccountsChanged);
       } else {
@@ -66,6 +71,9 @@ function disconnectWallet() {
   document.getElementById('connectWalletButton').innerHTML = "Connect Wallet";
   document.getElementById('connectWalletButtonMobile').innerHTML = "Connect";
   
+  // Emitir evento de desconexión
+  window.dispatchEvent(new CustomEvent('walletDisconnected'));
+  
   // Remover listener
   if (window.ethereum) {
     window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
@@ -81,6 +89,11 @@ function handleAccountsChanged(accounts) {
     const shortAddress = `${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`;
     document.getElementById('connectWalletButton').innerHTML = `Connected: ${shortAddress}`;
     document.getElementById('connectWalletButtonMobile').innerHTML = shortAddress;
+    
+    // Emitir evento de conexión con nueva cuenta
+    window.dispatchEvent(new CustomEvent('walletConnected', {
+      detail: { provider, address: accounts[0] }
+    }));
   }
 }
 
