@@ -1133,6 +1133,51 @@
         }
       });
     }
+
+    async function updateTokenInfo() {
+      if (selectedTokenIds.length === 0) {
+        document.getElementById('individual-token-stats').innerHTML = 
+          'Select one or more tokens to view detailed statistics.';
+        return;
+      }
+
+      try {
+        // Obtener información detallada de los tokens seleccionados
+        const tokenStatsPromises = selectedTokenIds.map(tokenId => 
+          stakingContract.getTokenDetailedInfo(tokenId)
+        );
+        const tokenStats = await Promise.all(tokenStatsPromises);
+
+        let html = '<div class="token-stats-container">';
+        
+        for (let i = 0; i < selectedTokenIds.length; i++) {
+          const tokenId = selectedTokenIds[i];
+          const stats = tokenStats[i];
+          
+          html += `
+            <div class="token-stats-item">
+              <h3>Token #${tokenId}</h3>
+              <p>Level: ${stats[0].toString()}</p>
+              <p>Experience: ${stats[1].toString()}</p>
+              <p>Slots: ${stats[2].toString()}</p>
+              <p>Items Equipped: ${stats[3].toString()}</p>
+              <p>Total Rewards: ${stats[4].toString()} $ADRIAN</p>
+              <p>Last Claim: ${new Date(stats[5].toNumber() * 1000).toLocaleString()}</p>
+            </div>
+          `;
+        }
+
+        html += '</div>';
+        document.getElementById('individual-token-stats').innerHTML = html;
+      } catch (error) {
+        console.error("Error updating token info:", error);
+        document.getElementById('individual-token-stats').innerHTML = 
+          `<div class="token-stats-item">
+            <h3>Error</h3>
+            <p style="color:var(--accent-red);">Error loading token info. Please try again later.</p>
+          </div>`;
+      }
+    }
   </script>
 </body>
 </html>
