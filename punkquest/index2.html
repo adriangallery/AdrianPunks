@@ -529,7 +529,7 @@
   <!-- Bootstrap 5 JS and Ethers.js Library -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/ethcall@0.1.10/dist/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@makerdao/multicall@0.1.0/dist/multicall.min.js"></script>
   <script>
     // Configuración de Infura y provider base
     const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
@@ -687,11 +687,13 @@
         allMyTokenIds = []; // Reiniciar la lista de IDs
 
         // Configurar Multicall
-        const mcProvider = new ethcall.Provider();
-        await mcProvider.init(baseProvider);
-
-        // Crear contrato Multicall para NFT
-        const nftMulti = new MulticallContract(AD_PUNKS_ADDRESS, nftABI);
+        const multicall = new ethers.Contract(
+          "0xcA11bde05977b3631167028862bE2a173976CA11", // Multicall3 address
+          [
+            "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"
+          ],
+          baseProvider
+        );
 
         // Obtener el balance total de NFTs
         const balance = await nftContract.balanceOf(ownerAddress);
@@ -705,11 +707,21 @@
         // Preparar llamadas para obtener todos los tokenIds
         const calls = [];
         for (let i = 0; i < totalTokens; i++) {
-          calls.push(nftMulti.tokenOfOwnerByIndex(ownerAddress, i));
+          calls.push({
+            target: AD_PUNKS_ADDRESS,
+            allowFailure: true,
+            callData: nftContract.interface.encodeFunctionData('tokenOfOwnerByIndex', [ownerAddress, i])
+          });
         }
 
         // Ejecutar todas las llamadas en una sola transacción
-        const tokenIds = await mcProvider.all(calls);
+        const results = await multicall.aggregate3(calls);
+        const tokenIds = results
+          .filter(result => result.success)
+          .map(result => {
+            const decoded = nftContract.interface.decodeFunctionResult('tokenOfOwnerByIndex', result.returnData);
+            return decoded[0];
+          });
 
         // Cargar el JSON con la información de los tokens
         const response = await fetch('/punkquest/adrianpunks.json');
@@ -717,9 +729,20 @@
         const jsonCollection = data.collection;
 
         // Preparar llamadas para verificar stakes
-        const stakingMulti = new MulticallContract(STAKING_ADDRESS, stakingABI);
-        const stakeCalls = tokenIds.map(tokenId => stakingMulti.stakes(tokenId));
-        const stakes = await mcProvider.all(stakeCalls);
+        const stakeCalls = tokenIds.map(tokenId => ({
+          target: STAKING_ADDRESS,
+          allowFailure: true,
+          callData: stakingContract.interface.encodeFunctionData('stakes', [tokenId])
+        }));
+
+        // Ejecutar todas las llamadas de stakes en una sola transacción
+        const stakeResults = await multicall.aggregate3(stakeCalls);
+        const stakes = stakeResults
+          .filter(result => result.success)
+          .map(result => {
+            const decoded = stakingContract.interface.decodeFunctionResult('stakes', result.returnData);
+            return decoded[0];
+          });
 
         // Cargar cada token
         for (let i = 0; i < tokenIds.length; i++) {
