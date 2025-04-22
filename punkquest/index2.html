@@ -476,6 +476,19 @@
       padding-top: 1rem;
       border-top: 1px solid #dee2e6;
     }
+    .level-info {
+      background-color: #f8f9fa;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      margin: 1rem 0;
+    }
+    .bonuses {
+      margin: 1rem 0;
+    }
+    .rewards {
+      font-weight: bold;
+      color: #28a745;
+    }
   </style>
 </head>
 <body>
@@ -547,9 +560,9 @@
   </div>
 
   <!-- Bootstrap 5 JS and Ethers.js Library -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@makerdao/multicall@0.1.0/dist/multicall.min.js"></script>
+  <script src="calculateTokenLevel.js"></script>
   <script>
     // Configuración de Infura y provider base
     const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
@@ -1162,18 +1175,33 @@
         // Actualizar la información del token
         if (card.classList.contains('selected')) {
           const tokenStats = await stakingContract.getTokenDetailedInfo(tokenId);
-          const lastClaim = tokenStats[5].toNumber();
-          const lastClaimText = lastClaim === 0 ? 'Never claimed!' : new Date(lastClaim * 1000).toLocaleString();
+          const stakeStart = tokenStats[0].toNumber();
+          const lastClaim = tokenStats[1].toNumber();
+          const fastLevelBonus = tokenStats[2].toNumber();
+          const itemsBonus = tokenStats[3].toNumber();
+          const specialBoost = tokenStats[4].toNumber();
+          const fixedAdjustment = tokenStats[5].toNumber();
+          const pendingReward = Number(tokenStats[6]);
+
+          const levelInfo = getTokenLevelInfo(stakeStart);
           
           const statsHtml = `
             <div class="token-stats-item">
               <h3>Token #${tokenId}</h3>
-              <p>Level: ${tokenStats[0].toString()}</p>
-              <p>Experience: ${tokenStats[1].toString()}</p>
-              <p>Slots: ${tokenStats[2].toString()}</p>
-              <p>Items Equipped: ${tokenStats[3].toString()}</p>
-              <p>Total Rewards: ${Number(tokenStats[6])} $ADRIAN</p>
-              <p>Last Claim: ${lastClaimText}</p>
+              <div class="level-info">
+                <h4>${levelInfo.label}</h4>
+                <p>Experience: ${levelInfo.experience}</p>
+                <p>${levelInfo.progress}</p>
+              </div>
+              <div class="bonuses">
+                <p>Fast Level Bonus: ${fastLevelBonus}%</p>
+                <p>Items Bonus: ${itemsBonus}%</p>
+                <p>Special Boost: ${specialBoost}%</p>
+                <p>Fixed Adjustment: ${fixedAdjustment}%</p>
+              </div>
+              <div class="rewards">
+                <p>Total Rewards: ${pendingReward} $ADRIAN</p>
+              </div>
             </div>
           `;
           
