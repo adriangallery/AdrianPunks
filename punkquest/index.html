@@ -462,6 +462,20 @@
         padding: 0 8px;
       }
     }
+    .token-card {
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 2px solid transparent;
+    }
+    .token-card.selected {
+      border-color: #007bff;
+      box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+    }
+    .token-stats {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #dee2e6;
+    }
   </style>
 </head>
 <body>
@@ -485,8 +499,14 @@
       <p>Your journey begins here | Season one</p>
     </header>
 
+    <div class="row justify-content-between align-items-center mb-4">
+      <div class="col-auto">
+        <button id="connect-wallet" class="btn">Connect Wallet</button>
+        <a href="/armory/" class="btn">Armory</a>
+      </div>
+    </div>
+
     <section id="wallet-connection" class="mb-4">
-      <button id="connect-wallet" class="btn">Connect Wallet</button>
       <div id="wallet-info" class="mt-2"></div>
     </section>
 
@@ -1127,119 +1147,50 @@
       }
     });
 
-    async function handleTokenClick(tokenId, element) {
-      const idStr = tokenId.toString();
-      const idx = selectedTokenIds.findIndex(t => t.toString() === idStr);
-      
-      if (idx === -1) {
-        selectedTokenIds.push(tokenId);
-        element.classList.add('selected-token');
-      } else {
-        selectedTokenIds.splice(idx, 1);
-        element.classList.remove('selected-token');
-      }
-
-      // Actualizar la interfaz
-      updateSelectedTokensUI();
-      await updateTokenInfo();
-    }
-
-    function updateSelectedTokensUI() {
-      // Actualizar todos los tokens para asegurar consistencia visual
-      document.querySelectorAll('.token-card').forEach(card => {
-        const cardTokenId = card.getAttribute('data-token-id');
-        if (selectedTokenIds.some(id => id.toString() === cardTokenId)) {
-          card.classList.add('selected-token');
-        } else {
-          card.classList.remove('selected-token');
-        }
-      });
-    }
-
-    // Update token info
-    async function updateTokenInfo() {
-      if (!stakingContract || !signer) {
-        document.getElementById('token-stats').innerHTML = `
-          <div class="token-stats-item">
-            <p>Total Rewards: 0 $ADRIAN</p>
-          </div>
-        `;
-        return;
-      }
-      
+    // Handle token click
+    async function handleTokenClick(tokenId, card) {
       try {
-        const walletAddress = await signer.getAddress();
-        if (!selectedTokenIds || selectedTokenIds.length === 0) {
-          document.getElementById('token-stats').innerHTML = `
-            <div class="token-stats-item">
-              <p>Total Rewards: 0 $ADRIAN</p>
-            </div>
-          `;
-          return;
+        // Toggle selection
+        if (card.classList.contains('selected')) {
+          card.classList.remove('selected');
+          selectedTokenIds = selectedTokenIds.filter(id => !id.eq(tokenId));
+        } else {
+          card.classList.add('selected');
+          selectedTokenIds.push(tokenId);
         }
 
-        // Usar Multicall para obtener la información detallada de todos los tokens
-        const multicall = new ethers.Contract(
-          "0xcA11bde05977b3631167028862bE2a173976CA11",
-          [
-            "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"
-          ],
-          baseProvider
-        );
-
-        // Preparar llamadas para obtener la información detallada de cada token
-        const calls = selectedTokenIds.map(tokenId => ({
-          target: STAKING_ADDRESS,
-          allowFailure: true,
-          callData: stakingContract.interface.encodeFunctionData('getTokenDetailedInfo', [tokenId])
-        }));
-
-        // Ejecutar todas las llamadas en una sola transacción
-        const results = await multicall.aggregate3(calls);
-        const tokenStats = results
-          .filter(result => result.success)
-          .map(result => {
-            const decoded = stakingContract.interface.decodeFunctionResult('getTokenDetailedInfo', result.returnData);
-            return decoded;
-          });
-
-        let html = '<div class="token-stats-container">';
-        let totalRewards = 0;
-        
-        for (let i = 0; i < selectedTokenIds.length; i++) {
-          const tokenId = selectedTokenIds[i];
-          const stats = tokenStats[i];
-          
-          // El último valor (stats[6]) es el total de rewards
-          const tokenRewards = Number(stats[6]);
-          totalRewards += tokenRewards;
-          
-          // Mostrar "Never claimed!" si last claim es 0
-          const lastClaim = stats[5].toNumber();
+        // Actualizar la información del token
+        if (card.classList.contains('selected')) {
+          const tokenStats = await stakingContract.getTokenDetailedInfo(tokenId);
+          const lastClaim = tokenStats[5].toNumber();
           const lastClaimText = lastClaim === 0 ? 'Never claimed!' : new Date(lastClaim * 1000).toLocaleString();
           
-          html += `
+          const statsHtml = `
             <div class="token-stats-item">
               <h3>Token #${tokenId}</h3>
-              <p>Level: ${stats[0].toString()}</p>
-              <p>Experience: ${stats[1].toString()}</p>
-              <p>Slots: ${stats[2].toString()}</p>
-              <p>Items Equipped: ${stats[3].toString()}</p>
-              <p>Total Rewards: ${tokenRewards} $ADRIAN</p>
+              <p>Level: ${tokenStats[0].toString()}</p>
+              <p>Experience: ${tokenStats[1].toString()}</p>
+              <p>Slots: ${tokenStats[2].toString()}</p>
+              <p>Items Equipped: ${tokenStats[3].toString()}</p>
+              <p>Total Rewards: ${Number(tokenStats[6])} $ADRIAN</p>
               <p>Last Claim: ${lastClaimText}</p>
             </div>
           `;
+          
+          // Añadir la información al final de la tarjeta
+          const statsDiv = document.createElement('div');
+          statsDiv.className = 'token-stats';
+          statsDiv.innerHTML = statsHtml;
+          card.appendChild(statsDiv);
+        } else {
+          // Eliminar la información cuando se deselecciona
+          const statsDiv = card.querySelector('.token-stats');
+          if (statsDiv) {
+            statsDiv.remove();
+          }
         }
-
-        html += '</div>';
-        document.getElementById('token-stats').innerHTML = html;
-      } catch (err) {
-        console.error("Error fetching token stats:", err);
-        document.getElementById('token-stats').innerHTML = `
-          <div class="token-stats-item">
-            <p>Error loading rewards</p>
-          </div>
-        `;
+      } catch (error) {
+        console.error("Error handling token click:", error);
       }
     }
   </script>
