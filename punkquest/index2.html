@@ -824,7 +824,7 @@
         const total = pendingPassive.add(pendingGame);
 
         const rewardsElement = document.getElementById('total-rewards');
-        rewardsElement.textContent = formatReward(total);
+        rewardsElement.textContent = formatAmount(total);
         rewardsElement.classList.add('rewards-update');
         setTimeout(() => rewardsElement.classList.remove('rewards-update'), 500);
       } catch (err) {
@@ -1160,15 +1160,19 @@
           const tokenId = selectedTokenIds[i];
           const stats = tokenStats[i];
           
+          // Verificar si el token está staked
+          const [stakeStart, lastClaim] = await stakingContract.stakes(tokenId);
+          const isStaked = stakeStart.gt(0);
+          
           html += `
             <div class="token-stats-item">
               <h3>Token #${tokenId}</h3>
-              <p>Level: ${stats[0].toString()}</p>
-              <p>Experience: ${stats[1].toString()}</p>
-              <p>Slots: ${stats[2].toString()}</p>
-              <p>Items Equipped: ${stats[3].toString()}</p>
-              <p>Total Rewards: ${stats[4].toString()} $ADRIAN</p>
-              <p>Last Claim: ${new Date(stats[5].toNumber() * 1000).toLocaleString()}</p>
+              <p>Status: ${isStaked ? 'Staked' : 'Not Staked'}</p>
+              ${isStaked ? `
+                <p>Staking Duration: ${Math.floor((Date.now()/1000 - stakeStart.toNumber()) / 3600)} hours</p>
+                <p>Last Claim: ${new Date(lastClaim.toNumber() * 1000).toLocaleString()}</p>
+                <p>Pending Rewards: ${formatReward(stats[6])}</p>
+              ` : ''}
             </div>
           `;
         }
