@@ -3,6 +3,11 @@
 const thresholds = [7 * 86400, 14 * 86400, 30 * 86400]; // in seconds
 
 function getTokenLevelInfo(stakeStart, lastClaim) {
+  // Si el token no está staked (stakeStart es 0), retornar null
+  if (stakeStart === 0) {
+    return null;
+  }
+
   const now = Math.floor(Date.now() / 1000);
   const duration = now - stakeStart;
   
