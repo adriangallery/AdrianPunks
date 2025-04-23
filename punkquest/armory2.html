@@ -251,6 +251,9 @@
 </head>
 <body>
   <div class="container">
+    <!-- Contenedor del menú -->
+    <div id="menu-container"></div>
+    
     <header>
       <h1>PunkQuest Armory Shopping Cart</h1>
       <p>Select multiple items and quantities to purchase in one go</p>
@@ -301,12 +304,30 @@
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script>
     // Cargar el menú
-    fetch('/market/components/menu.html')
-      .then(response => response.text())
-      .then(html => {
-        document.getElementById('menu-container').innerHTML = html;
-      })
-      .catch(error => console.error('Error loading menu:', error));
+    document.addEventListener('DOMContentLoaded', function() {
+      fetch('/market/components/menu.html')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          return response.text();
+        })
+        .then(html => {
+          const menuContainer = document.getElementById('menu-container');
+          if (menuContainer) {
+            menuContainer.innerHTML = html;
+          } else {
+            console.error('Menu container not found');
+          }
+        })
+        .catch(error => {
+          console.error('Error loading menu:', error);
+          const menuContainer = document.getElementById('menu-container');
+          if (menuContainer) {
+            menuContainer.innerHTML = '<p>Error loading menu</p>';
+          }
+        });
+    });
 
     // Configuración de Infura y provider base
     const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
