@@ -473,18 +473,34 @@
     }
     .token-stats {
       margin-top: 1rem;
-      padding-top: 1rem;
-      border-top: 1px solid #dee2e6;
+      padding: 1rem;
+      border-top: 1px solid var(--card-border);
+      display: block;
     }
+
+    .token-stats h4 {
+      font-size: 1.1rem;
+      margin-bottom: 0.5rem;
+      color: var(--primary-text);
+    }
+
+    .token-stats p {
+      margin: 0.25rem 0;
+      font-size: 0.9rem;
+      display: block;
+    }
+
     .level-info {
       background-color: #f8f9fa;
       padding: 1rem;
       border-radius: 0.5rem;
       margin: 1rem 0;
     }
+
     .bonuses {
       margin: 1rem 0;
     }
+
     .rewards {
       font-weight: bold;
       color: #28a745;
@@ -534,13 +550,6 @@
       <div class="card">
         <h2 class="section-title">My Tokens</h2>
         <div id="tokens-grid" class="token-grid"></div>
-      </div>
-    </section>
-
-    <section id="token-stats" class="mb-4">
-      <div class="card">
-        <h2 class="section-title">Token Statistics</h2>
-        <div id="individual-token-stats" class="terminal">Select one or more tokens to view detailed statistics.</div>
       </div>
     </section>
 
@@ -1167,13 +1176,16 @@
         if (card.classList.contains('selected')) {
           card.classList.remove('selected');
           selectedTokenIds = selectedTokenIds.filter(id => !id.eq(tokenId));
+          // Eliminar la información cuando se deselecciona
+          const statsDiv = card.querySelector('.token-stats');
+          if (statsDiv) {
+            statsDiv.remove();
+          }
         } else {
           card.classList.add('selected');
           selectedTokenIds.push(tokenId);
-        }
 
-        // Actualizar la información del token
-        if (card.classList.contains('selected')) {
+          // Obtener la información del token
           const tokenStats = await stakingContract.getTokenDetailedInfo(tokenId);
           const stakeStart = tokenStats[0].toNumber();
           const lastClaim = tokenStats[1].toNumber();
@@ -1183,15 +1195,15 @@
           const fixedAdjustment = tokenStats[5].toNumber();
           const pendingReward = Number(tokenStats[6]);
 
-          const levelInfo = getTokenLevelInfo(stakeStart);
+          const levelInfo = getTokenLevelInfo(stakeStart, lastClaim);
           
           const statsHtml = `
-            <div class="token-stats-item">
-              <h3>Token #${tokenId}</h3>
+            <div class="token-stats">
               <div class="level-info">
                 <h4>${levelInfo.label}</h4>
                 <p>Experience: ${levelInfo.experience}</p>
                 <p>${levelInfo.progress}</p>
+                ${levelInfo.note ? `<p>${levelInfo.note}</p>` : ''}
               </div>
               <div class="bonuses">
                 <p>Fast Level Bonus: ${fastLevelBonus}%</p>
@@ -1207,15 +1219,8 @@
           
           // Añadir la información al final de la tarjeta
           const statsDiv = document.createElement('div');
-          statsDiv.className = 'token-stats';
           statsDiv.innerHTML = statsHtml;
           card.appendChild(statsDiv);
-        } else {
-          // Eliminar la información cuando se deselecciona
-          const statsDiv = card.querySelector('.token-stats');
-          if (statsDiv) {
-            statsDiv.remove();
-          }
         }
       } catch (error) {
         console.error("Error handling token click:", error);
