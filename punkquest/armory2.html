@@ -347,28 +347,36 @@
     /* ─────────────────── LOAD ITEMS ─────────────────── */
     async function loadItems(){
       try{
-        const res=await fetch("weapons.json");
-        if(!res.ok)throw new Error(`HTTP ${res.status}`);
-        allItems=await res.json();
+        /* 🔹 Primero leer nextItemId del contrato usando Infura */
+        const nextItemIdBN = await punkQuestRead.nextItemId();
+        const nextItemId = nextItemIdBN.toNumber();
+        console.log('Next available item ID:', nextItemId);
 
-        /* 🔹 Filtrar ítems existentes preguntando al contrato */
-        const nextItemIdBN=await punkQuestRead.nextItemId();
-        const nextItemId=nextItemIdBN.toNumber();          // primer id libre
-        allItems=allItems.filter(itm=>itm.id<nextItemId);  // solo los que existen
+        /* 🔹 Cargar datos de weapons.json */
+        const res = await fetch("weapons.json");
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        allItems = await res.json();
 
-        /* Mapear templateId -> tokenId (puede fallar para algunos ids) */
+        /* 🔹 Filtrar ítems existentes usando nextItemId */
+        allItems = allItems.filter(itm => itm.id < nextItemId);
+        console.log('Available items:', allItems.length);
+
+        /* 🔹 Mapear templateId -> tokenId (puede fallar para algunos ids) */
         for(const item of allItems){
           try{
-            const tokenId=await punkQuestRead.getItemTokenId(item.id);
+            const tokenId = await punkQuestRead.getItemTokenId(item.id);
             if(tokenId && tokenId.gt(0)){
-              itemTokenIds[item.id]=tokenId.toNumber();
+              itemTokenIds[item.id] = tokenId.toNumber();
             }
-          }catch{ /* ignorar if reverts */ }
+          }catch(err){
+            console.warn(`Failed to get tokenId for item ${item.id}:`, err);
+          }
         }
+
         displayItems(allItems);
       }catch(err){
-        console.error("loadItems error",err);
-        document.getElementById("general-output").innerText=`Error loading items: ${err.message}`;
+        console.error("loadItems error", err);
+        document.getElementById("general-output").innerText = `Error loading items: ${err.message}`;
       }
     }
 
