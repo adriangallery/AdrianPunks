@@ -352,42 +352,37 @@
         console.log('Loading weapons.json...');
         const res = await fetch('/punkquest/weapons.json');
         if(!res.ok) throw new Error(`HTTP ${res.status}`);
-        allItems = await res.json();
-        console.log('Loaded items from JSON:', allItems);
+        const weaponsData = await res.json();
+        console.log('Loaded items from JSON:', weaponsData);
 
         /* 🔹 Nuevo filtro: comprueba el mapping items(id).exists */
         console.log('Checking items existence on chain...');
-        const promises = allItems.map(async itm => {
+        const promises = weaponsData.map(async itm => {
           try {
             const onChain = await punkQuestRead.items(itm.id);
-            console.log(`Item ${itm.id} exists:`, onChain[3]); // onChain[3] es el campo exists
+            console.log(`Item ${itm.id} on chain data:`, onChain);
             if (onChain[3]) { // Si existe
               const typeLabel = onChain[4] === 0 ? "Weapon" : "Armor";
-              return { ...itm, type: typeLabel };
+              // Usar los datos del contrato para el tokenId
+              const tokenId = onChain[0].toNumber();
+              return { 
+                ...itm,
+                type: typeLabel,
+                tokenId: tokenId,
+                // Mantener la imagen del JSON
+                image: itm.image
+              };
             }
             return null;
           } catch(err) {
             console.warn(`Item ${itm.id} check failed:`, err);
-            return null;  // si revierte, tampoco existe
+            return null;
           }
         });
         allItems = (await Promise.all(promises)).filter(Boolean);
         console.log('Available items after filtering:', allItems);
 
-        /* 🔹 tokenId opcional: no todos los templates tienen uno asignado aún */
-        for(const itm of allItems){
-          try{
-            const tid = await punkQuestRead.getItemTokenId(itm.id);
-            if(tid.gt(0)){
-              itemTokenIds[itm.id] = tid.toNumber();
-              console.log(`TokenId for item ${itm.id}:`, tid.toNumber());
-            }
-          }catch(err){
-            console.warn(`Failed to get tokenId for item ${itm.id}:`, err);
-          }
-        }
-
-        console.log('Final items to display:', allItems);
+        /* 🔹 Ya no necesitamos obtener tokenId por separado ya que viene en onChain[0] */
         displayItems(allItems);
       }catch(err){
         console.error("loadItems error", err);
@@ -402,7 +397,6 @@
         const card=document.createElement("div");card.className="item-card";
         const price=parseFloat(item.price);
         const friendlyPrice=price>=1000?`${(price/1000).toFixed(1)}K`:price;
-        const tokenId=itemTokenIds[item.id];
 
         card.innerHTML=`
           <div class="item-image">
@@ -416,7 +410,7 @@
               <button class="description-toggle" onclick="toggleDescription(this)">▼</button>
             </div>
             <div class="item-description">${item.description}</div>
-            <div class="token-id">Token ID: ${tokenId??'No disponible'}</div>
+            <div class="token-id">Token ID: ${item.tokenId}</div>
           </div>
           <div class="quantity-controls">
             <div class="quantity-input">
@@ -426,13 +420,12 @@
             <div class="price-display">${friendlyPrice} $A</div>
           </div>
           <button class="btn add-to-cart-btn"
-            ${!tokenId?'disabled':''}
-            data-id="${tokenId||''}"
+            data-id="${item.tokenId}"
             data-price="${item.price}"
             data-name="${item.name}"
             data-type="${item.type}"
             data-json-id="${item.id}">
-            ${tokenId?'Add to Cart':'No disponible'}
+            Add to Cart
           </button>`;
         grid.appendChild(card);
       });
