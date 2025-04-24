@@ -292,7 +292,8 @@
       "function inventory(address,uint256) view returns(uint256)",
       "function nextItemId() view returns(uint256)",
       "function getItemTokenId(uint256) view returns(uint256)",
-      "function ownedItems(address,uint256) view returns(uint256,uint256,uint256,bool)"
+      "function ownedItems(address,uint256) view returns(uint256,uint256,uint256,bool)",
+      "function items(uint256) view returns (uint256,uint256,uint256,bool,uint8,bool)"
     ];
     const tokenABI = [
       "function balanceOf(address) view returns(uint256)",
@@ -359,8 +360,12 @@
         const promises = allItems.map(async itm => {
           try {
             const onChain = await punkQuestRead.items(itm.id);
-            console.log(`Item ${itm.id} exists:`, onChain.exists);
-            return onChain.exists ? itm : null;
+            console.log(`Item ${itm.id} exists:`, onChain[3]); // onChain[3] es el campo exists
+            if (onChain[3]) { // Si existe
+              const typeLabel = onChain[4] === 0 ? "Weapon" : "Armor";
+              return { ...itm, type: typeLabel };
+            }
+            return null;
           } catch(err) {
             console.warn(`Item ${itm.id} check failed:`, err);
             return null;  // si revierte, tampoco existe
