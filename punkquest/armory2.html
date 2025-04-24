@@ -347,34 +347,38 @@
     /* ─────────────────── LOAD ITEMS ─────────────────── */
     async function loadItems(){
       try{
-        /* 🔹 Primero leer nextItemId del contrato usando Infura */
-        console.log('Reading nextItemId from contract...');
-        const nextItemIdBN = await punkQuestRead.nextItemId();
-        const nextItemId = nextItemIdBN.toNumber();
-        console.log('Next available item ID:', nextItemId);
-
         /* 🔹 Cargar datos de weapons.json */
         console.log('Loading weapons.json...');
-        const res = await fetch("weapons.json");
+        const res = await fetch('./weapons.json');
         if(!res.ok) throw new Error(`HTTP ${res.status}`);
         allItems = await res.json();
         console.log('Loaded items from JSON:', allItems);
 
-        /* 🔹 Filtrar ítems existentes usando nextItemId */
-        allItems = allItems.filter(itm => itm.id < nextItemId);
-        console.log('Filtered available items:', allItems);
+        /* 🔹 Nuevo filtro: comprueba el mapping items(id).exists */
+        console.log('Checking items existence on chain...');
+        const promises = allItems.map(async itm => {
+          try {
+            const onChain = await punkQuestRead.items(itm.id);
+            console.log(`Item ${itm.id} exists:`, onChain.exists);
+            return onChain.exists ? itm : null;
+          } catch(err) {
+            console.warn(`Item ${itm.id} check failed:`, err);
+            return null;  // si revierte, tampoco existe
+          }
+        });
+        allItems = (await Promise.all(promises)).filter(Boolean);
+        console.log('Available items after filtering:', allItems);
 
-        /* 🔹 Mapear templateId -> tokenId (puede fallar para algunos ids) */
-        for(const item of allItems){
+        /* 🔹 tokenId opcional: no todos los templates tienen uno asignado aún */
+        for(const itm of allItems){
           try{
-            console.log(`Getting tokenId for item ${item.id}...`);
-            const tokenId = await punkQuestRead.getItemTokenId(item.id);
-            if(tokenId && tokenId.gt(0)){
-              itemTokenIds[item.id] = tokenId.toNumber();
-              console.log(`TokenId for item ${item.id}:`, tokenId.toNumber());
+            const tid = await punkQuestRead.getItemTokenId(itm.id);
+            if(tid.gt(0)){
+              itemTokenIds[itm.id] = tid.toNumber();
+              console.log(`TokenId for item ${itm.id}:`, tid.toNumber());
             }
           }catch(err){
-            console.warn(`Failed to get tokenId for item ${item.id}:`, err);
+            console.warn(`Failed to get tokenId for item ${itm.id}:`, err);
           }
         }
 
