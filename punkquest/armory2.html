@@ -348,31 +348,37 @@
     async function loadItems(){
       try{
         /* 🔹 Primero leer nextItemId del contrato usando Infura */
+        console.log('Reading nextItemId from contract...');
         const nextItemIdBN = await punkQuestRead.nextItemId();
         const nextItemId = nextItemIdBN.toNumber();
         console.log('Next available item ID:', nextItemId);
 
         /* 🔹 Cargar datos de weapons.json */
+        console.log('Loading weapons.json...');
         const res = await fetch("weapons.json");
         if(!res.ok) throw new Error(`HTTP ${res.status}`);
         allItems = await res.json();
+        console.log('Loaded items from JSON:', allItems);
 
         /* 🔹 Filtrar ítems existentes usando nextItemId */
         allItems = allItems.filter(itm => itm.id < nextItemId);
-        console.log('Available items:', allItems.length);
+        console.log('Filtered available items:', allItems);
 
         /* 🔹 Mapear templateId -> tokenId (puede fallar para algunos ids) */
         for(const item of allItems){
           try{
+            console.log(`Getting tokenId for item ${item.id}...`);
             const tokenId = await punkQuestRead.getItemTokenId(item.id);
             if(tokenId && tokenId.gt(0)){
               itemTokenIds[item.id] = tokenId.toNumber();
+              console.log(`TokenId for item ${item.id}:`, tokenId.toNumber());
             }
           }catch(err){
             console.warn(`Failed to get tokenId for item ${item.id}:`, err);
           }
         }
 
+        console.log('Final items to display:', allItems);
         displayItems(allItems);
       }catch(err){
         console.error("loadItems error", err);
