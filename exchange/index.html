@@ -103,14 +103,14 @@
                 walletconnect: {
                     package: WalletConnectProvider,
                     options: {
-                        infuraId: "YOUR_INFURA_ID"
+                        infuraId: "9aa3d95b3bc440fa88ea12eaa4456161"
                     }
                 },
                 coinbasewallet: {
                     package: CoinbaseWalletSDK,
                     options: {
                         appName: "AdrianPunks Exchange",
-                        infuraId: "YOUR_INFURA_ID"
+                        infuraId: "9aa3d95b3bc440fa88ea12eaa4456161"
                     }
                 }
             }
@@ -121,11 +121,17 @@
             try {
                 showLoading();
                 const instance = await web3Modal.connect();
+                const infuraProvider = new ethers.providers.InfuraProvider("mainnet", "9aa3d95b3bc440fa88ea12eaa4456161");
                 provider = new ethers.providers.Web3Provider(instance);
                 signer = provider.getSigner();
                 account = await signer.getAddress();
                 
-                // Inicializar contratos
+                // Inicializar contratos con el provider de Infura para operaciones de lectura
+                const exchangeContractRead = new ethers.Contract(EXCHANGE_ADDRESS, EXCHANGE_ABI, infuraProvider);
+                const nftContractRead = new ethers.Contract(ADRIANPUNKS_ADDRESS, ERC721_ABI, infuraProvider);
+                const adrianTokenContractRead = new ethers.Contract(ADRIAN_TOKEN_ADDRESS, ERC20_ABI, infuraProvider);
+                
+                // Inicializar contratos con el signer para operaciones de escritura
                 exchangeContract = new ethers.Contract(EXCHANGE_ADDRESS, EXCHANGE_ABI, signer);
                 nftContract = new ethers.Contract(ADRIANPUNKS_ADDRESS, ERC721_ABI, signer);
                 adrianTokenContract = new ethers.Contract(ADRIAN_TOKEN_ADDRESS, ERC20_ABI, signer);
@@ -175,14 +181,14 @@
 
         // Cargar NFTs del usuario
         async function loadMyNFTs() {
-            if (!nftContract || !account) return;
+            if (!nftContractRead || !account) return;
             
             try {
-                const balance = await nftContract.balanceOf(account);
+                const balance = await nftContractRead.balanceOf(account);
                 myNFTs = [];
                 
                 for (let i = 0; i < balance; i++) {
-                    const tokenId = await nftContract.tokenOfOwnerByIndex(account, i);
+                    const tokenId = await nftContractRead.tokenOfOwnerByIndex(account, i);
                     myNFTs.push(tokenId.toString());
                 }
                 
@@ -195,14 +201,14 @@
 
         // Cargar ofertas del usuario
         async function loadMyOffers() {
-            if (!exchangeContract || !account) return;
+            if (!exchangeContractRead || !account) return;
             
             try {
-                const offerIds = await exchangeContract.getActiveOffersByUser(account);
+                const offerIds = await exchangeContractRead.getActiveOffersByUser(account);
                 myOffers = [];
                 
                 for (const offerId of offerIds) {
-                    const details = await exchangeContract.getOfferDetails(offerId);
+                    const details = await exchangeContractRead.getOfferDetails(offerId);
                     myOffers.push({
                         id: offerId.toString(),
                         creator: details.creator,
@@ -222,7 +228,7 @@
 
         // Cargar ofertas disponibles
         async function loadAvailableOffers() {
-            if (!exchangeContract || !account) return;
+            if (!exchangeContractRead || !account) return;
             
             try {
                 // Implementar lógica para cargar ofertas disponibles
@@ -235,11 +241,11 @@
 
         // Verificar aprobaciones
         async function checkApprovals() {
-            if (!nftContract || !adrianTokenContract || !exchangeContract || !account) return;
+            if (!nftContractRead || !adrianTokenContractRead || !exchangeContractRead || !account) return;
             
             try {
-                const isApprovedForAll = await nftContract.isApprovedForAll(account, EXCHANGE_ADDRESS);
-                const tokenAllowance = await adrianTokenContract.allowance(account, EXCHANGE_ADDRESS);
+                const isApprovedForAll = await nftContractRead.isApprovedForAll(account, EXCHANGE_ADDRESS);
+                const tokenAllowance = await adrianTokenContractRead.allowance(account, EXCHANGE_ADDRESS);
                 const isTokenApproved = tokenAllowance.gt(ethers.utils.parseEther("1000"));
                 
                 document.getElementById('approvals').style.display = 
