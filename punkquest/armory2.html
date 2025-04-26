@@ -355,64 +355,56 @@
         const weaponsData = await res.json();
         console.log('Loaded items from JSON:', weaponsData);
 
-        /* 🔹 Nuevo filtro: comprueba el mapping items(id).exists */
+        /* 🔹 Obtener nextItemId una sola vez */
+        const nextItemId = (await punkQuestRead.nextItemId()).toNumber();
+        console.log('Next item ID:', nextItemId);
+
+        /* 🔹 Implementar throttling para evitar rate limits */
+        const limit = (await import('https://cdn.jsdelivr.net/npm/p-limit/+esm')).default;
+        const throttle = limit(5); // Máximo 5 llamadas concurrentes
+
+        /* 🔹 Verificar existencia de ítems con throttling */
         console.log('Checking items existence on chain...');
-        const promises = weaponsData.map(async itm => {
+        const checks = weaponsData.map(itm => throttle(async () => {
           try {
             console.log(`Checking item ${itm.id}...`);
-            // Añadir un pequeño retraso para evitar rate limits
-            await new Promise(resolve => setTimeout(resolve, 100));
             
-            // Primero verificar si el ítem existe usando nextItemId
-            const nextItemId = await punkQuestRead.nextItemId();
-            console.log(`Next item ID: ${nextItemId.toNumber()}`);
-            
-            if (itm.id >= nextItemId.toNumber()) {
+            // Corregir off-by-one: usar > en lugar de >=
+            if (itm.id > nextItemId) {
               console.log(`Item ${itm.id} is beyond nextItemId`);
               return null;
             }
 
-            // Si el ítem está dentro del rango, intentar obtener sus datos
             const onChain = await punkQuestRead.items(itm.id);
             console.log(`Item ${itm.id} on chain data:`, onChain);
             
-            if (!onChain) {
-              console.warn(`No data returned for item ${itm.id}`);
+            if (!onChain || !onChain[3]) { // Si no existe
+              console.log(`Item ${itm.id} does not exist on chain`);
               return null;
             }
 
-            if (onChain[3]) { // Si existe
-              const typeLabel = onChain[4] === 0 ? "Weapon" : "Armor";
-              // Usar los datos del contrato para el tokenId
-              const tokenId = onChain[0].toNumber();
-              console.log(`Item ${itm.id} is valid:`, { tokenId, type: typeLabel });
-              return { 
-                ...itm,
-                type: typeLabel,
-                tokenId: tokenId,
-                image: itm.image
-              };
-            }
-            console.log(`Item ${itm.id} does not exist on chain`);
-            return null;
+            const typeLabel = onChain[4] === 0 ? "Weapon" : "Armor";
+            const tokenId = onChain[0].toNumber();
+            console.log(`Item ${itm.id} is valid:`, { tokenId, type: typeLabel });
+            
+            return { 
+              ...itm,
+              type: typeLabel,
+              tokenId: tokenId,
+              image: itm.image
+            };
           } catch(err) {
             console.error(`Item ${itm.id} check failed:`, err);
-            // Si es un error de rate limit, esperamos un poco
-            if (err.message.includes('rate limit')) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
-              return null;
-            }
-            // Si es un error de revert, el ítem no existe
             if (err.message.includes('execution reverted')) {
               console.log(`Item ${itm.id} does not exist (reverted)`);
               return null;
             }
             return null;
           }
-        });
+        }));
 
         console.log('Waiting for all item checks to complete...');
-        allItems = (await Promise.all(promises)).filter(Boolean);
+        allItems = (await Promise.all(checks)).filter(Boolean);
         console.log('Available items after filtering:', allItems);
 
         if (allItems.length === 0) {
