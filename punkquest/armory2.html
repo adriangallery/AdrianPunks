@@ -362,6 +362,17 @@
             console.log(`Checking item ${itm.id}...`);
             // Añadir un pequeño retraso para evitar rate limits
             await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Primero verificar si el ítem existe usando nextItemId
+            const nextItemId = await punkQuestRead.nextItemId();
+            console.log(`Next item ID: ${nextItemId.toNumber()}`);
+            
+            if (itm.id >= nextItemId.toNumber()) {
+              console.log(`Item ${itm.id} is beyond nextItemId`);
+              return null;
+            }
+
+            // Si el ítem está dentro del rango, intentar obtener sus datos
             const onChain = await punkQuestRead.items(itm.id);
             console.log(`Item ${itm.id} on chain data:`, onChain);
             
@@ -389,6 +400,11 @@
             // Si es un error de rate limit, esperamos un poco
             if (err.message.includes('rate limit')) {
               await new Promise(resolve => setTimeout(resolve, 1000));
+              return null;
+            }
+            // Si es un error de revert, el ítem no existe
+            if (err.message.includes('execution reverted')) {
+              console.log(`Item ${itm.id} does not exist (reverted)`);
               return null;
             }
             return null;
