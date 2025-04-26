@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PunkQuest • Buy Weapons</title>
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+    <!-- Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&display=swap" rel="stylesheet" />
+
+    <style>
+      body {
+        font-family: "Space Grotesk", sans-serif;
+        background: #f8f9fa;
+        min-height: 100vh;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding-top: 3rem;
+      }
+      .card {
+        border-radius: 12px;
+        border: 1px solid #e9ecef;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      }
+      .btn-cyber {
+        background: #000;
+        color: #fff;
+        border: none;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .btn-cyber:hover {
+        background: #4dabf7;
+      }
+      .table thead th {
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container" style="max-width: 900px">
+      <!-- WALLET -->
+      <div class="card p-4 mb-4">
+        <h2 class="text-center mb-3">PunkQuest Armory</h2>
+        <button id="connect-wallet" class="btn btn-cyber w-100 mb-3">Connect Wallet</button>
+        <div id="status" class="text-center text-muted mb-3">Wallet not connected</div>
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            Address <span id="wallet-address" class="fw-semibold">—</span>
+          </li>
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            Token balance <span id="token-balance" class="fw-semibold">—</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- WEAPONS LIST -->
+      <div class="card p-4" id="weapons-card" style="display: none">
+        <h4 class="mb-3 text-center">Available Weapons</h4>
+        <div class="table-responsive">
+          <table class="table align-middle" id="weapons-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Bonus (%)</th>
+                <th>Durability</th>
+                <th class="text-end">Price (A$)</th>
+                <th class="text-end" style="width: 140px">Qty</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Toast -->
+      <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+        <div id="toast" class="toast align-items-center text-white bg-primary border-0" role="alert">
+          <div class="d-flex">
+            <div class="toast-body" id="toast-body">Hello</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script>
+      /* ─────────── CONSTANTS ─────────── */
+      const INFURA_PROJECT_ID = "cc0c8013b1e044dcba79d4f7ec3b2ba1";
+      const RPC_URL = `https://base-mainnet.infura.io/v3/${INFURA_PROJECT_ID}`;
+      const CHAIN_ID = 8453; // Base Mainnet
+
+      const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+      const PUNKQUEST_ADDRESS = "0x64c46fca3f46442c7abd5303dc1c56a79f4e4273";
+
+      const tokenABI = [
+        "function balanceOf(address) view returns(uint256)",
+        "function symbol() view returns(string)",
+        "function decimals() view returns(uint8)",
+        "function allowance(address,address) view returns(uint256)",
+        "function approve(address,uint256) returns(bool)"
+      ];
+
+      const punkQuestABI = [
+        "function nextItemId() view returns(uint256)",
+        "function items(uint256) view returns(uint256 price,uint256 bonus,uint256 durability,bool exists,uint8 itemType,bool degradable)",
+        "function buyItem(uint256,uint256)"
+      ];
+
+      /* ─────────── STATE ─────────── */
+      let signer,
+        tokenRead,
+        tokenWrite,
+        punkQuestRead,
+        punkQuestWrite,
+        tokenDecimals,
+        tokenSymbol;
+
+      const statusEl = document.getElementById("status");
+      const addrEl = document.getElementById("wallet-address");
+      const balEl = document.getElementById("token-balance");
+      const weaponsTableBody = document.querySelector("#weapons-table tbody");
+      const weaponsCard = document.getElementById("weapons-card");
+
+      /* ─────────── UTIL ─────────── */
+      const showToast = (msg, ok = true) => {
+        const toastEl = document.getElementById("toast");
+        document.getElementById("toast-body").textContent = msg;
+        toastEl.classList.toggle("bg-primary", ok);
+        toastEl.classList.toggle("bg-danger", !ok);
+        new bootstrap.Toast(toastEl).show();
+      };
+
+      const short = (a) => a.slice(0, 6) + "…" + a.slice(-4);
+
+      /* ─────────── LOAD WEAPONS ─────────── */
+      async function loadWeapons() {
+        weaponsTableBody.innerHTML = "";
+        weaponsCard.style.display = "none";
+        try {
+          const nextId = (await punkQuestRead.nextItemId()).toNumber();
+          for (let id = 1; id < nextId; id++) {
+            const itm = await punkQuestRead.items(id);
+            if (!itm.exists || itm.itemType !== 0) continue; // only Weapons
+
+            const priceHuman = ethers.utils.formatUnits(itm.price, tokenDecimals);
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${id}</td>
+              <td>${(Number(itm.bonus) / 1e16).toFixed(1)}</td>
+              <td>${itm.durability}</td>
+              <td class="text-end">${priceHuman}</td>
+              <td class="text-end"><input type="number" class="form-control form-control-sm" id="qty-${id}" min="1" value="1" style="width: 80px" /></td>
+              <td class="text-end"><button class="btn btn-sm btn-cyber" data-id="${id}" data-price="${itm.price}">Buy</button></td>`;
+            weaponsTableBody.appendChild(tr);
+          }
+          weaponsCard.style.display = "block";
+
+          // add listeners
+          Array.from(document.querySelectorAll('.btn[data-id]')).forEach((btn) => {
+            btn.addEventListener("click", async (e) => {
+              const id = Number(e.currentTarget.dataset.id);
+              const priceWei = ethers.BigNumber.from(e.currentTarget.dataset.price);
+              const qty = Number(document.getElementById(`qty-${id}`).value || 0);
+              if (qty <= 0) return;
+              try {
+                const cost = priceWei.mul(qty);
+                const user = await signer.getAddress();
+                const allowance = await tokenWrite.allowance(user, PUNKQUEST_ADDRESS);
+                if (allowance.lt(cost)) {
+                  showToast("Approving tokens…");
+                  const txA = await tokenWrite.approve(PUNKQUEST_ADDRESS, cost);
+                  await txA.wait();
+                }
+                showToast("Buying item…");
+                const tx = await punkQuestWrite.buyItem(id, qty);
+                await tx.wait();
+                showToast(`Purchased weapon #${id} × ${qty}`);
+              } catch (err) {
+                console.error(err);
+                showToast(err.message || "Error", false);
+              }
+            });
+          });
+        } catch (err) {
+          console.error(err);
+          showToast(err.message || "Load error", false);
+        }
+      }
+
+      /* ─────────── CONNECT WALLET ─────────── */
+      document.getElementById("connect-wallet").addEventListener("click", async () => {
+        if (!window.ethereum) {
+          alert("Please install MetaMask.");
+          return;
+        }
+        try {
+          await window.ethereum.request({ method: "eth_requestAccounts" });
+          const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+          const net = await web3Provider.getNetwork();
+          if (net.chainId !== CHAIN_ID) {
+            await window.ethereum.request({
+              method: "wallet_switchEthereumChain",
+              params: [{ chainId: "0x2105" }]
+            });
+          }
+
+          signer = web3Provider.getSigner();
+          const address = await signer.getAddress();
+          addrEl.textContent = short(address);
+          statusEl.textContent = "Connected ✔";
+
+          // providers
+          const readProvider = new ethers.providers.JsonRpcProvider(RPC_URL, {
+            name: "base",
+            chainId: CHAIN_ID
+          });
+
+          // contracts
+          tokenRead = new ethers.Contract(TOKEN_ADDRESS, tokenABI, readProvider);
+          tokenWrite = new ethers.Contract(TOKEN_ADDRESS, tokenABI, signer);
+          punkQuestRead = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, readProvider);
+          punkQuestWrite = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, signer);
+
+          // token meta
+          tokenDecimals = await tokenRead.decimals();
+          tokenSymbol = await tokenRead.symbol();
+
+          const rawBal = await tokenRead.balanceOf(address);
+          balEl.textContent = `${ethers.utils.formatUnits(rawBal, tokenDecimals)} ${tokenSymbol}`;
+
+          await loadWeapons();
+        } catch (err) {
+          console.error(err);
+          statusEl.textContent = err.message || "Failed";
+          showToast(err.message || "Connection failed", false);
+        }
+      });
+    </script>
+  </body>
+</html>
