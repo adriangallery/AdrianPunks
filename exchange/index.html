@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdrianPunks Exchange</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3modal@1.9.7/dist/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.7.8/dist/umd/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@coinbase/wallet-sdk@3.1.0/dist/bundle.js"></script>
+</head>
+<body>
+    <header>
+        <div class="logo">AdrianPunks Exchange</div>
+        <button id="connectWallet" class="wallet-button">Conectar Wallet</button>
+    </header>
+
+    <div class="container">
+        <div class="tabs">
+            <div class="tab active" data-tab="browse">Explorar</div>
+            <div class="tab" data-tab="my-nfts">Mis NFTs</div>
+            <div class="tab" data-tab="my-offers">Mis Ofertas</div>
+            <div class="tab" data-tab="create-offer">Crear Oferta</div>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="success" class="success" style="display: none;"></div>
+
+        <!-- Sección de NFTs -->
+        <div id="nftGrid" class="nft-grid"></div>
+
+        <!-- Formulario de creación de oferta -->
+        <div id="createOfferForm" style="display: none;">
+            <h2>Crear Nueva Oferta</h2>
+            <div class="form-group">
+                <label>NFTs Ofrecidos:</label>
+                <select id="offeredTokens" multiple></select>
+            </div>
+            <div class="form-group">
+                <label>NFTs Deseados:</label>
+                <select id="wantedTokens" multiple></select>
+            </div>
+            <div class="form-group">
+                <label>Duración (días):</label>
+                <input type="number" id="offerDuration" value="1" min="1" max="30">
+            </div>
+            <button id="createOfferButton" class="button">Crear Oferta</button>
+        </div>
+
+        <!-- Aprobaciones necesarias -->
+        <div id="approvals" style="display: none;">
+            <h2>Aprobaciones Necesarias</h2>
+            <button id="approveNFTs" class="button">Aprobar NFTs</button>
+            <button id="approveTokens" class="button">Aprobar Tokens</button>
+        </div>
+    </div>
+
+    <script>
+        // Direcciones de los contratos
+        const EXCHANGE_ADDRESS = "0x2E7223Def6ED307Df46a8C4c67bB882e1342761e";
+        const ADRIANPUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
+        const ADRIAN_TOKEN_ADDRESS = "0x7e99075ce287f1cf8cbcaaa6a1c7894e404fd7ea";
+
+        // ABIs
+        const EXCHANGE_ABI = [
+            "function getActiveOffersByUser(address) view returns (uint256[])",
+            "function getOfferDetails(uint256) view returns (tuple(address,uint256[],uint256[],uint256,bool))",
+            "function createOffer(uint256[],uint256[],uint256)",
+            "function acceptOffer(uint256,uint256[],uint256[])",
+            "function cancelOffer(uint256)"
+        ];
+
+        const ERC721_ABI = [
+            "function balanceOf(address) view returns (uint256)",
+            "function tokenOfOwnerByIndex(address,uint256) view returns (uint256)",
+            "function isApprovedForAll(address,address) view returns (bool)",
+            "function setApprovalForAll(address,bool)",
+            "function ownerOf(uint256) view returns (address)"
+        ];
+
+        const ERC20_ABI = [
+            "function allowance(address,address) view returns (uint256)",
+            "function approve(address,uint256)"
+        ];
+
+        // Variables globales
+        let provider;
+        let signer;
+        let account;
+        let exchangeContract;
+        let nftContract;
+        let adrianTokenContract;
+        let myNFTs = [];
+        let myOffers = [];
+        let availableOffers = [];
+
+        // Inicializar Web3Modal
+        const web3Modal = new Web3Modal({
+            network: "mainnet",
+            cacheProvider: true,
+            providerOptions: {
+                walletconnect: {
+                    package: WalletConnectProvider,
+                    options: {
+                        infuraId: "YOUR_INFURA_ID"
+                    }
+                },
+                coinbasewallet: {
+                    package: CoinbaseWalletSDK,
+                    options: {
+                        appName: "AdrianPunks Exchange",
+                        infuraId: "YOUR_INFURA_ID"
+                    }
+                }
+            }
+        });
+
+        // Conectar wallet
+        async function connectWallet() {
+            try {
+                showLoading();
+                const instance = await web3Modal.connect();
+                provider = new ethers.providers.Web3Provider(instance);
+                signer = provider.getSigner();
+                account = await signer.getAddress();
+                
+                // Inicializar contratos
+                exchangeContract = new ethers.Contract(EXCHANGE_ADDRESS, EXCHANGE_ABI, signer);
+                nftContract = new ethers.Contract(ADRIANPUNKS_ADDRESS, ERC721_ABI, signer);
+                adrianTokenContract = new ethers.Contract(ADRIAN_TOKEN_ADDRESS, ERC20_ABI, signer);
+                
+                // Actualizar UI
+                document.getElementById('connectWallet').textContent = account.substring(0, 6) + '...' + account.substring(38);
+                document.getElementById('connectWallet').onclick = disconnectWallet;
+                
+                // Cargar datos
+                await loadData();
+                
+                // Suscribirse a eventos
+                instance.on("accountsChanged", () => window.location.reload());
+                instance.on("chainChanged", () => window.location.reload());
+                
+                hideLoading();
+            } catch (error) {
+                console.error("Error de conexión:", error);
+                showError("Error al conectar la wallet");
+                hideLoading();
+            }
+        }
+
+        // Desconectar wallet
+        async function disconnectWallet() {
+            await web3Modal.clearCachedProvider();
+            window.location.reload();
+        }
+
+        // Cargar datos
+        async function loadData() {
+            try {
+                showLoading();
+                await Promise.all([
+                    loadMyNFTs(),
+                    loadMyOffers(),
+                    loadAvailableOffers()
+                ]);
+                checkApprovals();
+                hideLoading();
+            } catch (error) {
+                console.error("Error cargando datos:", error);
+                showError("Error al cargar los datos");
+                hideLoading();
+            }
+        }
+
+        // Cargar NFTs del usuario
+        async function loadMyNFTs() {
+            if (!nftContract || !account) return;
+            
+            try {
+                const balance = await nftContract.balanceOf(account);
+                myNFTs = [];
+                
+                for (let i = 0; i < balance; i++) {
+                    const tokenId = await nftContract.tokenOfOwnerByIndex(account, i);
+                    myNFTs.push(tokenId.toString());
+                }
+                
+                updateNFTGrid();
+            } catch (error) {
+                console.error("Error cargando NFTs:", error);
+                throw error;
+            }
+        }
+
+        // Cargar ofertas del usuario
+        async function loadMyOffers() {
+            if (!exchangeContract || !account) return;
+            
+            try {
+                const offerIds = await exchangeContract.getActiveOffersByUser(account);
+                myOffers = [];
+                
+                for (const offerId of offerIds) {
+                    const details = await exchangeContract.getOfferDetails(offerId);
+                    myOffers.push({
+                        id: offerId.toString(),
+                        creator: details.creator,
+                        offeredTokens: details.offeredTokens.map(t => t.toString()),
+                        wantedTokens: details.wantedTokens.map(t => t.toString()),
+                        expirationTime: new Date(details.expirationTime.toNumber() * 1000).toLocaleString(),
+                        isActive: details.isActive
+                    });
+                }
+                
+                updateOffersDisplay();
+            } catch (error) {
+                console.error("Error cargando ofertas:", error);
+                throw error;
+            }
+        }
+
+        // Cargar ofertas disponibles
+        async function loadAvailableOffers() {
+            if (!exchangeContract || !account) return;
+            
+            try {
+                // Implementar lógica para cargar ofertas disponibles
+                updateOffersDisplay();
+            } catch (error) {
+                console.error("Error cargando ofertas disponibles:", error);
+                throw error;
+            }
+        }
+
+        // Verificar aprobaciones
+        async function checkApprovals() {
+            if (!nftContract || !adrianTokenContract || !exchangeContract || !account) return;
+            
+            try {
+                const isApprovedForAll = await nftContract.isApprovedForAll(account, EXCHANGE_ADDRESS);
+                const tokenAllowance = await adrianTokenContract.allowance(account, EXCHANGE_ADDRESS);
+                const isTokenApproved = tokenAllowance.gt(ethers.utils.parseEther("1000"));
+                
+                document.getElementById('approvals').style.display = 
+                    (!isApprovedForAll || !isTokenApproved) ? 'block' : 'none';
+            } catch (error) {
+                console.error("Error verificando aprobaciones:", error);
+            }
+        }
+
+        // Aprobar NFTs
+        async function approveNFTs() {
+            if (!nftContract || !account) return;
+            
+            try {
+                showLoading();
+                const tx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
+                await tx.wait();
+                document.getElementById('approveNFTs').style.display = 'none';
+                hideLoading();
+                showSuccess("NFTs aprobados correctamente");
+            } catch (error) {
+                console.error("Error aprobando NFTs:", error);
+                showError("Error al aprobar los NFTs");
+                hideLoading();
+            }
+        }
+
+        // Aprobar tokens
+        async function approveTokens() {
+            if (!adrianTokenContract || !account) return;
+            
+            try {
+                showLoading();
+                const tx = await adrianTokenContract.approve(
+                    EXCHANGE_ADDRESS,
+                    ethers.constants.MaxUint256
+                );
+                await tx.wait();
+                document.getElementById('approveTokens').style.display = 'none';
+                hideLoading();
+                showSuccess("Tokens aprobados correctamente");
+            } catch (error) {
+                console.error("Error aprobando tokens:", error);
+                showError("Error al aprobar los tokens");
+                hideLoading();
+            }
+        }
+
+        // Actualizar grid de NFTs
+        function updateNFTGrid() {
+            const grid = document.getElementById('nftGrid');
+            grid.innerHTML = '';
+            
+            myNFTs.forEach(tokenId => {
+                const card = document.createElement('div');
+                card.className = 'nft-card';
+                card.innerHTML = `
+                    <img src="https://emerald-above-tick-265.mypinata.cloud/ipfs/bafybeicmy7xqtfe4xji4dcffiwkzodbotujre63wzavbbp7im673p2io5a/${tokenId}.png" 
+                         class="nft-image" alt="NFT ${tokenId}">
+                    <div class="nft-info">
+                        <div>ID: ${tokenId}</div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Actualizar display de ofertas
+        function updateOffersDisplay() {
+            // Implementar lógica para mostrar ofertas
+        }
+
+        // Mostrar/ocultar loading
+        function showLoading() {
+            document.getElementById('connectWallet').disabled = true;
+            document.getElementById('connectWallet').innerHTML = '<span class="loading"></span>';
+        }
+
+        function hideLoading() {
+            document.getElementById('connectWallet').disabled = false;
+        }
+
+        // Mostrar/ocultar mensajes
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => errorDiv.style.display = 'none', 5000);
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('success');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            setTimeout(() => successDiv.style.display = 'none', 5000);
+        }
+
+        // Event listeners
+        document.getElementById('connectWallet').onclick = connectWallet;
+        document.getElementById('approveNFTs').onclick = approveNFTs;
+        document.getElementById('approveTokens').onclick = approveTokens;
+
+        // Inicializar tabs
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                // Implementar lógica de cambio de tab
+            });
+        });
+    </script>
+</body>
+</html>
