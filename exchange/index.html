@@ -844,32 +844,42 @@
         userTokens = [];
         let tokensHtml = '';
         
-        // Get token IDs
+        // Get token IDs with delay between calls
         for (let i = 0; i < numTokens; i++) {
-          const tokenId = await nftContract.tokenOfOwnerByIndex(userAddress, i);
-          userTokens.push(tokenId.toString());
-          
-          // Create token image URL
-          const baseUrl = tokenId.lt(501) 
-            ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
-            : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
-          
-          // Check if token is one of the special gif tokens
-          const gifTokens = [1, 13, 69, 221];
-          const extension = gifTokens.includes(tokenId.toNumber()) ? '.gif' : '.png';
-          const imgUrl = `${baseUrl}${tokenId}${extension}`;
-          
-          // Create token card
-          tokensHtml += `
-            <div class="token-card" data-token-id="${tokenId}">
-              <img src="${imgUrl}" alt="AdrianPunk #${tokenId}">
-              <div class="card-body">
-                <h5 class="card-title">AdrianPunk #${tokenId}</h5>
-              </div>
-            </div>`;
+          try {
+            const tokenId = await nftContract.tokenOfOwnerByIndex(userAddress, i);
+            userTokens.push(tokenId.toString());
+            
+            // Create token image URL
+            const baseUrl = tokenId.lt(501) 
+              ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
+              : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
+            
+            // Check if token is one of the special gif tokens
+            const gifTokens = [1, 13, 69, 221];
+            const extension = gifTokens.includes(tokenId.toNumber()) ? '.gif' : '.png';
+            const imgUrl = `${baseUrl}${tokenId}${extension}`;
+            
+            // Create token card
+            tokensHtml += `
+              <div class="token-card" data-token-id="${tokenId}">
+                <img src="${imgUrl}" alt="AdrianPunk #${tokenId}">
+                <div class="card-body">
+                  <h5 class="card-title">AdrianPunk #${tokenId}</h5>
+                </div>
+              </div>`;
+            
+            // Update UI progressively
+            tokensGrid.innerHTML = tokensHtml;
+            
+            // Add delay between calls to avoid rate limits
+            await new Promise(resolve => setTimeout(resolve, 500));
+          } catch (error) {
+            console.error(`Error loading token ${i}:`, error);
+            // Continue with next token even if one fails
+            continue;
+          }
         }
-        
-        tokensGrid.innerHTML = tokensHtml;
         
         // Add click handlers for token selection
         document.querySelectorAll('.token-card').forEach(card => {
@@ -879,7 +889,11 @@
         });
       } catch (error) {
         console.error("Error loading tokens:", error);
-        document.getElementById("tokens-grid").innerHTML = `<div class="status error">Error loading tokens: ${error.message}</div>`;
+        if (error.code === 'CALL_EXCEPTION') {
+          document.getElementById("tokens-grid").innerHTML = '<div class="status warning">Rate limit exceeded. Please try again in a few moments.</div>';
+        } else {
+          document.getElementById("tokens-grid").innerHTML = `<div class="status error">Error loading tokens: ${error.message}</div>`;
+        }
       }
     }
     
