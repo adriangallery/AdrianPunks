@@ -1046,13 +1046,17 @@
         
         const duration = document.getElementById('offer-duration').value;
         
-        // Check for NFT approvals
-        const isApprovedForAll = await nftContract.isApprovedForAll(userAddress, EXCHANGE_ADDRESS);
-        
-        if (!isApprovedForAll) {
-          showStatus('create-offer-status', 'Approving NFTs for exchange...', 'warning');
-          const approveTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
-          await approveTx.wait();
+        // Aprobar tokens específicos en lugar de setApprovalForAll
+        showStatus('create-offer-status', 'Approving NFTs for exchange...', 'warning');
+        for (const tokenId of selectedOfferedTokens) {
+          const currentApproved = await nftContract.getApproved(tokenId);
+          if (currentApproved.toLowerCase() !== EXCHANGE_ADDRESS.toLowerCase()) {
+            const approveTx = await nftContract.approve(EXCHANGE_ADDRESS, tokenId);
+            await approveTx.wait();
+            console.log(`Approved token ${tokenId} for exchange`);
+          } else {
+            console.log(`Token ${tokenId} already approved`);
+          }
         }
         
         showStatus('create-offer-status', 'Creating offer...', 'warning');
@@ -1485,27 +1489,42 @@
           return;
         }
         
-        // Check approvals for NFT contract
-        const isApprovedForAll = await nftContract.isApprovedForAll(userAddress, EXCHANGE_ADDRESS);
-        
-        if (!isApprovedForAll) {
-          showStatus('accept-offer-status', 'Approving NFTs for exchange...', 'warning');
-          const approveTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
-          await approveTx.wait();
+        // Aprobar tokens NFT específicos en lugar de setApprovalForAll
+        showStatus('accept-offer-status', 'Approving NFTs for exchange...', 'warning');
+        for (const tokenId of window.selectedGiveTokens) {
+          const currentApproved = await nftContract.getApproved(tokenId);
+          if (currentApproved.toLowerCase() !== EXCHANGE_ADDRESS.toLowerCase()) {
+            const approveTx = await nftContract.approve(EXCHANGE_ADDRESS, tokenId);
+            await approveTx.wait();
+            console.log(`Approved token ${tokenId} for exchange`);
+          } else {
+            console.log(`Token ${tokenId} already approved`);
+          }
         }
         
-        // Calculate and check fee
+        // Calcular y verificar la tarifa de manera segura
         const feePercentage = await exchangeContractRead.feePercentage();
         const totalTokens = window.selectedReceiveTokens.length + window.selectedGiveTokens.length;
-        const feeAmount = totalTokens * feePercentage.toNumber() * (10 ** tokenDecimals) / 10000;
         
-        // Check token allowance
+        // Usar cálculos más seguros para el fee
+        const feeBase = feePercentage.toNumber();
+        const powerOf10 = ethers.BigNumber.from(10).pow(tokenDecimals);
+        const feeAmount = ethers.BigNumber.from(totalTokens)
+          .mul(feeBase)
+          .mul(powerOf10)
+          .div(10000);
+        
+        console.log("Fee amount:", feeAmount.toString());
+        
+        // Aprobar exactamente la cantidad de ADRIAN necesaria
         const allowance = await adrianTokenContractRead.allowance(userAddress, EXCHANGE_ADDRESS);
         
         if (allowance.lt(feeAmount)) {
           showStatus('accept-offer-status', 'Approving ADRIAN tokens for fee...', 'warning');
-          const approveTx = await adrianTokenContract.approve(EXCHANGE_ADDRESS, ethers.constants.MaxUint256);
+          // Usar la cantidad exacta en lugar de MaxUint256
+          const approveTx = await adrianTokenContract.approve(EXCHANGE_ADDRESS, feeAmount);
           await approveTx.wait();
+          console.log(`Approved ${ethers.utils.formatUnits(feeAmount, tokenDecimals)} ADRIAN tokens for fee`);
         }
         
         // Accept offer
