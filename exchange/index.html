@@ -722,7 +722,8 @@
       "function ownerOf(uint256) view returns (address)",
       "function getApproved(uint256) view returns (address)",
       "function isApprovedForAll(address,address) view returns (bool)",
-      "function setApprovalForAll(address,bool) returns ()"
+      "function setApprovalForAll(address,bool) returns ()",
+      "function approve(address to, uint256 tokenId) returns ()"
     ];
     
     const ERC20_ABI = [
@@ -1046,60 +1047,20 @@
         
         const duration = document.getElementById('offer-duration').value;
         
-        // Aprobar tokens NFT individualmente
-        showStatus('create-offer-status', 'Checking token approvals...', 'warning');
+        // Simplificar el proceso de aprobación usando solo setApprovalForAll
+        showStatus('create-offer-status', 'Checking NFT approvals...', 'warning');
         
-        let approvalNeeded = false;
+        console.log("Checking if NFTs are already approved for all...");
+        const isApprovedForAll = await nftContractRead.isApprovedForAll(userAddress, EXCHANGE_ADDRESS);
         
-        // Si hay muchos tokens, es más eficiente usar setApprovalForAll
-        if (selectedOfferedTokens.length > 3) {
-          console.log("Many tokens selected, using setApprovalForAll");
-          const isApprovedForAll = await nftContract.isApprovedForAll(userAddress, EXCHANGE_ADDRESS);
-          
-          if (!isApprovedForAll) {
-            showStatus('create-offer-status', 'Approving all NFTs for exchange...', 'warning');
-            const approveTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
-            await approveTx.wait();
-            console.log("All NFTs approved via setApprovalForAll");
-          }
+        if (!isApprovedForAll) {
+          showStatus('create-offer-status', 'Approving all NFTs for exchange...', 'warning');
+          console.log("NFTs need approval, setting approval for all...");
+          const approveTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
+          await approveTx.wait();
+          console.log("All NFTs approved successfully");
         } else {
-          // Para pocos tokens, aprobar individualmente
-          for (const tokenId of selectedOfferedTokens) {
-            try {
-              // Verificar si el token ya está aprobado
-              const approved = await nftContractRead.getApproved(tokenId);
-              console.log(`Token ${tokenId} approved to: ${approved}`);
-              
-              if (approved.toLowerCase() !== EXCHANGE_ADDRESS.toLowerCase()) {
-                approvalNeeded = true;
-                
-                // Retardar para evitar límites de tasa
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                // Aprobar el token específico
-                showStatus('create-offer-status', `Approving token #${tokenId}...`, 'warning');
-                const approveTx = await nftContract.approve(EXCHANGE_ADDRESS, tokenId);
-                await approveTx.wait();
-                console.log(`Token ${tokenId} approved individually`);
-              }
-            } catch (error) {
-              console.error(`Error checking/approving token ${tokenId}:`, error);
-              
-              // Si alcanzamos el límite de tasa, usar un enfoque más general
-              if (error.message.includes("rate limit")) {
-                console.log("Rate limit hit, falling back to setApprovalForAll");
-                approvalNeeded = true;
-                break;
-              }
-            }
-          }
-          
-          // Recurrir a aprobar todos si las aprobaciones individuales fallan
-          if (approvalNeeded) {
-            console.log("Using setApprovalForAll as fallback");
-            const approveAllTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
-            await approveAllTx.wait();
-          }
+          console.log("NFTs are already approved for all");
         }
         
         // Crear oferta
@@ -1532,7 +1493,7 @@
           return;
         }
         
-        // Calculate fee with safe math
+        // Approve tokens in a more reliable way
         try {
           showStatus('accept-offer-status', 'Calculating fee...', 'warning');
           const feePercentage = await exchangeContractRead.feePercentage();
@@ -1564,44 +1525,19 @@
             console.log("ADRIAN tokens approved for exact fee amount");
           }
           
-          // Approve each individual NFT instead of all at once
+          // Usar setApprovalForAll directly, that is more reliable
           showStatus('accept-offer-status', 'Approving NFTs for exchange...', 'warning');
+          console.log("Checking if NFTs are already approved for all...");
           
-          let approvalNeeded = false;
-          for (const tokenId of window.selectedGiveTokens) {
-            try {
-              // Check if this specific token is already approved
-              const approved = await nftContractRead.getApproved(tokenId);
-              console.log(`Token ${tokenId} approved to: ${approved}`);
-              
-              if (approved.toLowerCase() !== EXCHANGE_ADDRESS.toLowerCase()) {
-                approvalNeeded = true;
-                
-                // Delay to prevent rate limiting
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                // Approve the specific token
-                const approveTx = await nftContract.approve(EXCHANGE_ADDRESS, tokenId);
-                await approveTx.wait();
-                console.log(`Token ${tokenId} approved individually`);
-              }
-            } catch (error) {
-              console.error(`Error checking/approving token ${tokenId}:`, error);
-              
-              // If we hit rate limits, try a more general approach
-              if (error.message.includes("rate limit")) {
-                console.log("Rate limit hit, falling back to setApprovalForAll");
-                approvalNeeded = true;
-                break;
-              }
-            }
-          }
+          const isApprovedForAll = await nftContractRead.isApprovedForAll(userAddress, EXCHANGE_ADDRESS);
           
-          // Fallback to approving all if individual approvals fail or if we have many tokens
-          if (approvalNeeded && window.selectedGiveTokens.length > 3) {
-            console.log("Using setApprovalForAll as fallback");
+          if (!isApprovedForAll) {
+            console.log("NFTs need approval, setting approval for all...");
             const approveAllTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
             await approveAllTx.wait();
+            console.log("All NFTs approved successfully");
+          } else {
+            console.log("NFTs are already approved for all");
           }
           
           // Accept offer
