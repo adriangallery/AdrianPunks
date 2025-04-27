@@ -683,24 +683,27 @@
     const baseProvider = new ethers.providers.JsonRpcProvider(INFURA_URL, NETWORK_CONF);
     
     const EXCHANGE_ADDRESS = "0x2E7223Def6ED307Df46a8C4c67bB882e1342761e";
-    const NFT_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
-    const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const ADRIANPUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
+    const ADRIAN_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     
     // Global variables
     let provider;
     let signer;
-    let exchangeContract;
-    let nftContract;
-    let tokenContract;
     let userAddress;
     let tokenDecimals = 18;
     let userTokens = [];
     let selectedOfferedTokens = [];
     let selectedWantedTokens = [];
     let currentOfferId = null;
+    let exchangeContract;
+    let nftContract;
+    let adrianTokenContract;
+    let exchangeContractRead;
+    let nftContractRead;
+    let adrianTokenContractRead;
     
     // ABIs
-    const exchangeABI = [
+    const EXCHANGE_ABI = [
       "function createOffer(uint256[] calldata offeredTokens, uint256[] calldata wantedTokens, uint256 duration) external",
       "function acceptOffer(uint256 offerId, uint256[] calldata chosenOfferedTokens, uint256[] calldata chosenWantedTokens) external",
       "function cancelOffer(uint256 offerId) external",
@@ -713,7 +716,7 @@
       "function feePercentage() external view returns (uint256)"
     ];
     
-    const nftABI = [
+    const ERC721_ABI = [
       "function balanceOf(address) view returns (uint256)",
       "function tokenOfOwnerByIndex(address,uint256) view returns (uint256)",
       "function ownerOf(uint256) view returns (address)",
@@ -722,7 +725,7 @@
       "function setApprovalForAll(address,bool) returns ()"
     ];
     
-    const tokenABI = [
+    const ERC20_ABI = [
       "function balanceOf(address) view returns (uint256)",
       "function decimals() view returns (uint8)",
       "function symbol() view returns (string)",
@@ -762,9 +765,9 @@
     
     // Initialize contracts with read-only provider
     function initReadOnlyContracts() {
-      exchangeContract = new ethers.Contract(EXCHANGE_ADDRESS, exchangeABI, baseProvider);
-      nftContract = new ethers.Contract(NFT_ADDRESS, nftABI, baseProvider);
-      tokenContract = new ethers.Contract(TOKEN_ADDRESS, tokenABI, baseProvider);
+      exchangeContractRead = new ethers.Contract(EXCHANGE_ADDRESS, EXCHANGE_ABI, baseProvider);
+      nftContractRead = new ethers.Contract(ADRIANPUNKS_ADDRESS, ERC721_ABI, baseProvider);
+      adrianTokenContractRead = new ethers.Contract(ADRIAN_TOKEN_ADDRESS, ERC20_ABI, baseProvider);
     }
     
     // Connect Wallet
@@ -781,13 +784,18 @@
         signer = provider.getSigner();
         userAddress = await signer.getAddress();
         
-        // Connect to contracts with signer
-        exchangeContract = new ethers.Contract(EXCHANGE_ADDRESS, exchangeABI, signer);
-        nftContract = new ethers.Contract(NFT_ADDRESS, nftABI, signer);
-        tokenContract = new ethers.Contract(TOKEN_ADDRESS, tokenABI, signer);
+        // Connect to contracts with signer for write operations
+        exchangeContract = new ethers.Contract(EXCHANGE_ADDRESS, EXCHANGE_ABI, signer);
+        nftContract = new ethers.Contract(ADRIANPUNKS_ADDRESS, ERC721_ABI, signer);
+        adrianTokenContract = new ethers.Contract(ADRIAN_TOKEN_ADDRESS, ERC20_ABI, signer);
+        
+        // Initialize contracts with Infura provider for read operations
+        exchangeContractRead = new ethers.Contract(EXCHANGE_ADDRESS, EXCHANGE_ABI, baseProvider);
+        nftContractRead = new ethers.Contract(ADRIANPUNKS_ADDRESS, ERC721_ABI, baseProvider);
+        adrianTokenContractRead = new ethers.Contract(ADRIAN_TOKEN_ADDRESS, ERC20_ABI, baseProvider);
         
         // Get token decimals
-        tokenDecimals = await tokenContract.decimals();
+        tokenDecimals = await adrianTokenContractRead.decimals();
         
         // Update UI
         const shortAddress = shortenAddress(userAddress);
@@ -796,13 +804,7 @@
         document.getElementById("token-balance").style.display = "block";
         
         // Load data
-        await Promise.all([
-          loadUserTokens(),
-          loadTokenBalance(),
-          loadAllOffers(),
-          loadMyOffers(),
-          loadOffersForMe()
-        ]);
+        await loadData();
         
         // Setup tab event listeners
         document.getElementById('all-offers-tab').addEventListener('click', loadAllOffers);
@@ -816,10 +818,25 @@
       }
     }
     
+    // Load all data
+    async function loadData() {
+      try {
+        await Promise.all([
+          loadUserTokens(),
+          loadTokenBalance(),
+          loadAllOffers(),
+          loadMyOffers(),
+          loadOffersForMe()
+        ]);
+      } catch (error) {
+        console.error("Error cargando datos:", error);
+      }
+    }
+    
     // Load user's token balance
     async function loadTokenBalance() {
       try {
-        const balance = await tokenContract.balanceOf(userAddress);
+        const balance = await adrianTokenContractRead.balanceOf(userAddress);
         const formattedBalance = ethers.utils.formatUnits(balance, tokenDecimals);
         document.getElementById("adrian-balance").textContent = formattedBalance;
       } catch (error) {
@@ -827,13 +844,14 @@
       }
     }
     
-    // Load user's NFTs
+    // Load user's NFTs (compatible with AdrianPunksV3)
     async function loadUserTokens() {
       try {
         const tokensGrid = document.getElementById("tokens-grid");
         tokensGrid.innerHTML = '<div class="spinner"></div>';
         
-        const balance = await nftContract.balanceOf(userAddress);
+        // Use the read contract to get balance
+        const balance = await nftContractRead.balanceOf(userAddress);
         const numTokens = balance.toNumber();
         
         if (numTokens === 0) {
@@ -844,14 +862,15 @@
         userTokens = [];
         let tokensHtml = '';
         
-        // Get token IDs with delay between calls
+        // Get token IDs with delay between calls to avoid rate limits
         for (let i = 0; i < numTokens; i++) {
           try {
-            const tokenId = await nftContract.tokenOfOwnerByIndex(userAddress, i);
+            // Use the read contract for this function call
+            const tokenId = await nftContractRead.tokenOfOwnerByIndex(userAddress, i);
             userTokens.push(tokenId.toString());
             
-            // Create token image URL
-            const baseUrl = tokenId.lt(501) 
+            // Create token image URL based on the AdrianPunksV3 contract logic
+            const baseUrl = tokenId.lte(500) 
               ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
               : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
             
@@ -889,7 +908,7 @@
         });
       } catch (error) {
         console.error("Error loading tokens:", error);
-        if (error.code === 'CALL_EXCEPTION') {
+        if (error.code === 'CALL_EXCEPTION' || error.message.includes("rate limit")) {
           document.getElementById("tokens-grid").innerHTML = '<div class="status warning">Rate limit exceeded. Please try again in a few moments.</div>';
         } else {
           document.getElementById("tokens-grid").innerHTML = `<div class="status error">Error loading tokens: ${error.message}</div>`;
@@ -1071,7 +1090,7 @@
         const container = document.getElementById('all-offers-container');
         container.innerHTML = '<div class="spinner"></div>';
         
-        const totalOffers = await exchangeContract.getActiveOfferCount();
+        const totalOffers = await exchangeContractRead.getActiveOfferCount();
         
         if (totalOffers.eq(0)) {
           container.innerHTML = "<p>No active offers available.</p>";
@@ -1098,7 +1117,7 @@
         const container = document.getElementById('my-offers-container');
         container.innerHTML = '<div class="spinner"></div>';
         
-        const offerIds = await exchangeContract.getActiveOffersByUser(userAddress);
+        const offerIds = await exchangeContractRead.getActiveOffersByUser(userAddress);
         
         if (offerIds.length === 0) {
           container.innerHTML = "<p>You don't have any active offers.</p>";
@@ -1108,7 +1127,7 @@
         let offersHtml = '';
         for (let i = 0; i < offerIds.length; i++) {
           const offerId = offerIds[i];
-          const offerDetails = await exchangeContract.getOfferDetails(offerId);
+          const offerDetails = await exchangeContractRead.getOfferDetails(offerId);
           
           const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
           
@@ -1160,7 +1179,7 @@
         const container = document.getElementById('for-me-container');
         container.innerHTML = '<div class="spinner"></div>';
         
-        const offerIds = await exchangeContract.getOffersForUser(userAddress);
+        const offerIds = await exchangeContractRead.getOffersForUser(userAddress);
         
         if (offerIds.length === 0) {
           container.innerHTML = "<p>No offers available for your tokens.</p>";
@@ -1170,7 +1189,7 @@
         let offersHtml = '';
         for (let i = 0; i < offerIds.length; i++) {
           const offerId = offerIds[i];
-          const offerDetails = await exchangeContract.getOfferDetails(offerId);
+          const offerDetails = await exchangeContractRead.getOfferDetails(offerId);
           
           const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
           
@@ -1223,7 +1242,7 @@
         const detailsContainer = document.getElementById('offer-details-content');
         detailsContainer.innerHTML = '<div class="spinner"></div>';
         
-        const offerDetails = await exchangeContract.getOfferDetails(offerId);
+        const offerDetails = await exchangeContractRead.getOfferDetails(offerId);
         const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
         
         if (!isActive) {
@@ -1319,7 +1338,7 @@
         bootstrap.Modal.getInstance(document.getElementById('offerDetailsModal')).hide();
         
         // Get offer details
-        const offerDetails = await exchangeContract.getOfferDetails(currentOfferId);
+        const offerDetails = await exchangeContractRead.getOfferDetails(currentOfferId);
         const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
         
         if (!isActive) {
@@ -1354,7 +1373,7 @@
         
         for (const wanted of wantedTokens) {
           try {
-            const owner = await nftContract.ownerOf(wanted);
+            const owner = await nftContractRead.ownerOf(wanted);
             if (owner.toLowerCase() === userAddress.toLowerCase()) {
               myEligibleTokens.push(wanted.toString());
               
@@ -1380,7 +1399,7 @@
         document.getElementById('give-tokens-area').innerHTML = myTokensHtml || '<div class="empty-selection">You don\'t have any requested tokens</div>';
         
         // Calculate and display fee
-        const feePercentage = await exchangeContract.feePercentage();
+        const feePercentage = await exchangeContractRead.feePercentage();
         const totalTokens = offeredTokens.length + myEligibleTokens.length;
         const feeAmount = totalTokens * feePercentage.toNumber() * (10 ** tokenDecimals) / 10000;
         const formattedFee = ethers.utils.formatUnits(feeAmount, tokenDecimals);
@@ -1421,6 +1440,121 @@
         window.selectedGiveTokens = window.selectedGiveTokens.filter(id => id !== tokenId);
       } else {
         window.selectedGiveTokens.push(tokenId);
+      }
+    }
+
+    // Accept offer
+    async function acceptOffer() {
+      try {
+        if (!currentOfferId) return;
+        
+        // Validate selections
+        if (!window.selectedReceiveTokens || window.selectedReceiveTokens.length === 0) {
+          showStatus('accept-offer-status', 'Please select at least one token to receive', 'warning');
+          return;
+        }
+        
+        if (!window.selectedGiveTokens || window.selectedGiveTokens.length === 0) {
+          showStatus('accept-offer-status', 'Please select at least one token to give', 'warning');
+          return;
+        }
+        
+        // Get offer details to verify
+        const offerDetails = await exchangeContractRead.getOfferDetails(currentOfferId);
+        const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
+        
+        if (!isActive) {
+          showStatus('accept-offer-status', 'This offer is no longer active', 'warning');
+          return;
+        }
+        
+        // Check approvals for NFT contract
+        const isApprovedForAll = await nftContract.isApprovedForAll(userAddress, EXCHANGE_ADDRESS);
+        
+        if (!isApprovedForAll) {
+          showStatus('accept-offer-status', 'Approving NFTs for exchange...', 'warning');
+          const approveTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
+          await approveTx.wait();
+        }
+        
+        // Calculate and check fee
+        const feePercentage = await exchangeContractRead.feePercentage();
+        const totalTokens = window.selectedReceiveTokens.length + window.selectedGiveTokens.length;
+        const feeAmount = totalTokens * feePercentage.toNumber() * (10 ** tokenDecimals) / 10000;
+        
+        // Check token allowance
+        const allowance = await adrianTokenContractRead.allowance(userAddress, EXCHANGE_ADDRESS);
+        
+        if (allowance.lt(feeAmount)) {
+          showStatus('accept-offer-status', 'Approving ADRIAN tokens for fee...', 'warning');
+          const approveTx = await adrianTokenContract.approve(EXCHANGE_ADDRESS, ethers.constants.MaxUint256);
+          await approveTx.wait();
+        }
+        
+        // Accept offer
+        showStatus('accept-offer-status', 'Accepting offer...', 'warning');
+        
+        const tx = await exchangeContract.acceptOffer(
+          currentOfferId,
+          window.selectedReceiveTokens,
+          window.selectedGiveTokens
+        );
+        
+        await tx.wait();
+        
+        showStatus('accept-offer-status', 'Offer accepted successfully!', 'success');
+        
+        // Reload data
+        setTimeout(async () => {
+          await loadData();
+          
+          // Close modal after a delay
+          setTimeout(() => {
+            bootstrap.Modal.getInstance(document.getElementById('acceptOfferModal')).hide();
+          }, 2000);
+        }, 1000);
+      } catch (error) {
+        console.error("Error accepting offer:", error);
+        showStatus('accept-offer-status', `Error accepting offer: ${error.message}`, 'error');
+      }
+    }
+    
+    // Cancel offer
+    async function cancelOffer() {
+      try {
+        if (!currentOfferId) return;
+        
+        const modal = bootstrap.Modal.getInstance(document.getElementById('offerDetailsModal'));
+        
+        // Add status message
+        const statusDiv = document.createElement('div');
+        statusDiv.className = 'status warning';
+        statusDiv.textContent = 'Cancelling offer...';
+        document.getElementById('offer-details-content').appendChild(statusDiv);
+        
+        // Cancel the offer
+        const tx = await exchangeContract.cancelOffer(currentOfferId);
+        await tx.wait();
+        
+        // Update status
+        statusDiv.className = 'status success';
+        statusDiv.textContent = 'Offer cancelled successfully!';
+        
+        // Reload offers after a delay
+        setTimeout(async () => {
+          await loadData();
+          
+          // Close modal after another delay
+          setTimeout(() => {
+            modal.hide();
+          }, 1000);
+        }, 1000);
+      } catch (error) {
+        console.error("Error cancelling offer:", error);
+        const statusDiv = document.createElement('div');
+        statusDiv.className = 'status error';
+        statusDiv.textContent = `Error cancelling offer: ${error.message}`;
+        document.getElementById('offer-details-content').appendChild(statusDiv);
       }
     }
   </script>
