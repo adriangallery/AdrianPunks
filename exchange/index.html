@@ -1399,11 +1399,28 @@
         document.getElementById('give-tokens-area').innerHTML = myTokensHtml || '<div class="empty-selection">You don\'t have any requested tokens</div>';
         
         // Calculate and display fee
-        const feePercentage = await exchangeContractRead.feePercentage();
-        const totalTokens = offeredTokens.length + myEligibleTokens.length;
-        const feeAmount = totalTokens * feePercentage.toNumber() * (10 ** tokenDecimals) / 10000;
-        const formattedFee = ethers.utils.formatUnits(feeAmount, tokenDecimals);
-        document.getElementById('exchange-fee').textContent = formattedFee;
+        try {
+          const feePercentage = await exchangeContractRead.feePercentage();
+          console.log("Fee percentage:", feePercentage.toString());
+          
+          const totalTokens = offeredTokens.length + myEligibleTokens.length;
+          console.log("Total tokens:", totalTokens);
+          
+          // Usar cálculos más seguros
+          const feeBase = feePercentage.toNumber();
+          const powerOf10 = ethers.BigNumber.from(10).pow(tokenDecimals);
+          const feeAmount = ethers.BigNumber.from(totalTokens)
+            .mul(feeBase)
+            .mul(powerOf10)
+            .div(10000);
+            
+          console.log("Fee amount:", feeAmount.toString());
+          const formattedFee = ethers.utils.formatUnits(feeAmount, tokenDecimals);
+          document.getElementById('exchange-fee').textContent = formattedFee;
+        } catch (err) {
+          console.error("Error calculating fee:", err);
+          document.getElementById('exchange-fee').textContent = "Error calculating fee";
+        }
         
         // Store for later
         window.selectedReceiveTokens = [...offeredTokens.map(t => t.toString())];
