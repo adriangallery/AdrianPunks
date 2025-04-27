@@ -828,7 +828,7 @@
           loadMyOffers(),
           loadOffersForMe()
         ]);
-      } catch (error) {
+        } catch (error) {
         console.error("Error cargando datos:", error);
       }
     }
@@ -839,7 +839,7 @@
         const balance = await adrianTokenContractRead.balanceOf(userAddress);
         const formattedBalance = ethers.utils.formatUnits(balance, tokenDecimals);
         document.getElementById("adrian-balance").textContent = formattedBalance;
-      } catch (error) {
+    } catch (error) {
         console.error("Error loading token balance:", error);
       }
     }
@@ -856,9 +856,9 @@
         
         if (numTokens === 0) {
           tokensGrid.innerHTML = "<p>You don't have any AdrianPunks NFTs in your wallet.</p>";
-          return;
-        }
-        
+      return;
+    }
+    
         userTokens = [];
         let tokensHtml = '';
         
@@ -906,7 +906,7 @@
             selectTokenForOffer(card);
           });
         });
-      } catch (error) {
+    } catch (error) {
         console.error("Error loading tokens:", error);
         if (error.code === 'CALL_EXCEPTION' || error.message.includes("rate limit")) {
           document.getElementById("tokens-grid").innerHTML = '<div class="status warning">Rate limit exceeded. Please try again in a few moments.</div>';
@@ -928,9 +928,9 @@
       
       // Check if token is already selected
       if (selectedOfferedTokens.includes(tokenId)) {
-        return;
-      }
-      
+      return;
+    }
+    
       // Add token to selected offered tokens
       selectedOfferedTokens.push(tokenId);
       updateOfferedTokensUI();
@@ -1046,22 +1046,65 @@
         
         const duration = document.getElementById('offer-duration').value;
         
-        // Aprobar tokens específicos en lugar de setApprovalForAll
-        showStatus('create-offer-status', 'Approving NFTs for exchange...', 'warning');
-        for (const tokenId of selectedOfferedTokens) {
-          const currentApproved = await nftContract.getApproved(tokenId);
-          if (currentApproved.toLowerCase() !== EXCHANGE_ADDRESS.toLowerCase()) {
-            const approveTx = await nftContract.approve(EXCHANGE_ADDRESS, tokenId);
+        // Aprobar tokens NFT individualmente
+        showStatus('create-offer-status', 'Checking token approvals...', 'warning');
+        
+        let approvalNeeded = false;
+        
+        // Si hay muchos tokens, es más eficiente usar setApprovalForAll
+        if (selectedOfferedTokens.length > 3) {
+          console.log("Many tokens selected, using setApprovalForAll");
+          const isApprovedForAll = await nftContract.isApprovedForAll(userAddress, EXCHANGE_ADDRESS);
+          
+          if (!isApprovedForAll) {
+            showStatus('create-offer-status', 'Approving all NFTs for exchange...', 'warning');
+            const approveTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
             await approveTx.wait();
-            console.log(`Approved token ${tokenId} for exchange`);
-          } else {
-            console.log(`Token ${tokenId} already approved`);
+            console.log("All NFTs approved via setApprovalForAll");
+          }
+        } else {
+          // Para pocos tokens, aprobar individualmente
+          for (const tokenId of selectedOfferedTokens) {
+            try {
+              // Verificar si el token ya está aprobado
+              const approved = await nftContractRead.getApproved(tokenId);
+              console.log(`Token ${tokenId} approved to: ${approved}`);
+              
+              if (approved.toLowerCase() !== EXCHANGE_ADDRESS.toLowerCase()) {
+                approvalNeeded = true;
+                
+                // Retardar para evitar límites de tasa
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Aprobar el token específico
+                showStatus('create-offer-status', `Approving token #${tokenId}...`, 'warning');
+                const approveTx = await nftContract.approve(EXCHANGE_ADDRESS, tokenId);
+                await approveTx.wait();
+                console.log(`Token ${tokenId} approved individually`);
+              }
+            } catch (error) {
+              console.error(`Error checking/approving token ${tokenId}:`, error);
+              
+              // Si alcanzamos el límite de tasa, usar un enfoque más general
+              if (error.message.includes("rate limit")) {
+                console.log("Rate limit hit, falling back to setApprovalForAll");
+                approvalNeeded = true;
+                break;
+              }
+            }
+          }
+          
+          // Recurrir a aprobar todos si las aprobaciones individuales fallan
+          if (approvalNeeded) {
+            console.log("Using setApprovalForAll as fallback");
+            const approveAllTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
+            await approveAllTx.wait();
           }
         }
         
+        // Crear oferta
         showStatus('create-offer-status', 'Creating offer...', 'warning');
         
-        // Create offer
         const tx = await exchangeContract.createOffer(
           selectedOfferedTokens,
           selectedWantedTokens,
@@ -1071,13 +1114,13 @@
         await tx.wait();
         showStatus('create-offer-status', 'Offer created successfully!', 'success');
         
-        // Clear selections
+        // Limpiar selecciones
         selectedOfferedTokens = [];
         selectedWantedTokens = [];
         updateOfferedTokensUI();
         updateWantedTokensUI();
         
-        // Reload offers
+        // Recargar ofertas
         await Promise.all([
           loadAllOffers(),
           loadMyOffers()
@@ -1149,22 +1192,22 @@
                   <p><strong>Offering:</strong></p>
                   <div class="offer-tokens">
                     ${offeredTokens.map(token => `<div class="offer-token">${token}</div>`).join('')}
-                  </div>
-                </div>
+          </div>
+                      </div>
                 <div class="col-md-2 text-center">
                   <div class="exchange-arrow">↔</div>
-                </div>
+                              </div>
                 <div class="col-md-5">
                   <p><strong>For:</strong></p>
                   <div class="offer-tokens">
                     ${wantedTokens.map(token => `<div class="offer-token">${token}</div>`).join('')}
-                  </div>
-                </div>
-              </div>
+                          </div>
+                        </div>
+                              </div>
               <div class="offer-info">
                 <span>Expires: ${expiresAt}</span>
                 <button class="btn" onclick="viewOfferDetails(${offerId}, true)">View Details</button>
-              </div>
+                          </div>
             </div>`;
         }
         
@@ -1212,22 +1255,22 @@
                   <p><strong>You'll Receive:</strong></p>
                   <div class="offer-tokens">
                     ${offeredTokens.map(token => `<div class="offer-token">${token}</div>`).join('')}
-                  </div>
-                </div>
+                      </div>
+                          </div>
                 <div class="col-md-2 text-center">
                   <div class="exchange-arrow">↔</div>
-                </div>
+                        </div>
                 <div class="col-md-5">
                   <p><strong>For Your:</strong></p>
                   <div class="offer-tokens">
                     ${wantedTokens.map(token => `<div class="offer-token">${token}</div>`).join('')}
-                  </div>
-                </div>
-              </div>
+                          </div>
+                        </div>
+                      </div>
               <div class="offer-info">
                 <span>Expires: ${expiresAt}</span>
                 <button class="btn" onclick="viewOfferDetails(${offerId}, false)">View Details</button>
-              </div>
+                    </div>
             </div>`;
         }
         
@@ -1298,26 +1341,26 @@
             <h5>Offer #${offerId}</h5>
             <p>Created by: ${creatorShort}</p>
             <p>Expires: ${expiresAt}</p>
-          </div>
-          
+              </div>
+              
           <div class="row">
             <div class="col-md-5">
               <h6>${isMyOffer ? 'You Are Offering:' : 'You Will Receive:'}</h6>
               <div class="selection-area">
                 ${offeredTokensHtml || '<div class="empty-selection">No tokens</div>'}
+                </div>
               </div>
-            </div>
-            
+              
             <div class="col-md-2">
               <div class="exchange-arrow">↔</div>
-            </div>
-            
+              </div>
+              
             <div class="col-md-5">
               <h6>${isMyOffer ? 'In Exchange For:' : 'In Exchange For Your:'}</h6>
               <div class="selection-area">
                 ${wantedTokensHtml || '<div class="empty-selection">No tokens</div>'}
-              </div>
             </div>
+          </div>
           </div>`;
         
         // Show appropriate buttons
@@ -1489,66 +1532,104 @@
           return;
         }
         
-        // Aprobar tokens NFT específicos en lugar de setApprovalForAll
-        showStatus('accept-offer-status', 'Approving NFTs for exchange...', 'warning');
-        for (const tokenId of window.selectedGiveTokens) {
-          const currentApproved = await nftContract.getApproved(tokenId);
-          if (currentApproved.toLowerCase() !== EXCHANGE_ADDRESS.toLowerCase()) {
-            const approveTx = await nftContract.approve(EXCHANGE_ADDRESS, tokenId);
-            await approveTx.wait();
-            console.log(`Approved token ${tokenId} for exchange`);
-          } else {
-            console.log(`Token ${tokenId} already approved`);
-          }
-        }
-        
-        // Calcular y verificar la tarifa de manera segura
-        const feePercentage = await exchangeContractRead.feePercentage();
-        const totalTokens = window.selectedReceiveTokens.length + window.selectedGiveTokens.length;
-        
-        // Usar cálculos más seguros para el fee
-        const feeBase = feePercentage.toNumber();
-        const powerOf10 = ethers.BigNumber.from(10).pow(tokenDecimals);
-        const feeAmount = ethers.BigNumber.from(totalTokens)
-          .mul(feeBase)
-          .mul(powerOf10)
-          .div(10000);
-        
-        console.log("Fee amount:", feeAmount.toString());
-        
-        // Aprobar exactamente la cantidad de ADRIAN necesaria
-        const allowance = await adrianTokenContractRead.allowance(userAddress, EXCHANGE_ADDRESS);
-        
-        if (allowance.lt(feeAmount)) {
-          showStatus('accept-offer-status', 'Approving ADRIAN tokens for fee...', 'warning');
-          // Usar la cantidad exacta en lugar de MaxUint256
-          const approveTx = await adrianTokenContract.approve(EXCHANGE_ADDRESS, feeAmount);
-          await approveTx.wait();
-          console.log(`Approved ${ethers.utils.formatUnits(feeAmount, tokenDecimals)} ADRIAN tokens for fee`);
-        }
-        
-        // Accept offer
-        showStatus('accept-offer-status', 'Accepting offer...', 'warning');
-        
-        const tx = await exchangeContract.acceptOffer(
-          currentOfferId,
-          window.selectedReceiveTokens,
-          window.selectedGiveTokens
-        );
-        
-        await tx.wait();
-        
-        showStatus('accept-offer-status', 'Offer accepted successfully!', 'success');
-        
-        // Reload data
-        setTimeout(async () => {
-          await loadData();
+        // Calculate fee with safe math
+        try {
+          showStatus('accept-offer-status', 'Calculating fee...', 'warning');
+          const feePercentage = await exchangeContractRead.feePercentage();
+          console.log("Fee percentage:", feePercentage.toString());
           
-          // Close modal after a delay
-          setTimeout(() => {
-            bootstrap.Modal.getInstance(document.getElementById('acceptOfferModal')).hide();
-          }, 2000);
-        }, 1000);
+          const totalTokens = window.selectedReceiveTokens.length + window.selectedGiveTokens.length;
+          console.log("Total tokens involved:", totalTokens);
+          
+          // Usar cálculos seguros
+          const feeBase = feePercentage.toNumber();
+          const powerOf10 = ethers.BigNumber.from(10).pow(tokenDecimals);
+          const feeAmount = ethers.BigNumber.from(totalTokens)
+            .mul(feeBase)
+            .mul(powerOf10)
+            .div(10000);
+          
+          console.log("Fee amount:", feeAmount.toString());
+          
+          // Check token allowance for fee
+          const currentAllowance = await adrianTokenContractRead.allowance(userAddress, EXCHANGE_ADDRESS);
+          console.log("Current allowance:", currentAllowance.toString());
+          
+          if (currentAllowance.lt(feeAmount)) {
+            showStatus('accept-offer-status', 'Approving ADRIAN tokens for fee...', 'warning');
+            
+            // Aprobar exactamente la cantidad necesaria, no ilimitada
+            const approveTx = await adrianTokenContract.approve(EXCHANGE_ADDRESS, feeAmount);
+            await approveTx.wait();
+            console.log("ADRIAN tokens approved for exact fee amount");
+          }
+          
+          // Approve each individual NFT instead of all at once
+          showStatus('accept-offer-status', 'Approving NFTs for exchange...', 'warning');
+          
+          let approvalNeeded = false;
+          for (const tokenId of window.selectedGiveTokens) {
+            try {
+              // Check if this specific token is already approved
+              const approved = await nftContractRead.getApproved(tokenId);
+              console.log(`Token ${tokenId} approved to: ${approved}`);
+              
+              if (approved.toLowerCase() !== EXCHANGE_ADDRESS.toLowerCase()) {
+                approvalNeeded = true;
+                
+                // Delay to prevent rate limiting
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Approve the specific token
+                const approveTx = await nftContract.approve(EXCHANGE_ADDRESS, tokenId);
+                await approveTx.wait();
+                console.log(`Token ${tokenId} approved individually`);
+              }
+            } catch (error) {
+              console.error(`Error checking/approving token ${tokenId}:`, error);
+              
+              // If we hit rate limits, try a more general approach
+              if (error.message.includes("rate limit")) {
+                console.log("Rate limit hit, falling back to setApprovalForAll");
+                approvalNeeded = true;
+                break;
+              }
+            }
+          }
+          
+          // Fallback to approving all if individual approvals fail or if we have many tokens
+          if (approvalNeeded && window.selectedGiveTokens.length > 3) {
+            console.log("Using setApprovalForAll as fallback");
+            const approveAllTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
+            await approveAllTx.wait();
+          }
+          
+          // Accept offer
+          showStatus('accept-offer-status', 'Accepting offer...', 'warning');
+          
+          const tx = await exchangeContract.acceptOffer(
+            currentOfferId,
+            window.selectedReceiveTokens,
+            window.selectedGiveTokens
+          );
+          
+          await tx.wait();
+          
+          showStatus('accept-offer-status', 'Offer accepted successfully!', 'success');
+          
+          // Reload data
+          setTimeout(async () => {
+            await loadData();
+            
+            // Close modal after a delay
+            setTimeout(() => {
+              bootstrap.Modal.getInstance(document.getElementById('acceptOfferModal')).hide();
+            }, 2000);
+          }, 1000);
+        } catch (error) {
+          console.error("Error in fee calculation or approval:", error);
+          showStatus('accept-offer-status', `Error: ${error.message}`, 'error');
+        }
       } catch (error) {
         console.error("Error accepting offer:", error);
         showStatus('accept-offer-status', `Error accepting offer: ${error.message}`, 'error');
