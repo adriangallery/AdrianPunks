@@ -770,169 +770,7 @@
     // Connect Wallet
     async function connectWallet() {
       try {
-        if (window.selectedReceiveTokens.includes(tokenId)) {
-        window.selectedReceiveTokens = window.selectedReceiveTokens.filter(id => id !== tokenId);
-      } else {
-        window.selectedReceiveTokens.push(tokenId);
-      }
-    }
-    
-    // Toggle token selection for giving
-    function toggleGiveToken(tokenId) {
-      if (!window.selectedGiveTokens) window.selectedGiveTokens = [];
-      
-      if (window.selectedGiveTokens.includes(tokenId)) {
-        window.selectedGiveTokens = window.selectedGiveTokens.filter(id => id !== tokenId);
-      } else {
-        window.selectedGiveTokens.push(tokenId);
-      }
-    }
-    
-    // Accept offer
-    async function acceptOffer() {
-      try {
-        if (!currentOfferId) return;
-        
-        // Validate selections
-        if (!window.selectedReceiveTokens || window.selectedReceiveTokens.length === 0) {
-          showStatus('accept-offer-status', 'Please select at least one token to receive', 'warning');
-          return;
-        }
-        
-        if (!window.selectedGiveTokens || window.selectedGiveTokens.length === 0) {
-          showStatus('accept-offer-status', 'Please select at least one token to give', 'warning');
-          return;
-        }
-        
-        // Get offer details to verify
-        const offerDetails = await exchangeContract.getOfferDetails(currentOfferId);
-        const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
-        
-        if (!isActive) {
-          showStatus('accept-offer-status', 'This offer is no longer active', 'warning');
-          return;
-        }
-        
-        // Check approvals for NFT contract
-        const isApprovedForAll = await nftContract.isApprovedForAll(userAddress, EXCHANGE_ADDRESS);
-        
-        if (!isApprovedForAll) {
-          showStatus('accept-offer-status', 'Approving NFTs for exchange...', 'warning');
-          const approveTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
-          await approveTx.wait();
-        }
-        
-        // Calculate and check fee
-        const feePercentage = await exchangeContract.feePercentage();
-        const totalTokens = window.selectedReceiveTokens.length + window.selectedGiveTokens.length;
-        const feeAmount = totalTokens * feePercentage.toNumber() * (10 ** tokenDecimals) / 10000;
-        
-        // Check token allowance
-        const allowance = await tokenContract.allowance(userAddress, EXCHANGE_ADDRESS);
-        
-        if (allowance.lt(feeAmount)) {
-          showStatus('accept-offer-status', 'Approving ADRIAN tokens for fee...', 'warning');
-          const approveTx = await tokenContract.approve(EXCHANGE_ADDRESS, ethers.constants.MaxUint256);
-          await approveTx.wait();
-        }
-        
-        // Accept offer
-        showStatus('accept-offer-status', 'Accepting offer...', 'warning');
-        
-        const tx = await exchangeContract.acceptOffer(
-          currentOfferId,
-          window.selectedReceiveTokens,
-          window.selectedGiveTokens
-        );
-        
-        await tx.wait();
-        
-        showStatus('accept-offer-status', 'Offer accepted successfully!', 'success');
-        
-        // Reload data
-        setTimeout(async () => {
-          await Promise.all([
-            loadUserTokens(),
-            loadTokenBalance(),
-            loadAllOffers(),
-            loadMyOffers(),
-            loadOffersForMe()
-          ]);
-          
-          // Close modal after a delay
-          setTimeout(() => {
-            bootstrap.Modal.getInstance(document.getElementById('acceptOfferModal')).hide();
-          }, 2000);
-        }, 1000);
-      } catch (error) {
-        console.error("Error accepting offer:", error);
-        showStatus('accept-offer-status', `Error accepting offer: ${error.message}`, 'error');
-      }
-    }
-    
-    // Cancel offer
-    async function cancelOffer() {
-      try {
-        if (!currentOfferId) return;
-        
-        const modal = bootstrap.Modal.getInstance(document.getElementById('offerDetailsModal'));
-        
-        // Add status message
-        const statusDiv = document.createElement('div');
-        statusDiv.className = 'status warning';
-        statusDiv.textContent = 'Cancelling offer...';
-        document.getElementById('offer-details-content').appendChild(statusDiv);
-        
-        // Cancel the offer
-        const tx = await exchangeContract.cancelOffer(currentOfferId);
-        await tx.wait();
-        
-        // Update status
-        statusDiv.className = 'status success';
-        statusDiv.textContent = 'Offer cancelled successfully!';
-        
-        // Reload offers after a delay
-        setTimeout(async () => {
-          await Promise.all([
-            loadAllOffers(),
-            loadMyOffers(),
-            loadOffersForMe()
-          ]);
-          
-          // Close modal after another delay
-          setTimeout(() => {
-            modal.hide();
-          }, 1000);
-        }, 1000);
-      } catch (error) {
-        console.error("Error cancelling offer:", error);
-        const statusDiv = document.createElement('div');
-        statusDiv.className = 'status error';
-        statusDiv.textContent = `Error cancelling offer: ${error.message}`;
-        document.getElementById('offer-details-content').appendChild(statusDiv);
-      }
-    }
-    
-    // Make token ID and image URL functions available globally
-    window.viewOfferDetails = viewOfferDetails;
-    window.toggleReceiveToken = toggleReceiveToken;
-    window.toggleGiveToken = toggleGiveToken;
-    window.removeOfferedToken = removeOfferedToken;
-    window.removeWantedToken = removeWantedToken;
-    
-    // Helper to get image URL for a token
-    function getTokenImageUrl(tokenId) {
-      const baseUrl = Number(tokenId) < 501 
-        ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
-        : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
-      
-      const gifTokens = [1, 13, 69, 221];
-      const extension = gifTokens.includes(Number(tokenId)) ? '.gif' : '.png';
-      return `${baseUrl}${tokenId}${extension}`;
-    }
-  </script>
-</body>
-</html> (!window.ethereum) {
+        if (!window.ethereum) {
           document.getElementById("wallet-info").innerHTML = '<div class="status warning">Please install MetaMask or another Web3 wallet.</div>';
           return;
         }
@@ -1559,3 +1397,18 @@
       } else {
         window.selectedReceiveTokens.push(tokenId);
       }
+    }
+
+    // Toggle token selection for giving
+    function toggleGiveToken(tokenId) {
+      if (!window.selectedGiveTokens) window.selectedGiveTokens = [];
+      
+      if (window.selectedGiveTokens.includes(tokenId)) {
+        window.selectedGiveTokens = window.selectedGiveTokens.filter(id => id !== tokenId);
+      } else {
+        window.selectedGiveTokens.push(tokenId);
+      }
+    }
+  </script>
+</body>
+</html>
