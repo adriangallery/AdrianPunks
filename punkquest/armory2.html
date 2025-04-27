@@ -213,20 +213,35 @@
   </style>
 </head>
 <body>
-  <!-- ──────────────── MENÚ (igual que en PunkQuest) ──────────────── -->
-  <div id="menu-container"></div>
-  <script>
-    /* Carga dinámica del menú */
-    fetch('/market/components/menu.html')
-      .then(r=>r.text())
-      .then(html=>{
-        document.getElementById('menu-container').innerHTML=html;
-        const s=document.createElement('script');
-        s.src='/market/components/menu.js';
-        document.head.appendChild(s);
-      })
-      .catch(err=>console.error('Menu load error:',err));
-  </script>
+  <!-- ──────────────── MENÚ (directamente en el HTML) ──────────────── -->
+  <div id="menu-container">
+    <nav class="navbar navbar-expand-lg">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#">
+          <h3 class="token-symbol">PUNKQUEST</h3>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav">
+            <li class="nav-item">
+              <a class="nav-link" href="/punkquest/">Game</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link active" href="/punkquest/armory2.html">Armory</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/market/">$ADRIAN</a>
+            </li>
+          </ul>
+        </div>
+        <div class="desktop-wallet-section">
+          <button id="connectWalletButton" type="button">Connect Wallet</button>
+        </div>
+      </div>
+    </nav>
+  </div>
 
   <div class="container">
     <header>
@@ -293,7 +308,7 @@
       "function nextItemId() view returns(uint256)",
       "function getItemTokenId(uint256) view returns(uint256)",
       "function ownedItems(address,uint256) view returns(uint256,uint256,uint256,bool)",
-      "function items(uint256) view returns (uint256,uint256,uint256,bool,uint8,bool)"
+      "function items(uint256) view returns (uint256 price,uint256 bonus,uint256 durability,bool exists,uint8 itemType,bool degradable)"
     ];
     const tokenABI = [
       "function balanceOf(address) view returns(uint256)",
@@ -316,34 +331,65 @@
     });
 
     /* ─────────────────── WALLET ─────────────────── */
-    document.getElementById("connect-wallet").addEventListener("click",async()=>{
-      if(!window.ethereum){
-        document.getElementById("wallet-info").innerHTML="<p>Please install MetaMask!</p>";
-        return;
-      }
-      try{
-        await window.ethereum.request({method:"eth_requestAccounts"});
-        web3Provider=new ethers.providers.Web3Provider(window.ethereum);
-
-        /* forzar red Base */
-        const net=await web3Provider.getNetwork();
-        if(net.chainId!==CHAIN_ID){
-          await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:"0x2105"}]});
-        }
-
-        signer=web3Provider.getSigner();
-        const walletAddress=await signer.getAddress();
-        const shortAddr=walletAddress.substring(0,6)+"…"+walletAddress.slice(-4);
-        document.getElementById("wallet-info").innerHTML=`<p class="wallet-address">Connected: ${shortAddr}</p>`;
-
-        punkQuestWrite=new ethers.Contract(PUNKQUEST_ADDRESS,punkQuestABI,signer);
-        tokenWrite    =new ethers.Contract(TOKEN_ADDRESS    ,tokenABI   ,signer);
-
-        loadUserInventory();
-      }catch(err){
-        document.getElementById("wallet-info").innerHTML=`<p>Error: ${err.message}</p>`;
+    const connectButtons = ["connect-wallet", "connectWalletButton"];
+    
+    connectButtons.forEach(id => {
+      const button = document.getElementById(id);
+      if (button) {
+        button.addEventListener("click", connectWallet);
       }
     });
+    
+    async function connectWallet() {
+      if (!window.ethereum) {
+        document.getElementById("wallet-info").innerHTML = "<p>Please install MetaMask!</p>";
+        return;
+      }
+      
+      try {
+        await window.ethereum.request({method: "eth_requestAccounts"});
+        web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+
+        /* forzar red Base */
+        const net = await web3Provider.getNetwork();
+        if (net.chainId !== CHAIN_ID) {
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: "0x2105" }]
+          });
+        }
+
+        signer = web3Provider.getSigner();
+        const walletAddress = await signer.getAddress();
+        const shortAddr = walletAddress.substring(0, 6) + "…" + walletAddress.slice(-4);
+        
+        // Actualizar todos los elementos que muestran información del wallet
+        document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddr}</p>`;
+        
+        // Actualizar botones de conexión
+        connectButtons.forEach(id => {
+          const button = document.getElementById(id);
+          if (button) {
+            button.textContent = shortAddr;
+            button.disabled = true;
+          }
+        });
+
+        // Inicializar contratos con signer
+        punkQuestWrite = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, signer);
+        tokenWrite = new ethers.Contract(TOKEN_ADDRESS, tokenABI, signer);
+
+        // Cargar inventario del usuario
+        await loadUserInventory();
+        
+        // Mostrar mensaje de éxito
+        document.getElementById("general-output").innerText = "Wallet connected successfully!";
+      } catch (err) {
+        console.error("Wallet connection error:", err);
+        document.getElementById("wallet-info").innerHTML = `<p>Error: ${err.message}</p>`;
+        document.getElementById("general-output").innerText = `Error connecting wallet: ${err.message}`;
+      }
+    }
 
     /* ─────────────────── LOAD ITEMS ─────────────────── */
     async function loadItems(){
@@ -356,64 +402,66 @@
         console.log('Loaded items from JSON:', weaponsData);
 
         /* 🔹 Obtener nextItemId una sola vez */
-        const nextItemId = (await punkQuestRead.nextItemId()).toNumber();
-        console.log('Next item ID:', nextItemId);
+        const nextItemId = await punkQuestRead.nextItemId();
+        console.log('Next item ID:', nextItemId.toString());
 
-        /* 🔹 Implementar throttling para evitar rate limits */
-        const limit = (await import('https://cdn.jsdelivr.net/npm/p-limit/+esm')).default;
-        const throttle = limit(5); // Máximo 5 llamadas concurrentes
-
-        /* 🔹 Verificar existencia de ítems con throttling */
-        console.log('Checking items existence on chain...');
-        const checks = weaponsData.map(itm => throttle(async () => {
+        /* 🔹 Filtrar items existentes */
+        const filteredItems = [];
+        for (const item of weaponsData) {
           try {
-            console.log(`Checking item ${itm.id}...`);
-            
-            // Corregir off-by-one: usar > en lugar de >=
-            if (itm.id > nextItemId) {
-              console.log(`Item ${itm.id} is beyond nextItemId`);
-              return null;
+            if (item.id >= nextItemId.toNumber()) {
+              console.log(`Item ${item.id} is beyond nextItemId`);
+              continue;
             }
 
-            const onChain = await punkQuestRead.items(itm.id);
-            console.log(`Item ${itm.id} on chain data:`, onChain);
+            console.log(`Checking item ${item.id}...`);
+            const onChain = await punkQuestRead.items(item.id);
+            console.log(`Item ${item.id} on chain data:`, {
+              price: onChain.price.toString(),
+              bonus: onChain.bonus.toString(),
+              durability: onChain.durability.toString(),
+              exists: onChain.exists,
+              itemType: onChain.itemType,
+              degradable: onChain.degradable
+            });
             
-            if (!onChain || !onChain[3]) { // Si no existe
-              console.log(`Item ${itm.id} does not exist on chain`);
-              return null;
+            if (!onChain.exists) {
+              console.log(`Item ${item.id} does not exist on chain`);
+              continue;
             }
 
-            const typeLabel = onChain[4] === 0 ? "Weapon" : "Armor";
-            const tokenId = onChain[0].toNumber();
-            console.log(`Item ${itm.id} is valid:`, { tokenId, type: typeLabel });
+            const typeLabel = Number(onChain.itemType) === 0 ? "Weapon" : "Armor";
             
-            return { 
-              ...itm,
+            // El precio está en la primera posición del array
+            const itemWithTokenId = {
+              ...item,
               type: typeLabel,
-              tokenId: tokenId,
-              image: itm.image
+              tokenId: item.id,
+              price: ethers.utils.formatUnits(onChain.price, 18),
+              bonus: (Number(onChain.bonus) / 1e16).toFixed(1) + "%",
+              durability: onChain.durability.toString()
             };
+            
+            console.log(`Item ${item.id} processed:`, itemWithTokenId);
+            filteredItems.push(itemWithTokenId);
+            
+            // Pausa breve para evitar límites de tasa
+            await new Promise(resolve => setTimeout(resolve, 300));
           } catch(err) {
-            console.error(`Item ${itm.id} check failed:`, err);
-            if (err.message.includes('execution reverted')) {
-              console.log(`Item ${itm.id} does not exist (reverted)`);
-              return null;
-            }
-            return null;
+            console.error(`Error processing item ${item.id}:`, err);
           }
-        }));
+        }
 
-        console.log('Waiting for all item checks to complete...');
-        allItems = (await Promise.all(checks)).filter(Boolean);
-        console.log('Available items after filtering:', allItems);
+        console.log('Available items after filtering:', filteredItems);
+        allItems = filteredItems;
 
         if (allItems.length === 0) {
           console.warn('No items found after filtering');
           document.getElementById("general-output").innerText = "No items available at the moment.";
+        } else {
+          displayItems(allItems);
         }
-
-        displayItems(allItems);
-      }catch(err){
+      } catch(err) {
         console.error("loadItems error", err);
         document.getElementById("general-output").innerText = `Error loading items: ${err.message}`;
       }
@@ -421,17 +469,26 @@
 
     /* ─────────────────── DISPLAY ITEMS ─────────────────── */
     function displayItems(items){
-      const grid=document.getElementById("itemsGrid");grid.innerHTML="";
-      items.forEach(item=>{
-        const card=document.createElement("div");card.className="item-card";
-        const price=parseFloat(item.price);
-        const friendlyPrice=price>=1000?`${(price/1000).toFixed(1)}K`:price;
-
-        card.innerHTML=`
+      const grid=document.getElementById("itemsGrid");
+      grid.innerHTML="";
+      
+      if (items.length === 0) {
+        grid.innerHTML = "<div class='alert alert-info'>No items available at this moment.</div>";
+        return;
+      }
+      
+      console.log(`Displaying ${items.length} items`);
+      items.forEach(item => {
+        console.log(`Creating card for item:`, item);
+        const card = document.createElement("div");
+        card.className = "item-card";
+        
+        // Usar valores del item que incluyen los datos del contrato
+        card.innerHTML = `
           <div class="item-image">
-            <img src="${item.image}" alt="${item.name}">
+            <img src="${item.image}" alt="${item.name}" onerror="this.src='https://via.placeholder.com/200x200?text=Item+${item.id}'">
             <div class="durability-badge">${item.durability}</div>
-            <div class="bonus-badge">+${item.bonus}%</div>
+            <div class="bonus-badge">${item.bonus}</div>
           </div>
           <div class="item-details">
             <div class="item-name">
@@ -439,17 +496,17 @@
               <button class="description-toggle" onclick="toggleDescription(this)">▼</button>
             </div>
             <div class="item-description">${item.description}</div>
-            <div class="token-id">Token ID: ${item.tokenId}</div>
+            <div class="token-id">ID: ${item.id} (Type: ${item.type})</div>
           </div>
           <div class="quantity-controls">
             <div class="quantity-input">
               <label for="qty-${item.id}">Qty:</label>
-              <input type="number" id="qty-${item.id}" value="0" min="0" />
+              <input type="number" id="qty-${item.id}" value="1" min="1" max="10" />
             </div>
-            <div class="price-display">${friendlyPrice} $A</div>
+            <div class="price-display">${item.price} $A</div>
           </div>
           <button class="btn add-to-cart-btn"
-            data-id="${item.tokenId}"
+            data-id="${item.id}"
             data-price="${item.price}"
             data-name="${item.name}"
             data-type="${item.type}"
@@ -460,15 +517,27 @@
       });
 
       /* Delegar listeners */
-      Array.from(document.getElementsByClassName("add-to-cart-btn")).forEach(btn=>{
-        btn.addEventListener("click",e=>{
-          const{ id,price,name,type,jsonId}=e.currentTarget.dataset;
-          if(!id)return;
-          const qty=parseInt(document.getElementById(`qty-${jsonId}`).value);
-          if(qty>0){
-            addToCart({id:Number(id),name,price:price.toString(),quantity:qty,type});
-            document.getElementById(`qty-${jsonId}`).value=0;
+      document.querySelectorAll(".add-to-cart-btn").forEach(btn => {
+        btn.addEventListener("click", e => {
+          const { id, price, name, type, jsonId } = e.currentTarget.dataset;
+          const qty = parseInt(document.getElementById(`qty-${jsonId}`).value);
+          
+          if (!id || isNaN(qty) || qty <= 0) {
+            console.warn(`Invalid add to cart - id: ${id}, quantity: ${qty}`);
+            return;
           }
+          
+          console.log(`Adding to cart: ${qty}x ${name} (ID: ${id})`);
+          addToCart({
+            id: Number(id),
+            name,
+            price,
+            quantity: qty,
+            type
+          });
+          
+          // Reset input to 1 instead of 0
+          document.getElementById(`qty-${jsonId}`).value = 1;
         });
       });
     }
