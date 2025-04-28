@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AdrianPunks Exchange</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Add Space Grotesk font -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* PunkQuest inspired visual styles */
+    :root {
+      --bg-color: #f8f9fa;
+      --primary-text: #2c3e50;
+      --accent-red: #ff6b6b;
+      --accent-blue: #4dabf7;
+      --card-bg: #ffffff;
+      --card-border: #e9ecef;
+      --screen-bg: #ffffff;
+      --scanline-color: rgba(0,0,0,0.03);
+      --pixel-shadow: -1px -1px 0 var(--accent-red), 1px 1px 0 var(--accent-blue);
+      --menu-bg: #1c1c1c;
+      --menu-hover: #2d2d2d;
+      --menu-border: #333333;
+      --wallet-btn: #ff6b2b;
+      --wallet-btn-hover: #ff8142;
+      --navbar-height: 60px;
+      --success-color: #28a745;
+      --warning-color: #ffc107;
+      --error-color: #dc3545;
+    }
+    body {
+      background-color: var(--bg-color);
+      color: var(--primary-text);
+      font-family: 'Space Grotesk', sans-serif;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+      background-image: repeating-linear-gradient(0deg, var(--scanline-color), var(--scanline-color) 1px, transparent 1px, transparent 4px);
+      padding-top: calc(var(--navbar-height) + 20px);
+    }
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 0;
+      background: var(--screen-bg);
+      border: 1px solid var(--card-border);
+      box-shadow: 0 0 0 1px var(--accent-red), 0 0 0 2px var(--accent-blue), 0 4px 6px rgba(0,0,0,0.1);
+      border-radius: 8px;
+    }
+    header {
+      text-align: center;
+      padding: 2rem;
+      background: linear-gradient(180deg, var(--card-bg) 0%, var(--screen-bg) 100%);
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 2rem;
+      position: relative;
+    }
+    header h1 {
+      font-size: 2.5rem;
+      margin: 0;
+      color: var(--primary-text);
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+    header p {
+      margin-top: 1rem;
+      font-size: 1rem;
+      color: var(--primary-text);
+      opacity: 0.8;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .section-title {
+      font-size: 1.4rem;
+      margin-bottom: 1.5rem;
+      color: var(--primary-text);
+      font-weight: 600;
+      border-bottom: 2px solid var(--card-border);
+      padding-bottom: 0.5rem;
+    }
+    .token-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+      padding: 0;
+      margin: 0;
+    }
+    .token-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.3rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+    }
+    .token-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .token-card.selected {
+      border: 2px solid var(--accent-blue);
+      box-shadow: 0 0 8px rgba(77, 171, 247, 0.5);
+    }
+    .token-card img {
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      border-radius: 4px;
+      flex-grow: 1;
+    }
+    .token-card .card-body {
+      padding: 0.5rem;
+    }
+    .btn {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.8rem;
+      padding: 0.8rem 1.2rem;
+      background: var(--card-bg);
+      border: 2px solid var(--primary-text);
+      color: var(--primary-text);
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin: 0.5rem;
+      box-shadow: 3px 3px 0 var(--primary-text);
+    }
+    .btn:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 5px 5px 0 var(--primary-text);
+      border-color: var(--accent-blue);
+    }
+    .btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: none;
+      border-color: var(--accent-red);
+    }
+    .terminal {
+      background: var(--card-bg);
+      color: var(--primary-text);
+      padding: 1rem;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.9rem;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      margin: 1rem 0;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .wallet-address {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1rem;
+      color: #000000;
+      opacity: 0.8;
+      margin: 0;
+      padding: 0.5rem 0;
+    }
+    /* Navbar Styles */
+    .navbar {
+      position: fixed;
+      width: 100%;
+      z-index: 1000;
+      top: 0;
+      left: 0;
+      margin: 0;
+      padding: 0;
+      background-color: var(--menu-bg) !important;
+      border-bottom: 1px solid var(--menu-border);
+      height: var(--navbar-height);
+    }
+    .navbar .container-fluid {
+      padding: 0 15px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+    }
+    .navbar-collapse {
+      flex-grow: 0;
+    }
+    .desktop-wallet-section {
+      margin-left: 20px;
+      position: absolute;
+      right: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .navbar-toggler {
+      margin: 0;
+      border: 1px solid var(--menu-border) !important;
+      padding: 6px 10px;
+    }
+    .navbar-toggler-icon {
+      filter: invert(100%) !important;
+    }
+    .nav-link {
+      font-family: 'Space Grotesk', sans-serif;
+      padding: 15px 20px !important;
+      color: #fff !important;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.3s ease !important;
+    }
+    .nav-link:hover {
+      background-color: var(--menu-hover);
+      text-shadow: 0 0 5px rgba(255,255,255,0.5);
+    }
+    #connectWalletButton {
+      background-color: var(--wallet-btn);
+      color: #fff;
+      border: none;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      padding: 8px 16px;
+      height: 36px;
+    }
+    #connectWalletButton:hover {
+      background-color: var(--wallet-btn-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 0 10px rgba(255,107,43,0.3);
+    }
+    
+    /* Tabs */
+    .tab-content {
+      padding: 20px;
+    }
+    .nav-tabs .nav-link {
+      color: var(--primary-text) !important;
+      border: 1px solid transparent;
+      margin-right: 5px;
+      padding: 10px 15px !important;
+      border-radius: 8px 8px 0 0;
+      background: rgba(233, 236, 239, 0.5);
+    }
+    .nav-tabs .nav-link.active {
+      background: var(--card-bg);
+      border-color: var(--card-border);
+      border-bottom-color: var(--card-bg);
+    }
+    .nav-tabs {
+      border-bottom: 1px solid var(--card-border);
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">AdrianPunks</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link" href="/punkquest">PunkQuest</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="/exchange">Exchange</a>
+          </li>
+        </ul>
+      </div>
+      <div class="desktop-wallet-section">
+        <button id="connectWalletButton" class="btn">
+          <span id="walletButtonText">Conectar Wallet</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <header>
+      <h1>AdrianPunks Exchange</h1>
+      <p>Intercambia tus NFTs y tokens ADRIAN</p>
+    </header>
+
+    <div class="row">
+      <div class="col-md-8">
+        <!-- Main Content -->
+        <div class="card">
+          <h2 class="section-title">Mis NFTs</h2>
+          <div class="token-grid" id="myTokensGrid"></div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <!-- Sidebar -->
+        <div class="card">
+          <h2 class="section-title">Ofertas</h2>
+          <div id="offersList"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="terminal" id="terminal"></div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/web3modal@1.9.7/dist/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.7.8/dist/umd/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
+  <script>
+    // Contract addresses
+    const ADRIAN_PUNKS_ADDRESS = "0x8a90CAb2b38dba80c64b7734e58Ee1dB38B8992e";
+    const ADRIAN_TOKEN_ADDRESS = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+    const EXCHANGE_ADDRESS = "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
+
+    // Contract ABIs
+    const ADRIAN_PUNKS_ABI = [
+      "function balanceOf(address owner) view returns (uint256)",
+      "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+      "function tokenURI(uint256 tokenId) view returns (string)",
+      "function isApprovedForAll(address owner, address operator) view returns (bool)",
+      "function setApprovalForAll(address operator, bool approved)",
+      "function ownerOf(uint256 tokenId) view returns (address)"
+    ];
+
+    const ADRIAN_TOKEN_ABI = [
+      "function balanceOf(address account) view returns (uint256)",
+      "function allowance(address owner, address spender) view returns (uint256)",
+      "function approve(address spender, uint256 amount) returns (bool)"
+    ];
+
+    const EXCHANGE_ABI = [
+      "function createOffer(uint256[] calldata offeredTokens, uint256[] calldata requestedTokens, uint256 adrianAmount) external",
+      "function cancelOffer(uint256 offerId) external",
+      "function acceptOffer(uint256 offerId, uint256[] calldata tokensToGive, uint256[] calldata tokensToReceive) external",
+      "function getOffers() external view returns (tuple(uint256 id, address creator, uint256[] offeredTokens, uint256[] requestedTokens, uint256 adrianAmount, bool active)[] memory)",
+      "function getOffer(uint256 offerId) external view returns (tuple(uint256 id, address creator, uint256[] offeredTokens, uint256[] requestedTokens, uint256 adrianAmount, bool active) memory)"
+    ];
+
+    // Global variables
+    let web3;
+    let provider;
+    let accounts = [];
+    let adrianPunksContract;
+    let adrianTokenContract;
+    let exchangeContract;
+    let myTokens = [];
+    let offers = [];
+
+    // Initialize Web3Modal
+    const providerOptions = {
+      walletconnect: {
+        package: WalletConnectProvider,
+        options: {
+          rpc: {
+            31337: "http://localhost:8545"
+          }
+        }
+      }
+    };
+
+    const web3Modal = new Web3Modal({
+      cacheProvider: true,
+      providerOptions
+    });
+
+    // Connect wallet
+    async function connectWallet() {
+      try {
+        provider = await web3Modal.connect();
+        web3 = new Web3(provider);
+        accounts = await web3.eth.getAccounts();
+        
+        if (accounts.length > 0) {
+          document.getElementById('walletButtonText').textContent = `${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`;
+          initializeContracts();
+          loadMyTokens();
+          loadOffers();
+        }
+      } catch (error) {
+        console.error("Error connecting wallet:", error);
+        logToTerminal(`Error al conectar wallet: ${error.message}`);
+      }
+    }
+
+    // Initialize contracts
+    function initializeContracts() {
+      adrianPunksContract = new web3.eth.Contract(ADRIAN_PUNKS_ABI, ADRIAN_PUNKS_ADDRESS);
+      adrianTokenContract = new web3.eth.Contract(ADRIAN_TOKEN_ABI, ADRIAN_TOKEN_ADDRESS);
+      exchangeContract = new web3.eth.Contract(EXCHANGE_ABI, EXCHANGE_ADDRESS);
+    }
+
+    // Load user's NFTs
+    async function loadMyTokens() {
+      try {
+        const balance = await adrianPunksContract.methods.balanceOf(accounts[0]).call();
+        myTokens = [];
+        
+        for (let i = 0; i < balance; i++) {
+          const tokenId = await adrianPunksContract.methods.tokenOfOwnerByIndex(accounts[0], i).call();
+          const tokenURI = await adrianPunksContract.methods.tokenURI(tokenId).call();
+          const response = await fetch(tokenURI);
+          const metadata = await response.json();
+          
+          myTokens.push({
+            id: tokenId,
+            name: metadata.name,
+            image: metadata.image
+          });
+        }
+        
+        displayMyTokens();
+      } catch (error) {
+        console.error("Error loading tokens:", error);
+        logToTerminal(`Error al cargar tokens: ${error.message}`);
+      }
+    }
+
+    // Display user's NFTs
+    function displayMyTokens() {
+      const grid = document.getElementById('myTokensGrid');
+      grid.innerHTML = '';
+      
+      myTokens.forEach(token => {
+        const card = document.createElement('div');
+        card.className = 'token-card';
+        card.innerHTML = `
+          <img src="${token.image}" alt="${token.name}">
+          <div class="card-body">
+            <h5>${token.name}</h5>
+            <p>ID: ${token.id}</p>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    // Load offers
+    async function loadOffers() {
+      try {
+        offers = await exchangeContract.methods.getOffers().call();
+        displayOffers();
+      } catch (error) {
+        console.error("Error loading offers:", error);
+        logToTerminal(`Error al cargar ofertas: ${error.message}`);
+      }
+    }
+
+    // Display offers
+    function displayOffers() {
+      const list = document.getElementById('offersList');
+      list.innerHTML = '';
+      
+      offers.forEach(offer => {
+        if (offer.active) {
+          const offerElement = document.createElement('div');
+          offerElement.className = 'card mb-2';
+          offerElement.innerHTML = `
+            <div class="card-body">
+              <h5>Oferta #${offer.id}</h5>
+              <p>Tokens ofrecidos: ${offer.offeredTokens.length}</p>
+              <p>Tokens solicitados: ${offer.requestedTokens.length}</p>
+              <p>ADRIAN: ${offer.adrianAmount}</p>
+              <button class="btn btn-primary" onclick="acceptOffer(${offer.id})">Aceptar</button>
+            </div>
+          `;
+          list.appendChild(offerElement);
+        }
+      });
+    }
+
+    // Accept offer
+    async function acceptOffer(offerId) {
+      try {
+        const offer = await exchangeContract.methods.getOffer(offerId).call();
+        
+        // Check if user owns the requested tokens
+        for (const tokenId of offer.requestedTokens) {
+          const owner = await adrianPunksContract.methods.ownerOf(tokenId).call();
+          if (owner.toLowerCase() !== accounts[0].toLowerCase()) {
+            throw new Error(`No eres el dueño del token ${tokenId}`);
+          }
+        }
+        
+        // Check ADRIAN token allowance
+        const allowance = await adrianTokenContract.methods.allowance(accounts[0], EXCHANGE_ADDRESS).call();
+        if (allowance < offer.adrianAmount) {
+          await adrianTokenContract.methods.approve(EXCHANGE_ADDRESS, offer.adrianAmount).send({ from: accounts[0] });
+        }
+        
+        // Check NFT approval
+        const isApproved = await adrianPunksContract.methods.isApprovedForAll(accounts[0], EXCHANGE_ADDRESS).call();
+        if (!isApproved) {
+          await adrianPunksContract.methods.setApprovalForAll(EXCHANGE_ADDRESS, true).send({ from: accounts[0] });
+        }
+        
+        // Accept offer
+        await exchangeContract.methods.acceptOffer(
+          offerId,
+          offer.requestedTokens,
+          offer.offeredTokens
+        ).send({ from: accounts[0] });
+        
+        logToTerminal(`Oferta ${offerId} aceptada con éxito`);
+        loadMyTokens();
+        loadOffers();
+      } catch (error) {
+        console.error("Error accepting offer:", error);
+        logToTerminal(`Error al aceptar oferta: ${error.message}`);
+      }
+    }
+
+    // Log to terminal
+    function logToTerminal(message) {
+      const terminal = document.getElementById('terminal');
+      terminal.innerHTML += `<div>${message}</div>`;
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    // Event listeners
+    document.getElementById('connectWalletButton').addEventListener('click', connectWallet);
+  </script>
+</body>
+</html>
