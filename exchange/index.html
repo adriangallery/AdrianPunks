@@ -1864,40 +1864,40 @@ function toggleGiveToken(tokenId) {
 async function acceptOffer() {
   try {
     if (!currentOfferId) {
-      showStatus('accept-offer-status', 'No offer selected', 'error');
+      showStatus('accept-offer-status', 'No hay oferta seleccionada', 'error');
       return;
     }
     
     // Validate selections
     if (!window.selectedReceiveTokens || window.selectedReceiveTokens.length === 0) {
-      showStatus('accept-offer-status', 'Select at least one token to receive', 'warning');
+      showStatus('accept-offer-status', 'Selecciona al menos un token para recibir', 'warning');
       return;
     }
     
     if (!window.selectedGiveTokens || window.selectedGiveTokens.length === 0) {
-      showStatus('accept-offer-status', 'Select at least one token to give', 'warning');
+      showStatus('accept-offer-status', 'Selecciona al menos un token para dar', 'warning');
       return;
     }
     
     // Get full offer details again for additional checks
-    showStatus('accept-offer-status', 'Verifying offer details...', 'warning');
+    showStatus('accept-offer-status', 'Verificando detalles de la oferta...', 'warning');
     
     const offerDetails = await exchangeContractRead.getOfferDetails(currentOfferId);
     const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
     
     // Important validations
     if (!isActive) {
-      showStatus('accept-offer-status', 'This offer is no longer active', 'error');
+      showStatus('accept-offer-status', 'Esta oferta ya no está activa', 'error');
       return;
     }
     
     if (creator.toLowerCase() === userAddress.toLowerCase()) {
-      showStatus('accept-offer-status', 'You cannot accept your own offer', 'error');
+      showStatus('accept-offer-status', 'No puedes aceptar tu propia oferta', 'error');
       return;
     }
     
     if (expirationTime.mul(1000).lt(Date.now())) {
-      showStatus('accept-offer-status', 'This offer has expired', 'error');
+      showStatus('accept-offer-status', 'Esta oferta ha expirado', 'error');
       return;
     }
     
@@ -1959,7 +1959,7 @@ async function acceptOffer() {
     }
     
     // Approve fee payment
-    showStatus('accept-offer-status', 'Approving fee payment...', 'warning');
+    showStatus('accept-offer-status', 'Aprobando pago de comisión...', 'warning');
     
     try {
       // Check current allowance
@@ -1973,149 +1973,88 @@ async function acceptOffer() {
         logToOutput(`Tokens ADRIAN ya aprobados`);
       }
     } catch (error) {
-      console.error("Error approving ADRIAN tokens:", error);
-      showStatus('accept-offer-status', `Error aprobando tokens ADRIAN: ${error.message}`, 'error');
+      showStatus('accept-offer-status', `Error al aprobar tokens ADRIAN: ${error.message}`, 'error');
       return;
     }
     
-    // Approve NFT tokens
-    showStatus('accept-offer-status', 'Aprobando tokens NFT...', 'warning');
-    
-    const useSetApprovalForAll = window.selectedGiveTokens.length > 1 && 
-      confirm("¿Quieres aprobar todos tus tokens para la plataforma de intercambio? (más eficiente en gas)");
-    
-    if (useSetApprovalForAll) {
-      try {
-        const isApprovedForAll = await nftContract.isApprovedForAll(userAddress, EXCHANGE_ADDRESS);
-        if (!isApprovedForAll) {
-          const approveTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
-          await approveTx.wait();
-          logToOutput(`Aprobación de todos los tokens completada`);
-        }
-      } catch (error) {
-        console.error("Error setting approval for all:", error);
-        showStatus('accept-offer-status', `Error aprobando tokens: ${error.message}`, 'error');
-        return;
-      }
-    } else {
-      // Approve tokens individually
-      for (const tokenId of window.selectedGiveTokens) {
-        try {
-          const approved = await nftContractRead.getApproved(tokenId);
-          if (approved.toLowerCase() !== EXCHANGE_ADDRESS.toLowerCase()) {
-            showStatus('accept-offer-status', `Aprobando token #${tokenId}...`, 'warning');
-            
-            const approveTx = await nftContract.approve(EXCHANGE_ADDRESS, tokenId);
-            await approveTx.wait();
-            logToOutput(`Token #${tokenId} aprobado`);
-          }
-        } catch (error) {
-          console.error(`Error approving token #${tokenId}:`, error);
-          showStatus('accept-offer-status', `Error aprobando token #${tokenId}: ${error.message}`, 'error');
-          return;
-        }
-      }
-    }
-    
-    // Convert token IDs to BigNumber
-    const receiveBigNumbers = window.selectedReceiveTokens.map(id => 
-      ethers.BigNumber.isBigNumber(id) ? id : ethers.BigNumber.from(id)
-    );
-    
-    const giveBigNumbers = window.selectedGiveTokens.map(id => 
-      ethers.BigNumber.isBigNumber(id) ? id : ethers.BigNumber.from(id)
-    );
-    
-    // Accept the offer with explicit gas limit
-    showStatus('accept-offer-status', 'Executing exchange transaction...', 'warning');
+    // Approve NFTs
+    showStatus('accept-offer-status', 'Aprobando transferencia de NFTs...', 'warning');
     
     try {
-      // Try to estimate gas
-      let gasEstimate;
-      try {
-        gasEstimate = await exchangeContract.estimateGas.acceptOffer(
-          currentOfferId, 
-          receiveBigNumbers, 
-          giveBigNumbers
-        );
-        console.log("Estimación de gas:", gasEstimate.toString());
-        
-        // Add a 30% safety margin
-        gasEstimate = gasEstimate.mul(130).div(100);
-      } catch (error) {
-        console.warn("Gas estimation failed, using manual limit:", error);
-        // Define a reasonable manual gas limit if estimation fails
-        gasEstimate = ethers.BigNumber.from("600000");
-      }
+      const isApproved = await nftContractRead.isApprovedForAll(userAddress, EXCHANGE_ADDRESS);
       
-      // Perform the transaction with explicit options
-      const tx = await exchangeContract.acceptOffer(
-        currentOfferId,
-        receiveBigNumbers,
-        giveBigNumbers,
-        {
-          gasLimit: gasEstimate
-        }
+      if (!isApproved) {
+        const approveTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
+        await approveTx.wait();
+        logToOutput(`Aprobación de NFTs completada`);
+      } else {
+        logToOutput(`NFTs ya aprobados`);
+      }
+    } catch (error) {
+      showStatus('accept-offer-status', `Error al aprobar NFTs: ${error.message}`, 'error');
+      return;
+    }
+    
+    // Call acceptOffer function on the contract
+    showStatus('accept-offer-status', 'Aceptando oferta...', 'warning');
+    
+    try {
+      const gasEstimate = await exchangeContract.estimateGas.acceptOffer(
+        currentOfferId, 
+        window.selectedReceiveTokens, 
+        window.selectedGiveTokens
       );
       
-      logToOutput(`Transacción enviada: ${tx.hash}`);
-      showStatus('accept-offer-status', 'Transacción enviada, esperando confirmación...', 'warning');
+      // Add a 20% buffer to the gas estimate
+      const gasLimit = gasEstimate.mul(120).div(100);
       
-      // Wait for transaction completion
-      const receipt = await tx.wait();
-      logToOutput(`Transacción confirmada en el bloque: ${receipt.blockNumber}`);
+      const acceptTx = await exchangeContract.acceptOffer(
+        currentOfferId, 
+        window.selectedReceiveTokens, 
+        window.selectedGiveTokens,
+        { gasLimit }
+      );
       
-      showStatus('accept-offer-status', 'Exchange completed successfully!', 'success');
+      showStatus('accept-offer-status', 'Esperando confirmación de la transacción...', 'warning');
       
-      // Reload data and interface
-      setTimeout(async () => {
-        await loadData();
+      const receipt = await acceptTx.wait();
+      
+      const exchangeEvent = receipt.events.find(e => e.event === 'ExchangeCompleted');
+      
+      if (exchangeEvent) {
+        showStatus('accept-offer-status', '¡Oferta aceptada con éxito!', 'success');
+        logToOutput(`Oferta aceptada con éxito. Hash de transacción: ${receipt.transactionHash}`);
         
-        // Close modal after a brief delay
+        // Clear selections
+        window.selectedReceiveTokens = [];
+        window.selectedGiveTokens = [];
+        
+        // Refresh UI
         setTimeout(() => {
-          bootstrap.Modal.getInstance(document.getElementById('acceptOfferModal')).hide();
-        }, 2000);
-      }, 1000);
-      
+          fetchOffers();
+          fetchUserTokens();
+        }, 1000);
+      } else {
+        showStatus('accept-offer-status', 'Transacción completada, pero no se encontró el evento de intercambio', 'warning');
+      }
     } catch (error) {
-      console.error("Transaction failed:", error);
+      console.error('Error accepting offer:', error);
       
-      // Extract and display useful error information
-      let errorMessage = "Transaction failed";
-      
-      if (error.error && error.error.message) {
-        errorMessage = error.error.message;
-      } else if (error.data && error.data.message) {
-        errorMessage = error.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
+      // Handle different error types
+      if (error.code === 'ACTION_REJECTED') {
+        showStatus('accept-offer-status', 'Transacción rechazada por el usuario', 'error');
+      } else if (error.code === 'UNPREDICTABLE_GAS_LIMIT') {
+        showStatus('accept-offer-status', 'Error al estimar gas. La oferta puede no ser válida.', 'error');
+      } else if (error.message.includes('insufficient funds')) {
+        showStatus('accept-offer-status', 'Fondos insuficientes para la transacción', 'error');
+      } else if (error.message.includes('execution reverted')) {
+        showStatus('accept-offer-status', 'La transacción falló. Verifica que la oferta siga siendo válida.', 'error');
+      } else {
+        showStatus('accept-offer-status', `Error al aceptar la oferta: ${error.message}`, 'error');
       }
-      
-      // Improve common error messages
-      if (errorMessage.includes("Not token owner")) {
-        errorMessage = "You don't own one of the tokens";
-      } else if (errorMessage.includes("Contract not approved")) {
-        errorMessage = "One or more tokens are not approved for exchange";
-      } else if (errorMessage.includes("Cannot accept own offer")) {
-        errorMessage = "You cannot accept your own offer";
-      } else if (errorMessage.includes("Invalid")) {
-        errorMessage = "Invalid token selection for this offer";
-      } else if (errorMessage.includes("Offer not active")) {
-        errorMessage = "This offer is no longer active";
-      } else if (errorMessage.includes("Offer expired")) {
-        errorMessage = "This offer has expired";
-      } else if (errorMessage.includes("transfer amount exceeds allowance")) {
-        errorMessage = "Insufficient ADRIAN tokens allowance for fee payment";
-      } else if (errorMessage.includes("transfer amount exceeds balance")) {
-        errorMessage = "Insufficient ADRIAN tokens balance for fee payment";
-      } else if (errorMessage.includes("execution reverted")) {
-        errorMessage = "Transaction reverted by the contract";
-      }
-      
-      showStatus('accept-offer-status', `Error: ${errorMessage}`, 'error');
     }
   } catch (error) {
-    console.error("General error:", error);
+    console.error('Error in acceptOffer function:', error);
     showStatus('accept-offer-status', `Error inesperado: ${error.message}`, 'error');
   }
 }
