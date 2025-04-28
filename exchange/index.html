@@ -363,6 +363,11 @@
       border: 1px solid rgba(220, 53, 69, 0.2);
       color: var(--error-color);
     }
+    .status.info {
+      background-color: rgba(77, 171, 247, 0.1);
+      border: 1px solid rgba(77, 171, 247, 0.2);
+      color: var(--accent-blue);
+    }
     
     /* Exchange arrows */
     .exchange-arrow {
@@ -439,6 +444,44 @@
       cursor: pointer;
       border: 1px solid white;
     }
+    
+    /* Exchange ratio styles */
+    .ratio-info {
+      display: flex;
+      align-items: center;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      background-color: rgba(77, 171, 247, 0.1);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+    }
+    .ratio-box {
+      display: inline-block;
+      background: var(--accent-blue);
+      color: white;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      margin: 0 0.5rem;
+      font-weight: bold;
+    }
+    .ratio-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .ratio-option {
+      background: rgba(77, 171, 247, 0.1);
+      border: 1px solid var(--accent-blue);
+      border-radius: 4px;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .ratio-option:hover, .ratio-option.selected {
+      background: var(--accent-blue);
+      color: white;
+    }
   </style>
 </head>
 <body>
@@ -469,7 +512,6 @@
       </div>
     </div>
   </nav>
-
   <div class="container">
     <header>
       <h1>AdrianPunks Exchange</h1>
@@ -484,6 +526,7 @@
         </div>
         <div id="token-balance" class="mt-3" style="display: none;">
           <p>ADRIAN Token Balance: <span id="adrian-balance">0</span></p>
+          <p class="text-info">Exchange Fee: <span id="exchange-fee">1000</span> ADRIAN tokens per exchange</p>
         </div>
       </div>
     </section>
@@ -555,6 +598,12 @@
               </div>
             </div>
             
+            <div class="ratio-info">
+              <span>Exchange Ratio:</span>
+              <div class="ratio-box" id="offer-ratio">0:0</div>
+              <span>Your tokens : Their tokens</span>
+            </div>
+            
             <div class="form-group mb-3">
               <label for="offer-duration" class="form-label">Offer Duration:</label>
               <select id="offer-duration" class="form-select">
@@ -607,7 +656,6 @@
     
     <div id="general-output" class="terminal"></div>
   </div>
-  
   <!-- Modal for Viewing Offer Details -->
   <div class="modal fade" id="offerDetailsModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -658,8 +706,18 @@
               </div>
             </div>
             
-            <div class="alert alert-info">
-              <strong>Note:</strong> A fee of <span id="exchange-fee">0</span> ADRIAN tokens will be charged for this exchange.
+            <div class="ratio-info">
+              <span>Exchange Ratio:</span>
+              <div class="ratio-box" id="accept-ratio">0:0</div>
+              <span>Receive : Give</span>
+            </div>
+            
+            <div class="ratio-options" id="ratio-options-container">
+              <!-- This will be populated dynamically -->
+            </div>
+            
+            <div class="alert alert-info mt-3">
+              <strong>Note:</strong> A fixed fee of <span id="exchange-fee-modal">1000</span> ADRIAN tokens will be charged for this exchange.
             </div>
             
             <div id="accept-offer-status" class="mt-3"></div>
@@ -677,1130 +735,1420 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script>
-    // Contract addresses and configurations
-    const NETWORK_CONF = { name: "base", chainId: 8453 };
-    const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
-    const baseProvider = new ethers.providers.JsonRpcProvider(INFURA_URL, NETWORK_CONF);
+  // Contract addresses and configurations
+const NETWORK_CONF = { name: "base", chainId: 8453 };
+const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
+const baseProvider = new ethers.providers.JsonRpcProvider(INFURA_URL, NETWORK_CONF);
+
+const EXCHANGE_ADDRESS = "0xe04b8db56909345c21a8ccc813286659f20ce1b4"; // Updated contract address
+const ADRIANPUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
+const ADRIAN_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+
+// Global variables
+let provider;
+let signer;
+let userAddress;
+let tokenDecimals = 18;
+let userTokens = [];
+let selectedOfferedTokens = [];
+let selectedWantedTokens = [];
+let currentOfferId = null;
+let exchangeContract;
+let nftContract;
+let adrianTokenContract;
+let exchangeContractRead;
+let nftContractRead;
+let adrianTokenContractRead;
+let fixedFeeAmount = ethers.utils.parseUnits("1000", 18); // 1000 ADRIAN tokens
+
+// ABIs
+const EXCHANGE_ABI = [
+  "function createOffer(uint256[] calldata offeredTokens, uint256[] calldata wantedTokens, uint256 duration) external",
+  "function acceptOffer(uint256 offerId, uint256[] calldata chosenOfferedTokens, uint256[] calldata chosenWantedTokens) external",
+  "function cancelOffer(uint256 offerId) external",
+  "function getOfferDetails(uint256 offerId) external view returns (address creator, uint256[] memory offeredTokens, uint256[] memory wantedTokens, uint256 expirationTime, bool isActive)",
+  "function getActiveOffersForToken(uint256 tokenId) external view returns (uint256[] memory)",
+  "function getActiveOffersByUser(address user) external view returns (uint256[] memory)",
+  "function getOffersForUser(address user) external view returns (uint256[] memory)",
+  "function getActiveOfferCount() external view returns (uint256)",
+  "function checkApprovals(address user, uint256[] calldata tokenIds) external view returns (bool[] memory)",
+  "function fixedFeeAmount() external view returns (uint256)",
+  "function emergencyState() external view returns (bool)"
+];
+
+const ERC721_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function tokenOfOwnerByIndex(address,uint256) view returns (uint256)",
+  "function ownerOf(uint256) view returns (address)",
+  "function getApproved(uint256) view returns (address)",
+  "function isApprovedForAll(address,address) view returns (bool)",
+  "function setApprovalForAll(address,bool) returns ()",
+  "function approve(address to, uint256 tokenId) returns ()"
+];
+
+const ERC20_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)",
+  "function approve(address,uint256) returns (bool)",
+  "function allowance(address,address) view returns (uint256)",
+  "function transfer(address,uint256) returns (bool)"
+];
+
+// Helper functions
+function formatTimestamp(timestamp) {
+  const date = new Date(timestamp * 1000);
+  return date.toLocaleString();
+}
+
+function shortenAddress(address) {
+  return address.substring(0, 6) + "..." + address.substring(address.length - 4);
+}
+
+function showStatus(elementId, message, type) {
+  const statusElement = document.getElementById(elementId);
+  statusElement.className = "status " + type;
+  statusElement.textContent = message;
+  statusElement.style.display = "block";
+}
+
+function clearStatus(elementId) {
+  const statusElement = document.getElementById(elementId);
+  statusElement.textContent = "";
+  statusElement.style.display = "none";
+}
+
+function logToOutput(message) {
+  const output = document.getElementById("general-output");
+  const timestamp = new Date().toLocaleTimeString();
+  output.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+  // Auto-scroll to bottom
+  output.scrollTop = output.scrollHeight;
+}
+
+// Initialize the application
+document.addEventListener('DOMContentLoaded', async () => {
+  // Add event listeners
+  document.getElementById('connectWalletButton').addEventListener('click', connectWallet);
+  document.getElementById('add-wanted-token').addEventListener('click', addWantedToken);
+  document.getElementById('submit-offer').addEventListener('click', createOffer);
+  document.getElementById('accept-offer-btn').addEventListener('click', showAcceptOfferModal);
+  document.getElementById('cancel-offer-btn').addEventListener('click', cancelOffer);
+  document.getElementById('confirm-accept-btn').addEventListener('click', acceptOffer);
+  
+  // Initialize with read-only providers for public data
+  initReadOnlyContracts();
+  
+  // Global function access
+  window.removeOfferedToken = removeOfferedToken;
+  window.removeWantedToken = removeWantedToken;
+  window.viewOfferDetails = viewOfferDetails;
+  window.toggleReceiveToken = toggleReceiveToken;
+  window.toggleGiveToken = toggleGiveToken;
+  window.selectRatioOption = selectRatioOption;
+  
+  // Update ratio display when tokens are selected/deselected
+  setupRatioDisplay();
+  
+  // Check for announcements
+  checkForAnnouncements();
+  
+  // Mostrar fecha y hora del servidor
+  const today = new Date();
+  const dateString = today.toLocaleDateString('es-ES', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+  
+  logToOutput(`Iniciando aplicación. Fecha del servidor: ${dateString}`);
+});
+
+// Initialize contracts with read-only provider
+function initReadOnlyContracts() {
+  try {
+    exchangeContractRead = new ethers.Contract(EXCHANGE_ADDRESS, EXCHANGE_ABI, baseProvider);
+    nftContractRead = new ethers.Contract(ADRIANPUNKS_ADDRESS, ERC721_ABI, baseProvider);
+    adrianTokenContractRead = new ethers.Contract(ADRIAN_TOKEN_ADDRESS, ERC20_ABI, baseProvider);
     
-    const EXCHANGE_ADDRESS = "0x2E7223Def6ED307Df46a8C4c67bB882e1342761e";
-    const ADRIANPUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
-    const ADRIAN_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
-    
-    // Global variables
-    let provider;
-    let signer;
-    let userAddress;
-    let tokenDecimals = 18;
-    let userTokens = [];
-    let selectedOfferedTokens = [];
-    let selectedWantedTokens = [];
-    let currentOfferId = null;
-    let exchangeContract;
-    let nftContract;
-    let adrianTokenContract;
-    let exchangeContractRead;
-    let nftContractRead;
-    let adrianTokenContractRead;
-    
-    // ABIs
-    const EXCHANGE_ABI = [
-      "function createOffer(uint256[] calldata offeredTokens, uint256[] calldata wantedTokens, uint256 duration) external",
-      "function acceptOffer(uint256 offerId, uint256[] calldata chosenOfferedTokens, uint256[] calldata chosenWantedTokens) external",
-      "function cancelOffer(uint256 offerId) external",
-      "function getOfferDetails(uint256 offerId) external view returns (address creator, uint256[] memory offeredTokens, uint256[] memory wantedTokens, uint256 expirationTime, bool isActive)",
-      "function getActiveOffersForToken(uint256 tokenId) external view returns (uint256[] memory)",
-      "function getActiveOffersByUser(address user) external view returns (uint256[] memory)",
-      "function getOffersForUser(address user) external view returns (uint256[] memory)",
-      "function getActiveOfferCount() external view returns (uint256)",
-      "function checkApprovals(address user, uint256[] calldata tokenIds) external view returns (bool[] memory)",
-      "function feePercentage() external view returns (uint256)"
-    ];
-    
-    const ERC721_ABI = [
-      "function balanceOf(address) view returns (uint256)",
-      "function tokenOfOwnerByIndex(address,uint256) view returns (uint256)",
-      "function ownerOf(uint256) view returns (address)",
-      "function getApproved(uint256) view returns (address)",
-      "function isApprovedForAll(address,address) view returns (bool)",
-      "function setApprovalForAll(address,bool) returns ()",
-      "function approve(address to, uint256 tokenId) returns ()"
-    ];
-    
-    const ERC20_ABI = [
-      "function balanceOf(address) view returns (uint256)",
-      "function decimals() view returns (uint8)",
-      "function symbol() view returns (string)",
-      "function approve(address,uint256) returns (bool)",
-      "function allowance(address,address) view returns (uint256)",
-      "function transfer(address,uint256) returns (bool)"
-    ];
-    
-    // Helper functions
-    function formatTimestamp(timestamp) {
-      const date = new Date(timestamp * 1000);
-      return date.toLocaleString();
-    }
-    
-    function shortenAddress(address) {
-      return address.substring(0, 6) + "..." + address.substring(address.length - 4);
-    }
-    
-    function showStatus(elementId, message, type) {
-      const statusElement = document.getElementById(elementId);
-      statusElement.className = "status " + type;
-      statusElement.textContent = message;
-    }
-    
-    // Initialize the application
-    document.addEventListener('DOMContentLoaded', async () => {
-      document.getElementById('connectWalletButton').addEventListener('click', connectWallet);
-      document.getElementById('add-wanted-token').addEventListener('click', addWantedToken);
-      document.getElementById('submit-offer').addEventListener('click', createOffer);
-      document.getElementById('accept-offer-btn').addEventListener('click', showAcceptOfferModal);
-      document.getElementById('cancel-offer-btn').addEventListener('click', cancelOffer);
-      document.getElementById('confirm-accept-btn').addEventListener('click', acceptOffer);
-      
-      // Initialize with read-only providers for public data
-      initReadOnlyContracts();
+    // Get the fixed fee from the contract
+    exchangeContractRead.fixedFeeAmount().then(fee => {
+      fixedFeeAmount = fee;
+      const formattedFee = ethers.utils.formatUnits(fee, tokenDecimals);
+      document.getElementById("exchange-fee").textContent = formattedFee;
+      document.getElementById("exchange-fee-modal").textContent = formattedFee;
+    }).catch(error => {
+      console.error("Error getting fixed fee:", error);
     });
     
-    // Initialize contracts with read-only provider
-    function initReadOnlyContracts() {
-      exchangeContractRead = new ethers.Contract(EXCHANGE_ADDRESS, EXCHANGE_ABI, baseProvider);
-      nftContractRead = new ethers.Contract(ADRIANPUNKS_ADDRESS, ERC721_ABI, baseProvider);
-      adrianTokenContractRead = new ethers.Contract(ADRIAN_TOKEN_ADDRESS, ERC20_ABI, baseProvider);
-    }
-    
-    // Connect Wallet
-    async function connectWallet() {
-      try {
-        if (!window.ethereum) {
-          document.getElementById("wallet-info").innerHTML = '<div class="status warning">Please install MetaMask or another Web3 wallet.</div>';
-          return;
-        }
-        
-        // Setup provider and signer
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        signer = provider.getSigner();
-        userAddress = await signer.getAddress();
-        
-        // Connect to contracts with signer for write operations
-        exchangeContract = new ethers.Contract(EXCHANGE_ADDRESS, EXCHANGE_ABI, signer);
-        nftContract = new ethers.Contract(ADRIANPUNKS_ADDRESS, ERC721_ABI, signer);
-        adrianTokenContract = new ethers.Contract(ADRIAN_TOKEN_ADDRESS, ERC20_ABI, signer);
-        
-        // Initialize contracts with Infura provider for read operations
-        exchangeContractRead = new ethers.Contract(EXCHANGE_ADDRESS, EXCHANGE_ABI, baseProvider);
-        nftContractRead = new ethers.Contract(ADRIANPUNKS_ADDRESS, ERC721_ABI, baseProvider);
-        adrianTokenContractRead = new ethers.Contract(ADRIAN_TOKEN_ADDRESS, ERC20_ABI, baseProvider);
-        
-        // Get token decimals
-        tokenDecimals = await adrianTokenContractRead.decimals();
-        
-        // Update UI
-        const shortAddress = shortenAddress(userAddress);
-        document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddress}</p>`;
-        document.getElementById("main-content").style.display = "block";
-        document.getElementById("token-balance").style.display = "block";
-        
-        // Load data
-        await loadData();
-        
-        // Setup tab event listeners
-        document.getElementById('all-offers-tab').addEventListener('click', loadAllOffers);
-        document.getElementById('my-offers-tab').addEventListener('click', loadMyOffers);
-        document.getElementById('for-me-tab').addEventListener('click', loadOffersForMe);
-        
-        document.getElementById('connectWalletButton').disabled = true;
-      } catch (error) {
-        console.error("Error connecting wallet:", error);
-        document.getElementById("wallet-info").innerHTML = `<div class="status error">Error connecting wallet: ${error.message}</div>`;
-      }
-    }
-    
-    // Load all data
-    async function loadData() {
-      try {
-        await Promise.all([
-          loadUserTokens(),
-          loadTokenBalance(),
-          loadAllOffers(),
-          loadMyOffers(),
-          loadOffersForMe()
-        ]);
-        } catch (error) {
-        console.error("Error cargando datos:", error);
-      }
-    }
-    
-    // Load user's token balance
-    async function loadTokenBalance() {
-      try {
-        const balance = await adrianTokenContractRead.balanceOf(userAddress);
-        const formattedBalance = ethers.utils.formatUnits(balance, tokenDecimals);
-        document.getElementById("adrian-balance").textContent = formattedBalance;
-    } catch (error) {
-        console.error("Error loading token balance:", error);
-      }
-    }
-    
-    // Load user's NFTs (compatible with AdrianPunksV3)
-    async function loadUserTokens() {
-      try {
-        const tokensGrid = document.getElementById("tokens-grid");
-        tokensGrid.innerHTML = '<div class="spinner"></div>';
-        
-        // Use the read contract to get balance
-        const balance = await nftContractRead.balanceOf(userAddress);
-        const numTokens = balance.toNumber();
-        
-        if (numTokens === 0) {
-          tokensGrid.innerHTML = "<p>You don't have any AdrianPunks NFTs in your wallet.</p>";
+    // Check emergency state
+    checkEmergencyState();
+  } catch (error) {
+    console.error("Error initializing read-only contracts:", error);
+    logToOutput("Error initializing contracts. Please refresh the page and try again.");
+  }
+}
+
+// Update ratio display in create offer tab
+function setupRatioDisplay() {
+  const updateRatio = () => {
+    const offeredCount = selectedOfferedTokens.length;
+    const wantedCount = selectedWantedTokens.length;
+    document.getElementById('offer-ratio').textContent = `${offeredCount}:${wantedCount}`;
+  };
+  
+  // Check for changes every second
+  setInterval(updateRatio, 1000);
+}
+
+// Update ratio display in accept offer modal
+function updateAcceptRatio() {
+  if (!window.selectedReceiveTokens || !window.selectedGiveTokens) return;
+  
+  const receiveCount = window.selectedReceiveTokens.length;
+  const giveCount = window.selectedGiveTokens.length;
+  document.getElementById('accept-ratio').textContent = `${receiveCount}:${giveCount}`;
+}
+
+// Connect Wallet
+async function connectWallet() {
+  try {
+    if (!window.ethereum) {
+      document.getElementById("wallet-info").innerHTML = '<div class="status warning">Por favor instala MetaMask u otra wallet compatible con Web3.</div>';
       return;
     }
     
-        userTokens = [];
-        let tokensHtml = '';
-        
-        // Get token IDs with delay between calls to avoid rate limits
-        for (let i = 0; i < numTokens; i++) {
-          try {
-            // Use the read contract for this function call
-            const tokenId = await nftContractRead.tokenOfOwnerByIndex(userAddress, i);
-            userTokens.push(tokenId.toString());
-            
-            // Create token image URL based on the AdrianPunksV3 contract logic
-            const baseUrl = tokenId.lte(500) 
-              ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
-              : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
-            
-            // Check if token is one of the special gif tokens
-            const gifTokens = [1, 13, 69, 221];
-            const extension = gifTokens.includes(tokenId.toNumber()) ? '.gif' : '.png';
-            const imgUrl = `${baseUrl}${tokenId}${extension}`;
-            
-            // Create token card
-            tokensHtml += `
-              <div class="token-card" data-token-id="${tokenId}">
-                <img src="${imgUrl}" alt="AdrianPunk #${tokenId}">
-                <div class="card-body">
-                  <h5 class="card-title">AdrianPunk #${tokenId}</h5>
-                </div>
-              </div>`;
-            
-            // Update UI progressively
-            tokensGrid.innerHTML = tokensHtml;
-            
-            // Add delay between calls to avoid rate limits
-            await new Promise(resolve => setTimeout(resolve, 500));
-          } catch (error) {
-            console.error(`Error loading token ${i}:`, error);
-            // Continue with next token even if one fails
-            continue;
-          }
-        }
-        
-        // Add click handlers for token selection
-        document.querySelectorAll('.token-card').forEach(card => {
-          card.addEventListener('click', () => {
-            selectTokenForOffer(card);
-          });
+    // Setup provider and signer
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    signer = provider.getSigner();
+    userAddress = await signer.getAddress();
+    
+    // Check if we're on the right network (Base Mainnet)
+    const network = await provider.getNetwork();
+    if (network.chainId !== NETWORK_CONF.chainId) {
+      document.getElementById("wallet-info").innerHTML = `<div class="status warning">Por favor conecta a la red Base (ChainID: ${NETWORK_CONF.chainId})</div>`;
+      
+      // Try to switch to the correct network
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x2105' }], // chainId is in hex format
         });
-    } catch (error) {
-        console.error("Error loading tokens:", error);
-        if (error.code === 'CALL_EXCEPTION' || error.message.includes("rate limit")) {
-          document.getElementById("tokens-grid").innerHTML = '<div class="status warning">Rate limit exceeded. Please try again in a few moments.</div>';
-        } else {
-          document.getElementById("tokens-grid").innerHTML = `<div class="status error">Error loading tokens: ${error.message}</div>`;
-        }
+        // After switching, reconnect
+        setTimeout(connectWallet, 1000);
+        return;
+      } catch (switchError) {
+        console.error("Error switching network:", switchError);
+        return;
       }
     }
     
-    // Select token for offer creation
-    function selectTokenForOffer(card) {
-      const tokenId = card.getAttribute('data-token-id');
+    // Connect to contracts with signer for write operations
+    exchangeContract = new ethers.Contract(EXCHANGE_ADDRESS, EXCHANGE_ABI, signer);
+    nftContract = new ethers.Contract(ADRIANPUNKS_ADDRESS, ERC721_ABI, signer);
+    adrianTokenContract = new ethers.Contract(ADRIAN_TOKEN_ADDRESS, ERC20_ABI, signer);
+    
+    // Initialize read-only contracts with Infura provider
+    exchangeContractRead = new ethers.Contract(EXCHANGE_ADDRESS, EXCHANGE_ABI, baseProvider);
+    nftContractRead = new ethers.Contract(ADRIANPUNKS_ADDRESS, ERC721_ABI, baseProvider);
+    adrianTokenContractRead = new ethers.Contract(ADRIAN_TOKEN_ADDRESS, ERC20_ABI, baseProvider);
+    
+    // Get token decimals
+    tokenDecimals = await adrianTokenContractRead.decimals();
+    
+    // Get fixed fee
+    try {
+      fixedFeeAmount = await exchangeContractRead.fixedFeeAmount();
+      const formattedFee = ethers.utils.formatUnits(fixedFeeAmount, tokenDecimals);
+      document.getElementById("exchange-fee").textContent = formattedFee;
+      document.getElementById("exchange-fee-modal").textContent = formattedFee;
+    } catch (error) {
+      console.error("Error getting fixed fee:", error);
+    }
+    
+    // Update UI
+    const shortAddress = shortenAddress(userAddress);
+    document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Conectado: ${shortAddress}</p>`;
+    document.getElementById("main-content").style.display = "block";
+    document.getElementById("token-balance").style.display = "block";
+    
+    // Load data
+    await loadData();
+    
+    // Setup tab event listeners
+    document.getElementById('all-offers-tab').addEventListener('click', loadAllOffers);
+    document.getElementById('my-offers-tab').addEventListener('click', loadMyOffers);
+    document.getElementById('for-me-tab').addEventListener('click', loadOffersForMe);
+    
+    // Disable connect button
+    document.getElementById('connectWalletButton').disabled = true;
+    document.getElementById('connectWalletButton').textContent = 'Wallet Conectada';
+    
+    logToOutput(`Wallet conectada: ${shortAddress}`);
+    
+    // Listen for account changes
+    window.ethereum.on('accountsChanged', (accounts) => {
+      logToOutput('Cambio de cuenta detectado. Reconectando...');
+      // Reload the page to reset the state
+      window.location.reload();
+    });
+    
+    // Listen for network changes
+    window.ethereum.on('chainChanged', () => {
+      logToOutput('Cambio de red detectado. Reconectando...');
+      // Reload the page to reset the state
+      window.location.reload();
+    });
+    
+  } catch (error) {
+    console.error("Error connecting wallet:", error);
+    document.getElementById("wallet-info").innerHTML = `<div class="status error">Error conectando wallet: ${error.message}</div>`;
+  }
+}
+
+// Load all data
+async function loadData() {
+  try {
+    // Show loading state
+    document.getElementById("tokens-grid").innerHTML = '<div class="spinner"></div>';
+    document.getElementById("all-offers-container").innerHTML = '<div class="spinner"></div>';
+    document.getElementById("my-offers-container").innerHTML = '<div class="spinner"></div>';
+    document.getElementById("for-me-container").innerHTML = '<div class="spinner"></div>';
+    
+    await Promise.all([
+      loadUserTokens(),
+      loadTokenBalance(),
+      loadAllOffers(),
+      loadMyOffers(),
+      loadOffersForMe()
+    ]);
+    
+    logToOutput("Datos cargados correctamente");
+  } catch (error) {
+    console.error("Error cargando datos:", error);
+    logToOutput(`Error cargando datos: ${error.message}`);
+  }
+}
+
+// Load user's token balance
+async function loadTokenBalance() {
+  try {
+    const balance = await adrianTokenContractRead.balanceOf(userAddress);
+    const formattedBalance = ethers.utils.formatUnits(balance, tokenDecimals);
+    document.getElementById("adrian-balance").textContent = formattedBalance;
+  } catch (error) {
+    console.error("Error loading token balance:", error);
+  }
+}
+
+// Create NFT image URL
+function getNFTImageURL(tokenId) {
+  const numTokenId = typeof tokenId === 'string' ? parseInt(tokenId) : tokenId.toNumber();
+  
+  const baseUrl = numTokenId <= 500 
+    ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
+    : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
+  
+  // Check if token is one of the special gif tokens
+  const gifTokens = [1, 13, 69, 221];
+  const extension = gifTokens.includes(numTokenId) ? '.gif' : '.png';
+  
+  return `${baseUrl}${numTokenId}${extension}`;
+}
+
+// Function to check if a wallet has enough ADRIAN tokens for fees
+async function checkFeeBalance() {
+  try {
+    if (!userAddress) return false;
+    
+    const balance = await adrianTokenContractRead.balanceOf(userAddress);
+    return balance.gte(fixedFeeAmount);
+  } catch (error) {
+    console.error("Error checking fee balance:", error);
+    return false;
+  }
+}
+
+// Function to check if the exchange contract is in emergency state
+async function checkEmergencyState() {
+  try {
+    // Check if the contract has an emergencyState function
+    if (typeof exchangeContractRead.emergencyState === 'function') {
+      const isEmergency = await exchangeContractRead.emergencyState();
       
-      // Check if we're on the create offer tab
-      if (!document.getElementById('create-offer-tab').classList.contains('active')) {
-        // Switch to create offer tab
-        bootstrap.Tab.getOrCreateInstance(document.getElementById('create-offer-tab')).show();
+      if (isEmergency) {
+        // Show warning across the application
+        const warning = document.createElement('div');
+        warning.className = 'status warning';
+        warning.style.position = 'sticky';
+        warning.style.top = '70px';
+        warning.style.zIndex = '999';
+        warning.style.margin = '0 auto 20px auto';
+        warning.style.maxWidth = '1200px';
+        warning.textContent = 'El contrato está en estado de emergencia. Las operaciones están temporalmente suspendidas.';
+        
+        document.body.insertBefore(warning, document.querySelector('.container'));
+        return true;
       }
-      
-      // Check if token is already selected
-      if (selectedOfferedTokens.includes(tokenId)) {
+    }
+    
+    return false;
+  } catch (error) {
+    console.error("Error checking emergency state:", error);
+    return false;
+  }
+}
+
+// Function to check for contract updates or announcements
+function checkForAnnouncements() {
+  // This could be extended to check a centralized endpoint or contract events for announcements
+  const announcements = [
+    { id: 1, date: '2025-04-01', text: 'Nuevo sistema de intercambio lanzado. ¡Ahora con comisiones reducidas!', expired: true },
+    { id: 2, date: '2025-04-27', text: 'Bienvenido al Exchange de AdrianPunks. Intercambia tus NFTs con seguridad y facilidad.', expired: false }
+  ];
+  
+  // Filter active announcements
+  const activeAnnouncements = announcements.filter(a => !a.expired);
+  
+  if (activeAnnouncements.length > 0) {
+    const container = document.createElement('div');
+    container.className = 'status info';
+    container.style.marginBottom = '20px';
+    
+    activeAnnouncements.forEach(announcement => {
+      const p = document.createElement('p');
+      p.textContent = announcement.text;
+      container.appendChild(p);
+    });
+    
+    // Add to the DOM after the header
+    const header = document.querySelector('header');
+    if (header && header.parentNode) {
+      header.parentNode.insertBefore(container, header.nextSibling);
+    }
+  }
+}
+// Load user's NFTs
+async function loadUserTokens() {
+  try {
+    const tokensGrid = document.getElementById("tokens-grid");
+    tokensGrid.innerHTML = '<div class="spinner"></div>';
+    
+    // Use the read contract to get balance
+    const balance = await nftContractRead.balanceOf(userAddress);
+    const numTokens = balance.toNumber();
+    
+    if (numTokens === 0) {
+      tokensGrid.innerHTML = "<p>No tienes AdrianPunks NFTs en tu wallet.</p>";
       return;
     }
     
-      // Add token to selected offered tokens
-      selectedOfferedTokens.push(tokenId);
-      updateOfferedTokensUI();
-    }
+    userTokens = [];
+    let tokensHtml = '';
     
-    // Update the UI for offered tokens
-    function updateOfferedTokensUI() {
-      const container = document.getElementById('offered-tokens-area');
-      
-      if (selectedOfferedTokens.length === 0) {
-        container.innerHTML = '<div class="empty-selection">Select tokens from your collection</div>';
-        return;
-      }
-      
-      let html = '';
-      selectedOfferedTokens.forEach(tokenId => {
-        const baseUrl = Number(tokenId) < 501 
-          ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
-          : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
-        
-        const gifTokens = [1, 13, 69, 221];
-        const extension = gifTokens.includes(Number(tokenId)) ? '.gif' : '.png';
-        const imgUrl = `${baseUrl}${tokenId}${extension}`;
-        
-        html += `
-          <div class="token-preview-sm" data-token-id="${tokenId}">
-            <img src="${imgUrl}" alt="Token #${tokenId}">
-            <div class="remove-token" onclick="removeOfferedToken('${tokenId}')">×</div>
-          </div>`;
-      });
-      
-      container.innerHTML = html;
-    }
-    
-    // Remove token from offered tokens
-    function removeOfferedToken(tokenId) {
-      selectedOfferedTokens = selectedOfferedTokens.filter(id => id !== tokenId);
-      updateOfferedTokensUI();
-    }
-    
-    // Add wanted token ID
-    function addWantedToken() {
-      const input = document.getElementById('wanted-token-id');
-      const tokenId = input.value.trim();
-      
-      if (!tokenId || isNaN(tokenId) || Number(tokenId) <= 0) {
-        showStatus('create-offer-status', 'Please enter a valid token ID', 'warning');
-        return;
-      }
-      
-      // Check if token is already in the list
-      if (selectedWantedTokens.includes(tokenId)) {
-        showStatus('create-offer-status', 'This token is already in your wanted list', 'warning');
-        return;
-      }
-      
-      // Add token to wanted tokens list
-      selectedWantedTokens.push(tokenId);
-      updateWantedTokensUI();
-      
-      // Clear input
-      input.value = '';
-      document.getElementById('create-offer-status').textContent = '';
-    }
-    
-    // Update the UI for wanted tokens
-    function updateWantedTokensUI() {
-      const container = document.getElementById('wanted-tokens-area');
-      
-      if (selectedWantedTokens.length === 0) {
-        container.innerHTML = '<div class="empty-selection">Add token IDs you want to receive</div>';
-        return;
-      }
-      
-      let html = '';
-      selectedWantedTokens.forEach(tokenId => {
-        const baseUrl = Number(tokenId) < 501 
-          ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
-          : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
-        
-        const gifTokens = [1, 13, 69, 221];
-        const extension = gifTokens.includes(Number(tokenId)) ? '.gif' : '.png';
-        const imgUrl = `${baseUrl}${tokenId}${extension}`;
-        
-        html += `
-          <div class="token-preview-sm" data-token-id="${tokenId}">
-            <img src="${imgUrl}" alt="Token #${tokenId}" onerror="this.src='https://via.placeholder.com/50?text=${tokenId}'">
-            <div class="remove-token" onclick="removeWantedToken('${tokenId}')">×</div>
-          </div>`;
-      });
-      
-      container.innerHTML = html;
-    }
-    
-    // Remove token from wanted tokens
-    function removeWantedToken(tokenId) {
-      selectedWantedTokens = selectedWantedTokens.filter(id => id !== tokenId);
-      updateWantedTokensUI();
-    }
-    
-    // Create new offer
-    async function createOffer() {
+    // Get token IDs with delay between calls to avoid rate limits
+    for (let i = 0; i < numTokens; i++) {
       try {
-        if (selectedOfferedTokens.length === 0) {
-          showStatus('create-offer-status', 'Please select at least one token to offer', 'warning');
-          return;
+        // Use the read contract for this function call
+        const tokenId = await nftContractRead.tokenOfOwnerByIndex(userAddress, i);
+        userTokens.push(tokenId.toString());
+        
+        // Create token image URL
+        const imgUrl = getNFTImageURL(tokenId);
+        
+        // Create token card
+        tokensHtml += `
+          <div class="token-card" data-token-id="${tokenId}">
+            <img src="${imgUrl}" alt="AdrianPunk #${tokenId}" onerror="this.src='https://via.placeholder.com/200x200?text=AdrianPunk+%23${tokenId}'">
+            <div class="card-body">
+              <h5 class="card-title">AdrianPunk #${tokenId}</h5>
+            </div>
+          </div>`;
+        
+        // Update UI progressively
+        if (i % 5 === 0 || i === numTokens - 1) {
+          tokensGrid.innerHTML = tokensHtml;
         }
         
-        if (selectedWantedTokens.length === 0) {
-          showStatus('create-offer-status', 'Please add at least one token you want in exchange', 'warning');
-          return;
+        // Add delay between calls to avoid rate limits
+        if (i < numTokens - 1) {
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
-        
-        const duration = document.getElementById('offer-duration').value;
-        
-        // Aprobar tokens NFT individualmente
-        showStatus('create-offer-status', 'Checking token approvals...', 'warning');
-        
-        // Aprobar cada token específico en lugar de todos
-        for (const tokenId of selectedOfferedTokens) {
-          try {
-            // Verificar si el token ya está aprobado
-            const approved = await nftContractRead.getApproved(tokenId);
-            console.log(`Token ${tokenId} approval status: ${approved}`);
-            
-            if (approved.toLowerCase() !== EXCHANGE_ADDRESS.toLowerCase()) {
-              showStatus('create-offer-status', `Approving token #${tokenId}...`, 'warning');
-              const approveTx = await nftContract.approve(EXCHANGE_ADDRESS, tokenId);
-              await approveTx.wait();
-              console.log(`Token ${tokenId} approved successfully`);
-            } else {
-              console.log(`Token ${tokenId} already approved`);
-            }
-            
-            // Pequeña pausa para evitar problemas de límite de tasa
-            await new Promise(resolve => setTimeout(resolve, 300));
-          } catch (error) {
-            console.error(`Error approving token ${tokenId}:`, error);
-            showStatus('create-offer-status', `Error approving token #${tokenId}: ${error.message}`, 'error');
-            return; // Detener si hay un error en la aprobación
+      } catch (error) {
+        console.error(`Error loading token ${i}:`, error);
+        // Continue with next token even if one fails
+        continue;
+      }
+    }
+    
+    // Add click handlers for token selection
+    document.querySelectorAll('.token-card').forEach(card => {
+      card.addEventListener('click', () => {
+        selectTokenForOffer(card);
+      });
+    });
+  } catch (error) {
+    console.error("Error loading tokens:", error);
+    if (error.code === 'CALL_EXCEPTION' || error.message.includes("rate limit")) {
+      document.getElementById("tokens-grid").innerHTML = '<div class="status warning">Límite de peticiones excedido. Inténtalo de nuevo en unos momentos.</div>';
+    } else {
+      document.getElementById("tokens-grid").innerHTML = `<div class="status error">Error cargando tokens: ${error.message}</div>`;
+    }
+  }
+}
+
+// Select token for offer creation
+function selectTokenForOffer(card) {
+  const tokenId = card.getAttribute('data-token-id');
+  
+  // Check if we're on the create offer tab
+  if (!document.getElementById('create-offer-tab').classList.contains('active')) {
+    // Switch to create offer tab
+    bootstrap.Tab.getOrCreateInstance(document.getElementById('create-offer-tab')).show();
+  }
+  
+  // Check if token is already selected
+  if (selectedOfferedTokens.includes(tokenId)) {
+    return;
+  }
+  
+  // Add token to selected offered tokens
+  selectedOfferedTokens.push(tokenId);
+  updateOfferedTokensUI();
+  
+  // Highlight the selected card
+  card.classList.add('selected');
+}
+
+// Update the UI for offered tokens
+function updateOfferedTokensUI() {
+  const container = document.getElementById('offered-tokens-area');
+  
+  if (selectedOfferedTokens.length === 0) {
+    container.innerHTML = '<div class="empty-selection">Selecciona tokens de tu colección</div>';
+    return;
+  }
+  
+  let html = '';
+  selectedOfferedTokens.forEach(tokenId => {
+    const imgUrl = getNFTImageURL(tokenId);
+    
+    html += `
+      <div class="token-preview-sm" data-token-id="${tokenId}">
+        <img src="${imgUrl}" alt="Token #${tokenId}" onerror="this.src='https://via.placeholder.com/50x50?text=${tokenId}'">
+        <div class="remove-token" onclick="removeOfferedToken('${tokenId}')">×</div>
+      </div>`;
+  });
+  
+  container.innerHTML = html;
+}
+
+// Remove token from offered tokens
+function removeOfferedToken(tokenId) {
+  selectedOfferedTokens = selectedOfferedTokens.filter(id => id !== tokenId);
+  updateOfferedTokensUI();
+  
+  // Remove highlight from the token card
+  const card = document.querySelector(`.token-card[data-token-id="${tokenId}"]`);
+  if (card) {
+    card.classList.remove('selected');
+  }
+}
+
+// Add wanted token ID
+function addWantedToken() {
+  const input = document.getElementById('wanted-token-id');
+  const tokenId = input.value.trim();
+  
+  if (!tokenId || isNaN(tokenId) || Number(tokenId) <= 0) {
+    showStatus('create-offer-status', 'Por favor introduce un ID de token válido', 'warning');
+    return;
+  }
+  
+  // Check if token is already in the list
+  if (selectedWantedTokens.includes(tokenId)) {
+    showStatus('create-offer-status', 'Este token ya está en tu lista de deseados', 'warning');
+    return;
+  }
+  
+  // Add token to wanted tokens list
+  selectedWantedTokens.push(tokenId);
+  updateWantedTokensUI();
+  
+  // Clear input
+  input.value = '';
+  clearStatus('create-offer-status');
+}
+
+// Update the UI for wanted tokens
+function updateWantedTokensUI() {
+  const container = document.getElementById('wanted-tokens-area');
+  
+  if (selectedWantedTokens.length === 0) {
+    container.innerHTML = '<div class="empty-selection">Añade IDs de tokens que quieres recibir</div>';
+    return;
+  }
+  
+  let html = '';
+  selectedWantedTokens.forEach(tokenId => {
+    const imgUrl = getNFTImageURL(tokenId);
+    
+    html += `
+      <div class="token-preview-sm" data-token-id="${tokenId}">
+        <img src="${imgUrl}" alt="Token #${tokenId}" onerror="this.src='https://via.placeholder.com/50x50?text=${tokenId}'">
+        <div class="remove-token" onclick="removeWantedToken('${tokenId}')">×</div>
+      </div>`;
+  });
+  
+  container.innerHTML = html;
+}
+
+// Remove token from wanted tokens
+function removeWantedToken(tokenId) {
+  selectedWantedTokens = selectedWantedTokens.filter(id => id !== tokenId);
+  updateWantedTokensUI();
+}
+
+// Create new offer
+async function createOffer() {
+  try {
+    if (selectedOfferedTokens.length === 0) {
+      showStatus('create-offer-status', 'Selecciona al menos un token para ofrecer', 'warning');
+      return;
+    }
+    
+    if (selectedWantedTokens.length === 0) {
+      showStatus('create-offer-status', 'Añade al menos un token que quieras recibir', 'warning');
+      return;
+    }
+    
+    const duration = document.getElementById('offer-duration').value;
+    
+    // Approve NFT tokens
+    showStatus('create-offer-status', 'Verificando aprobaciones de tokens...', 'warning');
+    
+    // Check if all tokens are already approved
+    const approvalStatuses = await exchangeContractRead.checkApprovals(
+      userAddress, 
+      selectedOfferedTokens.map(id => ethers.BigNumber.from(id))
+    );
+    
+    const needsApproval = approvalStatuses.findIndex(status => !status) !== -1;
+    
+    if (needsApproval) {
+      // Ask user if they want to approve all at once
+      const useSetApprovalForAll = selectedOfferedTokens.length > 1 && 
+        confirm("¿Quieres aprobar todos tus tokens para la plataforma de intercambio? (más eficiente en gas)");
+      
+      if (useSetApprovalForAll) {
+        showStatus('create-offer-status', 'Aprobando todos los tokens...', 'warning');
+        const approveTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
+        await approveTx.wait();
+        logToOutput("Aprobación de todos los tokens completada");
+      } else {
+        // Approve each token individually
+        for (let i = 0; i < selectedOfferedTokens.length; i++) {
+          const tokenId = selectedOfferedTokens[i];
+          if (!approvalStatuses[i]) {
+            showStatus('create-offer-status', `Aprobando token #${tokenId}...`, 'warning');
+            const approveTx = await nftContract.approve(EXCHANGE_ADDRESS, tokenId);
+            await approveTx.wait();
+            logToOutput(`Token #${tokenId} aprobado`);
           }
         }
-        
-        // Crear oferta
-        showStatus('create-offer-status', 'Creating offer...', 'warning');
-        
-        const tx = await exchangeContract.createOffer(
-          selectedOfferedTokens,
-          selectedWantedTokens,
-          duration
-        );
-        
-        await tx.wait();
-        showStatus('create-offer-status', 'Offer created successfully!', 'success');
-        
-        // Limpiar selecciones
-        selectedOfferedTokens = [];
-        selectedWantedTokens = [];
-        updateOfferedTokensUI();
-        updateWantedTokensUI();
-        
-        // Recargar ofertas
-        await Promise.all([
-          loadAllOffers(),
-          loadMyOffers()
-        ]);
-      } catch (error) {
-        console.error("Error creating offer:", error);
-        showStatus('create-offer-status', `Error creating offer: ${error.message}`, 'error');
       }
     }
     
-    // Load all active offers
-    async function loadAllOffers() {
-      try {
-        const container = document.getElementById('all-offers-container');
-        container.innerHTML = '<div class="spinner"></div>';
-        
-        const totalOffers = await exchangeContractRead.getActiveOfferCount();
-        
-        if (totalOffers.eq(0)) {
-          container.innerHTML = "<p>No active offers available.</p>";
-          return;
-        }
-        
-        // Since we don't have a direct method to get all offers, we'll create a simplified view
-        container.innerHTML = `
-          <div class="status warning">
-            <p>To view specific offers, use the "My Offers" tab for your created offers or the "For Me" tab for offers that match your tokens.</p>
-            <p>Current active offers: ${totalOffers}</p>
-          </div>`;
-      } catch (error) {
-        console.error("Error loading all offers:", error);
-        document.getElementById('all-offers-container').innerHTML = `<div class="status error">Error loading offers: ${error.message}</div>`;
-      }
+    // Create offer
+    showStatus('create-offer-status', 'Creando oferta...', 'warning');
+    
+    const tx = await exchangeContract.createOffer(
+      selectedOfferedTokens.map(id => ethers.BigNumber.from(id)),
+      selectedWantedTokens.map(id => ethers.BigNumber.from(id)),
+      duration
+    );
+    
+    logToOutput(`Transacción enviada: ${tx.hash}`);
+    showStatus('create-offer-status', 'Confirmando transacción...', 'warning');
+    
+    await tx.wait();
+    showStatus('create-offer-status', '¡Oferta creada con éxito!', 'success');
+    logToOutput("Oferta creada con éxito");
+    
+    // Clear selections
+    selectedOfferedTokens = [];
+    selectedWantedTokens = [];
+    updateOfferedTokensUI();
+    updateWantedTokensUI();
+    
+    // Remove selection highlights
+    document.querySelectorAll('.token-card.selected').forEach(card => {
+      card.classList.remove('selected');
+    });
+    
+    // Reload offers
+    await Promise.all([
+      loadAllOffers(),
+      loadMyOffers()
+    ]);
+  } catch (error) {
+    console.error("Error creating offer:", error);
+    showStatus('create-offer-status', `Error creando oferta: ${error.message}`, 'error');
+    logToOutput(`Error creando oferta: ${error.message}`);
+  }
+}
+
+// Load all active offers
+async function loadAllOffers() {
+  try {
+    const container = document.getElementById('all-offers-container');
+    container.innerHTML = '<div class="spinner"></div>';
+    
+    const totalOffers = await exchangeContractRead.getActiveOfferCount();
+    
+    if (totalOffers.eq(0)) {
+      container.innerHTML = "<p>No hay ofertas activas disponibles.</p>";
+      return;
     }
     
-    // Load user's active offers
-    async function loadMyOffers() {
-      try {
-        if (!userAddress) return;
-        
-        const container = document.getElementById('my-offers-container');
-        container.innerHTML = '<div class="spinner"></div>';
-        
-        const offerIds = await exchangeContractRead.getActiveOffersByUser(userAddress);
-        
-        if (offerIds.length === 0) {
-          container.innerHTML = "<p>You don't have any active offers.</p>";
-          return;
-        }
-        
-        let offersHtml = '';
-        for (let i = 0; i < offerIds.length; i++) {
-          const offerId = offerIds[i];
-          const offerDetails = await exchangeContractRead.getOfferDetails(offerId);
-          
-          const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
-          
-          // Skip inactive offers
-          if (!isActive) continue;
-          
-          const expiresAt = formatTimestamp(expirationTime);
-          
-          // Create offer card
-          offersHtml += `
-            <div class="offer-card">
-              <h5>Offer #${offerId}</h5>
-              <div class="row">
-                <div class="col-md-5">
-                  <p><strong>Offering:</strong></p>
-                  <div class="offer-tokens">
-                    ${offeredTokens.map(token => `<div class="offer-token">${token}</div>`).join('')}
-          </div>
-                      </div>
-                <div class="col-md-2 text-center">
-                  <div class="exchange-arrow">↔</div>
-                              </div>
-                <div class="col-md-5">
-                  <p><strong>For:</strong></p>
-                  <div class="offer-tokens">
-                    ${wantedTokens.map(token => `<div class="offer-token">${token}</div>`).join('')}
-                          </div>
-                        </div>
-                              </div>
-              <div class="offer-info">
-                <span>Expires: ${expiresAt}</span>
-                <button class="btn" onclick="viewOfferDetails(${offerId}, true)">View Details</button>
-                          </div>
-            </div>`;
-        }
-        
-        container.innerHTML = offersHtml || "<p>You don't have any active offers.</p>";
-      } catch (error) {
-        console.error("Error loading my offers:", error);
-        document.getElementById('my-offers-container').innerHTML = `<div class="status error">Error loading your offers: ${error.message}</div>`;
-      }
+    container.innerHTML = `
+      <div class="status info">
+        <p>Número total de ofertas activas: ${totalOffers}</p>
+        <p>Para ver ofertas específicas, usa la pestaña "Mis Ofertas" para tus ofertas creadas o "Para Mí" para ofertas que coinciden con tus tokens.</p>
+      </div>`;
+  } catch (error) {
+    console.error("Error loading all offers:", error);
+    document.getElementById('all-offers-container').innerHTML = `<div class="status error">Error cargando ofertas: ${error.message}</div>`;
+  }
+}
+
+// Load user's active offers
+async function loadMyOffers() {
+  try {
+    if (!userAddress) return;
+    
+    const container = document.getElementById('my-offers-container');
+    container.innerHTML = '<div class="spinner"></div>';
+    
+    const offerIds = await exchangeContractRead.getActiveOffersByUser(userAddress);
+    
+    if (offerIds.length === 0) {
+      container.innerHTML = "<p>No tienes ofertas activas.</p>";
+      return;
     }
     
-    // Load offers that the user can accept
-    async function loadOffersForMe() {
-      try {
-        if (!userAddress) return;
-        
-        const container = document.getElementById('for-me-container');
-        container.innerHTML = '<div class="spinner"></div>';
-        
-        const offerIds = await exchangeContractRead.getOffersForUser(userAddress);
-        
-        if (offerIds.length === 0) {
-          container.innerHTML = "<p>No offers available for your tokens.</p>";
-          return;
-        }
-        
-        let offersHtml = '';
-        for (let i = 0; i < offerIds.length; i++) {
-          const offerId = offerIds[i];
-          const offerDetails = await exchangeContractRead.getOfferDetails(offerId);
-          
-          const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
-          
-          // Skip inactive offers
-          if (!isActive) continue;
-          
-          const expiresAt = formatTimestamp(expirationTime);
-          const creatorShort = shortenAddress(creator);
-          
-          // Create offer card
-          offersHtml += `
-            <div class="offer-card">
-              <h5>Offer #${offerId} <span class="badge bg-secondary">From: ${creatorShort}</span></h5>
-              <div class="row">
-                <div class="col-md-5">
-                  <p><strong>You'll Receive:</strong></p>
-                  <div class="offer-tokens">
-                    ${offeredTokens.map(token => `<div class="offer-token">${token}</div>`).join('')}
-                      </div>
-                          </div>
-                <div class="col-md-2 text-center">
-                  <div class="exchange-arrow">↔</div>
-                        </div>
-                <div class="col-md-5">
-                  <p><strong>For Your:</strong></p>
-                  <div class="offer-tokens">
-                    ${wantedTokens.map(token => `<div class="offer-token">${token}</div>`).join('')}
-                          </div>
-                        </div>
-                      </div>
-              <div class="offer-info">
-                <span>Expires: ${expiresAt}</span>
-                <button class="btn" onclick="viewOfferDetails(${offerId}, false)">View Details</button>
-                    </div>
-            </div>`;
-        }
-        
-        container.innerHTML = offersHtml || "<p>No offers available for your tokens.</p>";
-      } catch (error) {
-        console.error("Error loading offers for me:", error);
-        document.getElementById('for-me-container').innerHTML = `<div class="status error">Error loading offers: ${error.message}</div>`;
-      }
-    }
-    
-    // View offer details
-    async function viewOfferDetails(offerId, isMyOffer) {
-      try {
-        currentOfferId = offerId;
-        
-        const detailsContainer = document.getElementById('offer-details-content');
-        detailsContainer.innerHTML = '<div class="spinner"></div>';
-        
-        const offerDetails = await exchangeContractRead.getOfferDetails(offerId);
-        const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
-        
-        if (!isActive) {
-          detailsContainer.innerHTML = '<div class="status warning">This offer is no longer active.</div>';
-          return;
-        }
-        
-        const expiresAt = formatTimestamp(expirationTime);
-        const creatorShort = shortenAddress(creator);
-        
-        // Generate tokens preview
-        let offeredTokensHtml = '';
-        for (let i = 0; i < offeredTokens.length; i++) {
-          const tokenId = offeredTokens[i];
-          const baseUrl = Number(tokenId) < 501 
-            ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
-            : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
-          
-          const gifTokens = [1, 13, 69, 221];
-          const extension = gifTokens.includes(Number(tokenId)) ? '.gif' : '.png';
-          const imgUrl = `${baseUrl}${tokenId}${extension}`;
-          
-          offeredTokensHtml += `
-            <div class="token-preview-sm" data-token-id="${tokenId}">
-              <img src="${imgUrl}" alt="Token #${tokenId}" onerror="this.src='https://via.placeholder.com/50?text=${tokenId}'">
-            </div>`;
-        }
-        
-        let wantedTokensHtml = '';
-        for (let i = 0; i < wantedTokens.length; i++) {
-          const tokenId = wantedTokens[i];
-          const baseUrl = Number(tokenId) < 501 
-            ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
-            : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
-          
-          const gifTokens = [1, 13, 69, 221];
-          const extension = gifTokens.includes(Number(tokenId)) ? '.gif' : '.png';
-          const imgUrl = `${baseUrl}${tokenId}${extension}`;
-          
-          wantedTokensHtml += `
-            <div class="token-preview-sm" data-token-id="${tokenId}">
-              <img src="${imgUrl}" alt="Token #${tokenId}" onerror="this.src='https://via.placeholder.com/50?text=${tokenId}'">
-            </div>`;
-        }
-        
-        // Build details HTML
-        detailsContainer.innerHTML = `
-          <div class="mb-3">
-            <h5>Offer #${offerId}</h5>
-            <p>Created by: ${creatorShort}</p>
-            <p>Expires: ${expiresAt}</p>
-              </div>
-              
+    let offersHtml = '';
+    for (let i = 0; i < offerIds.length; i++) {
+      const offerId = offerIds[i];
+      const offerDetails = await exchangeContractRead.getOfferDetails(offerId);
+      
+      const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
+      
+      // Skip inactive offers
+      if (!isActive || expirationTime.mul(1000).lt(Date.now())) continue;
+      
+      const expiresAt = formatTimestamp(expirationTime);
+      
+      // Create offer card
+      offersHtml += `
+        <div class="offer-card">
+          <h5>Oferta #${offerId}</h5>
           <div class="row">
             <div class="col-md-5">
-              <h6>${isMyOffer ? 'You Are Offering:' : 'You Will Receive:'}</h6>
-              <div class="selection-area">
-                ${offeredTokensHtml || '<div class="empty-selection">No tokens</div>'}
-                </div>
+              <p><strong>Ofreciendo:</strong></p>
+              <div class="offer-tokens">
+                ${offeredTokens.map(token => `
+                  <div class="offer-token">
+                    <img src="${getNFTImageURL(token)}" alt="Token #${token}" onerror="this.src='https://via.placeholder.com/60x60?text=${token}'">
+                  </div>
+                `).join('')}
               </div>
-              
-            <div class="col-md-2">
+            </div>
+            <div class="col-md-2 text-center">
               <div class="exchange-arrow">↔</div>
-              </div>
-              
+            </div>
             <div class="col-md-5">
-              <h6>${isMyOffer ? 'In Exchange For:' : 'In Exchange For Your:'}</h6>
-              <div class="selection-area">
-                ${wantedTokensHtml || '<div class="empty-selection">No tokens</div>'}
+              <p><strong>Por:</strong></p>
+              <div class="offer-tokens">
+                ${wantedTokens.map(token => `
+                  <div class="offer-token">
+                    <img src="${getNFTImageURL(token)}" alt="Token #${token}" onerror="this.src='https://via.placeholder.com/60x60?text=${token}'">
+                  </div>
+                `).join('')}
+              </div>
             </div>
           </div>
-          </div>`;
-        
-        // Show appropriate buttons
-        document.getElementById('accept-offer-btn').style.display = isMyOffer ? 'none' : 'inline-block';
-        document.getElementById('cancel-offer-btn').style.display = isMyOffer ? 'inline-block' : 'none';
-        
-        // Show modal
-        const modal = new bootstrap.Modal(document.getElementById('offerDetailsModal'));
-        modal.show();
-      } catch (error) {
-        console.error("Error viewing offer details:", error);
-        document.getElementById('offer-details-content').innerHTML = `<div class="status error">Error loading offer details: ${error.message}</div>`;
-      }
+          <div class="offer-info">
+            <span>Expira: ${expiresAt}</span>
+            <button class="btn" onclick="viewOfferDetails(${offerId}, true)">Ver Detalles</button>
+          </div>
+        </div>`;
     }
     
-    // Show accept offer modal
-    async function showAcceptOfferModal() {
+    container.innerHTML = offersHtml || "<p>No tienes ofertas activas.</p>";
+  } catch (error) {
+    console.error("Error loading my offers:", error);
+    document.getElementById('my-offers-container').innerHTML = `<div class="status error">Error cargando tus ofertas: ${error.message}</div>`;
+  }
+}
+
+// Load offers that the user can accept
+async function loadOffersForMe() {
+  try {
+    if (!userAddress) return;
+    
+    const container = document.getElementById('for-me-container');
+    container.innerHTML = '<div class="spinner"></div>';
+    
+    const offerIds = await exchangeContractRead.getOffersForUser(userAddress);
+    
+    if (offerIds.length === 0) {
+      container.innerHTML = "<p>No hay ofertas disponibles para tus tokens.</p>";
+      return;
+    }
+    
+    let offersHtml = '';
+    for (let i = 0; i < offerIds.length; i++) {
+      const offerId = offerIds[i];
+      const offerDetails = await exchangeContractRead.getOfferDetails(offerId);
+      
+      const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
+      
+      // Skip inactive offers
+      if (!isActive || expirationTime.mul(1000).lt(Date.now())) continue;
+      
+      const expiresAt = formatTimestamp(expirationTime);
+      const creatorShort = shortenAddress(creator);
+      
+      // Create offer card
+      offersHtml += `
+        <div class="offer-card">
+          <h5>Oferta #${offerId} <span class="badge bg-secondary">De: ${creatorShort}</span></h5>
+          <div class="row">
+            <div class="col-md-5">
+              <p><strong>Recibirás:</strong></p>
+              <div class="offer-tokens">
+                ${offeredTokens.map(token => `
+                  <div class="offer-token">
+                    <img src="${getNFTImageURL(token)}" alt="Token #${token}" onerror="this.src='https://via.placeholder.com/60x60?text=${token}'">
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            <div class="col-md-2 text-center">
+              <div class="exchange-arrow">↔</div>
+            </div>
+            <div class="col-md-5">
+              <p><strong>Por tus:</strong></p>
+              <div class="offer-tokens">
+                ${wantedTokens.map(token => `
+                  <div class="offer-token">
+                    <img src="${getNFTImageURL(token)}" alt="Token #${token}" onerror="this.src='https://via.placeholder.com/60x60?text=${token}'">
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+          <div class="offer-info">
+            <span>Expira: ${expiresAt}</span>
+            <button class="btn" onclick="viewOfferDetails(${offerId}, false)">Ver Detalles</button>
+          </div>
+        </div>`;
+    }
+    
+    container.innerHTML = offersHtml || "<p>No hay ofertas disponibles para tus tokens.</p>";
+  } catch (error) {
+    console.error("Error loading offers for me:", error);
+    document.getElementById('for-me-container').innerHTML = `<div class="status error">Error cargando ofertas: ${error.message}</div>`;
+  }
+}
+
+// View offer details
+async function viewOfferDetails(offerId, isMyOffer) {
+  try {
+    currentOfferId = offerId;
+    
+    const detailsContainer = document.getElementById('offer-details-content');
+    detailsContainer.innerHTML = '<div class="spinner"></div>';
+    
+    const offerDetails = await exchangeContractRead.getOfferDetails(offerId);
+    const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
+    
+    if (!isActive) {
+      detailsContainer.innerHTML = '<div class="status warning">Esta oferta ya no está activa.</div>';
+      return;
+    }
+    
+    const expiresAt = formatTimestamp(expirationTime);
+    const creatorShort = shortenAddress(creator);
+    
+    // Generate tokens preview
+    let offeredTokensHtml = '';
+    for (let i = 0; i < offeredTokens.length; i++) {
+      const tokenId = offeredTokens[i];
+      const imgUrl = getNFTImageURL(tokenId);
+      
+      offeredTokensHtml += `
+        <div class="token-preview-sm" data-token-id="${tokenId}">
+          <img src="${imgUrl}" alt="Token #${tokenId}" onerror="this.src='https://via.placeholder.com/50x50?text=${tokenId}'">
+        </div>`;
+    }
+    
+    let wantedTokensHtml = '';
+    for (let i = 0; i < wantedTokens.length; i++) {
+      const tokenId = wantedTokens[i];
+      const imgUrl = getNFTImageURL(tokenId);
+      
+      wantedTokensHtml += `
+        <div class="token-preview-sm" data-token-id="${tokenId}">
+          <img src="${imgUrl}" alt="Token #${tokenId}" onerror="this.src='https://via.placeholder.com/50x50?text=${tokenId}'">
+        </div>`;
+    }
+    
+    // Build details HTML
+    detailsContainer.innerHTML = `
+      <div class="mb-3">
+        <h5>Oferta #${offerId}</h5>
+        <p>Creada por: ${creatorShort}</p>
+        <p>Expira: ${expiresAt}</p>
+      </div>
+      
+      <div class="row">
+        <div class="col-md-5">
+          <h6>${isMyOffer ? 'Estás Ofreciendo:' : 'Recibirás:'}</h6>
+          <div class="selection-area">
+            ${offeredTokensHtml || '<div class="empty-selection">Sin tokens</div>'}
+          </div>
+        </div>
+        
+        <div class="col-md-2">
+          <div class="exchange-arrow">↔</div>
+        </div>
+        
+        <div class="col-md-5">
+          <h6>${isMyOffer ? 'A Cambio De:' : 'A Cambio De Tus:'}</h6>
+          <div class="selection-area">
+            ${wantedTokensHtml || '<div class="empty-selection">Sin tokens</div>'}
+          </div>
+        </div>
+      </div>
+      
+      <div class="ratio-info mt-3">
+        <span>Ratio de Intercambio:</span>
+        <div class="ratio-box">${offeredTokens.length}:${wantedTokens.length}</div>
+        <span>${isMyOffer ? 'Tus tokens : Sus tokens' : 'Tokens a recibir : Tokens a dar'}</span>
+      </div>
+      
+      <div class="alert alert-info mt-3">
+        <strong>Nota:</strong> Comisión fija de <span>${ethers.utils.formatUnits(fixedFeeAmount, tokenDecimals)}</span> tokens ADRIAN por intercambio.
+      </div>`;
+    
+    // Show appropriate buttons
+    document.getElementById('accept-offer-btn').style.display = isMyOffer ? 'none' : 'inline-block';
+    document.getElementById('cancel-offer-btn').style.display = isMyOffer ? 'inline-block' : 'none';
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('offerDetailsModal'));
+    modal.show();
+  } catch (error) {
+    console.error("Error viewing offer details:", error);
+    document.getElementById('offer-details-content').innerHTML = `<div class="status error">Error cargando detalles de la oferta: ${error.message}</div>`;
+  }
+}
+
+// Show accept offer modal
+async function showAcceptOfferModal() {
+  try {
+    if (!currentOfferId) return;
+    
+    // Close details modal
+    bootstrap.Modal.getInstance(document.getElementById('offerDetailsModal')).hide();
+    
+    // Get offer details
+    const offerDetails = await exchangeContractRead.getOfferDetails(currentOfferId);
+    const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
+    
+    if (!isActive) {
+      document.getElementById('accept-offer-status').innerHTML = '<div class="status warning">Esta oferta ya no está activa.</div>';
+      return;
+    }
+    
+    // Show tokens to receive
+    let receiveHtml = '';
+    for (let i = 0; i < offeredTokens.length; i++) {
+      const tokenId = offeredTokens[i];
+      const imgUrl = getNFTImageURL(tokenId);
+      
+      receiveHtml += `
+        <div class="token-preview-sm" data-token-id="${tokenId}">
+          <img src="${imgUrl}" alt="Token #${tokenId}" onerror="this.src='https://via.placeholder.com/50x50?text=${tokenId}'">
+          <input type="checkbox" style="position: absolute; top: 5px; right: 5px;" onchange="toggleReceiveToken('${tokenId}')" checked>
+        </div>`;
+    }
+    
+    document.getElementById('receive-tokens-area').innerHTML = receiveHtml || '<div class="empty-selection">Sin tokens para recibir</div>';
+    
+    // Show my eligible tokens
+    let myEligibleTokens = [];
+    let myTokensHtml = '';
+    
+    for (const wanted of wantedTokens) {
       try {
-        if (!currentOfferId) return;
-        
-        // Close details modal
-        bootstrap.Modal.getInstance(document.getElementById('offerDetailsModal')).hide();
-        
-        // Get offer details
-        const offerDetails = await exchangeContractRead.getOfferDetails(currentOfferId);
-        const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
-        
-        if (!isActive) {
-          document.getElementById('accept-offer-status').innerHTML = '<div class="status warning">This offer is no longer active.</div>';
-          return;
-        }
-        
-        // Show tokens to receive
-        let receiveHtml = '';
-        for (let i = 0; i < offeredTokens.length; i++) {
-          const tokenId = offeredTokens[i];
-          const baseUrl = Number(tokenId) < 501 
-            ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
-            : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
+        const owner = await nftContractRead.ownerOf(wanted);
+        if (owner.toLowerCase() === userAddress.toLowerCase()) {
+          myEligibleTokens.push(wanted.toString());
           
-          const gifTokens = [1, 13, 69, 221];
-          const extension = gifTokens.includes(Number(tokenId)) ? '.gif' : '.png';
-          const imgUrl = `${baseUrl}${tokenId}${extension}`;
+          const imgUrl = getNFTImageURL(wanted);
           
-          receiveHtml += `
-            <div class="token-preview-sm" data-token-id="${tokenId}">
-              <img src="${imgUrl}" alt="Token #${tokenId}" onerror="this.src='https://via.placeholder.com/50?text=${tokenId}'">
-              <input type="checkbox" style="position: absolute; top: 5px; right: 5px;" onchange="toggleReceiveToken('${tokenId}')" checked>
+          myTokensHtml += `
+            <div class="token-preview-sm" data-token-id="${wanted}">
+              <img src="${imgUrl}" alt="Token #${wanted}" onerror="this.src='https://via.placeholder.com/50x50?text=${wanted}'">
+              <input type="checkbox" style="position: absolute; top: 5px; right: 5px;" onchange="toggleGiveToken('${wanted}')" checked>
             </div>`;
         }
-        
-        document.getElementById('receive-tokens-area').innerHTML = receiveHtml || '<div class="empty-selection">No tokens to receive</div>';
-        
-        // Show my eligible tokens
-        let myTokensHtml = '';
-        const myEligibleTokens = [];
-        
-        for (const wanted of wantedTokens) {
-          try {
-            const owner = await nftContractRead.ownerOf(wanted);
-            if (owner.toLowerCase() === userAddress.toLowerCase()) {
-              myEligibleTokens.push(wanted.toString());
-              
-              const baseUrl = Number(wanted) < 501 
-                ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
-                : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
-              
-              const gifTokens = [1, 13, 69, 221];
-              const extension = gifTokens.includes(Number(wanted)) ? '.gif' : '.png';
-              const imgUrl = `${baseUrl}${wanted}${extension}`;
-              
-              myTokensHtml += `
-                <div class="token-preview-sm" data-token-id="${wanted}">
-                  <img src="${imgUrl}" alt="Token #${wanted}" onerror="this.src='https://via.placeholder.com/50?text=${wanted}'">
-                  <input type="checkbox" style="position: absolute; top: 5px; right: 5px;" onchange="toggleGiveToken('${wanted}')" checked>
-                </div>`;
-            }
-          } catch (err) {
-            console.error(`Error checking token ${wanted}:`, err);
-          }
-        }
-        
-        document.getElementById('give-tokens-area').innerHTML = myTokensHtml || '<div class="empty-selection">You don\'t have any requested tokens</div>';
-        
-        // Calculate and display fee
-        try {
-          const feePercentage = await exchangeContractRead.feePercentage();
-          console.log("Fee percentage:", feePercentage.toString());
-          
-          const totalTokens = offeredTokens.length + myEligibleTokens.length;
-          console.log("Total tokens:", totalTokens);
-          
-          // Usar cálculos más seguros
-          const feeBase = feePercentage.toNumber();
-          const powerOf10 = ethers.BigNumber.from(10).pow(tokenDecimals);
-          const feeAmount = ethers.BigNumber.from(totalTokens)
-            .mul(feeBase)
-            .mul(powerOf10)
-            .div(10000);
-            
-          console.log("Fee amount:", feeAmount.toString());
-          const formattedFee = ethers.utils.formatUnits(feeAmount, tokenDecimals);
-          document.getElementById('exchange-fee').textContent = formattedFee;
-        } catch (err) {
-          console.error("Error calculating fee:", err);
-          document.getElementById('exchange-fee').textContent = "Error calculating fee";
-        }
-        
-        // Store for later
-        window.selectedReceiveTokens = [...offeredTokens.map(t => t.toString())];
-        window.selectedGiveTokens = [...myEligibleTokens];
-        
-        // Clear status
-        document.getElementById('accept-offer-status').textContent = '';
-        
-        // Show modal
-        const modal = new bootstrap.Modal(document.getElementById('acceptOfferModal'));
-        modal.show();
-      } catch (error) {
-        console.error("Error preparing accept offer:", error);
-        document.getElementById('accept-offer-status').innerHTML = `<div class="status error">Error: ${error.message}</div>`;
+      } catch (err) {
+        console.error(`Error checking token ${wanted}:`, err);
       }
     }
     
-    // Toggle token selection for receiving
-    function toggleReceiveToken(tokenId) {
-      if (!window.selectedReceiveTokens) window.selectedReceiveTokens = [];
-      
-      if (window.selectedReceiveTokens.includes(tokenId)) {
-        window.selectedReceiveTokens = window.selectedReceiveTokens.filter(id => id !== tokenId);
-      } else {
-        window.selectedReceiveTokens.push(tokenId);
-      }
+    document.getElementById('give-tokens-area').innerHTML = myTokensHtml || '<div class="empty-selection">No tienes ninguno de los tokens solicitados</div>';
+    
+    if (myEligibleTokens.length === 0) {
+      document.getElementById('accept-offer-status').innerHTML = '<div class="status warning">No posees ninguno de los tokens solicitados para esta oferta.</div>';
+      return;
+    }
+    
+    // Setup token selection options (based on ratio)
+    setupRatioOptions(offeredTokens, myEligibleTokens);
+    
+    // Display fee
+    document.getElementById('exchange-fee-modal').textContent = ethers.utils.formatUnits(fixedFeeAmount, tokenDecimals);
+    
+    // Store for later
+    window.selectedReceiveTokens = [...offeredTokens.map(t => t.toString())];
+    window.selectedGiveTokens = [...myEligibleTokens];
+    
+    // Update ratio display
+    updateAcceptRatio();
+    
+    // Clear status
+    document.getElementById('accept-offer-status').textContent = '';
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('acceptOfferModal'));
+    modal.show();
+  } catch (error) {
+    console.error("Error preparing accept offer:", error);
+    document.getElementById('accept-offer-status').innerHTML = `<div class="status error">Error: ${error.message}</div>`;
+  }
+}
+
+// Setup ratio selection options
+function setupRatioOptions(offeredTokens, myEligibleTokens) {
+  const container = document.getElementById('ratio-options-container');
+  container.innerHTML = '';
+  
+  // No ratio options needed if all tokens are required
+  if (offeredTokens.length <= 1 || myEligibleTokens.length <= 1) {
+    container.style.display = 'none';
+    return;
+  }
+  
+  container.style.display = 'flex';
+  
+  // Simple ratios
+  let html = '<p class="w-100">Opciones de Ratio:</p>';
+  
+  // 1:1
+  if (offeredTokens.length >= 1 && myEligibleTokens.length >= 1) {
+    html += `<div class="ratio-option selected" onclick="selectRatioOption(1, 1)">1:1</div>`;
+  }
+  
+  // 2:1
+  if (offeredTokens.length >= 2 && myEligibleTokens.length >= 1) {
+    html += `<div class="ratio-option" onclick="selectRatioOption(2, 1)">2:1</div>`;
+  }
+  
+  // 1:2
+  if (offeredTokens.length >= 1 && myEligibleTokens.length >= 2) {
+    html += `<div class="ratio-option" onclick="selectRatioOption(1, 2)">1:2</div>`;
+  }
+  
+  // All
+  html += `<div class="ratio-option" onclick="selectRatioOption(${offeredTokens.length}, ${myEligibleTokens.length})">Todo (${offeredTokens.length}:${myEligibleTokens.length})</div>`;
+  
+  container.innerHTML = html;
+}
+
+// Select ratio option
+function selectRatioOption(receiveCount, giveCount) {
+  // Update UI
+  document.querySelectorAll('.ratio-option').forEach(option => {
+    option.classList.remove('selected');
+  });
+  event.currentTarget.classList.add('selected');
+  
+  // Get all tokens
+  const receiveTokens = Array.from(document.querySelectorAll('#receive-tokens-area .token-preview-sm')).map(
+    elem => elem.getAttribute('data-token-id')
+  );
+  
+  const giveTokens = Array.from(document.querySelectorAll('#give-tokens-area .token-preview-sm')).map(
+    elem => elem.getAttribute('data-token-id')
+  );
+  
+  // Select tokens based on the ratio
+  window.selectedReceiveTokens = receiveTokens.slice(0, receiveCount);
+  window.selectedGiveTokens = giveTokens.slice(0, giveCount);
+  
+  // Update UI to reflect selection
+  document.querySelectorAll('#receive-tokens-area input[type="checkbox"]').forEach((checkbox, index) => {
+    const isSelected = index < receiveCount;
+    checkbox.checked = isSelected;
+  });
+  
+  document.querySelectorAll('#give-tokens-area input[type="checkbox"]').forEach((checkbox, index) => {
+    const isSelected = index < giveCount;
+    checkbox.checked = isSelected;
+  });
+  
+  // Update ratio display
+  updateAcceptRatio();
+}
+
+// Toggle token selection for receiving
+function toggleReceiveToken(tokenId) {
+  if (!window.selectedReceiveTokens) window.selectedReceiveTokens = [];
+  
+  if (window.selectedReceiveTokens.includes(tokenId)) {
+    window.selectedReceiveTokens = window.selectedReceiveTokens.filter(id => id !== tokenId);
+  } else {
+    window.selectedReceiveTokens.push(tokenId);
+  }
+  
+  updateAcceptRatio();
+}
+
+// Toggle token selection for giving
+function toggleGiveToken(tokenId) {
+  if (!window.selectedGiveTokens) window.selectedGiveTokens = [];
+  
+  if (window.selectedGiveTokens.includes(tokenId)) {
+    window.selectedGiveTokens = window.selectedGiveTokens.filter(id => id !== tokenId);
+  } else {
+    window.selectedGiveTokens.push(tokenId);
+  }
+  
+  updateAcceptRatio();
+}
+
+// Accept offer
+async function acceptOffer() {
+  try {
+    if (!currentOfferId) {
+      showStatus('accept-offer-status', 'No hay oferta seleccionada', 'error');
+      return;
     }
 
-    // Toggle token selection for giving
-    function toggleGiveToken(tokenId) {
-      if (!window.selectedGiveTokens) window.selectedGiveTokens = [];
-      
-      if (window.selectedGiveTokens.includes(tokenId)) {
-        window.selectedGiveTokens = window.selectedGiveTokens.filter(id => id !== tokenId);
-      } else {
-        window.selectedGiveTokens.push(tokenId);
-      }
+    // Validate selections
+    if (!window.selectedReceiveTokens || window.selectedReceiveTokens.length === 0) {
+      showStatus('accept-offer-status', 'Selecciona al menos un token para recibir', 'warning');
+      return;
     }
-
-    // Accept offer
-    async function acceptOffer() {
+    
+    if (!window.selectedGiveTokens || window.selectedGiveTokens.length === 0) {
+      showStatus('accept-offer-status', 'Selecciona al menos un token para dar', 'warning');
+      return;
+    }
+    
+    // Get full offer details again for additional checks
+    showStatus('accept-offer-status', 'Verificando detalles de la oferta...', 'warning');
+    
+    const offerDetails = await exchangeContractRead.getOfferDetails(currentOfferId);
+    const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
+    
+    // Important validations
+    if (!isActive) {
+      showStatus('accept-offer-status', 'Esta oferta ya no está activa', 'error');
+      return;
+    }
+    
+    if (creator.toLowerCase() === userAddress.toLowerCase()) {
+      showStatus('accept-offer-status', 'No puedes aceptar tu propia oferta', 'error');
+      return;
+    }
+    
+    if (expirationTime.mul(1000).lt(Date.now())) {
+      showStatus('accept-offer-status', 'Esta oferta ha expirado', 'error');
+      return;
+    }
+    
+    // Verify ownership of tokens to give
+    for (const tokenId of window.selectedGiveTokens) {
       try {
-        if (!currentOfferId) {
-          showStatus('accept-offer-status', 'No offer selected', 'error');
+        const owner = await nftContractRead.ownerOf(tokenId);
+        if (owner.toLowerCase() !== userAddress.toLowerCase()) {
+          showStatus('accept-offer-status', `No posees el token #${tokenId}`, 'error');
           return;
         }
-
-        // Validar selecciones
-        if (!window.selectedReceiveTokens || window.selectedReceiveTokens.length === 0) {
-          showStatus('accept-offer-status', 'Please select at least one token to receive', 'warning');
-          return;
-        }
-        
-        if (!window.selectedGiveTokens || window.selectedGiveTokens.length === 0) {
-          showStatus('accept-offer-status', 'Please select at least one token to give', 'warning');
-          return;
-        }
-        
-        // Obtener detalles completos de la oferta nuevamente para verificaciones adicionales
-        showStatus('accept-offer-status', 'Verifying offer details...', 'warning');
-        
-        const offerDetails = await exchangeContractRead.getOfferDetails(currentOfferId);
-        const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
-        
-        // Registro detallado para diagnóstico
-        console.log("Offer details:", {
-          offerId: currentOfferId,
-          creator,
-          offeredTokens: offeredTokens.map(t => t.toString()),
-          wantedTokens: wantedTokens.map(t => t.toString()),
-          expirationTime: expirationTime.toString(),
-          isActive,
-          myAddress: userAddress
-        });
-        
-        console.log("Selected tokens to receive:", window.selectedReceiveTokens);
-        console.log("Selected tokens to give:", window.selectedGiveTokens);
-        
-        // Verificaciones importantes
-        if (!isActive) {
-          showStatus('accept-offer-status', 'This offer is no longer active', 'error');
-          return;
-        }
-        
-        if (creator.toLowerCase() === userAddress.toLowerCase()) {
-          showStatus('accept-offer-status', 'You cannot accept your own offer', 'error');
-          return;
-        }
-        
-        if (expirationTime * 1000 < Date.now()) {
-          showStatus('accept-offer-status', 'This offer has expired', 'error');
-          return;
-        }
-        
-        // Verificar propiedad de los tokens a entregar
-        for (const tokenId of window.selectedGiveTokens) {
-          try {
-            const owner = await nftContractRead.ownerOf(tokenId);
-            if (owner.toLowerCase() !== userAddress.toLowerCase()) {
-              showStatus('accept-offer-status', `You don't own token #${tokenId}`, 'error');
-              return;
-            }
-          } catch (err) {
-            showStatus('accept-offer-status', `Error verifying ownership of token #${tokenId}`, 'error');
-            return;
-          }
-        }
-        
-        // Verificar propiedad de los tokens a recibir
-        for (const tokenId of window.selectedReceiveTokens) {
-          try {
-            const owner = await nftContractRead.ownerOf(tokenId);
-            if (owner.toLowerCase() !== creator.toLowerCase()) {
-              showStatus('accept-offer-status', `Token #${tokenId} is no longer owned by the offer creator`, 'error');
-              return;
-            }
-          } catch (err) {
-            showStatus('accept-offer-status', `Error verifying ownership of token #${tokenId}`, 'error');
-            return;
-          }
-        }
-        
-        // Validar selecciones contra la oferta
-        for (const tokenId of window.selectedReceiveTokens) {
-          let found = false;
-          for (const offeredToken of offeredTokens) {
-            if (offeredToken.toString() === tokenId) {
-              found = true;
-              break;
-            }
-          }
-          if (!found) {
-            showStatus('accept-offer-status', `Token #${tokenId} is not part of the offered tokens`, 'error');
-            return;
-          }
-        }
-        
-        for (const tokenId of window.selectedGiveTokens) {
-          let found = false;
-          for (const wantedToken of wantedTokens) {
-            if (wantedToken.toString() === tokenId) {
-              found = true;
-              break;
-            }
-          }
-          if (!found) {
-            showStatus('accept-offer-status', `Token #${tokenId} is not part of the wanted tokens`, 'error');
-            return;
-          }
-        }
-        
-        // Calcular y aprobar la tarifa exacta
-        showStatus('accept-offer-status', 'Calculating fee...', 'warning');
-        
-        try {
-          const feePercentage = await exchangeContractRead.feePercentage();
-          const totalTokens = window.selectedReceiveTokens.length + window.selectedGiveTokens.length;
-          
-          // Calcular la tarifa exacta tal como lo hace el contrato
-          const feeAmount = ethers.BigNumber.from(totalTokens)
-            .mul(feePercentage)
-            .mul(ethers.BigNumber.from(10).pow(18))
-            .div(10000);
-          
-          console.log("Fee amount:", feeAmount.toString());
-          console.log("Fee in ADRIAN:", ethers.utils.formatEther(feeAmount));
-          
-          // Verificar allowance
-          const currentAllowance = await adrianTokenContractRead.allowance(userAddress, EXCHANGE_ADDRESS);
-          console.log("Current ADRIAN allowance:", currentAllowance.toString());
-          
-          if (currentAllowance.lt(feeAmount)) {
-            showStatus('accept-offer-status', 'Approving ADRIAN tokens for fee payment...', 'warning');
-            
-            try {
-              // Aprobar exactamente la cantidad necesaria
-              const approveTx = await adrianTokenContract.approve(EXCHANGE_ADDRESS, feeAmount);
-              console.log("ADRIAN approval tx sent:", approveTx.hash);
-              await approveTx.wait();
-              console.log("ADRIAN approval confirmed");
-            } catch (error) {
-              console.error("Error approving ADRIAN tokens:", error);
-              showStatus('accept-offer-status', `Error approving ADRIAN tokens: ${error.message}`, 'error');
-              return;
-            }
-          } else {
-            console.log("ADRIAN tokens already approved");
-          }
-        } catch (error) {
-          console.error("Error calculating or approving fee:", error);
-          showStatus('accept-offer-status', `Error with fee calculation: ${error.message}`, 'error');
-          return;
-        }
-        
-        // Aprobar cada token NFT individualmente
-        for (const tokenId of window.selectedGiveTokens) {
-          try {
-            // Verificar si ya está aprobado
-            const currentApproved = await nftContractRead.getApproved(tokenId);
-            console.log(`Token #${tokenId} current approval:`, currentApproved);
-            
-            if (currentApproved.toLowerCase() !== EXCHANGE_ADDRESS.toLowerCase()) {
-              showStatus('accept-offer-status', `Approving token #${tokenId}...`, 'warning');
-              
-              const approveTx = await nftContract.approve(EXCHANGE_ADDRESS, tokenId);
-              console.log(`Token #${tokenId} approval tx sent:`, approveTx.hash);
-              await approveTx.wait();
-              console.log(`Token #${tokenId} approval confirmed`);
-            } else {
-              console.log(`Token #${tokenId} already approved`);
-            }
-          } catch (error) {
-            console.error(`Error approving token #${tokenId}:`, error);
-            showStatus('accept-offer-status', `Error approving token #${tokenId}: ${error.message}`, 'error');
-            return;
-          }
-        }
-        
-        // Convertir todos los IDs a BigNumber para evitar problemas de formato
-        const receiveTokensBN = window.selectedReceiveTokens.map(id => 
-          ethers.BigNumber.isBigNumber(id) ? id : ethers.BigNumber.from(id)
-        );
-        
-        const giveTokensBN = window.selectedGiveTokens.map(id => 
-          ethers.BigNumber.isBigNumber(id) ? id : ethers.BigNumber.from(id)
-        );
-        
-        // Aceptar la oferta con un límite de gas explícito
-        showStatus('accept-offer-status', 'Executing exchange transaction...', 'warning');
-        
-        try {
-          // Intentar estimar el gas necesario
-          let gasEstimate;
-          try {
-            gasEstimate = await exchangeContract.estimateGas.acceptOffer(
-              currentOfferId, 
-              receiveTokensBN, 
-              giveTokensBN
-            );
-            console.log("Gas estimate:", gasEstimate.toString());
-            
-            // Añadir un margen de seguridad del 30%
-            gasEstimate = gasEstimate.mul(130).div(100);
-          } catch (error) {
-            console.warn("Gas estimation failed, using manual limit:", error);
-            // Definir un límite de gas manual razonable si la estimación falla
-            gasEstimate = ethers.BigNumber.from("600000");
-          }
-          
-          // Realizar la transacción con opciones explícitas
-          const tx = await exchangeContract.acceptOffer(
-            currentOfferId,
-            receiveTokensBN,
-            giveTokensBN,
-            {
-              gasLimit: gasEstimate
-            }
-          );
-          
-          console.log("Transaction sent:", tx.hash);
-          showStatus('accept-offer-status', 'Transaction submitted, waiting for confirmation...', 'warning');
-          
-          // Esperar a que se complete la transacción
-          const receipt = await tx.wait();
-          console.log("Transaction confirmed in block:", receipt.blockNumber);
-          
-          showStatus('accept-offer-status', 'Exchange completed successfully!', 'success');
-          
-          // Recargar datos e interfaz
-          setTimeout(async () => {
-            await loadData();
-            
-            // Cerrar el modal después de un breve retraso
-            setTimeout(() => {
-              bootstrap.Modal.getInstance(document.getElementById('acceptOfferModal')).hide();
-            }, 2000);
-          }, 1000);
-          
-        } catch (error) {
-          console.error("Transaction failed:", error);
-          
-          // Extraer y mostrar información de error útil
-          let errorMessage = "Transaction failed";
-          
-          if (error.error && error.error.message) {
-            errorMessage = error.error.message;
-          } else if (error.data && error.data.message) {
-            errorMessage = error.data.message;
-          } else if (error.message) {
-            errorMessage = error.message;
-          }
-          
-          // Mejorar mensajes de error comunes
-          if (errorMessage.includes("Not token owner")) {
-            errorMessage = "You are not the owner of one of the tokens";
-          } else if (errorMessage.includes("Contract not approved")) {
-            errorMessage = "One or more tokens are not approved for trading";
-          } else if (errorMessage.includes("Cannot accept own offer")) {
-            errorMessage = "You cannot accept your own offer";
-          } else if (errorMessage.includes("Invalid")) {
-            errorMessage = "Invalid token selection for this offer";
-          } else if (errorMessage.includes("Offer not active")) {
-            errorMessage = "This offer is no longer active";
-          } else if (errorMessage.includes("Offer expired")) {
-            errorMessage = "This offer has expired";
-          } else if (errorMessage.includes("transfer amount exceeds allowance")) {
-            errorMessage = "Insufficient ADRIAN token allowance for fee payment";
-          } else if (errorMessage.includes("transfer amount exceeds balance")) {
-            errorMessage = "Insufficient ADRIAN token balance for fee payment";
-          } else if (errorMessage.includes("execution reverted")) {
-            errorMessage = "Transaction reverted by the contract";
-          }
-          
-          showStatus('accept-offer-status', `Error: ${errorMessage}`, 'error');
-        }
-        
-      } catch (error) {
-        console.error("General error:", error);
-        showStatus('accept-offer-status', `Unexpected error: ${error.message}`, 'error');
+      } catch (err) {
+        showStatus('accept-offer-status', `Error verificando la propiedad del token #${tokenId}`, 'error');
+        return;
       }
     }
     
-    // Cancel offer
-    async function cancelOffer() {
+    // Verify ownership of tokens to receive
+    for (const tokenId of window.selectedReceiveTokens) {
       try {
-        if (!currentOfferId) return;
-        
-        const modal = bootstrap.Modal.getInstance(document.getElementById('offerDetailsModal'));
-        
-        // Add status message
-        const statusDiv = document.createElement('div');
-        statusDiv.className = 'status warning';
-        statusDiv.textContent = 'Cancelling offer...';
-        document.getElementById('offer-details-content').appendChild(statusDiv);
-        
-        // Cancel the offer
-        const tx = await exchangeContract.cancelOffer(currentOfferId);
-        await tx.wait();
-        
-        // Update status
-        statusDiv.className = 'status success';
-        statusDiv.textContent = 'Offer cancelled successfully!';
-        
-        // Reload offers after a delay
-        setTimeout(async () => {
-          await loadData();
-          
-          // Close modal after another delay
-          setTimeout(() => {
-            modal.hide();
-          }, 1000);
-        }, 1000);
-      } catch (error) {
-        console.error("Error cancelling offer:", error);
-        const statusDiv = document.createElement('div');
-        statusDiv.className = 'status error';
-        statusDiv.textContent = `Error cancelling offer: ${error.message}`;
-        document.getElementById('offer-details-content').appendChild(statusDiv);
+        const owner = await nftContractRead.ownerOf(tokenId);
+        if (owner.toLowerCase() !== creator.toLowerCase()) {
+          showStatus('accept-offer-status', `El token #${tokenId} ya no pertenece al creador de la oferta`, 'error');
+          return;
+        }
+      } catch (err) {
+        showStatus('accept-offer-status', `Error verificando la propiedad del token #${tokenId}`, 'error');
+        return;
       }
     }
+    
+    // Validate selections against the offer
+    for (const tokenId of window.selectedReceiveTokens) {
+      let found = false;
+      for (const offeredToken of offeredTokens) {
+        if (offeredToken.toString() === tokenId) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        showStatus('accept-offer-status', `El token #${tokenId} no es parte de los tokens ofrecidos`, 'error');
+        return;
+      }
+    }
+    
+    for (const tokenId of window.selectedGiveTokens) {
+      let found = false;
+      for (const wantedToken of wantedTokens) {
+        if (wantedToken.toString() === tokenId) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        showStatus('accept-offer-status', `El token #${tokenId} no es parte de los tokens solicitados`, 'error');
+        return;
+      }
+    }
+    
+    // Approve fee payment
+    showStatus('accept-offer-status', 'Aprobando pago de comisión...', 'warning');
+    
+    try {
+      // Check current allowance
+      const currentAllowance = await adrianTokenContractRead.allowance(userAddress, EXCHANGE_ADDRESS);
+      
+      if (currentAllowance.lt(fixedFeeAmount)) {
+        const approveTx = await adrianTokenContract.approve(EXCHANGE_ADDRESS, fixedFeeAmount);
+        await approveTx.wait();
+        logToOutput(`Aprobación de tokens ADRIAN completada`);
+      } else {
+        logToOutput(`Tokens ADRIAN ya aprobados`);
+      }
+    } catch (error) {
+      console.error("Error approving ADRIAN tokens:", error);
+      showStatus('accept-offer-status', `Error aprobando tokens ADRIAN: ${error.message}`, 'error');
+      return;
+    }
+    
+    // Approve NFT tokens
+    showStatus('accept-offer-status', 'Aprobando tokens NFT...', 'warning');
+    
+    const useSetApprovalForAll = window.selectedGiveTokens.length > 1 && 
+      confirm("¿Quieres aprobar todos tus tokens para la plataforma de intercambio? (más eficiente en gas)");
+    
+    if (useSetApprovalForAll) {
+      try {
+        const isApprovedForAll = await nftContract.isApprovedForAll(userAddress, EXCHANGE_ADDRESS);
+        if (!isApprovedForAll) {
+          const approveTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
+          await approveTx.wait();
+          logToOutput(`Aprobación de todos los tokens completada`);
+        }
+      } catch (error) {
+        console.error("Error setting approval for all:", error);
+        showStatus('accept-offer-status', `Error aprobando tokens: ${error.message}`, 'error');
+        return;
+      }
+    } else {
+      // Approve tokens individually
+      for (const tokenId of window.selectedGiveTokens) {
+        try {
+          const approved = await nftContractRead.getApproved(tokenId);
+          if (approved.toLowerCase() !== EXCHANGE_ADDRESS.toLowerCase()) {
+            showStatus('accept-offer-status', `Aprobando token #${tokenId}...`, 'warning');
+            
+            const approveTx = await nftContract.approve(EXCHANGE_ADDRESS, tokenId);
+            await approveTx.wait();
+            logToOutput(`Token #${tokenId} aprobado`);
+          }
+        } catch (error) {
+          console.error(`Error approving token #${tokenId}:`, error);
+          showStatus('accept-offer-status', `Error aprobando token #${tokenId}: ${error.message}`, 'error');
+          return;
+        }
+      }
+    }
+    
+    // Convert token IDs to BigNumber
+    const receiveBigNumbers = window.selectedReceiveTokens.map(id => 
+      ethers.BigNumber.isBigNumber(id) ? id : ethers.BigNumber.from(id)
+    );
+    
+    const giveBigNumbers = window.selectedGiveTokens.map(id => 
+      ethers.BigNumber.isBigNumber(id) ? id : ethers.BigNumber.from(id)
+    );
+    
+    // Accept the offer with explicit gas limit
+    showStatus('accept-offer-status', 'Ejecutando transacción de intercambio...', 'warning');
+    
+    try {
+      // Try to estimate gas
+      let gasEstimate;
+      try {
+        gasEstimate = await exchangeContract.estimateGas.acceptOffer(
+          currentOfferId, 
+          receiveBigNumbers, 
+          giveBigNumbers
+        );
+        console.log("Estimación de gas:", gasEstimate.toString());
+        
+        // Add a 30% safety margin
+        gasEstimate = gasEstimate.mul(130).div(100);
+      } catch (error) {
+        console.warn("Gas estimation failed, using manual limit:", error);
+        // Define a reasonable manual gas limit if estimation fails
+        gasEstimate = ethers.BigNumber.from("600000");
+      }
+      
+      // Perform the transaction with explicit options
+      const tx = await exchangeContract.acceptOffer(
+        currentOfferId,
+        receiveBigNumbers,
+        giveBigNumbers,
+        {
+          gasLimit: gasEstimate
+        }
+      );
+      
+      logToOutput(`Transacción enviada: ${tx.hash}`);
+      showStatus('accept-offer-status', 'Transacción enviada, esperando confirmación...', 'warning');
+      
+      // Wait for transaction completion
+      const receipt = await tx.wait();
+      logToOutput(`Transacción confirmada en el bloque: ${receipt.blockNumber}`);
+      
+      showStatus('accept-offer-status', '¡Intercambio completado con éxito!', 'success');
+      
+      // Reload data and interface
+      setTimeout(async () => {
+        await loadData();
+        
+        // Close modal after a brief delay
+        setTimeout(() => {
+          bootstrap.Modal.getInstance(document.getElementById('acceptOfferModal')).hide();
+        }, 2000);
+      }, 1000);
+      
+    } catch (error) {
+      console.error("Transaction failed:", error);
+      
+      // Extract and display useful error information
+      let errorMessage = "Transacción fallida";
+      
+      if (error.error && error.error.message) {
+        errorMessage = error.error.message;
+      } else if (error.data && error.data.message) {
+        errorMessage = error.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      // Improve common error messages
+      if (errorMessage.includes("Not token owner")) {
+        errorMessage = "No eres el propietario de uno de los tokens";
+      } else if (errorMessage.includes("Contract not approved")) {
+        errorMessage = "Uno o más tokens no están aprobados para el intercambio";
+      } else if (errorMessage.includes("Cannot accept own offer")) {
+        errorMessage = "No puedes aceptar tu propia oferta";
+      } else if (errorMessage.includes("Invalid")) {
+        errorMessage = "Selección de tokens inválida para esta oferta";
+      } else if (errorMessage.includes("Offer not active")) {
+        errorMessage = "Esta oferta ya no está activa";
+      } else if (errorMessage.includes("Offer expired")) {
+        errorMessage = "Esta oferta ha expirado";
+      } else if (errorMessage.includes("transfer amount exceeds allowance")) {
+        errorMessage = "Permiso insuficiente de tokens ADRIAN para el pago de comisión";
+      } else if (errorMessage.includes("transfer amount exceeds balance")) {
+        errorMessage = "Saldo insuficiente de tokens ADRIAN para el pago de comisión";
+      } else if (errorMessage.includes("execution reverted")) {
+        errorMessage = "Transacción revertida por el contrato";
+      }
+      
+      showStatus('accept-offer-status', `Error: ${errorMessage}`, 'error');
+    }
+  } catch (error) {
+    console.error("General error:", error);
+    showStatus('accept-offer-status', `Error inesperado: ${error.message}`, 'error');
+  }
+}
+
+// Cancel offer
+async function cancelOffer() {
+  try {
+    if (!currentOfferId) return;
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('offerDetailsModal'));
+    
+    // Add status message
+    const statusDiv = document.createElement('div');
+    statusDiv.className = 'status warning';
+    statusDiv.textContent = 'Cancelando oferta...';
+    document.getElementById('offer-details-content').appendChild(statusDiv);
+    
+    // Cancel the offer
+    const tx = await exchangeContract.cancelOffer(currentOfferId);
+    logToOutput(`Transacción enviada: ${tx.hash}`);
+    
+    await tx.wait();
+    
+    // Update status
+    statusDiv.className = 'status success';
+    statusDiv.textContent = '¡Oferta cancelada con éxito!';
+    logToOutput("Oferta cancelada con éxito");
+    
+    // Reload offers after a delay
+    setTimeout(async () => {
+      await Promise.all([
+        loadAllOffers(),
+        loadMyOffers()
+      ]);
+      
+      // Close modal after another delay
+      setTimeout(() => {
+        modal.hide();
+      }, 1000);
+    }, 1000);
+  } catch (error) {
+    console.error("Error cancelling offer:", error);
+    const statusDiv = document.createElement('div');
+    statusDiv.className = 'status error';
+    statusDiv.textContent = `Error cancelando oferta: ${error.message}`;
+    document.getElementById('offer-details-content').appendChild(statusDiv);
+  }
+}
+
   </script>
 </body>
 </html>
