@@ -6,6 +6,8 @@
   <title>AdrianPunks Exchange</title>
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Add Space Grotesk font -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     /* PunkQuest inspired visual styles */
     :root {
@@ -202,6 +204,7 @@
       filter: invert(100%) !important;
     }
     .nav-link {
+      font-family: 'Space Grotesk', sans-serif;
       padding: 15px 20px !important;
       color: #fff !important;
       text-transform: uppercase;
@@ -482,6 +485,19 @@
       background: var(--accent-blue);
       color: white;
     }
+    
+    /* Fun brand style */
+    .brand-logo {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      background-image: linear-gradient(90deg, var(--accent-red), var(--accent-blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+      font-size: 1.5rem;
+    }
   </style>
 </head>
 <body>
@@ -489,7 +505,7 @@
   <nav class="navbar navbar-expand-lg">
     <div class="container-fluid">
       <a class="navbar-brand" href="#">
-        <span style="color: #fff; font-weight: 600; letter-spacing: 1px;">ADRIAN PUNKS EXCHANGE</span>
+        <span class="brand-logo">$ADRIAN</span>
       </a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
         <span class="navbar-toggler-icon"></span>
@@ -853,16 +869,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Check for announcements
   checkForAnnouncements();
   
-  // Mostrar fecha y hora del servidor
+  // Show server date and time
   const today = new Date();
-  const dateString = today.toLocaleDateString('es-ES', { 
+  const dateString = today.toLocaleDateString('en-US', { 
     weekday: 'long', 
     year: 'numeric', 
     month: 'long', 
     day: 'numeric' 
   });
   
-  logToOutput(`Iniciando aplicación. Fecha del servidor: ${dateString}`);
+  logToOutput(`Initializing application. Server date: ${dateString}`);
 });
 
 // Initialize contracts with read-only provider
@@ -915,7 +931,7 @@ function updateAcceptRatio() {
 async function connectWallet() {
   try {
     if (!window.ethereum) {
-      document.getElementById("wallet-info").innerHTML = '<div class="status warning">Por favor instala MetaMask u otra wallet compatible con Web3.</div>';
+      document.getElementById("wallet-info").innerHTML = '<div class="status warning">Please install MetaMask or another Web3 compatible wallet.</div>';
       return;
     }
     
@@ -928,7 +944,7 @@ async function connectWallet() {
     // Check if we're on the right network (Base Mainnet)
     const network = await provider.getNetwork();
     if (network.chainId !== NETWORK_CONF.chainId) {
-      document.getElementById("wallet-info").innerHTML = `<div class="status warning">Por favor conecta a la red Base (ChainID: ${NETWORK_CONF.chainId})</div>`;
+      document.getElementById("wallet-info").innerHTML = `<div class="status warning">Please connect to Base network (ChainID: ${NETWORK_CONF.chainId})</div>`;
       
       // Try to switch to the correct network
       try {
@@ -970,7 +986,7 @@ async function connectWallet() {
     
     // Update UI
     const shortAddress = shortenAddress(userAddress);
-    document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Conectado: ${shortAddress}</p>`;
+    document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddress}</p>`;
     document.getElementById("main-content").style.display = "block";
     document.getElementById("token-balance").style.display = "block";
     
@@ -984,27 +1000,27 @@ async function connectWallet() {
     
     // Disable connect button
     document.getElementById('connectWalletButton').disabled = true;
-    document.getElementById('connectWalletButton').textContent = 'Wallet Conectada';
+    document.getElementById('connectWalletButton').textContent = 'Wallet Connected';
     
-    logToOutput(`Wallet conectada: ${shortAddress}`);
+    logToOutput(`Wallet connected: ${shortAddress}`);
     
     // Listen for account changes
     window.ethereum.on('accountsChanged', (accounts) => {
-      logToOutput('Cambio de cuenta detectado. Reconectando...');
+      logToOutput('Account change detected. Reconnecting...');
       // Reload the page to reset the state
       window.location.reload();
     });
     
     // Listen for network changes
     window.ethereum.on('chainChanged', () => {
-      logToOutput('Cambio de red detectado. Reconectando...');
+      logToOutput('Network change detected. Reconnecting...');
       // Reload the page to reset the state
       window.location.reload();
     });
     
   } catch (error) {
     console.error("Error connecting wallet:", error);
-    document.getElementById("wallet-info").innerHTML = `<div class="status error">Error conectando wallet: ${error.message}</div>`;
+    document.getElementById("wallet-info").innerHTML = `<div class="status error">Error connecting wallet: ${error.message}</div>`;
   }
 }
 
@@ -1087,7 +1103,7 @@ async function checkEmergencyState() {
         warning.style.zIndex = '999';
         warning.style.margin = '0 auto 20px auto';
         warning.style.maxWidth = '1200px';
-        warning.textContent = 'El contrato está en estado de emergencia. Las operaciones están temporalmente suspendidas.';
+        warning.textContent = 'The contract is in emergency state. Operations are temporarily suspended.';
         
         document.body.insertBefore(warning, document.querySelector('.container'));
         return true;
@@ -1263,13 +1279,13 @@ function addWantedToken() {
   const tokenId = input.value.trim();
   
   if (!tokenId || isNaN(tokenId) || Number(tokenId) <= 0) {
-    showStatus('create-offer-status', 'Por favor introduce un ID de token válido', 'warning');
+    showStatus('create-offer-status', 'Please enter a valid token ID', 'warning');
     return;
   }
   
   // Check if token is already in the list
   if (selectedWantedTokens.includes(tokenId)) {
-    showStatus('create-offer-status', 'Este token ya está en tu lista de deseados', 'warning');
+    showStatus('create-offer-status', 'This token is already in your wishlist', 'warning');
     return;
   }
   
@@ -1287,7 +1303,7 @@ function updateWantedTokensUI() {
   const container = document.getElementById('wanted-tokens-area');
   
   if (selectedWantedTokens.length === 0) {
-    container.innerHTML = '<div class="empty-selection">Añade IDs de tokens que quieres recibir</div>';
+    container.innerHTML = '<div class="empty-selection">Add token IDs you want to receive</div>';
     return;
   }
   
@@ -1315,19 +1331,19 @@ function removeWantedToken(tokenId) {
 async function createOffer() {
   try {
     if (selectedOfferedTokens.length === 0) {
-      showStatus('create-offer-status', 'Selecciona al menos un token para ofrecer', 'warning');
+      showStatus('create-offer-status', 'Select at least one token to offer', 'warning');
       return;
     }
     
     if (selectedWantedTokens.length === 0) {
-      showStatus('create-offer-status', 'Añade al menos un token que quieras recibir', 'warning');
+      showStatus('create-offer-status', 'Add at least one token you want to receive', 'warning');
       return;
     }
     
     const duration = document.getElementById('offer-duration').value;
     
     // Approve NFT tokens
-    showStatus('create-offer-status', 'Verificando aprobaciones de tokens...', 'warning');
+    showStatus('create-offer-status', 'Verifying token approvals...', 'warning');
     
     // Check if all tokens are already approved
     const approvalStatuses = await exchangeContractRead.checkApprovals(
@@ -1362,7 +1378,7 @@ async function createOffer() {
     }
     
     // Create offer
-    showStatus('create-offer-status', 'Creando oferta...', 'warning');
+    showStatus('create-offer-status', 'Creating offer...', 'warning');
     
     const tx = await exchangeContract.createOffer(
       selectedOfferedTokens.map(id => ethers.BigNumber.from(id)),
@@ -1370,12 +1386,12 @@ async function createOffer() {
       duration
     );
     
-    logToOutput(`Transacción enviada: ${tx.hash}`);
-    showStatus('create-offer-status', 'Confirmando transacción...', 'warning');
+    logToOutput(`Transaction sent: ${tx.hash}`);
+    showStatus('create-offer-status', 'Confirming transaction...', 'warning');
     
     await tx.wait();
-    showStatus('create-offer-status', '¡Oferta creada con éxito!', 'success');
-    logToOutput("Oferta creada con éxito");
+    showStatus('create-offer-status', 'Offer created successfully!', 'success');
+    logToOutput("Offer created successfully");
     
     // Clear selections
     selectedOfferedTokens = [];
@@ -1395,8 +1411,8 @@ async function createOffer() {
     ]);
   } catch (error) {
     console.error("Error creating offer:", error);
-    showStatus('create-offer-status', `Error creando oferta: ${error.message}`, 'error');
-    logToOutput(`Error creando oferta: ${error.message}`);
+    showStatus('create-offer-status', `Error creating offer: ${error.message}`, 'error');
+    logToOutput(`Error creating offer: ${error.message}`);
   }
 }
 
@@ -1409,18 +1425,18 @@ async function loadAllOffers() {
     const totalOffers = await exchangeContractRead.getActiveOfferCount();
     
     if (totalOffers.eq(0)) {
-      container.innerHTML = "<p>No hay ofertas activas disponibles.</p>";
+      container.innerHTML = "<p>No active offers available.</p>";
       return;
     }
     
     container.innerHTML = `
       <div class="status info">
-        <p>Número total de ofertas activas: ${totalOffers}</p>
-        <p>Para ver ofertas específicas, usa la pestaña "Mis Ofertas" para tus ofertas creadas o "Para Mí" para ofertas que coinciden con tus tokens.</p>
+        <p>Total number of active offers: ${totalOffers}</p>
+        <p>To see specific offers, use the "My Offers" tab for your created offers or "For Me" for offers that match your tokens.</p>
       </div>`;
   } catch (error) {
     console.error("Error loading all offers:", error);
-    document.getElementById('all-offers-container').innerHTML = `<div class="status error">Error cargando ofertas: ${error.message}</div>`;
+    document.getElementById('all-offers-container').innerHTML = `<div class="status error">Error loading offers: ${error.message}</div>`;
   }
 }
 
@@ -1435,7 +1451,7 @@ async function loadMyOffers() {
     const offerIds = await exchangeContractRead.getActiveOffersByUser(userAddress);
     
     if (offerIds.length === 0) {
-      container.innerHTML = "<p>No tienes ofertas activas.</p>";
+      container.innerHTML = "<p>You have no active offers.</p>";
       return;
     }
     
@@ -1454,10 +1470,10 @@ async function loadMyOffers() {
       // Create offer card
       offersHtml += `
         <div class="offer-card">
-          <h5>Oferta #${offerId}</h5>
+          <h5>Offer #${offerId}</h5>
           <div class="row">
             <div class="col-md-5">
-              <p><strong>Ofreciendo:</strong></p>
+              <p><strong>Offering:</strong></p>
               <div class="offer-tokens">
                 ${offeredTokens.map(token => `
                   <div class="offer-token">
@@ -1470,7 +1486,7 @@ async function loadMyOffers() {
               <div class="exchange-arrow">↔</div>
             </div>
             <div class="col-md-5">
-              <p><strong>Por:</strong></p>
+              <p><strong>For:</strong></p>
               <div class="offer-tokens">
                 ${wantedTokens.map(token => `
                   <div class="offer-token">
@@ -1481,16 +1497,16 @@ async function loadMyOffers() {
             </div>
           </div>
           <div class="offer-info">
-            <span>Expira: ${expiresAt}</span>
-            <button class="btn" onclick="viewOfferDetails(${offerId}, true)">Ver Detalles</button>
+            <span>Expires: ${expiresAt}</span>
+            <button class="btn" onclick="viewOfferDetails(${offerId}, true)">View Details</button>
           </div>
         </div>`;
     }
     
-    container.innerHTML = offersHtml || "<p>No tienes ofertas activas.</p>";
+    container.innerHTML = offersHtml || "<p>You have no active offers.</p>";
   } catch (error) {
     console.error("Error loading my offers:", error);
-    document.getElementById('my-offers-container').innerHTML = `<div class="status error">Error cargando tus ofertas: ${error.message}</div>`;
+    document.getElementById('my-offers-container').innerHTML = `<div class="status error">Error loading your offers: ${error.message}</div>`;
   }
 }
 
@@ -1505,7 +1521,7 @@ async function loadOffersForMe() {
     const offerIds = await exchangeContractRead.getOffersForUser(userAddress);
     
     if (offerIds.length === 0) {
-      container.innerHTML = "<p>No hay ofertas disponibles para tus tokens.</p>";
+      container.innerHTML = "<p>No offers available for your tokens.</p>";
       return;
     }
     
@@ -1525,10 +1541,10 @@ async function loadOffersForMe() {
       // Create offer card
       offersHtml += `
         <div class="offer-card">
-          <h5>Oferta #${offerId} <span class="badge bg-secondary">De: ${creatorShort}</span></h5>
+          <h5>Offer #${offerId} <span class="badge bg-secondary">From: ${creatorShort}</span></h5>
           <div class="row">
             <div class="col-md-5">
-              <p><strong>Recibirás:</strong></p>
+              <p><strong>You'll Receive:</strong></p>
               <div class="offer-tokens">
                 ${offeredTokens.map(token => `
                   <div class="offer-token">
@@ -1541,7 +1557,7 @@ async function loadOffersForMe() {
               <div class="exchange-arrow">↔</div>
             </div>
             <div class="col-md-5">
-              <p><strong>Por tus:</strong></p>
+              <p><strong>For your:</strong></p>
               <div class="offer-tokens">
                 ${wantedTokens.map(token => `
                   <div class="offer-token">
@@ -1552,16 +1568,16 @@ async function loadOffersForMe() {
             </div>
           </div>
           <div class="offer-info">
-            <span>Expira: ${expiresAt}</span>
-            <button class="btn" onclick="viewOfferDetails(${offerId}, false)">Ver Detalles</button>
+            <span>Expires: ${expiresAt}</span>
+            <button class="btn" onclick="viewOfferDetails(${offerId}, false)">View Details</button>
           </div>
         </div>`;
     }
     
-    container.innerHTML = offersHtml || "<p>No hay ofertas disponibles para tus tokens.</p>";
+    container.innerHTML = offersHtml || "<p>No offers available for your tokens.</p>";
   } catch (error) {
     console.error("Error loading offers for me:", error);
-    document.getElementById('for-me-container').innerHTML = `<div class="status error">Error cargando ofertas: ${error.message}</div>`;
+    document.getElementById('for-me-container').innerHTML = `<div class="status error">Error loading offers: ${error.message}</div>`;
   }
 }
 
@@ -1577,7 +1593,7 @@ async function viewOfferDetails(offerId, isMyOffer) {
     const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
     
     if (!isActive) {
-      detailsContainer.innerHTML = '<div class="status warning">Esta oferta ya no está activa.</div>';
+      detailsContainer.innerHTML = '<div class="status warning">This offer is no longer active.</div>';
       return;
     }
     
@@ -1610,16 +1626,16 @@ async function viewOfferDetails(offerId, isMyOffer) {
     // Build details HTML
     detailsContainer.innerHTML = `
       <div class="mb-3">
-        <h5>Oferta #${offerId}</h5>
-        <p>Creada por: ${creatorShort}</p>
-        <p>Expira: ${expiresAt}</p>
+        <h5>Offer #${offerId}</h5>
+        <p>Created by: ${creatorShort}</p>
+        <p>Expires: ${expiresAt}</p>
       </div>
       
       <div class="row">
         <div class="col-md-5">
-          <h6>${isMyOffer ? 'Estás Ofreciendo:' : 'Recibirás:'}</h6>
+          <h6>${isMyOffer ? 'You are Offering:' : 'You\'ll Receive:'}</h6>
           <div class="selection-area">
-            ${offeredTokensHtml || '<div class="empty-selection">Sin tokens</div>'}
+            ${offeredTokensHtml || '<div class="empty-selection">No tokens</div>'}
           </div>
         </div>
         
@@ -1628,21 +1644,21 @@ async function viewOfferDetails(offerId, isMyOffer) {
         </div>
         
         <div class="col-md-5">
-          <h6>${isMyOffer ? 'A Cambio De:' : 'A Cambio De Tus:'}</h6>
+          <h6>${isMyOffer ? 'In Exchange For:' : 'In Exchange For Your:'}</h6>
           <div class="selection-area">
-            ${wantedTokensHtml || '<div class="empty-selection">Sin tokens</div>'}
+            ${wantedTokensHtml || '<div class="empty-selection">No tokens</div>'}
           </div>
         </div>
       </div>
       
       <div class="ratio-info mt-3">
-        <span>Ratio de Intercambio:</span>
+        <span>Exchange Ratio:</span>
         <div class="ratio-box">${offeredTokens.length}:${wantedTokens.length}</div>
-        <span>${isMyOffer ? 'Tus tokens : Sus tokens' : 'Tokens a recibir : Tokens a dar'}</span>
+        <span>${isMyOffer ? 'Your tokens : Their tokens' : 'Tokens to receive : Tokens to give'}</span>
       </div>
       
       <div class="alert alert-info mt-3">
-        <strong>Nota:</strong> Comisión fija de <span>${ethers.utils.formatUnits(fixedFeeAmount, tokenDecimals)}</span> tokens ADRIAN por intercambio.
+        <strong>Note:</strong> Fixed fee of <span>${ethers.utils.formatUnits(fixedFeeAmount, tokenDecimals)}</span> ADRIAN tokens per exchange.
       </div>`;
     
     // Show appropriate buttons
@@ -1654,7 +1670,7 @@ async function viewOfferDetails(offerId, isMyOffer) {
     modal.show();
   } catch (error) {
     console.error("Error viewing offer details:", error);
-    document.getElementById('offer-details-content').innerHTML = `<div class="status error">Error cargando detalles de la oferta: ${error.message}</div>`;
+    document.getElementById('offer-details-content').innerHTML = `<div class="status error">Error loading offer details: ${error.message}</div>`;
   }
 }
 
@@ -1848,40 +1864,40 @@ function toggleGiveToken(tokenId) {
 async function acceptOffer() {
   try {
     if (!currentOfferId) {
-      showStatus('accept-offer-status', 'No hay oferta seleccionada', 'error');
+      showStatus('accept-offer-status', 'No offer selected', 'error');
       return;
     }
-
+    
     // Validate selections
     if (!window.selectedReceiveTokens || window.selectedReceiveTokens.length === 0) {
-      showStatus('accept-offer-status', 'Selecciona al menos un token para recibir', 'warning');
+      showStatus('accept-offer-status', 'Select at least one token to receive', 'warning');
       return;
     }
     
     if (!window.selectedGiveTokens || window.selectedGiveTokens.length === 0) {
-      showStatus('accept-offer-status', 'Selecciona al menos un token para dar', 'warning');
+      showStatus('accept-offer-status', 'Select at least one token to give', 'warning');
       return;
     }
     
     // Get full offer details again for additional checks
-    showStatus('accept-offer-status', 'Verificando detalles de la oferta...', 'warning');
+    showStatus('accept-offer-status', 'Verifying offer details...', 'warning');
     
     const offerDetails = await exchangeContractRead.getOfferDetails(currentOfferId);
     const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
     
     // Important validations
     if (!isActive) {
-      showStatus('accept-offer-status', 'Esta oferta ya no está activa', 'error');
+      showStatus('accept-offer-status', 'This offer is no longer active', 'error');
       return;
     }
     
     if (creator.toLowerCase() === userAddress.toLowerCase()) {
-      showStatus('accept-offer-status', 'No puedes aceptar tu propia oferta', 'error');
+      showStatus('accept-offer-status', 'You cannot accept your own offer', 'error');
       return;
     }
     
     if (expirationTime.mul(1000).lt(Date.now())) {
-      showStatus('accept-offer-status', 'Esta oferta ha expirado', 'error');
+      showStatus('accept-offer-status', 'This offer has expired', 'error');
       return;
     }
     
@@ -1943,7 +1959,7 @@ async function acceptOffer() {
     }
     
     // Approve fee payment
-    showStatus('accept-offer-status', 'Aprobando pago de comisión...', 'warning');
+    showStatus('accept-offer-status', 'Approving fee payment...', 'warning');
     
     try {
       // Check current allowance
@@ -2011,7 +2027,7 @@ async function acceptOffer() {
     );
     
     // Accept the offer with explicit gas limit
-    showStatus('accept-offer-status', 'Ejecutando transacción de intercambio...', 'warning');
+    showStatus('accept-offer-status', 'Executing exchange transaction...', 'warning');
     
     try {
       // Try to estimate gas
@@ -2049,7 +2065,7 @@ async function acceptOffer() {
       const receipt = await tx.wait();
       logToOutput(`Transacción confirmada en el bloque: ${receipt.blockNumber}`);
       
-      showStatus('accept-offer-status', '¡Intercambio completado con éxito!', 'success');
+      showStatus('accept-offer-status', 'Exchange completed successfully!', 'success');
       
       // Reload data and interface
       setTimeout(async () => {
@@ -2065,7 +2081,7 @@ async function acceptOffer() {
       console.error("Transaction failed:", error);
       
       // Extract and display useful error information
-      let errorMessage = "Transacción fallida";
+      let errorMessage = "Transaction failed";
       
       if (error.error && error.error.message) {
         errorMessage = error.error.message;
@@ -2077,23 +2093,23 @@ async function acceptOffer() {
       
       // Improve common error messages
       if (errorMessage.includes("Not token owner")) {
-        errorMessage = "No eres el propietario de uno de los tokens";
+        errorMessage = "You don't own one of the tokens";
       } else if (errorMessage.includes("Contract not approved")) {
-        errorMessage = "Uno o más tokens no están aprobados para el intercambio";
+        errorMessage = "One or more tokens are not approved for exchange";
       } else if (errorMessage.includes("Cannot accept own offer")) {
-        errorMessage = "No puedes aceptar tu propia oferta";
+        errorMessage = "You cannot accept your own offer";
       } else if (errorMessage.includes("Invalid")) {
-        errorMessage = "Selección de tokens inválida para esta oferta";
+        errorMessage = "Invalid token selection for this offer";
       } else if (errorMessage.includes("Offer not active")) {
-        errorMessage = "Esta oferta ya no está activa";
+        errorMessage = "This offer is no longer active";
       } else if (errorMessage.includes("Offer expired")) {
-        errorMessage = "Esta oferta ha expirado";
+        errorMessage = "This offer has expired";
       } else if (errorMessage.includes("transfer amount exceeds allowance")) {
-        errorMessage = "Permiso insuficiente de tokens ADRIAN para el pago de comisión";
+        errorMessage = "Insufficient ADRIAN tokens allowance for fee payment";
       } else if (errorMessage.includes("transfer amount exceeds balance")) {
-        errorMessage = "Saldo insuficiente de tokens ADRIAN para el pago de comisión";
+        errorMessage = "Insufficient ADRIAN tokens balance for fee payment";
       } else if (errorMessage.includes("execution reverted")) {
-        errorMessage = "Transacción revertida por el contrato";
+        errorMessage = "Transaction reverted by the contract";
       }
       
       showStatus('accept-offer-status', `Error: ${errorMessage}`, 'error');
@@ -2114,19 +2130,19 @@ async function cancelOffer() {
     // Add status message
     const statusDiv = document.createElement('div');
     statusDiv.className = 'status warning';
-    statusDiv.textContent = 'Cancelando oferta...';
+    statusDiv.textContent = 'Cancelling offer...';
     document.getElementById('offer-details-content').appendChild(statusDiv);
     
     // Cancel the offer
     const tx = await exchangeContract.cancelOffer(currentOfferId);
-    logToOutput(`Transacción enviada: ${tx.hash}`);
+    logToOutput(`Transaction sent: ${tx.hash}`);
     
     await tx.wait();
     
     // Update status
     statusDiv.className = 'status success';
-    statusDiv.textContent = '¡Oferta cancelada con éxito!';
-    logToOutput("Oferta cancelada con éxito");
+    statusDiv.textContent = 'Offer cancelled successfully!';
+    logToOutput("Offer cancelled successfully");
     
     // Reload offers after a delay
     setTimeout(async () => {
@@ -2144,7 +2160,7 @@ async function cancelOffer() {
     console.error("Error cancelling offer:", error);
     const statusDiv = document.createElement('div');
     statusDiv.className = 'status error';
-    statusDiv.textContent = `Error cancelando oferta: ${error.message}`;
+    statusDiv.textContent = `Error cancelling offer: ${error.message}`;
     document.getElementById('offer-details-content').appendChild(statusDiv);
   }
 }
