@@ -517,10 +517,15 @@
   <!-- Main Script: NFT loading and Contract Interactions -->
   <script>
     /*********** Global Variables and Contract Setup ***********/
+    const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
+    const CHAIN_ID = 8453;
+
     let nftData = [];
     let provider, signer, userAccount;
     let tokenContract, nftContract, marketplaceContract, newMarketplaceContract;
-    
+    let readProvider; // Provider de Infura para lecturas
+    let tokenReadContract, nftReadContract, marketplaceReadContract, newMarketplaceReadContract;
+
     // Direcciones de contratos y ABIs
     const TOKEN_ADDRESS  = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
     const NFT_ADDRESS    = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
@@ -618,16 +623,26 @@
     ];
     
     async function initContracts() {
+      // Configurar el provider de Infura para lecturas
+      readProvider = new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+        name: "base",
+        chainId: 8453
+      });
+
+      // Inicializar contratos de solo lectura
+      tokenReadContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
+      nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+      marketplaceReadContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, readProvider);
+      newMarketplaceReadContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, readProvider);
+
       if (window.ethereum) {
         provider = new ethers.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
         userAccount = await signer.getAddress();
         tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
         nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
-        // Usamos el nuevo contrato para listados y trait offers
         marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
         newMarketplaceContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, signer);
-        await loadNFTs(); // Cargamos los NFTs después de inicializar los contratos
         updateTokenBalance();
         loadFloorOffer();
       } else {
@@ -1421,39 +1436,100 @@
     async function loadMyTokensModal() {
       const container = document.getElementById('myTokensModalContent');
       container.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+      
       try {
-        const balance = await nftContract.balanceOf(userAccount);
+        if (!userAccount) {
+          container.innerHTML = '<p class="text-center text-muted">Please connect your wallet first.</p>';
+          return;
+        }
+
+        // Configurar el provider de Infura si aún no está configurado
+        if (!readProvider) {
+          readProvider = new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+            name: "base",
+            chainId: 8453
+          });
+          nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+          newMarketplaceReadContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, readProvider);
+        }
+
+        // Añadir retraso entre llamadas para evitar rate limit
+        function sleep(ms) {
+          return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Usar el contrato de solo lectura para consultas
+        const balance = await nftReadContract.balanceOf(userAccount);
         let tokensHtml = '';
+        
         if (balance.toNumber() === 0) {
           tokensHtml = '<p class="text-center text-muted">No tokens found for this wallet.</p>';
         } else {
           tokensHtml = '<div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2">';
-          for (let i = 0; i < balance; i++) {
-            const tokenId = await nftContract.tokenOfOwnerByIndex(userAccount, i);
-            const nft = nftData.find(n => parseInt(n.name.split('#')[1]) === tokenId.toNumber());
-            if (nft) {
-              const tokenOffers = await newMarketplaceContract.getTokenOffersForToken(NFT_ADDRESS, tokenId);
-              const relevantOffers = tokenOffers.filter(offer => offer.exists);
-              let highestOffer = null;
-              if (relevantOffers.length > 0) {
-                highestOffer = relevantOffers.reduce((max, offer) => 
-                  offer.offerAmount.gt(max.offerAmount) ? offer : max
-                );
+          
+          // Obtener todos los índices de tokens de una vez con retraso
+          const tokenPromises = [];
+          for (let i = 0; i < balance.toNumber(); i++) {
+            tokenPromises.push(nftReadContract.tokenOfOwnerByIndex(userAccount, i));
+            await sleep(100); // 100ms de retraso entre llamadas
+          }
+          
+          // Esperar a que todas las promesas se resuelvan
+          const tokenIds = await Promise.allSettled(tokenPromises);
+          
+          // Cargar el JSON con la información de los tokens
+          const response = await fetch('adrianpunks.json');
+          const data = await response.json();
+          const jsonCollection = data.collection;
+
+          // Procesar cada token con retraso entre llamadas
+          for (const result of tokenIds) {
+            if (result.status === 'fulfilled') {
+              const tokenId = result.value;
+              const tokenInfo = jsonCollection.find(item => parseInt(item.name.split('#')[1]) === tokenId.toNumber());
+              
+              let imgUrl;
+              if (tokenInfo?.image) {
+                imgUrl = tokenInfo.image;
+              } else {
+                const baseUrl = tokenId.lt(501) 
+                  ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
+                  : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
+                const gifTokens = [1, 13, 69, 221];
+                const extension = gifTokens.includes(tokenId.toNumber()) ? '.gif' : '.png';
+                imgUrl = `${baseUrl}${tokenId}${extension}`;
               }
+
+              // Intentar obtener las ofertas del token usando el contrato de solo lectura
+              let highestOffer = null;
+              try {
+                const tokenOffers = await newMarketplaceReadContract.getTokenOffersForToken(NFT_ADDRESS, tokenId);
+                await sleep(100); // Retraso entre llamadas
+                const relevantOffers = tokenOffers.filter(offer => offer.exists);
+                if (relevantOffers.length > 0) {
+                  highestOffer = relevantOffers.reduce((max, offer) => 
+                    offer.offerAmount.gt(max.offerAmount) ? offer : max
+                  );
+                }
+              } catch (error) {
+                console.warn(`Error fetching offers for token ${tokenId}:`, error);
+              }
+
               const offerAmount = highestOffer ? ethers.utils.formatUnits(highestOffer.offerAmount, 18) : null;
               const formattedOffer = offerAmount ? 
                 (parseFloat(offerAmount) >= 1000000 ? (parseFloat(offerAmount) / 1000000).toFixed(1) + 'M' :
                  parseFloat(offerAmount) >= 1000 ? (parseFloat(offerAmount) / 1000).toFixed(1) + 'K' :
                  parseFloat(offerAmount).toFixed(1)) + ' $A' : '';
+
               tokensHtml += `
                 <div class="col">
-                  <div class="card h-100" style="cursor: pointer;" onclick="closeAndShowNFTDetails('${nft.name}')">
+                  <div class="card h-100" style="cursor: pointer;" onclick="closeAndShowNFTDetails('${tokenInfo ? tokenInfo.name : `AdrianPunk #${tokenId}`}')">
                     <div class="ratio ratio-1x1">
-                      <img src="${nft.image}" class="card-img-top" alt="Token #${tokenId}" style="object-fit: cover;">
+                      <img src="${imgUrl}" class="card-img-top" alt="Token #${tokenId}" style="object-fit: cover;">
                     </div>
                     <div class="card-body p-2">
-                      <h6 class="card-title mb-0">${nft.name}</h6>
-                      <small class="text-muted">Rarity: ${nft.rarity.toFixed(2)}</small>
+                      <h6 class="card-title mb-0">#${tokenId}</h6>
+                      ${tokenInfo ? `<small class="text-muted">Rarity: ${tokenInfo.rarity.toFixed(2)}</small>` : ''}
                       ${formattedOffer ? `<small class="text-success d-block">Offer: ${formattedOffer}</small>` : ''}
                     </div>
                   </div>
@@ -1466,7 +1542,11 @@
         container.innerHTML = tokensHtml;
       } catch (error) {
         console.error("Error loading MyTokens:", error);
-        container.innerHTML = '<div class="alert alert-danger">Error loading tokens: ' + error.message + '</div>';
+        let errorMessage = 'Error loading tokens';
+        if (error.message.includes('429') || error.message.includes('rate limit')) {
+          errorMessage = 'Too many requests. Please wait a moment and try again.';
+        }
+        container.innerHTML = `<div class="alert alert-danger">${errorMessage}</div>`;
       }
     }
     

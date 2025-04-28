@@ -462,6 +462,20 @@
         padding: 0 8px;
       }
     }
+    .token-card {
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 2px solid transparent;
+    }
+    .token-card.selected {
+      border-color: #007bff;
+      box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+    }
+    .token-stats {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #dee2e6;
+    }
   </style>
 </head>
 <body>
@@ -485,8 +499,14 @@
       <p>Your journey begins here | Season one</p>
     </header>
 
+    <div class="row justify-content-between align-items-center mb-4">
+      <div class="col-auto">
+        <button id="connect-wallet" class="btn">Connect Wallet</button>
+        <a href="/armory/" class="btn">Armory</a>
+      </div>
+    </div>
+
     <section id="wallet-connection" class="mb-4">
-      <button id="connect-wallet" class="btn">Connect Wallet</button>
       <div id="wallet-info" class="mt-2"></div>
     </section>
 
@@ -529,8 +549,16 @@
   <!-- Bootstrap 5 JS and Ethers.js Library -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@makerdao/multicall@0.1.0/dist/multicall.min.js"></script>
   <script>
-    let provider, signer;
+    // Configuración de Infura y provider base
+    const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
+    const NETWORK_CONF = { name: "base", chainId: 8453 };
+    const baseProvider = new ethers.providers.JsonRpcProvider(INFURA_URL, NETWORK_CONF);
+
+    // Variables globales
+    let provider;
+    let signer;
     let tokenContract, stakingContract, nftContract;
     let selectedTokenIds = [];
     let allMyTokenIds = [];
@@ -678,6 +706,15 @@
         tokensGrid.innerHTML = "";
         allMyTokenIds = []; // Reiniciar la lista de IDs
 
+        // Configurar Multicall
+        const multicall = new ethers.Contract(
+          "0xcA11bde05977b3631167028862bE2a173976CA11", // Multicall3 address
+          [
+            "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"
+          ],
+          baseProvider
+        );
+
         // Obtener el balance total de NFTs
         const balance = await nftContract.balanceOf(ownerAddress);
         const totalTokens = balance.toNumber();
@@ -687,16 +724,52 @@
           return;
         }
 
+        // Preparar llamadas para obtener todos los tokenIds
+        const calls = [];
+        for (let i = 0; i < totalTokens; i++) {
+          calls.push({
+            target: AD_PUNKS_ADDRESS,
+            allowFailure: true,
+            callData: nftContract.interface.encodeFunctionData('tokenOfOwnerByIndex', [ownerAddress, i])
+          });
+        }
+
+        // Ejecutar todas las llamadas en una sola transacción
+        const results = await multicall.aggregate3(calls);
+        const tokenIds = results
+          .filter(result => result.success)
+          .map(result => {
+            const decoded = nftContract.interface.decodeFunctionResult('tokenOfOwnerByIndex', result.returnData);
+            return decoded[0];
+          });
+
         // Cargar el JSON con la información de los tokens
         const response = await fetch('/punkquest/adrianpunks.json');
         const data = await response.json();
         const jsonCollection = data.collection;
 
+        // Preparar llamadas para verificar stakes
+        const stakeCalls = tokenIds.map(tokenId => ({
+          target: STAKING_ADDRESS,
+          allowFailure: true,
+          callData: stakingContract.interface.encodeFunctionData('stakes', [tokenId])
+        }));
+
+        // Ejecutar todas las llamadas de stakes en una sola transacción
+        const stakeResults = await multicall.aggregate3(stakeCalls);
+        const stakes = stakeResults
+          .filter(result => result.success)
+          .map(result => {
+            const decoded = stakingContract.interface.decodeFunctionResult('stakes', result.returnData);
+            return decoded;
+          });
+
         // Cargar cada token
-        for (let i = 0; i < totalTokens; i++) {
+        for (let i = 0; i < tokenIds.length; i++) {
           try {
-            const tokenId = await nftContract.tokenOfOwnerByIndex(ownerAddress, i);
-            const isStaked = await stakingContract.stakes(tokenId).then(res => res[0].gt(0));
+            const tokenId = tokenIds[i];
+            const stakeResult = stakes[i];
+            const isStaked = stakeResult && stakeResult[0] ? stakeResult[0].gt(0) : false;
             
             // Buscar la información del token en el JSON
             const tokenInfo = jsonCollection.find(item => item.id === tokenId.toString());
@@ -758,11 +831,33 @@
           return;
         }
 
-        const [tokenIds, pendingPassive, pendingGame] = await stakingContract.getWalletStats(
-          walletAddress,
-          allMyTokenIds
+        // Usar Multicall para obtener los rewards de todos los tokens
+        const multicall = new ethers.Contract(
+          "0xcA11bde05977b3631167028862bE2a173976CA11",
+          [
+            "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"
+          ],
+          baseProvider
         );
-        const total = pendingPassive.add(pendingGame);
+
+        // Preparar llamadas para obtener los rewards de cada token
+        const calls = allMyTokenIds.map(tokenId => ({
+          target: STAKING_ADDRESS,
+          allowFailure: true,
+          callData: stakingContract.interface.encodeFunctionData('pendingTotalReward', [tokenId])
+        }));
+
+        // Ejecutar todas las llamadas en una sola transacción
+        const results = await multicall.aggregate3(calls);
+        const rewards = results
+          .filter(result => result.success)
+          .map(result => {
+            const decoded = stakingContract.interface.decodeFunctionResult('pendingTotalReward', result.returnData);
+            return decoded[0];
+          });
+
+        // Sumar todos los rewards
+        const total = rewards.reduce((acc, reward) => acc.add(reward), ethers.BigNumber.from(0));
 
         const rewardsElement = document.getElementById('total-rewards');
         rewardsElement.textContent = formatAmount(total);
@@ -901,16 +996,18 @@
         const walletAddress = await signer.getAddress();
         const shortAddress = walletAddress.substring(0,6) + "..." + walletAddress.substring(walletAddress.length - 4);
         document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddress}</p>`;
-        // Usar el provider de Base para consultas de contrato
-        stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, etherscanProvider);
-        tokenContract = new ethers.Contract(TOKEN_ADDRESS, erc20ABI, etherscanProvider);
-        nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, etherscanProvider);
+        // Inicializar contratos de solo lectura con Infura
+        nftContract     = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI,     baseProvider);
+        tokenContract   = new ethers.Contract(AD_TOKEN_ADDRESS, erc20ABI,   baseProvider);
+        stakingContract = new ethers.Contract(STAKING_ADDRESS,  stakingABI, baseProvider);
+
+        // Conectar stakingContract con el signer para transacciones
+        stakingContract = stakingContract.connect(signer); // ETH write via MetaMask
 
         // Obtener decimales del token una sola vez
         tokenDecimals = await tokenContract.decimals();
 
         // Conectar los contratos con el signer para transacciones
-        stakingContract = stakingContract.connect(signer);
         tokenContract = tokenContract.connect(signer);
 
         document.getElementById("connect-wallet").disabled = true;
@@ -1050,33 +1147,51 @@
       }
     });
 
-    async function handleTokenClick(tokenId, element) {
-      const idStr = tokenId.toString();
-      const idx = selectedTokenIds.findIndex(t => t.toString() === idStr);
-      
-      if (idx === -1) {
-        selectedTokenIds.push(tokenId);
-        element.classList.add('selected-token');
-      } else {
-        selectedTokenIds.splice(idx, 1);
-        element.classList.remove('selected-token');
-      }
-
-      // Actualizar la interfaz
-      updateSelectedTokensUI();
-      await updateTokenInfo();
-    }
-
-    function updateSelectedTokensUI() {
-      // Actualizar todos los tokens para asegurar consistencia visual
-      document.querySelectorAll('.token-card').forEach(card => {
-        const cardTokenId = card.getAttribute('data-token-id');
-        if (selectedTokenIds.some(id => id.toString() === cardTokenId)) {
-          card.classList.add('selected-token');
+    // Handle token click
+    async function handleTokenClick(tokenId, card) {
+      try {
+        // Toggle selection
+        if (card.classList.contains('selected')) {
+          card.classList.remove('selected');
+          selectedTokenIds = selectedTokenIds.filter(id => !id.eq(tokenId));
         } else {
-          card.classList.remove('selected-token');
+          card.classList.add('selected');
+          selectedTokenIds.push(tokenId);
         }
-      });
+
+        // Actualizar la información del token
+        if (card.classList.contains('selected')) {
+          const tokenStats = await stakingContract.getTokenDetailedInfo(tokenId);
+          const lastClaim = tokenStats[5].toNumber();
+          const lastClaimText = lastClaim === 0 ? 'Never claimed!' : new Date(lastClaim * 1000).toLocaleString();
+          
+          const statsHtml = `
+            <div class="token-stats-item">
+              <h3>Token #${tokenId}</h3>
+              <p>Level: ${tokenStats[0].toString()}</p>
+              <p>Experience: ${tokenStats[1].toString()}</p>
+              <p>Slots: ${tokenStats[2].toString()}</p>
+              <p>Items Equipped: ${tokenStats[3].toString()}</p>
+              <p>Total Rewards: ${Number(tokenStats[6])} $ADRIAN</p>
+              <p>Last Claim: ${lastClaimText}</p>
+            </div>
+          `;
+          
+          // Añadir la información al final de la tarjeta
+          const statsDiv = document.createElement('div');
+          statsDiv.className = 'token-stats';
+          statsDiv.innerHTML = statsHtml;
+          card.appendChild(statsDiv);
+        } else {
+          // Eliminar la información cuando se deselecciona
+          const statsDiv = card.querySelector('.token-stats');
+          if (statsDiv) {
+            statsDiv.remove();
+          }
+        }
+      } catch (error) {
+        console.error("Error handling token click:", error);
+      }
     }
   </script>
 </body>
