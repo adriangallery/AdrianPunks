@@ -751,7 +751,7 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script>
-  // Contract addresses and configurations
+    // Contract addresses and configurations
 const NETWORK_CONF = { name: "base", chainId: 8453 };
 const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
 const baseProvider = new ethers.providers.JsonRpcProvider(INFURA_URL, NETWORK_CONF);
@@ -841,6 +841,15 @@ function logToOutput(message) {
   // Auto-scroll to bottom
   output.scrollTop = output.scrollHeight;
 }
+
+// Instancia de Multicall 3 (misma que en PunkQuest)
+const multicall = new ethers.Contract(
+  "0xcA11bde05977b3631167028862bE2a173976CA11",
+  [
+    "function aggregate3(tuple(address target,bool allowFailure,bytes callData)[] calls) view returns (tuple(bool success,bytes returnData)[] returnData)"
+  ],
+  baseProvider
+);
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', async () => {
@@ -1061,17 +1070,12 @@ async function loadTokenBalance() {
 
 // Create NFT image URL
 function getNFTImageURL(tokenId) {
-  const numTokenId = typeof tokenId === 'string' ? parseInt(tokenId) : tokenId.toNumber();
-  
-  const baseUrl = numTokenId <= 500 
-    ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
-    : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
-  
-  // Check if token is one of the special gif tokens
-  const gifTokens = [1, 13, 69, 221];
-  const extension = gifTokens.includes(numTokenId) ? '.gif' : '.png';
-  
-  return `${baseUrl}${numTokenId}${extension}`;
+  const idNum = typeof tokenId === "string" ? parseInt(tokenId) : tokenId.toNumber();
+  const base  = idNum <= 500
+      ? "https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/"
+      : "https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/";
+  const gif   = [1,13,69,221].includes(idNum) ? ".gif" : ".png";
+  return `${base}${idNum}${gif}`;
 }
 
 // Function to check if a wallet has enough ADRIAN tokens for fees
@@ -1149,69 +1153,55 @@ function checkForAnnouncements() {
 // Load user's NFTs
 async function loadUserTokens() {
   try {
-    const tokensGrid = document.getElementById("tokens-grid");
-    tokensGrid.innerHTML = '<div class="spinner"></div>';
-    
-    // Use the read contract to get balance
+    const grid = document.getElementById("tokens-grid");
+    grid.innerHTML = '<div class="spinner"></div>';
+
+    // 1) nº total de NFTs
     const balance = await nftContractRead.balanceOf(userAddress);
-    const numTokens = balance.toNumber();
-    
-    if (numTokens === 0) {
-      tokensGrid.innerHTML = "<p>No tienes AdrianPunks NFTs en tu wallet.</p>";
+    const total   = balance.toNumber();
+    if (total === 0) {
+      grid.innerHTML = "<p>No tienes AdrianPunks NFTs en tu wallet.</p>";
       return;
     }
-    
-    userTokens = [];
-    let tokensHtml = '';
-    
-    // Get token IDs with delay between calls to avoid rate limits
-    for (let i = 0; i < numTokens; i++) {
-      try {
-        // Use the read contract for this function call
-        const tokenId = await nftContractRead.tokenOfOwnerByIndex(userAddress, i);
-        userTokens.push(tokenId.toString());
-        
-        // Create token image URL
-        const imgUrl = getNFTImageURL(tokenId);
-        
-        // Create token card
-        tokensHtml += `
-          <div class="token-card" data-token-id="${tokenId}">
-            <img src="${imgUrl}" alt="AdrianPunk #${tokenId}" onerror="this.src='https://via.placeholder.com/200x200?text=AdrianPunk+%23${tokenId}'">
-            <div class="card-body">
-              <h5 class="card-title">AdrianPunk #${tokenId}</h5>
-            </div>
-          </div>`;
-        
-        // Update UI progressively
-        if (i % 5 === 0 || i === numTokens - 1) {
-          tokensGrid.innerHTML = tokensHtml;
-        }
-        
-        // Add delay between calls to avoid rate limits
-        if (i < numTokens - 1) {
-          await new Promise(resolve => setTimeout(resolve, 200));
-        }
-      } catch (error) {
-        console.error(`Error loading token ${i}:`, error);
-        // Continue with next token even if one fails
-        continue;
-      }
-    }
-    
-    // Add click handlers for token selection
-    document.querySelectorAll('.token-card').forEach(card => {
-      card.addEventListener('click', () => {
-        selectTokenForOffer(card);
-      });
+
+    // 2) batch calls con Multicall3
+    const calls = Array.from({ length: total }, (_, i) => ({
+      target      : ADRIANPUNKS_ADDRESS,
+      allowFailure: true,
+      callData    : nftContractRead.interface.encodeFunctionData("tokenOfOwnerByIndex", [userAddress, i])
+    }));
+
+    const results  = await multicall.aggregate3(calls);
+    const tokenIds = results
+      .filter(r => r.success)
+      .map(r => nftContractRead.interface.decodeFunctionResult("tokenOfOwnerByIndex", r.returnData)[0]);
+
+    userTokens = tokenIds.map(id => id.toString());
+
+    // 3) construir el HTML de tarjetas (sin cambios visuales)
+    const html = tokenIds.map(tokenId => {
+      const img = getNFTImageURL(tokenId);
+      return `
+        <div class="token-card" data-token-id="${tokenId}">
+          <img src="${img}" alt="AdrianPunk #${tokenId}" 
+               onerror="this.src='https://via.placeholder.com/200x200?text=AdrianPunk+%23${tokenId}'">
+          <div class="card-body">
+            <h5 class="card-title">AdrianPunk #${tokenId}</h5>
+          </div>
+        </div>`;
+    }).join("");
+
+    grid.innerHTML = html;
+
+    // 4) activar selección de tokens para ofertas
+    document.querySelectorAll(".token-card").forEach(card => {
+      card.addEventListener("click", () => selectTokenForOffer(card));
     });
-  } catch (error) {
-    console.error("Error loading tokens:", error);
-    if (error.code === 'CALL_EXCEPTION' || error.message.includes("rate limit")) {
-      document.getElementById("tokens-grid").innerHTML = '<div class="status warning">Límite de peticiones excedido. Inténtalo de nuevo en unos momentos.</div>';
-    } else {
-      document.getElementById("tokens-grid").innerHTML = `<div class="status error">Error cargando tokens: ${error.message}</div>`;
-    }
+
+  } catch (err) {
+    console.error("Error loading tokens:", err);
+    document.getElementById("tokens-grid").innerHTML =
+      `<div class="status error">Error cargando tokens: ${err.message}</div>`;
   }
 }
 
@@ -1352,25 +1342,25 @@ async function createOffer() {
     );
     
     const needsApproval = approvalStatuses.findIndex(status => !status) !== -1;
-    
-    if (needsApproval) {
-      // Ask user if they want to approve all at once
-      const useSetApprovalForAll = selectedOfferedTokens.length > 1 && 
-        confirm("¿Quieres aprobar todos tus tokens para la plataforma de intercambio? (más eficiente en gas)");
       
-      if (useSetApprovalForAll) {
+      if (needsApproval) {
+        // Ask user if they want to approve all at once
+        const useSetApprovalForAll = selectedOfferedTokens.length > 1 && 
+        confirm("¿Quieres aprobar todos tus tokens para la plataforma de intercambio? (más eficiente en gas)");
+        
+        if (useSetApprovalForAll) {
         showStatus('create-offer-status', 'Aprobando todos los tokens...', 'warning');
-        const approveTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
-        await approveTx.wait();
+          const approveTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
+          await approveTx.wait();
         logToOutput("Aprobación de todos los tokens completada");
-      } else {
-        // Approve each token individually
-        for (let i = 0; i < selectedOfferedTokens.length; i++) {
-          const tokenId = selectedOfferedTokens[i];
+        } else {
+          // Approve each token individually
+          for (let i = 0; i < selectedOfferedTokens.length; i++) {
+            const tokenId = selectedOfferedTokens[i];
           if (!approvalStatuses[i]) {
             showStatus('create-offer-status', `Aprobando token #${tokenId}...`, 'warning');
-            const approveTx = await nftContract.approve(EXCHANGE_ADDRESS, tokenId);
-            await approveTx.wait();
+              const approveTx = await nftContract.approve(EXCHANGE_ADDRESS, tokenId);
+              await approveTx.wait();
             logToOutput(`Token #${tokenId} aprobado`);
           }
         }
@@ -1457,50 +1447,50 @@ async function loadMyOffers() {
     
     let offersHtml = '';
     for (let i = 0; i < offerIds.length; i++) {
-      const offerId = offerIds[i];
+        const offerId = offerIds[i];
       const offerDetails = await exchangeContractRead.getOfferDetails(offerId);
-      
-      const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
-      
+        
+        const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
+        
       // Skip inactive offers
       if (!isActive || expirationTime.mul(1000).lt(Date.now())) continue;
-      
-      const expiresAt = formatTimestamp(expirationTime);
-      
-      // Create offer card
-      offersHtml += `
-        <div class="offer-card">
-          <h5>Offer #${offerId}</h5>
-          <div class="row">
-            <div class="col-md-5">
-              <p><strong>Offering:</strong></p>
-              <div class="offer-tokens">
-                ${offeredTokens.map(token => `
-                  <div class="offer-token">
-                    <img src="${getNFTImageURL(token)}" alt="Token #${token}" onerror="this.src='https://via.placeholder.com/60x60?text=${token}'">
-                  </div>
-                `).join('')}
+        
+        const expiresAt = formatTimestamp(expirationTime);
+        
+        // Create offer card
+        offersHtml += `
+          <div class="offer-card">
+            <h5>Offer #${offerId}</h5>
+            <div class="row">
+              <div class="col-md-5">
+                <p><strong>Offering:</strong></p>
+                <div class="offer-tokens">
+                  ${offeredTokens.map(token => `
+                    <div class="offer-token">
+                      <img src="${getNFTImageURL(token)}" alt="Token #${token}" onerror="this.src='https://via.placeholder.com/60x60?text=${token}'">
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+              <div class="col-md-2 text-center">
+                <div class="exchange-arrow">↔</div>
+              </div>
+              <div class="col-md-5">
+                <p><strong>For:</strong></p>
+                <div class="offer-tokens">
+                  ${wantedTokens.map(token => `
+                    <div class="offer-token">
+                      <img src="${getNFTImageURL(token)}" alt="Token #${token}" onerror="this.src='https://via.placeholder.com/60x60?text=${token}'">
+                    </div>
+                  `).join('')}
+                </div>
               </div>
             </div>
-            <div class="col-md-2 text-center">
-              <div class="exchange-arrow">↔</div>
+            <div class="offer-info">
+              <span>Expires: ${expiresAt}</span>
+              <button class="btn" onclick="viewOfferDetails(${offerId}, true)">View Details</button>
             </div>
-            <div class="col-md-5">
-              <p><strong>For:</strong></p>
-              <div class="offer-tokens">
-                ${wantedTokens.map(token => `
-                  <div class="offer-token">
-                    <img src="${getNFTImageURL(token)}" alt="Token #${token}" onerror="this.src='https://via.placeholder.com/60x60?text=${token}'">
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          </div>
-          <div class="offer-info">
-            <span>Expires: ${expiresAt}</span>
-            <button class="btn" onclick="viewOfferDetails(${offerId}, true)">View Details</button>
-          </div>
-        </div>`;
+          </div>`;
     }
     
     container.innerHTML = offersHtml || "<p>You have no active offers.</p>";
@@ -1527,51 +1517,51 @@ async function loadOffersForMe() {
     
     let offersHtml = '';
     for (let i = 0; i < offerIds.length; i++) {
-      const offerId = offerIds[i];
+        const offerId = offerIds[i];
       const offerDetails = await exchangeContractRead.getOfferDetails(offerId);
-      
-      const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
-      
+        
+        const [creator, offeredTokens, wantedTokens, expirationTime, isActive] = offerDetails;
+        
       // Skip inactive offers
       if (!isActive || expirationTime.mul(1000).lt(Date.now())) continue;
-      
-      const expiresAt = formatTimestamp(expirationTime);
-      const creatorShort = shortenAddress(creator);
-      
-      // Create offer card
-      offersHtml += `
-        <div class="offer-card">
-          <h5>Offer #${offerId} <span class="badge bg-secondary">From: ${creatorShort}</span></h5>
-          <div class="row">
-            <div class="col-md-5">
-              <p><strong>You'll Receive:</strong></p>
-              <div class="offer-tokens">
-                ${offeredTokens.map(token => `
-                  <div class="offer-token">
-                    <img src="${getNFTImageURL(token)}" alt="Token #${token}" onerror="this.src='https://via.placeholder.com/60x60?text=${token}'">
-                  </div>
-                `).join('')}
+        
+        const expiresAt = formatTimestamp(expirationTime);
+        const creatorShort = shortenAddress(creator);
+        
+        // Create offer card
+        offersHtml += `
+          <div class="offer-card">
+            <h5>Offer #${offerId} <span class="badge bg-secondary">From: ${creatorShort}</span></h5>
+            <div class="row">
+              <div class="col-md-5">
+                <p><strong>You'll Receive:</strong></p>
+                <div class="offer-tokens">
+                  ${offeredTokens.map(token => `
+                    <div class="offer-token">
+                      <img src="${getNFTImageURL(token)}" alt="Token #${token}" onerror="this.src='https://via.placeholder.com/60x60?text=${token}'">
+                    </div>
+                  `).join('')}
+                </div>
               </div>
-            </div>
-            <div class="col-md-2 text-center">
-              <div class="exchange-arrow">↔</div>
-            </div>
-            <div class="col-md-5">
+              <div class="col-md-2 text-center">
+                <div class="exchange-arrow">↔</div>
+              </div>
+              <div class="col-md-5">
               <p><strong>For your:</strong></p>
-              <div class="offer-tokens">
-                ${wantedTokens.map(token => `
-                  <div class="offer-token">
-                    <img src="${getNFTImageURL(token)}" alt="Token #${token}" onerror="this.src='https://via.placeholder.com/60x60?text=${token}'">
-                  </div>
-                `).join('')}
+                <div class="offer-tokens">
+                  ${wantedTokens.map(token => `
+                    <div class="offer-token">
+                      <img src="${getNFTImageURL(token)}" alt="Token #${token}" onerror="this.src='https://via.placeholder.com/60x60?text=${token}'">
+                    </div>
+                  `).join('')}
+                </div>
               </div>
             </div>
-          </div>
-          <div class="offer-info">
-            <span>Expires: ${expiresAt}</span>
-            <button class="btn" onclick="viewOfferDetails(${offerId}, false)">View Details</button>
-          </div>
-        </div>`;
+            <div class="offer-info">
+              <span>Expires: ${expiresAt}</span>
+              <button class="btn" onclick="viewOfferDetails(${offerId}, false)">View Details</button>
+            </div>
+          </div>`;
     }
     
     container.innerHTML = offersHtml || "<p>No offers available for your tokens.</p>";
@@ -1867,7 +1857,7 @@ async function acceptOffer() {
       showStatus('accept-offer-status', 'No hay oferta seleccionada', 'error');
       return;
     }
-    
+
     // Validate selections
     if (!window.selectedReceiveTokens || window.selectedReceiveTokens.length === 0) {
       showStatus('accept-offer-status', 'Selecciona al menos un token para recibir', 'warning');
@@ -1907,8 +1897,8 @@ async function acceptOffer() {
         const owner = await nftContractRead.ownerOf(tokenId);
         if (owner.toLowerCase() !== userAddress.toLowerCase()) {
           showStatus('accept-offer-status', `No posees el token #${tokenId}`, 'error');
-          return;
-        }
+        return;
+      }
       } catch (err) {
         showStatus('accept-offer-status', `Error verificando la propiedad del token #${tokenId}`, 'error');
         return;
@@ -1921,8 +1911,8 @@ async function acceptOffer() {
         const owner = await nftContractRead.ownerOf(tokenId);
         if (owner.toLowerCase() !== creator.toLowerCase()) {
           showStatus('accept-offer-status', `El token #${tokenId} ya no pertenece al creador de la oferta`, 'error');
-          return;
-        }
+        return;
+      }
       } catch (err) {
         showStatus('accept-offer-status', `Error verificando la propiedad del token #${tokenId}`, 'error');
         return;
@@ -1982,34 +1972,34 @@ async function acceptOffer() {
     
     try {
       const isApproved = await nftContractRead.isApprovedForAll(userAddress, EXCHANGE_ADDRESS);
-      
+    
       if (!isApproved) {
-        const approveTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
-        await approveTx.wait();
+          const approveTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
+          await approveTx.wait();
         logToOutput(`Aprobación de NFTs completada`);
       } else {
         logToOutput(`NFTs ya aprobados`);
-      }
-    } catch (error) {
+            }
+          } catch (error) {
       showStatus('accept-offer-status', `Error al aprobar NFTs: ${error.message}`, 'error');
-      return;
-    }
+            return;
+          }
     
     // Call acceptOffer function on the contract
     showStatus('accept-offer-status', 'Aceptando oferta...', 'warning');
     
     try {
       const gasEstimate = await exchangeContract.estimateGas.acceptOffer(
-        currentOfferId, 
+          currentOfferId, 
         window.selectedReceiveTokens, 
         window.selectedGiveTokens
       );
-      
+        
       // Add a 20% buffer to the gas estimate
       const gasLimit = gasEstimate.mul(120).div(100);
       
       const acceptTx = await exchangeContract.acceptOffer(
-        currentOfferId, 
+        currentOfferId,
         window.selectedReceiveTokens, 
         window.selectedGiveTokens,
         { gasLimit }
@@ -2033,7 +2023,7 @@ async function acceptOffer() {
         setTimeout(() => {
           fetchOffers();
           fetchUserTokens();
-        }, 1000);
+      }, 1000);
       } else {
         showStatus('accept-offer-status', 'Transacción completada, pero no se encontró el evento de intercambio', 'warning');
       }
