@@ -755,13 +755,43 @@
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
   <script>
+    // Contract addresses and configurations
+    const NETWORK_CONF = { name: "base", chainId: 8453 };
+    const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
+    const baseProvider = new ethers.providers.JsonRpcProvider(INFURA_URL, NETWORK_CONF);
+
+    const EXCHANGE_ADDRESS = "0xe04b8db56909345c21a8ccc813286659f20ce1b4";
+    const ADRIANPUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
+    const ADRIAN_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const MULTICALL_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11";
+
+    // Global variables
+    let provider;
+    let signer;
+    let userAddress;
+    let web3;
+    let accounts = [];
+    let tokenDecimals = 18;
+    let userTokens = [];
+    let selectedOfferedTokens = [];
+    let selectedWantedTokens = [];
+    let currentOfferId = null;
+    let exchangeContract;
+    let nftContract;
+    let adrianTokenContract;
+    let exchangeContractRead;
+    let nftContractRead;
+    let adrianTokenContractRead;
+    let multicallContract;
+    let fixedFeeAmount = ethers.utils.parseUnits("1000", 18);
+
     // Initialize Web3Modal
     const providerOptions = {
       walletconnect: {
         package: WalletConnectProvider.default,
         options: {
           rpc: {
-            8453: "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1"
+            8453: INFURA_URL
           }
         }
       }
@@ -783,13 +813,42 @@
         accounts = await web3.eth.getAccounts();
         userAddress = accounts[0];
 
+        // Check network
+        const network = await ethersProvider.getNetwork();
+        if (network.chainId !== NETWORK_CONF.chainId) {
+          document.getElementById("wallet-info").innerHTML = `<div class="status warning">Please connect to Base network (ChainID: ${NETWORK_CONF.chainId})</div>`;
+          
+          try {
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: '0x2105' }],
+            });
+            setTimeout(connectWallet, 1000);
+            return;
+          } catch (switchError) {
+            console.error("Error switching network:", switchError);
+            return;
+          }
+        }
+
+        // Initialize contracts
+        exchangeContract = new ethers.Contract(EXCHANGE_ADDRESS, EXCHANGE_ABI, signer);
+        nftContract = new ethers.Contract(ADRIANPUNKS_ADDRESS, ERC721_ABI, signer);
+        adrianTokenContract = new ethers.Contract(ADRIAN_TOKEN_ADDRESS, ERC20_ABI, signer);
+        
+        // Initialize read-only contracts
+        exchangeContractRead = new ethers.Contract(EXCHANGE_ADDRESS, EXCHANGE_ABI, baseProvider);
+        nftContractRead = new ethers.Contract(ADRIANPUNKS_ADDRESS, ERC721_ABI, baseProvider);
+        adrianTokenContractRead = new ethers.Contract(ADRIAN_TOKEN_ADDRESS, ERC20_ABI, baseProvider);
+        multicallContract = new ethers.Contract(MULTICALL_ADDRESS, MULTICALL_ABI, baseProvider);
+
         // Update UI
         document.getElementById('walletButtonText').textContent = `${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`;
-        
-        // Initialize contracts
-        initializeContracts();
-        loadMyTokens();
-        loadOffers();
+        document.getElementById("main-content").style.display = "block";
+        document.getElementById("token-balance").style.display = "block";
+
+        // Load data
+        await loadData();
 
         // Setup event listeners
         provider.on("accountsChanged", (accounts) => {
@@ -806,7 +865,7 @@
 
       } catch (error) {
         console.error("Error connecting wallet:", error);
-        logToTerminal(`Error connecting wallet: ${error.message}`);
+        document.getElementById("wallet-info").innerHTML = `<div class="status error">Error connecting wallet: ${error.message}</div>`;
       }
     }
 
