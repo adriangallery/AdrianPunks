@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PunkQuest Armory Shopping Cart</title>
+  <title>PunkQuest Armory - Compra Items</title>
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <!-- Modern fonts -->
@@ -221,7 +221,7 @@
       border: 1px solid var(--card-border);
     }
     .btn {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Space Grotesk', sans-serif;
       font-size: 0.8rem;
       padding: 0.5rem 1rem;
       background: var(--card-bg);
@@ -247,6 +247,30 @@
       border-radius: 8px;
       margin-top: 1rem;
     }
+    .loading-spinner {
+      display: inline-block;
+      width: 1.5rem;
+      height: 1.5rem;
+      border: 3px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      border-top-color: var(--accent-blue);
+      animation: spin 1s ease-in-out infinite;
+      margin-right: 0.5rem;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .wallet-address {
+      font-weight: 600;
+    }
+    .error-message {
+      color: var(--accent-red);
+      font-weight: 600;
+    }
+    .success-message {
+      color: #28a745;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -267,7 +291,10 @@
       <div class="card">
         <h2 class="section-title">Available Items</h2>
         <div id="itemsGrid" class="items-grid">
-          <!-- The item cards will be loaded here -->
+          <div class="text-center p-4">
+            <div class="loading-spinner"></div>
+            <span>Loading items from contract...</span>
+          </div>
         </div>
       </div>
     </section>
@@ -299,327 +326,313 @@
   <!-- Bootstrap 5 JS and Ethers.js Library -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  <script>
-    // ─── CONSTANTS ─────────────────────────────────────────────────────────────
-    const INFURA_PROJECT_ID = "cc0c8013b1e044dcba79d4f7ec3b2ba1";
-    const RPC_URL = `https://base-mainnet.infura.io/v3/${INFURA_PROJECT_ID}`;
-    const CHAIN_ID = 8453; // Base mainnet (0x2105)
+  document.getElementById("general-output").innerHTML = `
+      <div class="loading-spinner"></div> Waiting for transaction confirmation...
+    `;
     
-    const PUNKQUEST_ADDRESS = "0x64c46fca3f46442c7abd5303dc1c56a79f4e4273";
-    const TOKEN_ADDRESS     = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
-    const NFT_ADDRESS       = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
+    await tx.wait();
 
-    // ─── ABI de los métodos requeridos ─────────────────────────────────────────
-    const punkQuestABI = [
-      "function batchBuyItems(uint256[] calldata ids, uint256[] calldata qtys) external",
-      "function buyItem(uint256 id, uint qty) external",
-      "function inventory(address, uint256) view returns (uint256)",
-      "function nextItemId() view returns (uint256)",
-      "function getItemTokenId(uint256 itemId) view returns (uint256)",
-      "function ownedItems(address, uint256) view returns (uint256 instanceId, uint256 templateId, uint256 durability, bool degraded)"
-    ];
+    document.getElementById("general-output").innerHTML = `
+      <div class="success-message">Purchase successful!</div>
+    `;
+    
+    // Limpiar el carrito y recargar inventario
+    shoppingCart = [];
+    updateCartUI();
+    await loadUserInventory();
+    
+  } catch (err) {
+    console.error("Purchase error:", err);
+    let errorMessage = "Error during purchase: ";
+    
+    if (err.message.includes("user rejected transaction")) {
+      errorMessage = "Transaction was rejected by the user.";
+    } else if (err.message.includes("insufficient funds")) {
+      errorMessage = "You don't have enough tokens for this purchase.";
+    } else {
+      errorMessage += err.message;
+    }
+    
+    document.getElementById("general-output").innerHTML = `
+      <div class="error-message">${errorMessage}</div>
+    `;
+  }
+});
 
-    const tokenABI = [
-      "function balanceOf(address owner) view returns (uint256)",
-      "function approve(address spender, uint256 amount) returns (bool)",
-      "function allowance(address owner, address spender) view returns (uint256)"
-    ];
-
-    const nftABI = [
-      "function ownerOf(uint256 tokenId) view returns (address)"
-    ];
+// ─── USER INVENTORY ────────────────────────────────────────────────────────
+async function loadUserInventory() {
+  const inventoryContainer = document.getElementById("inventory-items");
   
-    // ─── GLOBALS ───────────────────────────────────────────────────────────────
-    let readProvider;   // Infura JSON‑RPC provider ➜ solo lectura
-    let web3Provider;   // MetaMask provider       ➜ firmar
-    let signer;         // MetaMask signer
-
-    let punkQuestRead, tokenRead; // read‑contracts
-    let punkQuestWrite, tokenWrite; // signer‑contracts
-
-    let shoppingCart = [];
-    let allItems = [];
-    let itemTokenIds = {}; // Mapeo de item.id -> tokenId
-
-    // ─── INIT ──────────────────────────────────────────────────────────────────
-    window.addEventListener("DOMContentLoaded", async () => {
-      // Infura provider sólo lectura
-      readProvider  = new ethers.providers.JsonRpcProvider(RPC_URL, { name:"base", chainId:CHAIN_ID });
-      punkQuestRead = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, readProvider);
-      tokenRead     = new ethers.Contract(TOKEN_ADDRESS,     tokenABI,    readProvider);
-      await loadItems();
-    });
-
-    // ─── WALLET CONNECTION ─────────────────────────────────────────────────────
-    document.getElementById("connect-wallet").addEventListener("click", async () => {
-      if (!window.ethereum) {
-        document.getElementById("wallet-info").innerHTML = `<p>Please install MetaMask!</p>`;
-        return;
-      }
-        try {
-          await window.ethereum.request({ method: "eth_requestAccounts" });
-        web3Provider = new ethers.providers.Web3Provider(window.ethereum);
-
-        // Asegurarnos de estar en Base mainnet
-        const net = await web3Provider.getNetwork();
-        if (net.chainId !== CHAIN_ID) {
-          await window.ethereum.request({ method:"wallet_switchEthereumChain", params:[{ chainId:"0x2105" }] });
-        }
-
-        signer = web3Provider.getSigner();
-        const walletAddress = await signer.getAddress();
-        const shortAddr = walletAddress.substring(0, 6) + "…" + walletAddress.slice(-4);
-        document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddr}</p>`;
-
-        // Instanciar contratos con signer para escritura
-        punkQuestWrite = new ethers.Contract(PUNKQUEST_ADDRESS, punkQuestABI, signer);
-        tokenWrite     = new ethers.Contract(TOKEN_ADDRESS,     tokenABI,    signer);
-
-        loadUserInventory();
-      } catch (err) {
-        document.getElementById("wallet-info").innerHTML = `<p>Error: ${err.message}</p>`;
-      }
-    });
-
-    // ─── LOAD ITEMS (from weapons.json) ────────────────────────────────────────
-    async function loadItems() {
+  if (!signer) {
+    inventoryContainer.innerHTML = "Connect wallet to load inventory...";
+    return;
+  }
+  
+  try {
+    inventoryContainer.innerHTML = `<div class="loading-spinner"></div> Loading inventory...`;
+    
+    const walletAddress = await signer.getAddress();
+    let inventoryHTML = `<table class='table'>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Type</th>
+          <th>Quantity</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>`;
+    
+    // Contador de items totales
+    let totalItems = 0;
+    let hasAnyItems = false;
+    
+    // 1. Plantilla-based inventory (usando la función inventory)
+    for (const item of allItems) {
       try {
-        const res = await fetch("weapons.json");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        allItems = await res.json();
-        
-        // Obtener los token IDs del contrato
-        for (const item of allItems) {
-          try {
-            const tokenId = await punkQuestRead.getItemTokenId(item.id);
-            if (tokenId && tokenId.gt(0)) {
-              itemTokenIds[item.id] = tokenId.toNumber();
-              console.log(`Item ${item.id} -> Token ID ${tokenId}`);
-            }
-          } catch (err) {
-            console.warn(`No se pudo obtener token ID para item ${item.id}:`, err);
-          }
+        const qty = await punkQuestRead.inventory(walletAddress, item.id);
+        if (qty.gt(0)) {
+          hasAnyItems = true;
+          totalItems += qty.toNumber();
+          inventoryHTML += `
+            <tr>
+              <td>${item.name}</td>
+              <td>${item.type}</td>
+              <td>${qty}</td>
+              <td>Template (old method)</td>
+            </tr>`;
         }
-        
-        displayItems(allItems);
       } catch (err) {
-        console.error("loadItems() error", err);
-        document.getElementById("general-output").innerText = `Error loading items: ${err.message}`;
+        console.warn(`Error checking inventory for item ${item.id}:`, err);
       }
     }
-
-    // ─── DISPLAY ITEMS ─────────────────────────────────────────────────────────
-    function displayItems(items) {
-      const grid = document.getElementById("itemsGrid");
-      grid.innerHTML = "";
-
-      items.forEach(item => {
-        const card = document.createElement("div");
-        card.className = "item-card";
-
-        const price = parseFloat(item.price);
-        const friendlyPrice = price >= 1000 ? `${(price / 1000).toFixed(1)}K` : price;
-        const tokenId = itemTokenIds[item.id];
-
-        card.innerHTML = `
-          <div class="item-image">
-            <img src="${item.image}" alt="${item.name}">
-            <div class="durability-badge">${item.durability}</div>
-            <div class="bonus-badge">+${item.bonus}%</div>
-          </div>
-          <div class="item-details">
-            <div class="item-name">
-              ${item.name}
-              <button class="description-toggle" onclick="toggleDescription(this)">▼</button>
-            </div>
-            <div class="item-description">${item.description}</div>
-            <div class="token-id">Token ID: ${tokenId || "No disponible"}</div>
-          </div>
-          <div class="quantity-controls">
-            <div class="quantity-input">
-              <label for="qty-${item.id}">Qty:</label>
-              <input type="number" id="qty-${item.id}" value="0" min="0" />
-            </div>
-            <div class="price-display">${friendlyPrice} $A</div>
-          </div>
-          <button class="btn add-to-cart-btn" ${!tokenId ? 'disabled' : ''} data-id="${tokenId || ''}" data-price="${item.price}" data-name="${item.name}" data-type="${item.type}" data-json-id="${item.id}">${tokenId ? 'Add to Cart' : 'No disponible'}</button>
-        `;
-        grid.appendChild(card);
-      });
-
-      // Delegar listeners
-      Array.from(document.getElementsByClassName("add-to-cart-btn")).forEach(btn => {
-        btn.addEventListener("click", e => {
-          const { id, price, name, type, jsonId } = e.currentTarget.dataset;
-          if (!id) return; // No permitir compras sin token ID
-          
-          const qty = parseInt(document.getElementById(`qty-${jsonId}`).value);
-          if (qty > 0) {
-            addToCart({ id: Number(id), name, price: price.toString(), quantity: qty, type });
-            document.getElementById(`qty-${jsonId}`).value = 0;
-          }
-        });
-      });
-    }
-
-    // ─── CART ──────────────────────────────────────────────────────────────────
-    function addToCart(item) {
-      if (!item.id || isNaN(item.id)) {
-        console.error("Invalid item ID:", item);
-        return;
-      }
-      const existing = shoppingCart.find(i => i.id === item.id);
-      if (existing) existing.quantity += item.quantity; else shoppingCart.push(item);
-      updateCartUI();
-    }
-
-    function updateCartUI() {
-      const cartList  = document.getElementById("cart-list");
-      const cartTotal = document.getElementById("cart-total");
-      const buyBtn    = document.getElementById("buy-all-btn");
-
-      if (shoppingCart.length === 0) {
-        cartList.innerHTML = "Your cart is empty.";
-        cartTotal.innerText = "Total: 0 A$";
-        buyBtn.disabled = true;
-        return;
-      }
-
-      let html = "<table class='table'><thead><tr><th>Item</th><th>Qty</th><th>Cost</th></tr></thead><tbody>";
-      let total = ethers.BigNumber.from(0);
-
-      shoppingCart.forEach(({ name, type, price, quantity }) => {
-        const cost = ethers.utils.parseUnits(price.toString(), 18).mul(quantity);
-        total = total.add(cost);
-        html += `<tr><td>${name} (${type})</td><td>${quantity}</td><td>${price} × ${quantity}</td></tr>`;
-      });
-
-      cartList.innerHTML = html + "</tbody></table>";
-      cartTotal.innerText  = `Total: ${ethers.utils.formatUnits(total, 18)} A$`;
-      buyBtn.disabled      = total.isZero();
-    }
-
-    // ─── BUY ALL ───────────────────────────────────────────────────────────────
-    document.getElementById("buy-all-btn").addEventListener("click", async () => {
-      if (!signer) { alert("Connect wallet first"); return; }
-      if (shoppingCart.length === 0) { alert("Your cart is empty."); return; }
-
+    
+    // 2. Instance-based inventory (usando ownedItems)
+    const instanceItems = {};
+    let idx = 0;
+    let reachedEnd = false;
+    
+    // Intentar leer ownedItems hasta encontrar error
+    while (!reachedEnd && idx < 100) { // Límite de 100 para evitar bucles
       try {
-        // Verificar que los items existen
-        const nextItemId = await punkQuestRead.nextItemId();
-        console.log("Next Item ID:", nextItemId.toString());
+        const owned = await punkQuestRead.ownedItems(walletAddress, idx);
+        const templateId = owned.templateId.toNumber();
+        const instanceId = owned.instanceId.toNumber();
         
-        const invalidItems = shoppingCart.filter(item => item.id >= nextItemId);
-        if (invalidItems.length > 0) {
-          const invalidNames = invalidItems.map(item => item.name).join(", ");
-          throw new Error(`Los siguientes items no existen: ${invalidNames}`);
-        }
-
-        // Total cost in BigNumber desde el principio
-        let totalCost = ethers.BigNumber.from(0);
-        shoppingCart.forEach(({ price, quantity }) => {
-          const itemCost = ethers.utils.parseUnits(price, 18).mul(quantity);
-          totalCost = totalCost.add(itemCost);
-        });
-
-        const walletAddress = await signer.getAddress();
-        const allowance = await tokenWrite.allowance(walletAddress, PUNKQUEST_ADDRESS);
-
-        if (allowance.lt(totalCost)) {
-          document.getElementById("general-output").innerText = "Approving tokens…";
-          const tx = await tokenWrite.approve(PUNKQUEST_ADDRESS, totalCost);
-          await tx.wait();
-        }
-
-        // Asegurarnos de que los IDs son números válidos
-        const ids = shoppingCart.map(i => {
-          const id = Number(i.id);
-          console.log("Item ID:", id, "Type:", typeof id);
-          return id;
-        });
-        const qtys = shoppingCart.map(i => Number(i.quantity));
-
-        console.log("IDs to buy:", ids);
-        console.log("Quantities:", qtys);
-
-        document.getElementById("general-output").innerText = "Submitting batch buy…";
+        // Buscar detalles del template
+        const template = allItems.find(i => i.id === templateId);
+        const templateName = template ? template.name : `Unknown Item #${templateId}`;
+        const templateType = template ? template.type : "Unknown";
         
-        // Intentar comprar un solo item primero para debug
-        if (ids.length === 1) {
-          console.log("Trying single item purchase...");
-          const tx = await punkQuestWrite.buyItem(ids[0], qtys[0]);
-          await tx.wait();
-        } else {
-          const tx = await punkQuestWrite.batchBuyItems(ids, qtys);
-          await tx.wait();
+        // Agrupar por template
+        if (!instanceItems[templateId]) {
+          instanceItems[templateId] = {
+            name: templateName,
+            type: templateType,
+            instances: []
+          };
         }
-
-        document.getElementById("general-output").innerText = "Purchase successful!";
-        shoppingCart = [];
-        updateCartUI();
-        loadUserInventory();
+        
+        // Añadir instancia
+        instanceItems[templateId].instances.push({
+          instanceId,
+          durability: owned.durability.toString(),
+          degraded: owned.degraded
+        });
+        
+        totalItems++;
+        hasAnyItems = true;
+        idx++;
       } catch (err) {
-        console.error("batch buy error", err);
-        let errorMessage = "Error during purchase: ";
-        if (err.message.includes("Item does not exist")) {
-          errorMessage += "Uno o más items no existen en el contrato.";
-        } else if (err.message.includes("Los siguientes items no existen")) {
-          errorMessage = err.message;
-        } else {
-          errorMessage += err.message;
-        }
-        document.getElementById("general-output").innerText = errorMessage;
+        // Si obtenemos error, asumimos que hemos llegado al final
+        reachedEnd = true;
       }
-    });
-
-    // ─── DESCRIPTION TOGGLE ────────────────────────────────────────────────────
-    function toggleDescription(btn) {
-      const desc = btn.closest('.item-details').querySelector('.item-description');
-      desc.classList.toggle('expanded');
-      btn.classList.toggle('active');
     }
-
-    // ─── USER INVENTORY ────────────────────────────────────────────────────────
-    async function loadUserInventory() {
-      if (!signer) return; // wallet not connected yet
-
-      const walletAddress = await signer.getAddress();
-      let inventoryHTML = "<table class='table'><thead><tr><th>Item</th><th>Quantity</th></tr></thead><tbody>";
-
-      // 1️⃣ Plantilla‑based inventory (legacy buyItem)
-      for (const item of allItems) {
-        try {
-          const qty = await punkQuestWrite.inventory(walletAddress, item.id);
-          if (qty.gt(0)) {
-            inventoryHTML += `<tr><td>${item.name} (${item.type}, tpl ID ${item.id})</td><td>${qty}</td></tr>`;
-          }
-        } catch (_) { /* ignore */ }
-      }
-
-      // 2️⃣ Instance‑based inventory (batchBuyItems)
-      const counts = {}; // templateId → qty
-      for (let idx = 0; ; idx++) {
-        try {
-          const owned = await punkQuestWrite.ownedItems(walletAddress, idx);
-          const templateId = Number(owned.templateId);
-          counts[templateId] = (counts[templateId] || 0) + 1;
-        } catch (err) {
-          // out‑of‑bounds → break
-          break;
-        }
-      }
-      Object.entries(counts).forEach(([tplId, qty]) => {
-        const item = allItems.find(i => i.id == tplId);
-        if (item) {
-          inventoryHTML += `<tr><td>${item.name} (${item.type}, tpl ID ${tplId})</td><td>${qty}</td></tr>`;
-        } else {
-          inventoryHTML += `<tr><td>Unknown template #${tplId}</td><td>${qty}</td></tr>`;
-        }
+    
+    // Añadir instancias a la tabla
+    for (const [templateId, data] of Object.entries(instanceItems)) {
+      const instances = data.instances;
+      inventoryHTML += `
+        <tr>
+          <td>${data.name}</td>
+          <td>${data.type}</td>
+          <td>${instances.length}</td>
+          <td>Instances (new method)</td>
+        </tr>`;
+        
+      // Mostrar detalles de cada instancia
+      instances.forEach(inst => {
+        const status = inst.degraded 
+          ? `<span class="error-message">Degraded (0/${inst.durability})</span>` 
+          : `Durability: ${inst.durability}`;
+        
+        inventoryHTML += `
+          <tr class="table-secondary">
+            <td colspan="2">└ Instance #${inst.instanceId}</td>
+            <td>1</td>
+            <td>${status}</td>
+          </tr>`;
       });
-
-      inventoryHTML += "</tbody></table>";
-      document.getElementById("inventory-items").innerHTML = inventoryHTML;
     }
-  </script>
-</body>
-</html>
+    
+    inventoryHTML += "</tbody></table>";
+    
+    // Si no hay items, mostrar mensaje
+    if (!hasAnyItems) {
+      inventoryHTML = `<p>You don't have any items in your inventory.</p>`;
+    } else {
+      inventoryHTML = `<p>Total items in inventory: ${totalItems}</p>` + inventoryHTML;
+    }
+    
+    inventoryContainer.innerHTML = inventoryHTML;
+    
+  } catch (err) {
+    console.error("Error loading inventory:", err);
+    inventoryContainer.innerHTML = `<div class="error-message">Failed to load inventory: ${err.message}</div>`;
+  }
+}
+
+// ─── FILTER FUNCTIONALITY ─────────────────────────────────────────────────────
+function addFilterControls() {
+  const filtersHTML = `
+    <div class="mb-3 filters-container">
+      <div class="d-flex gap-2 align-items-center">
+        <label for="item-filter" class="form-label mb-0">Filter:</label>
+        <select id="item-filter" class="form-select form-select-sm" style="width: auto;">
+          <option value="all" selected>All Items</option>
+          <option value="Weapon">Weapons</option>
+          <option value="Armor">Armor</option>
+        </select>
+        
+        <label for="sort-by" class="form-label mb-0 ms-3">Sort by:</label>
+        <select id="sort-by" class="form-select form-select-sm" style="width: auto;">
+          <option value="id">ID</option>
+          <option value="price">Price</option>
+          <option value="bonus">Bonus</option>
+          <option value="durability">Durability</option>
+        </select>
+        
+        <div class="form-check form-switch ms-3">
+          <input class="form-check-input" type="checkbox" id="sort-desc">
+          <label class="form-check-label" for="sort-desc">Descending</label>
+        </div>
+        
+        <button id="apply-filters" class="btn btn-sm ms-auto">Apply</button>
+      </div>
+    </div>
+  `;
+  
+  const itemsSection = document.getElementById("items-section");
+  const card = itemsSection.querySelector(".card");
+  const title = card.querySelector(".section-title");
+  
+  const filtersDiv = document.createElement("div");
+  filtersDiv.innerHTML = filtersHTML;
+  card.insertBefore(filtersDiv, title.nextSibling);
+  
+  // Añadir event listener
+  document.getElementById("apply-filters").addEventListener("click", () => {
+    const typeFilter = document.getElementById("item-filter").value;
+    const sortBy = document.getElementById("sort-by").value;
+    const isDesc = document.getElementById("sort-desc").checked;
+    
+    // Filtrar items
+    let filteredItems = [...allItems];
+    if (typeFilter !== "all") {
+      filteredItems = filteredItems.filter(item => item.type === typeFilter);
+    }
+    
+    // Ordenar items
+    filteredItems.sort((a, b) => {
+      let aValue = a[sortBy];
+      let bValue = b[sortBy];
+      
+      // Convertir a números si es necesario
+      if (sortBy === "price" || sortBy === "bonus") {
+        aValue = parseFloat(aValue);
+        bValue = parseFloat(bValue);
+      } else if (sortBy === "durability") {
+        aValue = parseInt(aValue);
+        bValue = parseInt(bValue);
+      }
+      
+      // Ordenar ascendente o descendente
+      return isDesc ? bValue - aValue : aValue - bValue;
+    });
+    
+    // Actualizar visualización
+    displayItems(filteredItems);
+  });
+}
+
+// ─── SEARCH FUNCTIONALITY ─────────────────────────────────────────────────────
+function addSearchBar() {
+  const searchHTML = `
+    <div class="mb-3">
+      <div class="input-group">
+        <input type="text" id="search-input" class="form-control" placeholder="Search items...">
+        <button id="search-button" class="btn">Search</button>
+      </div>
+    </div>
+  `;
+  
+  const itemsSection = document.getElementById("items-section");
+  const card = itemsSection.querySelector(".card");
+  const filtersContainer = card.querySelector(".filters-container") || card.querySelector(".section-title");
+  
+  const searchDiv = document.createElement("div");
+  searchDiv.innerHTML = searchHTML;
+  card.insertBefore(searchDiv, filtersContainer.nextSibling);
+  
+  // Añadir event listeners
+  document.getElementById("search-button").addEventListener("click", performSearch);
+  document.getElementById("search-input").addEventListener("keyup", e => {
+    if (e.key === "Enter") performSearch();
+  });
+  
+  function performSearch() {
+    const searchTerm = document.getElementById("search-input").value.toLowerCase();
+    
+    if (searchTerm.trim() === "") {
+      displayItems(allItems);
+      return;
+    }
+    
+    const results = allItems.filter(item => {
+      return (
+        item.name.toLowerCase().includes(searchTerm) ||
+        item.description.toLowerCase().includes(searchTerm) ||
+        item.type.toLowerCase().includes(searchTerm)
+      );
+    });
+    
+    if (results.length === 0) {
+      document.getElementById("itemsGrid").innerHTML = `
+        <div class="p-4 text-center">No items found matching "${searchTerm}"</div>
+      `;
+    } else {
+      displayItems(results);
+    }
+  }
+}
+
+// ─── INITIALIZE UI ENHANCEMENTS ────────────────────────────────────────────────
+// Añadir estos componentes después de cargar los items
+window.addEventListener("DOMContentLoaded", () => {
+  setTimeout(() => {
+    addFilterControls();
+    addSearchBar();
+  }, 1000); // Esperar a que se carguen los items
+});
+
+// ─── ERROR HANDLING IMPROVEMENTS ───────────────────────────────────────────────
+window.addEventListener("error", (event) => {
+  console.error("Global error:", event.error);
+  document.getElementById("general-output").innerHTML = `
+    <div class="error-message">
+      An error occurred: ${event.error?.message || "Unknown error"}
+      <br>
+      <small>Please check the console for more details or reload the page.</small>
+    </div>
+  `;
+});
