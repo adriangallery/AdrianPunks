@@ -326,313 +326,651 @@
   <!-- Bootstrap 5 JS and Ethers.js Library -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
-  document.getElementById("general-output").innerHTML = `
-      <div class="loading-spinner"></div> Waiting for transaction confirmation...
-    `;
+  <script>
+    // ─── CONTRACT CONFIGURATION ──────────────────────────────────────────────────
+    const PUNKQUEST_ADDRESS = "0x6CB04A0aA30a1a2Aa97f3e2F0B7aC08c5C09e72a";
+    const PUNKQUEST_ABI = [
+      "function inventory(address,uint256) view returns (uint256)",
+      "function ownedItems(address,uint256) view returns (tuple(uint256 templateId, uint256 instanceId, uint256 durability, bool degraded))",
+      "function items(uint256) view returns (uint256,uint256,uint256,bool,uint8,bool)",
+      "function purchaseItems(uint256[] calldata, uint256[] calldata) payable",
+      "function buyItem(uint256,uint256) external",
+      "function availableItems() view returns (uint256)"
+    ];
     
-    await tx.wait();
-
-    document.getElementById("general-output").innerHTML = `
-      <div class="success-message">Purchase successful!</div>
-    `;
+    // ─── NETWORK CONFIGURATION ──────────────────────────────────────────────────
+    const NETWORK_CONF = { name: "base", chainId: 8453 };
+    const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
+    const baseProvider = new ethers.providers.JsonRpcProvider(INFURA_URL, NETWORK_CONF);
     
-    // Limpiar el carrito y recargar inventario
-    shoppingCart = [];
-    updateCartUI();
-    await loadUserInventory();
+    // Globales
+    let provider, signer, punkQuestContract, punkQuestRead;
+    let allItems = [];
+    let shoppingCart = [];
     
-  } catch (err) {
-    console.error("Purchase error:", err);
-    let errorMessage = "Error during purchase: ";
-    
-    if (err.message.includes("user rejected transaction")) {
-      errorMessage = "Transaction was rejected by the user.";
-    } else if (err.message.includes("insufficient funds")) {
-      errorMessage = "You don't have enough tokens for this purchase.";
-    } else {
-      errorMessage += err.message;
-    }
-    
-    document.getElementById("general-output").innerHTML = `
-      <div class="error-message">${errorMessage}</div>
-    `;
-  }
-});
-
-// ─── USER INVENTORY ────────────────────────────────────────────────────────
-async function loadUserInventory() {
-  const inventoryContainer = document.getElementById("inventory-items");
-  
-  if (!signer) {
-    inventoryContainer.innerHTML = "Connect wallet to load inventory...";
-    return;
-  }
-  
-  try {
-    inventoryContainer.innerHTML = `<div class="loading-spinner"></div> Loading inventory...`;
-    
-    const walletAddress = await signer.getAddress();
-    let inventoryHTML = `<table class='table'>
-      <thead>
-        <tr>
-          <th>Item</th>
-          <th>Type</th>
-          <th>Quantity</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>`;
-    
-    // Contador de items totales
-    let totalItems = 0;
-    let hasAnyItems = false;
-    
-    // 1. Plantilla-based inventory (usando la función inventory)
-    for (const item of allItems) {
+    // ─── CONNECT WALLET ────────────────────────────────────────────────────────
+    document.getElementById("connect-wallet").addEventListener("click", async () => {
+      if (!window.ethereum) {
+        document.getElementById("wallet-info").innerHTML = `
+          <div class="error-message">No Web3 provider detected! Please install MetaMask or another compatible wallet.</div>
+        `;
+        return;
+      }
+      
       try {
-        const qty = await punkQuestRead.inventory(walletAddress, item.id);
-        if (qty.gt(0)) {
-          hasAnyItems = true;
-          totalItems += qty.toNumber();
-          inventoryHTML += `
-            <tr>
-              <td>${item.name}</td>
-              <td>${item.type}</td>
-              <td>${qty}</td>
-              <td>Template (old method)</td>
-            </tr>`;
+        document.getElementById("wallet-info").innerHTML = `
+          <div class="loading-spinner"></div> Connecting to wallet...
+        `;
+        
+        // Connect to MetaMask
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        
+        // Get user address
+        const address = await signer.getAddress();
+        
+        // Check if we're on Base network
+        const network = await provider.getNetwork();
+        if (network.chainId !== NETWORK_CONF.chainId) {
+          document.getElementById("wallet-info").innerHTML = `
+            <div class="error-message">Please connect to Base Network (ChainID: ${NETWORK_CONF.chainId})</div>
+          `;
+          
+          // Ask user to switch networks
+          try {
+            await window.ethereum.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: '0x2105' }], // 0x2105 = 8453 (Base)
+            });
+            
+            // Refresh after network switch
+            window.location.reload();
+            return;
+          } catch (switchError) {
+            console.error("Error switching network:", switchError);
+          }
+          return;
         }
+        
+        // Initialize contract
+        punkQuestContract = new ethers.Contract(PUNKQUEST_ADDRESS, PUNKQUEST_ABI, signer);
+        punkQuestRead = new ethers.Contract(PUNKQUEST_ADDRESS, PUNKQUEST_ABI, baseProvider);
+        
+        // Update UI
+        document.getElementById("wallet-info").innerHTML = `
+          <p>Connected: <span class="wallet-address">${address}</span></p>
+        `;
+        
+        // Load items and inventory
+        await Promise.all([
+          loadItems(),
+          loadUserInventory()
+        ]);
+        
+        // Habilitar botón de compra
+        document.getElementById("buy-all-btn").disabled = false;
+        
       } catch (err) {
-        console.warn(`Error checking inventory for item ${item.id}:`, err);
+        console.error("Connection error:", err);
+        document.getElementById("wallet-info").innerHTML = `
+          <div class="error-message">Connection error: ${err.message}</div>
+        `;
+      }
+    });
+    
+    // ─── LOAD ITEMS ───────────────────────────────────────────────────────────
+    async function loadItems() {
+      try {
+        document.getElementById("itemsGrid").innerHTML = `
+          <div class="text-center p-4">
+            <div class="loading-spinner"></div>
+            <span>Loading items from contract...</span>
+          </div>
+        `;
+        
+        // Cargar items desde JSON
+        const res = await fetch('/punkquest/weapons.json');
+        const itemsData = await res.json();
+        
+        // Inicializar el array de items
+        allItems = [];
+        
+        // Verificar la existencia de items en el contrato
+        console.log("Cargando weapons.json:", itemsData);
+        
+        for (const itm of itemsData) {
+          try {
+            // Verificar si el item existe on-chain
+            const onChain = await punkQuestRead.items(itm.id);
+            console.log(`Item ${itm.id} exists:`, onChain);
+            
+            // Determinar el tipo basado en el valor de onChain[4]
+            let typeLabel = "Unknown";
+            if (onChain[4] === 0) typeLabel = "Weapon";
+            if (onChain[4] === 1) typeLabel = "Armor";
+            
+            // Si el item existe (retorna datos válidos), añadirlo a la lista
+            allItems.push({
+              id: itm.id,
+              name: itm.name,
+              description: itm.description,
+              price: itm.price,
+              bonus: itm.bonus,
+              durability: itm.durability, 
+              type: typeLabel,
+              image: itm.image
+            });
+          } catch (err) {
+            console.warn(`Item ${itm.id} does not exist on-chain:`, err);
+            // No añadir el item si no existe on-chain
+          }
+        }
+        
+        // Si no hay items, mostrar mensaje
+        if (allItems.length === 0) {
+          document.getElementById("itemsGrid").innerHTML = `
+            <div class="text-center p-4">No items available in the shop.</div>
+          `;
+          return;
+        }
+        
+        // Mostrar items
+        displayItems(allItems);
+        
+      } catch (err) {
+        console.error("Error loading items:", err);
+        document.getElementById("itemsGrid").innerHTML = `
+          <div class="text-center p-4 error-message">
+            Error loading items: ${err.message}
+          </div>
+        `;
       }
     }
     
-    // 2. Instance-based inventory (usando ownedItems)
-    const instanceItems = {};
-    let idx = 0;
-    let reachedEnd = false;
+    // ─── DISPLAY ITEMS ─────────────────────────────────────────────────────────
+    function displayItems(items) {
+      let html = "";
+      
+      for (const item of items) {
+        html += `
+          <div class="item-card">
+            <div class="item-image">
+              <img src="${item.image}" alt="${item.name}" onerror="this.src='https://via.placeholder.com/200?text=${item.name}'">
+              <div class="durability-badge">Durability: ${item.durability}</div>
+              <div class="bonus-badge">Bonus: +${item.bonus}</div>
+            </div>
+            <div class="item-details">
+              <h4>${item.name}</h4>
+              <p>Type: ${item.type}</p>
+              <p>Price: ${item.price} A$</p>
+              <p class="item-description" id="desc-${item.id}">${item.description}</p>
+              <button class="description-toggle" onclick="toggleDescription(${item.id})">More Info</button>
+              <div class="quantity-controls">
+                <div class="quantity-input">
+                  <button class="btn" onclick="changeQuantity(${item.id}, -1)">-</button>
+                  <input type="number" id="qty-${item.id}" value="1" min="1" max="10">
+                  <button class="btn" onclick="changeQuantity(${item.id}, 1)">+</button>
+                </div>
+                <div class="price-display" id="price-${item.id}">${item.price} A$</div>
+              </div>
+              <button class="btn" onclick="addToCart(${item.id})">Add to Cart</button>
+            </div>
+          </div>
+        `;
+      }
+      
+      document.getElementById("itemsGrid").innerHTML = html;
+    }
     
-    // Intentar leer ownedItems hasta encontrar error
-    while (!reachedEnd && idx < 100) { // Límite de 100 para evitar bucles
+    // ─── TOGGLE DESCRIPTION ────────────────────────────────────────────────────
+    window.toggleDescription = function(itemId) {
+      const desc = document.getElementById(`desc-${itemId}`);
+      desc.classList.toggle("expanded");
+      
+      const btn = desc.nextElementSibling;
+      btn.textContent = desc.classList.contains("expanded") ? "Less Info" : "More Info";
+    };
+    
+    // ─── CHANGE QUANTITY ────────────────────────────────────────────────────────
+    window.changeQuantity = function(itemId, delta) {
+      const input = document.getElementById(`qty-${itemId}`);
+      const currentQty = parseInt(input.value) || 1;
+      const newQty = Math.max(1, Math.min(10, currentQty + delta));
+      input.value = newQty;
+      
+      // Update price display
+      const item = allItems.find(item => item.id === itemId);
+      if (item) {
+        const totalPrice = item.price * newQty;
+        document.getElementById(`price-${itemId}`).textContent = `${totalPrice} A$`;
+      }
+    };
+    
+    // ─── ADD TO CART ──────────────────────────────────────────────────────────
+    window.addToCart = function(itemId) {
+      const item = allItems.find(item => item.id === itemId);
+      if (!item) return;
+      
+      const qtyInput = document.getElementById(`qty-${itemId}`);
+      const quantity = parseInt(qtyInput.value) || 1;
+      
+      // Check if item already in cart
+      const existingItem = shoppingCart.find(ci => ci.id === itemId);
+      if (existingItem) {
+        existingItem.quantity = quantity;
+      } else {
+        shoppingCart.push({
+          id: itemId,
+          name: item.name,
+          price: item.price,
+          quantity: quantity
+        });
+      }
+      
+      updateCartUI();
+      
+      // Show confirmation
+      const generalOutput = document.getElementById("general-output");
+      generalOutput.innerHTML = `
+        <div class="success-message">Added ${quantity}x ${item.name} to cart</div>
+      `;
+    };
+    
+    // ─── UPDATE CART UI ────────────────────────────────────────────────────────
+    function updateCartUI() {
+      const cartList = document.getElementById("cart-list");
+      const cartTotal = document.getElementById("cart-total");
+      
+      if (shoppingCart.length === 0) {
+        cartList.innerHTML = "Your cart is empty.";
+        cartTotal.innerHTML = "Total: 0 A$";
+        document.getElementById("buy-all-btn").disabled = true;
+        return;
+      }
+      
+      let cartHtml = "<table class='table'><thead><tr><th>Item</th><th>Quantity</th><th>Price</th><th></th></tr></thead><tbody>";
+      let total = 0;
+      
+      for (const item of shoppingCart) {
+        const itemTotal = item.price * item.quantity;
+        total += itemTotal;
+        
+        cartHtml += `
+          <tr>
+            <td>${item.name}</td>
+            <td>${item.quantity}</td>
+            <td>${itemTotal} A$</td>
+            <td><button class="btn btn-sm" onclick="removeFromCart(${item.id})">Remove</button></td>
+          </tr>
+        `;
+      }
+      
+      cartHtml += "</tbody></table>";
+      cartList.innerHTML = cartHtml;
+      cartTotal.innerHTML = `Total: ${total} A$`;
+      document.getElementById("buy-all-btn").disabled = false;
+    }
+    
+    // ─── REMOVE FROM CART ──────────────────────────────────────────────────────
+    window.removeFromCart = function(itemId) {
+      shoppingCart = shoppingCart.filter(item => item.id !== itemId);
+      updateCartUI();
+    };
+    
+    // ─── BUY ALL ITEMS ────────────────────────────────────────────────────────
+    document.getElementById("buy-all-btn").addEventListener("click", async () => {
+      if (shoppingCart.length === 0) return;
+      
+      if (!signer || !punkQuestContract) {
+        document.getElementById("general-output").innerHTML = `
+          <div class="error-message">Please connect your wallet first!</div>
+        `;
+        return;
+      }
+      
       try {
-        const owned = await punkQuestRead.ownedItems(walletAddress, idx);
-        const templateId = owned.templateId.toNumber();
-        const instanceId = owned.instanceId.toNumber();
+        // Preparar arrays de IDs y cantidades
+        const itemIds = [];
+        const quantities = [];
         
-        // Buscar detalles del template
-        const template = allItems.find(i => i.id === templateId);
-        const templateName = template ? template.name : `Unknown Item #${templateId}`;
-        const templateType = template ? template.type : "Unknown";
-        
-        // Agrupar por template
-        if (!instanceItems[templateId]) {
-          instanceItems[templateId] = {
-            name: templateName,
-            type: templateType,
-            instances: []
-          };
+        for (const item of shoppingCart) {
+          itemIds.push(item.id);
+          quantities.push(item.quantity);
         }
         
-        // Añadir instancia
-        instanceItems[templateId].instances.push({
-          instanceId,
-          durability: owned.durability.toString(),
-          degraded: owned.degraded
+        // Calcular el valor total
+        let totalValue = 0;
+        for (const item of shoppingCart) {
+          totalValue += item.price * item.quantity;
+        }
+        
+        // Convert to wei (assuming ADRIAN token has 18 decimals)
+        const valueInWei = ethers.utils.parseUnits(totalValue.toString(), 18);
+        
+        // Mostrar confirmación
+        const confirmed = confirm(`¿Confirmar compra por ${totalValue} ADRIAN tokens?`);
+        if (!confirmed) return;
+        
+        document.getElementById("general-output").innerHTML = `
+          <div class="loading-spinner"></div> Executing transaction...
+        `;
+        
+        // Ejecutar compra
+        const tx = await punkQuestContract.purchaseItems(itemIds, quantities, {
+          gasLimit: 3000000, // Gas limit manual para evitar errores
         });
         
-        totalItems++;
-        hasAnyItems = true;
-        idx++;
+        document.getElementById("general-output").innerHTML = `
+          <div class="loading-spinner"></div> Waiting for transaction confirmation...
+        `;
+        
+        await tx.wait();
+
+        document.getElementById("general-output").innerHTML = `
+          <div class="success-message">Purchase successful!</div>
+        `;
+        
+        // Limpiar el carrito y recargar inventario
+        shoppingCart = [];
+        updateCartUI();
+        await loadUserInventory();
+        
       } catch (err) {
-        // Si obtenemos error, asumimos que hemos llegado al final
-        reachedEnd = true;
+        console.error("Purchase error:", err);
+        let errorMessage = "Error during purchase: ";
+        
+        if (err.message.includes("user rejected transaction")) {
+          errorMessage = "Transaction was rejected by the user.";
+        } else if (err.message.includes("insufficient funds")) {
+          errorMessage = "You don't have enough tokens for this purchase.";
+        } else {
+          errorMessage += err.message;
+        }
+        
+        document.getElementById("general-output").innerHTML = `
+          <div class="error-message">${errorMessage}</div>
+        `;
+      }
+    });
+
+    // ─── USER INVENTORY ────────────────────────────────────────────────────────
+    async function loadUserInventory() {
+      const inventoryContainer = document.getElementById("inventory-items");
+      
+      if (!signer) {
+        inventoryContainer.innerHTML = "Connect wallet to load inventory...";
+        return;
+      }
+      
+      try {
+        inventoryContainer.innerHTML = `<div class="loading-spinner"></div> Loading inventory...`;
+        
+        const walletAddress = await signer.getAddress();
+        let inventoryHTML = `<table class='table'>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Type</th>
+              <th>Quantity</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>`;
+        
+        // Contador de items totales
+        let totalItems = 0;
+        let hasAnyItems = false;
+        
+        // 1. Plantilla-based inventory (usando la función inventory)
+        for (const item of allItems) {
+          try {
+            const qty = await punkQuestRead.inventory(walletAddress, item.id);
+            if (qty.gt(0)) {
+              hasAnyItems = true;
+              totalItems += qty.toNumber();
+              inventoryHTML += `
+                <tr>
+                  <td>${item.name}</td>
+                  <td>${item.type}</td>
+                  <td>${qty}</td>
+                  <td>Template (old method)</td>
+                </tr>`;
+            }
+          } catch (err) {
+            console.warn(`Error checking inventory for item ${item.id}:`, err);
+          }
+        }
+        
+        // 2. Instance-based inventory (usando ownedItems)
+        const instanceItems = {};
+        let idx = 0;
+        let reachedEnd = false;
+        
+        // Intentar leer ownedItems hasta encontrar error
+        while (!reachedEnd && idx < 100) { // Límite de 100 para evitar bucles
+          try {
+            const owned = await punkQuestRead.ownedItems(walletAddress, idx);
+            const templateId = owned.templateId.toNumber();
+            const instanceId = owned.instanceId.toNumber();
+            
+            // Buscar detalles del template
+            const template = allItems.find(i => i.id === templateId);
+            const templateName = template ? template.name : `Unknown Item #${templateId}`;
+            const templateType = template ? template.type : "Unknown";
+            
+            // Agrupar por template
+            if (!instanceItems[templateId]) {
+              instanceItems[templateId] = {
+                name: templateName,
+                type: templateType,
+                instances: []
+              };
+            }
+            
+            // Añadir instancia
+            instanceItems[templateId].instances.push({
+              instanceId,
+              durability: owned.durability.toString(),
+              degraded: owned.degraded
+            });
+            
+            totalItems++;
+            hasAnyItems = true;
+            idx++;
+          } catch (err) {
+            // Si obtenemos error, asumimos que hemos llegado al final
+            reachedEnd = true;
+          }
+        }
+        
+        // Añadir instancias a la tabla
+        for (const [templateId, data] of Object.entries(instanceItems)) {
+          const instances = data.instances;
+          inventoryHTML += `
+            <tr>
+              <td>${data.name}</td>
+              <td>${data.type}</td>
+              <td>${instances.length}</td>
+              <td>Instances (new method)</td>
+            </tr>`;
+            
+          // Mostrar detalles de cada instancia
+          instances.forEach(inst => {
+            const status = inst.degraded 
+              ? `<span class="error-message">Degraded (0/${inst.durability})</span>` 
+              : `Durability: ${inst.durability}`;
+            
+            inventoryHTML += `
+              <tr class="table-secondary">
+                <td colspan="2">└ Instance #${inst.instanceId}</td>
+                <td>1</td>
+                <td>${status}</td>
+              </tr>`;
+          });
+        }
+        
+        inventoryHTML += "</tbody></table>";
+        
+        // Si no hay items, mostrar mensaje
+        if (!hasAnyItems) {
+          inventoryHTML = `<p>You don't have any items in your inventory.</p>`;
+        } else {
+          inventoryHTML = `<p>Total items in inventory: ${totalItems}</p>` + inventoryHTML;
+        }
+        
+        inventoryContainer.innerHTML = inventoryHTML;
+        
+      } catch (err) {
+        console.error("Error loading inventory:", err);
+        inventoryContainer.innerHTML = `<div class="error-message">Failed to load inventory: ${err.message}</div>`;
       }
     }
-    
-    // Añadir instancias a la tabla
-    for (const [templateId, data] of Object.entries(instanceItems)) {
-      const instances = data.instances;
-      inventoryHTML += `
-        <tr>
-          <td>${data.name}</td>
-          <td>${data.type}</td>
-          <td>${instances.length}</td>
-          <td>Instances (new method)</td>
-        </tr>`;
+
+    // ─── FILTER FUNCTIONALITY ─────────────────────────────────────────────────────
+    function addFilterControls() {
+      const filtersHTML = `
+        <div class="mb-3 filters-container">
+          <div class="d-flex gap-2 align-items-center">
+            <label for="item-filter" class="form-label mb-0">Filter:</label>
+            <select id="item-filter" class="form-select form-select-sm" style="width: auto;">
+              <option value="all" selected>All Items</option>
+              <option value="Weapon">Weapons</option>
+              <option value="Armor">Armor</option>
+            </select>
+            
+            <label for="sort-by" class="form-label mb-0 ms-3">Sort by:</label>
+            <select id="sort-by" class="form-select form-select-sm" style="width: auto;">
+              <option value="id">ID</option>
+              <option value="price">Price</option>
+              <option value="bonus">Bonus</option>
+              <option value="durability">Durability</option>
+            </select>
+            
+            <div class="form-check form-switch ms-3">
+              <input class="form-check-input" type="checkbox" id="sort-desc">
+              <label class="form-check-label" for="sort-desc">Descending</label>
+            </div>
+            
+            <button id="apply-filters" class="btn btn-sm ms-auto">Apply</button>
+          </div>
+        </div>
+      `;
+      
+      const itemsSection = document.getElementById("items-section");
+      const card = itemsSection.querySelector(".card");
+      const title = card.querySelector(".section-title");
+      
+      const filtersDiv = document.createElement("div");
+      filtersDiv.innerHTML = filtersHTML;
+      card.insertBefore(filtersDiv, title.nextSibling);
+      
+      // Añadir event listener
+      document.getElementById("apply-filters").addEventListener("click", () => {
+        const typeFilter = document.getElementById("item-filter").value;
+        const sortBy = document.getElementById("sort-by").value;
+        const isDesc = document.getElementById("sort-desc").checked;
         
-      // Mostrar detalles de cada instancia
-      instances.forEach(inst => {
-        const status = inst.degraded 
-          ? `<span class="error-message">Degraded (0/${inst.durability})</span>` 
-          : `Durability: ${inst.durability}`;
+        // Filtrar items
+        let filteredItems = [...allItems];
+        if (typeFilter !== "all") {
+          filteredItems = filteredItems.filter(item => item.type === typeFilter);
+        }
         
-        inventoryHTML += `
-          <tr class="table-secondary">
-            <td colspan="2">└ Instance #${inst.instanceId}</td>
-            <td>1</td>
-            <td>${status}</td>
-          </tr>`;
+        // Ordenar items
+        filteredItems.sort((a, b) => {
+          let aValue = a[sortBy];
+          let bValue = b[sortBy];
+          
+          // Convertir a números si es necesario
+          if (sortBy === "price" || sortBy === "bonus") {
+            aValue = parseFloat(aValue);
+            bValue = parseFloat(bValue);
+          } else if (sortBy === "durability") {
+            aValue = parseInt(aValue);
+            bValue = parseInt(bValue);
+          }
+          
+          // Ordenar ascendente o descendente
+          return isDesc ? bValue - aValue : aValue - bValue;
+        });
+        
+        // Actualizar visualización
+        displayItems(filteredItems);
       });
     }
-    
-    inventoryHTML += "</tbody></table>";
-    
-    // Si no hay items, mostrar mensaje
-    if (!hasAnyItems) {
-      inventoryHTML = `<p>You don't have any items in your inventory.</p>`;
-    } else {
-      inventoryHTML = `<p>Total items in inventory: ${totalItems}</p>` + inventoryHTML;
-    }
-    
-    inventoryContainer.innerHTML = inventoryHTML;
-    
-  } catch (err) {
-    console.error("Error loading inventory:", err);
-    inventoryContainer.innerHTML = `<div class="error-message">Failed to load inventory: ${err.message}</div>`;
-  }
-}
 
-// ─── FILTER FUNCTIONALITY ─────────────────────────────────────────────────────
-function addFilterControls() {
-  const filtersHTML = `
-    <div class="mb-3 filters-container">
-      <div class="d-flex gap-2 align-items-center">
-        <label for="item-filter" class="form-label mb-0">Filter:</label>
-        <select id="item-filter" class="form-select form-select-sm" style="width: auto;">
-          <option value="all" selected>All Items</option>
-          <option value="Weapon">Weapons</option>
-          <option value="Armor">Armor</option>
-        </select>
-        
-        <label for="sort-by" class="form-label mb-0 ms-3">Sort by:</label>
-        <select id="sort-by" class="form-select form-select-sm" style="width: auto;">
-          <option value="id">ID</option>
-          <option value="price">Price</option>
-          <option value="bonus">Bonus</option>
-          <option value="durability">Durability</option>
-        </select>
-        
-        <div class="form-check form-switch ms-3">
-          <input class="form-check-input" type="checkbox" id="sort-desc">
-          <label class="form-check-label" for="sort-desc">Descending</label>
+    // ─── SEARCH FUNCTIONALITY ─────────────────────────────────────────────────────
+    function addSearchBar() {
+      const searchHTML = `
+        <div class="mb-3">
+          <div class="input-group">
+            <input type="text" id="search-input" class="form-control" placeholder="Search items...">
+            <button id="search-button" class="btn">Search</button>
+          </div>
         </div>
-        
-        <button id="apply-filters" class="btn btn-sm ms-auto">Apply</button>
-      </div>
-    </div>
-  `;
-  
-  const itemsSection = document.getElementById("items-section");
-  const card = itemsSection.querySelector(".card");
-  const title = card.querySelector(".section-title");
-  
-  const filtersDiv = document.createElement("div");
-  filtersDiv.innerHTML = filtersHTML;
-  card.insertBefore(filtersDiv, title.nextSibling);
-  
-  // Añadir event listener
-  document.getElementById("apply-filters").addEventListener("click", () => {
-    const typeFilter = document.getElementById("item-filter").value;
-    const sortBy = document.getElementById("sort-by").value;
-    const isDesc = document.getElementById("sort-desc").checked;
-    
-    // Filtrar items
-    let filteredItems = [...allItems];
-    if (typeFilter !== "all") {
-      filteredItems = filteredItems.filter(item => item.type === typeFilter);
-    }
-    
-    // Ordenar items
-    filteredItems.sort((a, b) => {
-      let aValue = a[sortBy];
-      let bValue = b[sortBy];
-      
-      // Convertir a números si es necesario
-      if (sortBy === "price" || sortBy === "bonus") {
-        aValue = parseFloat(aValue);
-        bValue = parseFloat(bValue);
-      } else if (sortBy === "durability") {
-        aValue = parseInt(aValue);
-        bValue = parseInt(bValue);
-      }
-      
-      // Ordenar ascendente o descendente
-      return isDesc ? bValue - aValue : aValue - bValue;
-    });
-    
-    // Actualizar visualización
-    displayItems(filteredItems);
-  });
-}
-
-// ─── SEARCH FUNCTIONALITY ─────────────────────────────────────────────────────
-function addSearchBar() {
-  const searchHTML = `
-    <div class="mb-3">
-      <div class="input-group">
-        <input type="text" id="search-input" class="form-control" placeholder="Search items...">
-        <button id="search-button" class="btn">Search</button>
-      </div>
-    </div>
-  `;
-  
-  const itemsSection = document.getElementById("items-section");
-  const card = itemsSection.querySelector(".card");
-  const filtersContainer = card.querySelector(".filters-container") || card.querySelector(".section-title");
-  
-  const searchDiv = document.createElement("div");
-  searchDiv.innerHTML = searchHTML;
-  card.insertBefore(searchDiv, filtersContainer.nextSibling);
-  
-  // Añadir event listeners
-  document.getElementById("search-button").addEventListener("click", performSearch);
-  document.getElementById("search-input").addEventListener("keyup", e => {
-    if (e.key === "Enter") performSearch();
-  });
-  
-  function performSearch() {
-    const searchTerm = document.getElementById("search-input").value.toLowerCase();
-    
-    if (searchTerm.trim() === "") {
-      displayItems(allItems);
-      return;
-    }
-    
-    const results = allItems.filter(item => {
-      return (
-        item.name.toLowerCase().includes(searchTerm) ||
-        item.description.toLowerCase().includes(searchTerm) ||
-        item.type.toLowerCase().includes(searchTerm)
-      );
-    });
-    
-    if (results.length === 0) {
-      document.getElementById("itemsGrid").innerHTML = `
-        <div class="p-4 text-center">No items found matching "${searchTerm}"</div>
       `;
-    } else {
-      displayItems(results);
+      
+      const itemsSection = document.getElementById("items-section");
+      const card = itemsSection.querySelector(".card");
+      const filtersContainer = card.querySelector(".filters-container") || card.querySelector(".section-title");
+      
+      const searchDiv = document.createElement("div");
+      searchDiv.innerHTML = searchHTML;
+      card.insertBefore(searchDiv, filtersContainer.nextSibling);
+      
+      // Añadir event listeners
+      document.getElementById("search-button").addEventListener("click", performSearch);
+      document.getElementById("search-input").addEventListener("keyup", e => {
+        if (e.key === "Enter") performSearch();
+      });
+      
+      function performSearch() {
+        const searchTerm = document.getElementById("search-input").value.toLowerCase();
+        
+        if (searchTerm.trim() === "") {
+          displayItems(allItems);
+          return;
+        }
+        
+        const results = allItems.filter(item => {
+          return (
+            item.name.toLowerCase().includes(searchTerm) ||
+            item.description.toLowerCase().includes(searchTerm) ||
+            item.type.toLowerCase().includes(searchTerm)
+          );
+        });
+        
+        if (results.length === 0) {
+          document.getElementById("itemsGrid").innerHTML = `
+            <div class="p-4 text-center">No items found matching "${searchTerm}"</div>
+          `;
+        } else {
+          displayItems(results);
+        }
+      }
     }
-  }
-}
 
-// ─── INITIALIZE UI ENHANCEMENTS ────────────────────────────────────────────────
-// Añadir estos componentes después de cargar los items
-window.addEventListener("DOMContentLoaded", () => {
-  setTimeout(() => {
-    addFilterControls();
-    addSearchBar();
-  }, 1000); // Esperar a que se carguen los items
-});
+    // ─── INITIALIZE UI ENHANCEMENTS ────────────────────────────────────────────────
+    // Añadir estos componentes después de cargar los items
+    window.addEventListener("DOMContentLoaded", () => {
+      setTimeout(() => {
+        addFilterControls();
+        addSearchBar();
+      }, 1000); // Esperar a que se carguen los items
+    });
 
-// ─── ERROR HANDLING IMPROVEMENTS ───────────────────────────────────────────────
-window.addEventListener("error", (event) => {
-  console.error("Global error:", event.error);
-  document.getElementById("general-output").innerHTML = `
-    <div class="error-message">
-      An error occurred: ${event.error?.message || "Unknown error"}
-      <br>
-      <small>Please check the console for more details or reload the page.</small>
-    </div>
-  `;
-});
+    // ─── ERROR HANDLING IMPROVEMENTS ───────────────────────────────────────────────
+    window.addEventListener("error", (event) => {
+      console.error("Global error:", event.error);
+      document.getElementById("general-output").innerHTML = `
+        <div class="error-message">
+          An error occurred: ${event.error?.message || "Unknown error"}
+          <br>
+          <small>Please check the console for more details or reload the page.</small>
+        </div>
+      `;
+    });
+  </script>
+</body>
+</html>
