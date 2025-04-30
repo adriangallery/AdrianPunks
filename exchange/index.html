@@ -1967,23 +1967,44 @@ async function acceptOffer() {
       return;
     }
     
-    // Approve NFTs
-    showStatus('accept-offer-status', 'Aprobando transferencia de NFTs...', 'warning');
+    // Approve NFT tokens
+    showStatus('accept-offer-status', 'Aprobando tokens NFT...', 'warning');
     
-    try {
-      const isApproved = await nftContractRead.isApprovedForAll(userAddress, EXCHANGE_ADDRESS);
+    const useSetApprovalForAll = window.selectedGiveTokens.length > 1 && 
+      confirm("¿Quieres aprobar todos tus tokens para la plataforma de intercambio? (más eficiente en gas)");
     
-      if (!isApproved) {
+    if (useSetApprovalForAll) {
+      try {
+        const isApprovedForAll = await nftContract.isApprovedForAll(userAddress, EXCHANGE_ADDRESS);
+        if (!isApprovedForAll) {
           const approveTx = await nftContract.setApprovalForAll(EXCHANGE_ADDRESS, true);
           await approveTx.wait();
-        logToOutput(`Aprobación de NFTs completada`);
-      } else {
-        logToOutput(`NFTs ya aprobados`);
-            }
-          } catch (error) {
-      showStatus('accept-offer-status', `Error al aprobar NFTs: ${error.message}`, 'error');
-            return;
+          logToOutput(`Aprobación de todos los tokens completada`);
+        }
+      } catch (error) {
+        console.error("Error setting approval for all:", error);
+        showStatus('accept-offer-status', `Error aprobando tokens: ${error.message}`, 'error');
+        return;
+      }
+    } else {
+      // Approve tokens individually
+      for (const tokenId of window.selectedGiveTokens) {
+        try {
+          const approved = await nftContractRead.getApproved(tokenId);
+          if (approved.toLowerCase() !== EXCHANGE_ADDRESS.toLowerCase()) {
+            showStatus('accept-offer-status', `Aprobando token #${tokenId}...`, 'warning');
+            
+            const approveTx = await nftContract.approve(EXCHANGE_ADDRESS, tokenId);
+            await approveTx.wait();
+            logToOutput(`Token #${tokenId} aprobado`);
           }
+        } catch (error) {
+          console.error(`Error approving token #${tokenId}:`, error);
+          showStatus('accept-offer-status', `Error aprobando token #${tokenId}: ${error.message}`, 'error');
+          return;
+        }
+      }
+    }
     
     // Call acceptOffer function on the contract
     showStatus('accept-offer-status', 'Aceptando oferta...', 'warning');
