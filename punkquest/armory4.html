@@ -281,6 +281,7 @@
         <div class="network-notice" style="text-align: center; margin: 20px 0; padding: 10px; background-color: rgba(46, 229, 157, 0.1); border-radius: 5px; border: 1px solid var(--punk-secondary);">
             <p>⚠️ Esta aplicación funciona exclusivamente en la red <strong>BASE</strong> (L2 de Ethereum) ⚠️</p>
             <p style="font-size: 0.9rem; margin-top: 5px;">Al conectar tu wallet, se te solicitará cambiar a esta red si es necesario.</p>
+            <div id="rpcStatus" style="font-size: 0.8rem; margin-top: 5px; color: #999;"></div>
         </div>
         
         <div id="tokenBalance" class="token-balance"></div>
@@ -367,6 +368,7 @@
         const tokenBalance = document.getElementById('tokenBalance');
         const loadingOverlay = document.getElementById('loadingOverlay');
         const loadingText = document.getElementById('loadingText');
+        const rpcStatus = document.getElementById('rpcStatus');
         
         // Mapeo de chainId a nombres de red
         const networkNames = {
@@ -387,7 +389,61 @@
         
         // ChainId de BASE - IMPORTANTE: Esta app solo funciona en la red BASE
         const BASE_CHAIN_ID = 8453;
-        const BASE_RPC_URL = "https://mainnet.base.org";
+        
+        // Múltiples URLs de RPC para fallback
+        const BASE_RPC_URLS = [
+            "https://mainnet.base.org",
+            "https://base.publicnode.com",
+            "https://base.llamarpc.com",
+            "https://1rpc.io/base",
+            "https://base.meowrpc.com"
+        ];
+        
+        // Índice actual del RPC (se incrementará si hay errores de rate limit)
+        let currentRpcIndex = 0;
+        const BASE_RPC_URL = BASE_RPC_URLS[currentRpcIndex];
+        
+        // Función para cambiar a otro proveedor RPC en caso de error de límite de tasa
+        function switchRpcProvider() {
+            currentRpcIndex = (currentRpcIndex + 1) % BASE_RPC_URLS.length;
+            const newRpcUrl = BASE_RPC_URLS[currentRpcIndex];
+            console.log(`Cambiando a RPC alternativo: ${newRpcUrl} (índice ${currentRpcIndex})`);
+            
+            // Actualizar el indicador de estado de RPC
+            updateRpcStatus(`Cambiando a: ${newRpcUrl} (${currentRpcIndex + 1}/${BASE_RPC_URLS.length})`, false);
+            
+            // Crear un nuevo proveedor y actualizar contratos
+            if (window.ethereum) {
+                state.provider = new ethers.providers.Web3Provider(window.ethereum);
+                
+                if (state.signer) {
+                    state.signer = state.provider.getSigner();
+                    
+                    if (state.punkQuestContract) {
+                        state.punkQuestContract = new ethers.Contract(
+                            PUNK_QUEST_ADDRESS,
+                            punkQuestABI,
+                            state.provider
+                        ).connect(state.signer);
+                    }
+                    
+                    if (state.tokenContract) {
+                        state.tokenContract = new ethers.Contract(
+                            TOKEN_ADDRESS,
+                            erc20ABI,
+                            state.provider
+                        ).connect(state.signer);
+                    }
+                }
+            }
+            
+            // Después de 3 segundos, actualizar el estado a normal
+            setTimeout(() => {
+                updateRpcStatus();
+            }, 3000);
+            
+            return newRpcUrl;
+        }
         
         // Función para cambiar a la red BASE - Hacerla global
         // Esta función necesita ser accesible globalmente para el botón en el HTML
@@ -492,6 +548,17 @@
             if (!priceWei) return '...';
             return `${ethers.utils.formatUnits(priceWei, state.tokenDecimals)} ${state.tokenSymbol}`;
         }
+        
+        // Función para actualizar el estado del RPC
+        function updateRpcStatus(message = '', isError = false) {
+            if (!rpcStatus) return;
+            
+            rpcStatus.textContent = message || `RPC: ${BASE_RPC_URLS[currentRpcIndex]} (${currentRpcIndex + 1}/${BASE_RPC_URLS.length})`;
+            rpcStatus.style.color = isError ? '#ff3864' : '#999';
+        }
+        
+        // Mostrar el RPC actual
+        updateRpcStatus();
         
         // Funciones principales
         async function connectWallet() {
@@ -609,113 +676,249 @@
         async function updateTokenBalance() {
             if (!state.tokenContract || !state.account) return;
             
-            try {
-                // Verificar que estamos conectados a la red BASE antes de intentar obtener el balance
-                if (state.chainId !== BASE_CHAIN_ID) {
-                    console.warn('Red incorrecta. Se requiere BASE para obtener el balance.');
-                    tokenBalance.textContent = 'Cambia a la red BASE para ver tu balance';
+            const maxRetries = 3;
+            let retryCount = 0;
+            
+            while (retryCount < maxRetries) {
+                try {
+                    // Verificar que estamos conectados a la red BASE antes de intentar obtener el balance
+                    if (state.chainId !== BASE_CHAIN_ID) {
+                        console.warn('Red incorrecta. Se requiere BASE para obtener el balance.');
+                        tokenBalance.textContent = 'Cambia a la red BASE para ver tu balance';
+                        return;
+                    }
+                    
+                    // Usar dirección con checksum
+                    const safeAccount = safeAddress(state.account);
+                    
+                    // Llamada directa sin ENS
+                    const balanceResult = await state.tokenContract.balanceOf(safeAccount);
+                    const balance = ethers.BigNumber.from(balanceResult);
+                    tokenBalance.textContent = `Balance: ${formatPrice(balance)}`;
+                    
+                    // Si llegamos aquí, la operación fue exitosa
+                    return;
+                    
+                } catch (error) {
+                    console.error('Error al obtener balance:', error);
+                    
+                    // Verificar si es un error de límite de tasa
+                    const errorMessage = error.message || '';
+                    const errorData = error.error?.message || error.data?.error?.message || '';
+                    
+                    if (
+                        errorMessage.includes('rate limit') || 
+                        errorData.includes('rate limit') ||
+                        errorMessage.includes('429') ||
+                        errorData.includes('429') ||
+                        errorMessage.includes('exceeds the rate limit')
+                    ) {
+                        console.warn(`Detectado error de límite de tasa (intento ${retryCount + 1}/${maxRetries}). Cambiando de RPC...`);
+                        switchRpcProvider();
+                        retryCount++;
+                        
+                        // Esperar un poco antes de reintentar
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        continue;
+                    }
+                    
+                    // Si no es un error de límite de tasa, mostrar el error al usuario
+                    tokenBalance.textContent = 'Error al cargar balance. Verifica que estás en la red BASE.';
                     return;
                 }
-                
-                // Usar dirección con checksum
-                const safeAccount = safeAddress(state.account);
-                
-                // Llamada directa sin ENS
-                const balanceResult = await state.tokenContract.balanceOf(safeAccount);
-                const balance = ethers.BigNumber.from(balanceResult);
-                tokenBalance.textContent = `Balance: ${formatPrice(balance)}`;
-            } catch (error) {
-                console.error('Error al obtener balance:', error);
-                tokenBalance.textContent = 'Error al cargar balance. Verifica que estás en la red BASE.';
             }
+            
+            console.error(`Se agotaron los reintentos (${maxRetries}) al obtener balance`);
+            tokenBalance.textContent = 'Error al cargar balance. Se alcanzó el límite de peticiones. Intenta más tarde.';
         }
         
         async function getItemDetails(itemId) {
-            try {
-                if (!state.punkQuestContract) return null;
-                
-                // Verificar que estamos conectados a la red BASE antes de intentar obtener los detalles
-                if (state.chainId !== BASE_CHAIN_ID) {
-                    console.warn('Red incorrecta. Se requiere BASE para obtener detalles del ítem.');
+            const maxRetries = 3;
+            let retryCount = 0;
+            
+            while (retryCount < maxRetries) {
+                try {
+                    if (!state.punkQuestContract) return null;
+                    
+                    // Verificar que estamos conectados a la red BASE antes de intentar obtener los detalles
+                    if (state.chainId !== BASE_CHAIN_ID) {
+                        console.warn('Red incorrecta. Se requiere BASE para obtener detalles del ítem.');
+                        return null;
+                    }
+                    
+                    // Usar valores BigNumber para evitar errores de conversión
+                    const itemIdBN = ethers.BigNumber.from(itemId);
+                    
+                    // Llamada directa sin ENS
+                    const itemResult = await state.punkQuestContract.items(itemIdBN);
+                    
+                    return {
+                        price: ethers.BigNumber.from(itemResult.price || 0),
+                        bonus: ethers.BigNumber.from(itemResult.bonus || 0),
+                        durability: ethers.BigNumber.from(itemResult.durability || 0),
+                        exists: itemResult.exists || false,
+                        itemType: itemResult.itemType || 0,
+                        degradable: itemResult.degradable || false
+                    };
+                } catch (error) {
+                    console.error('Error al obtener detalles del ítem:', error);
+                    
+                    // Verificar si es un error de límite de tasa
+                    const errorMessage = error.message || '';
+                    const errorData = error.error?.message || error.data?.error?.message || '';
+                    
+                    if (
+                        errorMessage.includes('rate limit') || 
+                        errorData.includes('rate limit') ||
+                        errorMessage.includes('429') ||
+                        errorData.includes('429') ||
+                        errorMessage.includes('exceeds the rate limit')
+                    ) {
+                        console.warn(`Detectado error de límite de tasa (intento ${retryCount + 1}/${maxRetries}). Cambiando de RPC...`);
+                        switchRpcProvider();
+                        retryCount++;
+                        
+                        // Esperar un poco antes de reintentar
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        continue;
+                    }
+                    
+                    // Usar datos de respaldo del JSON en lugar de mostrar error
+                    const weaponData = weaponsData.find(w => w.id === parseInt(itemId));
+                    if (weaponData) {
+                        return {
+                            price: ethers.utils.parseUnits(weaponData.price, state.tokenDecimals),
+                            bonus: ethers.BigNumber.from(parseInt(weaponData.bonus) || 0),
+                            durability: ethers.BigNumber.from(weaponData.durability || 0),
+                            exists: true,
+                            itemType: 0, // Weapon
+                            degradable: true
+                        };
+                    }
                     return null;
                 }
-                
-                // Usar valores BigNumber para evitar errores de conversión
-                const itemIdBN = ethers.BigNumber.from(itemId);
-                
-                // Llamada directa sin ENS
-                const itemResult = await state.punkQuestContract.items(itemIdBN);
-                
-                return {
-                    price: ethers.BigNumber.from(itemResult.price || 0),
-                    bonus: ethers.BigNumber.from(itemResult.bonus || 0),
-                    durability: ethers.BigNumber.from(itemResult.durability || 0),
-                    exists: itemResult.exists || false,
-                    itemType: itemResult.itemType || 0,
-                    degradable: itemResult.degradable || false
-                };
-            } catch (error) {
-                console.error('Error al obtener detalles del ítem:', error);
-                // Usar datos de respaldo del JSON en lugar de mostrar error
-                const weaponData = weaponsData.find(w => w.id === parseInt(itemId));
-                if (weaponData) {
-                    return {
-                        price: ethers.utils.parseUnits(weaponData.price, state.tokenDecimals),
-                        bonus: ethers.BigNumber.from(parseInt(weaponData.bonus) || 0),
-                        durability: ethers.BigNumber.from(weaponData.durability || 0),
-                        exists: true,
-                        itemType: 0, // Weapon
-                        degradable: true
-                    };
-                }
-                return null;
             }
+            
+            console.error(`Se agotaron los reintentos (${maxRetries}) al obtener detalles del ítem`);
+            
+            // Usar datos de respaldo del JSON como último recurso
+            const weaponData = weaponsData.find(w => w.id === parseInt(itemId));
+            if (weaponData) {
+                return {
+                    price: ethers.utils.parseUnits(weaponData.price, state.tokenDecimals),
+                    bonus: ethers.BigNumber.from(parseInt(weaponData.bonus) || 0),
+                    durability: ethers.BigNumber.from(weaponData.durability || 0),
+                    exists: true,
+                    itemType: 0, // Weapon
+                    degradable: true
+                };
+            }
+            return null;
         }
         
         async function getInventoryCount(itemId) {
-            try {
-                if (!state.punkQuestContract || !state.account) return ethers.BigNumber.from(0);
-                
-                // Verificar que estamos conectados a la red BASE antes de intentar obtener el inventario
-                if (state.chainId !== BASE_CHAIN_ID) {
-                    console.warn('Red incorrecta. Se requiere BASE para obtener el inventario.');
+            const maxRetries = 3;
+            let retryCount = 0;
+            
+            while (retryCount < maxRetries) {
+                try {
+                    if (!state.punkQuestContract || !state.account) return ethers.BigNumber.from(0);
+                    
+                    // Verificar que estamos conectados a la red BASE antes de intentar obtener el inventario
+                    if (state.chainId !== BASE_CHAIN_ID) {
+                        console.warn('Red incorrecta. Se requiere BASE para obtener el inventario.');
+                        return ethers.BigNumber.from(0);
+                    }
+                    
+                    // Usar valores BigNumber para evitar errores de conversión
+                    const itemIdBN = ethers.BigNumber.from(itemId);
+                    
+                    // Usar dirección con checksum
+                    const safeAccount = safeAddress(state.account);
+                    
+                    // Llamada directa sin ENS
+                    const countResult = await state.punkQuestContract.inventory(safeAccount, itemIdBN);
+                    return ethers.BigNumber.from(countResult);
+                    
+                } catch (error) {
+                    console.error('Error al obtener cantidad en inventario:', error);
+                    
+                    // Verificar si es un error de límite de tasa
+                    const errorMessage = error.message || '';
+                    const errorData = error.error?.message || error.data?.error?.message || '';
+                    
+                    if (
+                        errorMessage.includes('rate limit') || 
+                        errorData.includes('rate limit') ||
+                        errorMessage.includes('429') ||
+                        errorData.includes('429') ||
+                        errorMessage.includes('exceeds the rate limit')
+                    ) {
+                        console.warn(`Detectado error de límite de tasa (intento ${retryCount + 1}/${maxRetries}). Cambiando de RPC...`);
+                        switchRpcProvider();
+                        retryCount++;
+                        
+                        // Esperar un poco antes de reintentar
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        continue;
+                    }
+                    
                     return ethers.BigNumber.from(0);
                 }
-                
-                // Usar valores BigNumber para evitar errores de conversión
-                const itemIdBN = ethers.BigNumber.from(itemId);
-                
-                // Usar dirección con checksum
-                const safeAccount = safeAddress(state.account);
-                
-                // Llamada directa sin ENS
-                const countResult = await state.punkQuestContract.inventory(safeAccount, itemIdBN);
-                return ethers.BigNumber.from(countResult);
-            } catch (error) {
-                console.error('Error al obtener cantidad en inventario:', error);
-                return ethers.BigNumber.from(0);
             }
+            
+            console.error(`Se agotaron los reintentos (${maxRetries}) al obtener inventario`);
+            return ethers.BigNumber.from(0);
         }
         
         async function checkAllowance(price, quantity) {
-            try {
-                if (!state.tokenContract || !state.account) return false;
-                
-                const totalCost = price.mul(ethers.BigNumber.from(quantity));
-                
-                // Usar direcciones con checksum
-                const safeAccount = safeAddress(state.account);
-                const safePunkQuestAddress = safeAddress(PUNK_QUEST_ADDRESS);
-                
-                // Llamada directa sin ENS
-                const allowanceResult = await state.tokenContract.allowance(safeAccount, safePunkQuestAddress);
-                const allowance = ethers.BigNumber.from(allowanceResult);
-                
-                return allowance.gte(totalCost);
-            } catch (error) {
-                console.error('Error al verificar allowance:', error);
-                return false;
+            const maxRetries = 3;
+            let retryCount = 0;
+            
+            while (retryCount < maxRetries) {
+                try {
+                    if (!state.tokenContract || !state.account) return false;
+                    
+                    const totalCost = price.mul(ethers.BigNumber.from(quantity));
+                    
+                    // Usar direcciones con checksum
+                    const safeAccount = safeAddress(state.account);
+                    const safePunkQuestAddress = safeAddress(PUNK_QUEST_ADDRESS);
+                    
+                    // Llamada directa sin ENS
+                    const allowanceResult = await state.tokenContract.allowance(safeAccount, safePunkQuestAddress);
+                    const allowance = ethers.BigNumber.from(allowanceResult);
+                    
+                    return allowance.gte(totalCost);
+                } catch (error) {
+                    console.error('Error al verificar allowance:', error);
+                    
+                    // Verificar si es un error de límite de tasa
+                    const errorMessage = error.message || '';
+                    const errorData = error.error?.message || error.data?.error?.message || '';
+                    
+                    if (
+                        errorMessage.includes('rate limit') || 
+                        errorData.includes('rate limit') ||
+                        errorMessage.includes('429') ||
+                        errorData.includes('429') ||
+                        errorMessage.includes('exceeds the rate limit')
+                    ) {
+                        console.warn(`Detectado error de límite de tasa (intento ${retryCount + 1}/${maxRetries}). Cambiando de RPC...`);
+                        switchRpcProvider();
+                        retryCount++;
+                        
+                        // Esperar un poco antes de reintentar
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        continue;
+                    }
+                    
+                    return false;
+                }
             }
+            
+            console.error(`Se agotaron los reintentos (${maxRetries}) al verificar allowance`);
+            return false;
         }
         
         async function approveTokens(itemId, quantity) {
