@@ -301,8 +301,19 @@
     
     <script>
         // Configuración de contratos - DIRECCIONES ACTUALIZADAS PARA BASE
-        const PUNK_QUEST_ADDRESS = "0x2BaC85c0deE0b243C2CcA3D5CBE95dA835934639"; // Dirección del contrato en BASE
-        const TOKEN_ADDRESS = "0x79B0a67a4045A7a8DC04b17456F4fe15339cBA34"; // Dirección del token ADRIAN en BASE
+        // Corregido – todas en minúsculas
+        const RAW_PUNK_QUEST_ADDRESS = "0x2bac85c0dee0b243c2cca3d5cbe95da835934639";
+        const RAW_TOKEN_ADDRESS      = "0x79b0a67a4045a7a8dc04b17456f4fe15339cba34";
+
+        // Helper → checksum bueno
+        // El checksum en direcciones Ethereum es un mecanismo de seguridad que detecta errores
+        // de escritura en direcciones, ya que algunos caracteres en la dirección final están en mayúsculas
+        // según un algoritmo específico. ethers.utils.getAddress convierte direcciones a su formato checksum
+        // para evitar errores en transferencias y validaciones.
+        const safeAddress = (addr) => ethers.utils.getAddress(addr.toLowerCase());
+
+        const PUNK_QUEST_ADDRESS = safeAddress(RAW_PUNK_QUEST_ADDRESS);
+        const TOKEN_ADDRESS      = safeAddress(RAW_TOKEN_ADDRESS);
         
         // ABIs simplificados para los contratos
         const punkQuestABI = [
@@ -521,7 +532,9 @@
                 // Configurar provider directamente desde window.ethereum para mayor compatibilidad
                 state.provider = new ethers.providers.Web3Provider(window.ethereum);
                 state.signer = state.provider.getSigner();
-                state.account = accounts[0];
+                
+                // Asegurar dirección con checksum
+                state.account = safeAddress(accounts[0]);
                 
                 // Inicializar contratos con provider y signer
                 state.punkQuestContract = new ethers.Contract(
@@ -604,8 +617,11 @@
                     return;
                 }
                 
+                // Usar dirección con checksum
+                const safeAccount = safeAddress(state.account);
+                
                 // Llamada directa sin ENS
-                const balanceResult = await state.tokenContract.balanceOf(state.account);
+                const balanceResult = await state.tokenContract.balanceOf(safeAccount);
                 const balance = ethers.BigNumber.from(balanceResult);
                 tokenBalance.textContent = `Balance: ${formatPrice(balance)}`;
             } catch (error) {
@@ -669,8 +685,11 @@
                 // Usar valores BigNumber para evitar errores de conversión
                 const itemIdBN = ethers.BigNumber.from(itemId);
                 
+                // Usar dirección con checksum
+                const safeAccount = safeAddress(state.account);
+                
                 // Llamada directa sin ENS
-                const countResult = await state.punkQuestContract.inventory(state.account, itemIdBN);
+                const countResult = await state.punkQuestContract.inventory(safeAccount, itemIdBN);
                 return ethers.BigNumber.from(countResult);
             } catch (error) {
                 console.error('Error al obtener cantidad en inventario:', error);
@@ -684,8 +703,12 @@
                 
                 const totalCost = price.mul(ethers.BigNumber.from(quantity));
                 
+                // Usar direcciones con checksum
+                const safeAccount = safeAddress(state.account);
+                const safePunkQuestAddress = safeAddress(PUNK_QUEST_ADDRESS);
+                
                 // Llamada directa sin ENS
-                const allowanceResult = await state.tokenContract.allowance(state.account, PUNK_QUEST_ADDRESS);
+                const allowanceResult = await state.tokenContract.allowance(safeAccount, safePunkQuestAddress);
                 const allowance = ethers.BigNumber.from(allowanceResult);
                 
                 return allowance.gte(totalCost);
