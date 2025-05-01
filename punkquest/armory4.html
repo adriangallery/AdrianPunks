@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PunkQuest Armería</title>
+    <style>
+        :root {
+            --punk-primary: #ff3864;
+            --punk-secondary: #2de2e6;
+            --punk-dark: #0d0221;
+            --punk-light: #f2f2f2;
+            --punk-accent: #9e43ff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: var(--punk-dark);
+            color: var(--punk-light);
+            line-height: 1.6;
+        }
+
+        .app {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 2px solid var(--punk-primary);
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: var(--punk-primary);
+            text-shadow: 0 0 10px rgba(255, 56, 100, 0.5);
+        }
+
+        .connect-button {
+            background-color: var(--punk-secondary);
+            color: var(--punk-dark);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Courier New', monospace;
+        }
+
+        .connect-button:hover {
+            background-color: var(--punk-accent);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(46, 229, 157, 0.4);
+        }
+
+        .wallet-address {
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            border: 1px solid var(--punk-secondary);
+        }
+
+        .message {
+            padding: 10px 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+
+        .error-message {
+            background-color: rgba(255, 56, 100, 0.2);
+            border-left: 4px solid var(--punk-primary);
+        }
+
+        .success-message {
+            background-color: rgba(46, 229, 157, 0.2);
+            border-left: 4px solid var(--punk-secondary);
+        }
+
+        .weapons-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+        }
+
+        .weapon-card {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid var(--punk-secondary);
+            padding-bottom: 20px;
+        }
+
+        .weapon-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(46, 229, 157, 0.2);
+        }
+
+        .weapon-image {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            border-bottom: 2px solid var(--punk-secondary);
+        }
+
+        .weapon-card h2 {
+            color: var(--punk-secondary);
+            padding: 15px;
+            text-align: center;
+            font-size: 1.8rem;
+        }
+
+        .weapon-description {
+            color: var(--punk-light);
+            padding: 0 15px 15px;
+            font-size: 0.9rem;
+            min-height: 80px;
+        }
+
+        .weapon-stats {
+            display: flex;
+            justify-content: space-around;
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            margin: 0 15px 15px;
+            border-radius: 5px;
+        }
+
+        .weapon-stats p {
+            font-size: 0.9rem;
+            color: var(--punk-secondary);
+        }
+
+        .owned-badge {
+            background-color: var(--punk-accent);
+            color: var(--punk-light);
+            text-align: center;
+            padding: 5px 10px;
+            margin: 15px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+
+        .quantity-selector {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 15px;
+            gap: 10px;
+        }
+
+        .quantity-selector input {
+            width: 60px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--punk-secondary);
+            color: var(--punk-light);
+            padding: 5px;
+            border-radius: 5px;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+        }
+
+        .approve-button, .buy-button {
+            background-color: var(--punk-primary);
+            color: var(--punk-light);
+            border: none;
+            padding: 10px 25px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: block;
+            margin: 0 auto;
+            font-family: 'Courier New', monospace;
+        }
+
+        .approve-button {
+            background-color: var(--punk-accent);
+        }
+
+        .approve-button:hover:not(:disabled), .buy-button:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(255, 56, 100, 0.3);
+        }
+
+        .approve-button:disabled, .buy-button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+
+        .token-balance {
+            color: var(--punk-secondary);
+            font-size: 0.9rem;
+            text-align: right;
+            margin-bottom: 10px;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(13, 2, 33, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 1000;
+        }
+
+        .loading-spinner {
+            border: 5px solid rgba(46, 229, 157, 0.3);
+            border-radius: 50%;
+            border-top: 5px solid var(--punk-secondary);
+            width: 50px;
+            height: 50px;
+            animation: spin 2s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        .loading-text {
+            color: var(--punk-secondary);
+            font-size: 1.2rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .app-header {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .weapons-container {
+                grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app" id="app">
+        <header class="app-header">
+            <h1>PunkQuest Armería</h1>
+            <button id="connectButton" class="connect-button">Conectar Wallet</button>
+            <div id="walletInfo" style="display: none;" class="wallet-address"></div>
+        </header>
+        
+        <div id="messageContainer"></div>
+        
+        <div id="tokenBalance" class="token-balance"></div>
+        
+        <div id="weaponsContainer" class="weapons-container">
+            <!-- Las armas se cargarán aquí dinámicamente -->
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner"></div>
+        <div class="loading-text" id="loadingText">Procesando...</div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- Ethers.js desde CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    
+    <script>
+        // Configuración de contratos
+        const PUNK_QUEST_ADDRESS = "0xYourPunkQuestContractAddress"; // ¡Actualiza esta dirección!
+        const TOKEN_ADDRESS = "0xYourTokenAddress"; // ¡Actualiza esta dirección!
+        
+        // ABIs simplificados para los contratos
+        const punkQuestABI = [
+            "function buyItem(uint256 id, uint256 qty) external",
+            "function items(uint256) view returns (uint256 price, uint256 bonus, uint256 durability, bool exists, uint8 itemType, bool degradable)",
+            "function inventory(address, uint256) view returns (uint256)"
+        ];
+        
+        const erc20ABI = [
+            "function approve(address spender, uint256 amount) external returns (bool)",
+            "function allowance(address owner, address spender) view returns (uint256)",
+            "function balanceOf(address account) view returns (uint256)",
+            "function symbol() view returns (string)"
+        ];
+        
+        // Datos de armas (de weapons.json)
+        const weaponsData = [
+            {
+                "id": 1,
+                "name": "Molotow",
+                "type": "Weapon",
+                "price": "100", 
+                "bonus": "1%",
+                "durability": 1,
+                "description": "Set the scene ablaze with one explosive burst! A one-time fiery boost to ignite the punk spirit.",
+                "image": "https://emerald-above-tick-265.mypinata.cloud/ipfs/bafybeicmy7xqtfe4xji4dcffiwkzodbotujre63wzavbbp7im673p2io5a/Molotow.png"
+            }
+        ];
+        
+        // Estado de la aplicación
+        let state = {
+            provider: null,
+            signer: null,
+            account: null,
+            punkQuestContract: null,
+            tokenContract: null,
+            tokenSymbol: 'ADRIAN',
+            isLoading: false
+        };
+        
+        // Referencias a elementos del DOM
+        const connectButton = document.getElementById('connectButton');
+        const walletInfo = document.getElementById('walletInfo');
+        const messageContainer = document.getElementById('messageContainer');
+        const weaponsContainer = document.getElementById('weaponsContainer');
+        const tokenBalance = document.getElementById('tokenBalance');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const loadingText = document.getElementById('loadingText');
+        
+        // Funciones de utilidad
+        function showMessage(message, isError = false) {
+            const messageElement = document.createElement('div');
+            messageElement.className = isError ? 'message error-message' : 'message success-message';
+            messageElement.textContent = message;
+            
+            messageContainer.innerHTML = '';
+            messageContainer.appendChild(messageElement);
+            
+            // Auto-eliminar después de 5 segundos
+            setTimeout(() => {
+                messageElement.remove();
+            }, 5000);
+        }
+        
+        function showLoading(text = 'Procesando...') {
+            state.isLoading = true;
+            loadingText.textContent = text;
+            loadingOverlay.style.display = 'flex';
+        }
+        
+        function hideLoading() {
+            state.isLoading = false;
+            loadingOverlay.style.display = 'none';
+        }
+        
+        function formatAddress(address) {
+            return `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+        }
+        
+        function formatPrice(priceWei) {
+            if (!priceWei) return '...';
+            return `${ethers.utils.formatUnits(priceWei, 18)} ${state.tokenSymbol}`;
+        }
+        
+        // Funciones principales
+        async function connectWallet() {
+            try {
+                showLoading('Conectando wallet...');
+                
+                if (!window.ethereum) {
+                    throw new Error("Por favor instala MetaMask para usar esta aplicación");
+                }
+                
+                // Configurar provider y signer
+                state.provider = new ethers.providers.Web3Provider(window.ethereum);
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                state.signer = state.provider.getSigner();
+                state.account = await state.signer.getAddress();
+                
+                // Inicializar contratos
+                state.punkQuestContract = new ethers.Contract(
+                    PUNK_QUEST_ADDRESS,
+                    punkQuestABI,
+                    state.signer
+                );
+                
+                state.tokenContract = new ethers.Contract(
+                    TOKEN_ADDRESS,
+                    erc20ABI,
+                    state.signer
+                );
+                
+                // Obtener símbolo del token
+                try {
+                    state.tokenSymbol = await state.tokenContract.symbol();
+                } catch (error) {
+                    console.log('Error al obtener símbolo del token, usando valor por defecto');
+                }
+                
+                // Actualizar UI
+                connectButton.style.display = 'none';
+                walletInfo.style.display = 'block';
+                walletInfo.textContent = `Wallet: ${formatAddress(state.account)}`;
+                
+                // Cargar balance
+                updateTokenBalance();
+                
+                // Cargar armas
+                renderWeapons();
+                
+                hideLoading();
+                showMessage(`Wallet conectada: ${formatAddress(state.account)}`);
+                
+                // Listener para cambios de cuenta
+                window.ethereum.on('accountsChanged', async (accounts) => {
+                    window.location.reload();
+                });
+                
+            } catch (error) {
+                hideLoading();
+                showMessage(`Error al conectar wallet: ${error.message}`, true);
+                console.error('Error al conectar wallet:', error);
+            }
+        }
+        
+        async function updateTokenBalance() {
+            if (!state.tokenContract || !state.account) return;
+            
+            try {
+                const balance = await state.tokenContract.balanceOf(state.account);
+                tokenBalance.textContent = `Balance: ${formatPrice(balance)}`;
+            } catch (error) {
+                console.error('Error al obtener balance:', error);
+            }
+        }
+        
+        async function getItemDetails(itemId) {
+            try {
+                if (!state.punkQuestContract) return null;
+                
+                const itemInfo = await state.punkQuestContract.items(itemId);
+                return {
+                    price: itemInfo.price,
+                    bonus: itemInfo.bonus,
+                    durability: itemInfo.durability,
+                    exists: itemInfo.exists,
+                    itemType: itemInfo.itemType,
+                    degradable: itemInfo.degradable
+                };
+            } catch (error) {
+                console.error('Error al obtener detalles del ítem:', error);
+                return null;
+            }
+        }
+        
+        async function getInventoryCount(itemId) {
+            try {
+                if (!state.punkQuestContract || !state.account) return 0;
+                
+                const count = await state.punkQuestContract.inventory(state.account, itemId);
+                return count;
+            } catch (error) {
+                console.error('Error al obtener cantidad en inventario:', error);
+                return 0;
+            }
+        }
+        
+        async function checkAllowance(price, quantity) {
+            try {
+                if (!state.tokenContract || !state.account) return false;
+                
+                const totalCost = price.mul(ethers.BigNumber.from(quantity));
+                const allowance = await state.tokenContract.allowance(state.account, PUNK_QUEST_ADDRESS);
+                return allowance.gte(totalCost);
+            } catch (error) {
+                console.error('Error al verificar allowance:', error);
+                return false;
+            }
+        }
+        
+        async function approveTokens(itemId, quantity) {
+            try {
+                showLoading('Aprobando tokens...');
+                
+                const itemDetails = await getItemDetails(itemId);
+                if (!itemDetails) throw new Error('No se pudieron obtener detalles del ítem');
+                
+                const totalCost = itemDetails.price.mul(ethers.BigNumber.from(quantity));
+                
+                const tx = await state.tokenContract.approve(PUNK_QUEST_ADDRESS, totalCost);
+                await tx.wait();
+                
+                hideLoading();
+                showMessage('Tokens aprobados correctamente');
+                return true;
+            } catch (error) {
+                hideLoading();
+                showMessage(`Error al aprobar tokens: ${error.message}`, true);
+                console.error('Error al aprobar tokens:', error);
+                return false;
+            }
+        }
+        
+        async function buyItem(itemId, quantity) {
+            try {
+                showLoading('Comprando ítem...');
+                
+                const itemDetails = await getItemDetails(itemId);
+                if (!itemDetails) throw new Error('No se pudieron obtener detalles del ítem');
+                
+                const totalCost = itemDetails.price.mul(ethers.BigNumber.from(quantity));
+                
+                // Verificar si ya se ha dado allowance
+                const hasAllowance = await checkAllowance(itemDetails.price, quantity);
+                
+                if (!hasAllowance) {
+                    showMessage('Se requiere aprobación de tokens primero', true);
+                    hideLoading();
+                    return false;
+                }
+                
+                const tx = await state.punkQuestContract.buyItem(itemId, quantity);
+                await tx.wait();
+                
+                // Actualizar UI
+                updateTokenBalance();
+                renderWeapons(); // Re-renderizar para actualizar inventario
+                
+                hideLoading();
+                showMessage(`¡Compra exitosa! Has adquirido ${quantity} unidad(es) del arma.`);
+                return true;
+            } catch (error) {
+                hideLoading();
+                showMessage(`Error al comprar ítem: ${error.message}`, true);
+                console.error('Error al comprar ítem:', error);
+                return false;
+            }
+        }
+        
+        async function renderWeapons() {
+            weaponsContainer.innerHTML = '';
+            
+            for (const weapon of weaponsData) {
+                // Crear contenedor de tarjeta
+                const weaponCard = document.createElement('div');
+                weaponCard.className = 'weapon-card';
+                
+                // Obtener datos del ítem desde el contrato
+                let itemDetails = null;
+                let inventoryCount = 0;
+                let hasAllowance = false;
+                
+                if (state.punkQuestContract && state.account) {
+                    itemDetails = await getItemDetails(weapon.id);
+                    inventoryCount = await getInventoryCount(weapon.id);
+                    
+                    if (itemDetails) {
+                        hasAllowance = await checkAllowance(itemDetails.price, 1);
+                    }
+                }
+                
+                // Construir contenido de tarjeta
+                weaponCard.innerHTML = `
+                    <img src="${weapon.image}" alt="${weapon.name}" class="weapon-image">
+                    <h2>${weapon.name}</h2>
+                    <p class="weapon-description">${weapon.description}</p>
+                    
+                    <div class="weapon-stats">
+                        <p>Precio: ${itemDetails ? formatPrice(itemDetails.price) : weapon.price}</p>
+                        <p>Bonus: ${weapon.bonus}</p>
+                        <p>Durabilidad: ${weapon.durability}</p>
+                    </div>
+                `;
+                
+                // Mostrar cantidad en inventario si tiene
+                if (inventoryCount && inventoryCount.gt(0)) {
+                    const ownedBadge = document.createElement('div');
+                    ownedBadge.className = 'owned-badge';
+                    ownedBadge.textContent = `En inventario: ${inventoryCount.toString()}`;
+                    weaponCard.appendChild(ownedBadge);
+                }
+                
+                // Selector de cantidad
+                const quantitySelector = document.createElement('div');
+                quantitySelector.className = 'quantity-selector';
+                quantitySelector.innerHTML = `
+                    <label for="quantity-${weapon.id}">Cantidad:</label>
+                    <input 
+                        type="number" 
+                        id="quantity-${weapon.id}" 
+                        min="1" 
+                        value="1"
+                        ${state.isLoading ? 'disabled' : ''}
+                    >
+                `;
+                weaponCard.appendChild(quantitySelector);
+                
+                // Botón aprobar/comprar
+                const actionButton = document.createElement('button');
+                
+                if (!state.account) {
+                    actionButton.textContent = 'Conecta tu wallet primero';
+                    actionButton.disabled = true;
+                    actionButton.className = 'buy-button';
+                } else if (!hasAllowance) {
+                    actionButton.textContent = `Aprobar ${state.tokenSymbol}`;
+                    actionButton.className = 'approve-button';
+                    actionButton.onclick = async () => {
+                        const quantity = parseInt(document.getElementById(`quantity-${weapon.id}`).value) || 1;
+                        await approveTokens(weapon.id, quantity);
+                        renderWeapons(); // Actualizar UI después de aprobar
+                    };
+                } else {
+                    actionButton.textContent = 'Comprar';
+                    actionButton.className = 'buy-button';
+                    actionButton.onclick = async () => {
+                        const quantity = parseInt(document.getElementById(`quantity-${weapon.id}`).value) || 1;
+                        await buyItem(weapon.id, quantity);
+                    };
+                }
+                
+                if (state.isLoading) {
+                    actionButton.disabled = true;
+                }
+                
+                weaponCard.appendChild(actionButton);
+                
+                // Añadir tarjeta al contenedor
+                weaponsContainer.appendChild(weaponCard);
+            }
+        }
+        
+        // Event Listeners
+        connectButton.addEventListener('click', connectWallet);
+        
+        // Inicializar aplicación
+        function init() {
+            renderWeapons();
+        }
+        
+        // Iniciar la aplicación
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
