@@ -300,9 +300,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     
     <script>
-        // Configuración de contratos - REEMPLAZA ESTAS DIRECCIONES CON LAS REALES
-        const PUNK_QUEST_ADDRESS = "0x123456789abcdef123456789abcdef123456789a"; // ¡Actualiza esta dirección!
-        const TOKEN_ADDRESS = "0xabcdef123456789abcdef123456789abcdef1234"; // ¡Actualiza esta dirección!
+        // Configuración de contratos - DIRECCIONES ACTUALIZADAS PARA BASE
+        const PUNK_QUEST_ADDRESS = "0x2BaC85c0deE0b243C2CcA3D5CBE95dA835934639"; // Dirección del contrato en BASE
+        const TOKEN_ADDRESS = "0x79B0a67a4045A7a8DC04b17456F4fe15339cBA34"; // Dirección del token ADRIAN en BASE
         
         // ABIs simplificados para los contratos
         const punkQuestABI = [
@@ -378,31 +378,31 @@
         const BASE_CHAIN_ID = 8453;
         const BASE_RPC_URL = "https://mainnet.base.org";
         
-        // Funciones de utilidad
-        function showMessage(message, isError = false) {
-            const messageElement = document.createElement('div');
-            messageElement.className = isError ? 'message error-message' : 'message success-message';
-            messageElement.textContent = message;
-            
-            messageContainer.innerHTML = '';
-            messageContainer.appendChild(messageElement);
-            
-            // Auto-eliminar después de 5 segundos
-            setTimeout(() => {
-                messageElement.remove();
-            }, 5000);
-        }
-        
-        // Función para cambiar a la red BASE
-        async function switchToBaseNetwork() {
-            if (!window.ethereum) return false;
+        // Función para cambiar a la red BASE - Hacerla global
+        // Esta función necesita ser accesible globalmente para el botón en el HTML
+        window.switchToBaseNetwork = async function() {
+            if (!window.ethereum) {
+                showMessage("No se detectó MetaMask. Por favor instala MetaMask para cambiar de red.", true);
+                return false;
+            }
             
             try {
+                showLoading('Cambiando a red BASE...');
+                
                 // Intentar cambiar a BASE
                 await window.ethereum.request({
                     method: 'wallet_switchEthereumChain',
                     params: [{ chainId: "0x" + BASE_CHAIN_ID.toString(16) }]
                 });
+                
+                hideLoading();
+                showMessage("¡Conectado a la red BASE con éxito!");
+                
+                // Recargar la página después del cambio para actualizar el estado
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+                
                 return true;
             } catch (switchError) {
                 // Si el error es 4902, la red no está añadida en MetaMask
@@ -422,15 +422,44 @@
                                 blockExplorerUrls: ['https://basescan.org']
                             }]
                         });
+                        
+                        hideLoading();
+                        showMessage("Red BASE añadida. Conectando...");
+                        
+                        // Recargar la página después de añadir la red
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                        
                         return true;
                     } catch (addError) {
+                        hideLoading();
                         console.error('Error al añadir la red BASE', addError);
+                        showMessage("Error al añadir la red BASE: " + (addError.message || "Desconocido"), true);
                         return false;
                     }
                 }
+                
+                hideLoading();
                 console.error('Error al cambiar a la red BASE', switchError);
+                showMessage("Error al cambiar a la red BASE: " + (switchError.message || "Desconocido"), true);
                 return false;
             }
+        };
+        
+        // Funciones de utilidad
+        function showMessage(message, isError = false) {
+            const messageElement = document.createElement('div');
+            messageElement.className = isError ? 'message error-message' : 'message success-message';
+            messageElement.textContent = message;
+            
+            messageContainer.innerHTML = '';
+            messageContainer.appendChild(messageElement);
+            
+            // Auto-eliminar después de 5 segundos
+            setTimeout(() => {
+                messageElement.remove();
+            }, 5000);
         }
         
         function showLoading(text = 'Procesando...') {
@@ -489,46 +518,35 @@
                     state.networkName = networkNames[newChainId] || `Red ${newChainId}`;
                 }
                 
-                // Configurar provider con una red específica para evitar problemas de ENS
-                // Usamos JsonRpcProvider directo en lugar de Web3Provider
-                const jsonRpcUrl = window.ethereum.providers?.[0]?.rpcUrl || 
-                                  BASE_RPC_URL; // Fallback a BASE
-                                  
-                state.provider = new ethers.providers.JsonRpcProvider(jsonRpcUrl);
-                
-                // Creamos un proveedor de solo lectura para evitar problemas de ENS
+                // Configurar provider directamente desde window.ethereum para mayor compatibilidad
+                state.provider = new ethers.providers.Web3Provider(window.ethereum);
+                state.signer = state.provider.getSigner();
                 state.account = accounts[0];
                 
-                // Inicializar contratos - Usamos un método alternativo para crear contratos
-                const punkQuestInterface = new ethers.utils.Interface(punkQuestABI);
+                // Inicializar contratos con provider y signer
                 state.punkQuestContract = new ethers.Contract(
                     PUNK_QUEST_ADDRESS,
-                    punkQuestInterface.format(ethers.utils.FormatTypes.full),
+                    punkQuestABI,
                     state.provider
                 );
                 
-                const erc20Interface = new ethers.utils.Interface(erc20ABI);
                 state.tokenContract = new ethers.Contract(
                     TOKEN_ADDRESS,
-                    erc20Interface.format(ethers.utils.FormatTypes.full),
+                    erc20ABI,
                     state.provider
                 );
                 
-                // Para operaciones de escritura, necesitamos un signer
-                if (accounts.length > 0) {
-                    state.signer = new ethers.providers.Web3Provider(window.ethereum).getSigner();
-                    
-                    // Reemplazamos contratos con versiones que incluyen signer
-                    state.punkQuestContract = state.punkQuestContract.connect(state.signer);
-                    state.tokenContract = state.tokenContract.connect(state.signer);
-                }
+                // Conectar contratos con signer para operaciones de escritura
+                state.punkQuestContract = state.punkQuestContract.connect(state.signer);
+                state.tokenContract = state.tokenContract.connect(state.signer);
                 
                 // Obtener símbolo y decimales del token
                 try {
                     state.tokenSymbol = await state.tokenContract.symbol();
                     state.tokenDecimals = await state.tokenContract.decimals();
                 } catch (error) {
-                    console.warn('Error al obtener información del token, usando valores predeterminados');
+                    console.warn('Error al obtener información del token, usando valores predeterminados', error);
+                    // Mantener valores predeterminados
                 }
                 
                 // Actualizar UI
@@ -579,19 +597,32 @@
             if (!state.tokenContract || !state.account) return;
             
             try {
+                // Verificar que estamos conectados a la red BASE antes de intentar obtener el balance
+                if (state.chainId !== BASE_CHAIN_ID) {
+                    console.warn('Red incorrecta. Se requiere BASE para obtener el balance.');
+                    tokenBalance.textContent = 'Cambia a la red BASE para ver tu balance';
+                    return;
+                }
+                
                 // Llamada directa sin ENS
                 const balanceResult = await state.tokenContract.balanceOf(state.account);
                 const balance = ethers.BigNumber.from(balanceResult);
                 tokenBalance.textContent = `Balance: ${formatPrice(balance)}`;
             } catch (error) {
                 console.error('Error al obtener balance:', error);
-                tokenBalance.textContent = 'Error al cargar balance';
+                tokenBalance.textContent = 'Error al cargar balance. Verifica que estás en la red BASE.';
             }
         }
         
         async function getItemDetails(itemId) {
             try {
                 if (!state.punkQuestContract) return null;
+                
+                // Verificar que estamos conectados a la red BASE antes de intentar obtener los detalles
+                if (state.chainId !== BASE_CHAIN_ID) {
+                    console.warn('Red incorrecta. Se requiere BASE para obtener detalles del ítem.');
+                    return null;
+                }
                 
                 // Usar valores BigNumber para evitar errores de conversión
                 const itemIdBN = ethers.BigNumber.from(itemId);
@@ -609,7 +640,18 @@
                 };
             } catch (error) {
                 console.error('Error al obtener detalles del ítem:', error);
-                // En vez de mostrar mensaje de error, simplemente retornamos null para usar fallback
+                // Usar datos de respaldo del JSON en lugar de mostrar error
+                const weaponData = weaponsData.find(w => w.id === parseInt(itemId));
+                if (weaponData) {
+                    return {
+                        price: ethers.utils.parseUnits(weaponData.price, state.tokenDecimals),
+                        bonus: ethers.BigNumber.from(parseInt(weaponData.bonus) || 0),
+                        durability: ethers.BigNumber.from(weaponData.durability || 0),
+                        exists: true,
+                        itemType: 0, // Weapon
+                        degradable: true
+                    };
+                }
                 return null;
             }
         }
@@ -617,6 +659,12 @@
         async function getInventoryCount(itemId) {
             try {
                 if (!state.punkQuestContract || !state.account) return ethers.BigNumber.from(0);
+                
+                // Verificar que estamos conectados a la red BASE antes de intentar obtener el inventario
+                if (state.chainId !== BASE_CHAIN_ID) {
+                    console.warn('Red incorrecta. Se requiere BASE para obtener el inventario.');
+                    return ethers.BigNumber.from(0);
+                }
                 
                 // Usar valores BigNumber para evitar errores de conversión
                 const itemIdBN = ethers.BigNumber.from(itemId);
@@ -733,6 +781,28 @@
                 return;
             }
             
+            // Verificar que estamos en la red correcta
+            if (state.chainId !== BASE_CHAIN_ID) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'error-message';
+                errorDiv.style.width = '100%';
+                errorDiv.style.textAlign = 'center';
+                errorDiv.style.padding = '20px';
+                errorDiv.style.margin = '20px 0';
+                errorDiv.innerHTML = `
+                    <h3>Error de Red</h3>
+                    <p>Debes estar conectado a la red BASE para ver tus armas.</p>
+                    <p>Red actual: ${state.networkName || 'Desconocida'}</p>
+                    <button onclick="switchToBaseNetwork()" class="connect-button" style="margin-top: 10px;">
+                        Cambiar a BASE
+                    </button>
+                `;
+                weaponsContainer.appendChild(errorDiv);
+                return;
+            }
+            
+            let errorCount = 0;
+            
             // Con wallet conectada, intentar obtener datos adicionales
             for (const weapon of weaponsData) {
                 // Crear contenedor de tarjeta
@@ -749,13 +819,41 @@
                         itemDetails = await getItemDetails(weapon.id);
                     } catch (error) {
                         console.warn(`No se pudieron obtener detalles del ítem ${weapon.id} del contrato`);
+                        errorCount++;
                     }
                     
                     try {
                         inventoryCount = await getInventoryCount(weapon.id);
                     } catch (error) {
                         console.warn(`No se pudo obtener cantidad en inventario para el ítem ${weapon.id}`);
+                        errorCount++;
                     }
+                }
+                
+                // Si hay demasiados errores, mostrar mensaje de fallback
+                if (errorCount >= 3) {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'error-message';
+                    errorDiv.style.width = '100%';
+                    errorDiv.style.textAlign = 'center';
+                    errorDiv.style.padding = '20px';
+                    errorDiv.style.margin = '20px 0';
+                    errorDiv.innerHTML = `
+                        <h3>Error de Conexión</h3>
+                        <p>No se pudieron cargar los datos de los contratos inteligentes en la red BASE.</p>
+                        <p>Por favor, verifica que:</p>
+                        <ul style="text-align: left; margin: 10px 0; padding-left: 40px;">
+                            <li>Estás conectado a la red BASE (L2 de Ethereum)</li>
+                            <li>Las direcciones de contratos son correctas</li>
+                            <li>Tu wallet tiene suficiente ETH para pagar gas</li>
+                        </ul>
+                        <button onclick="window.location.reload()" class="connect-button" style="margin-top: 10px;">
+                            Recargar Página
+                        </button>
+                    `;
+                    weaponsContainer.innerHTML = '';
+                    weaponsContainer.appendChild(errorDiv);
+                    return;
                 }
                 
                 // Precio por defecto si no se puede obtener del contrato
