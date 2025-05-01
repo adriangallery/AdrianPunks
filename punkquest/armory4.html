@@ -209,6 +209,16 @@
             margin-bottom: 10px;
         }
 
+        .network-info {
+            color: var(--punk-secondary);
+            font-size: 0.9rem;
+            padding: 5px 10px;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
         .loading-overlay {
             position: fixed;
             top: 0;
@@ -259,8 +269,11 @@
     <div class="app" id="app">
         <header class="app-header">
             <h1>PunkQuest Armería</h1>
-            <button id="connectButton" class="connect-button">Conectar Wallet</button>
-            <div id="walletInfo" style="display: none;" class="wallet-address"></div>
+            <div>
+                <button id="connectButton" class="connect-button">Conectar Wallet</button>
+                <div id="walletInfo" style="display: none;" class="wallet-address"></div>
+                <div id="networkInfo" class="network-info" style="display: none;"></div>
+            </div>
         </header>
         
         <div id="messageContainer"></div>
@@ -322,17 +335,35 @@
             punkQuestContract: null,
             tokenContract: null,
             tokenSymbol: 'ADRIAN',
-            isLoading: false
+            isLoading: false,
+            chainId: null,
+            networkName: null
         };
         
         // Referencias a elementos del DOM
         const connectButton = document.getElementById('connectButton');
         const walletInfo = document.getElementById('walletInfo');
+        const networkInfo = document.getElementById('networkInfo');
         const messageContainer = document.getElementById('messageContainer');
         const weaponsContainer = document.getElementById('weaponsContainer');
         const tokenBalance = document.getElementById('tokenBalance');
         const loadingOverlay = document.getElementById('loadingOverlay');
         const loadingText = document.getElementById('loadingText');
+        
+        // Mapeo de chainId a nombres de red
+        const networkNames = {
+            1: 'Ethereum Mainnet',
+            3: 'Ropsten Testnet',
+            4: 'Rinkeby Testnet',
+            5: 'Goerli Testnet',
+            42: 'Kovan Testnet',
+            56: 'Binance Smart Chain',
+            97: 'BSC Testnet',
+            137: 'Polygon Mainnet',
+            80001: 'Mumbai Testnet',
+            31337: 'Hardhat Local',
+            1337: 'Local Testnet'
+        };
         
         // Funciones de utilidad
         function showMessage(message, isError = false) {
@@ -378,8 +409,15 @@
                     throw new Error("Por favor instala MetaMask para usar esta aplicación");
                 }
                 
-                // Configurar provider y signer
-                state.provider = new ethers.providers.Web3Provider(window.ethereum);
+                // Configurar provider y signer con cadena específica 
+                state.provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+                
+                // Obtener información de la red
+                const network = await state.provider.getNetwork();
+                state.chainId = network.chainId;
+                state.networkName = networkNames[network.chainId] || `Red desconocida (ChainID: ${network.chainId})`;
+                
+                // Solicitar cuentas
                 await window.ethereum.request({ method: 'eth_requestAccounts' });
                 state.signer = state.provider.getSigner();
                 state.account = await state.signer.getAddress();
@@ -409,6 +447,9 @@
                 walletInfo.style.display = 'block';
                 walletInfo.textContent = `Wallet: ${formatAddress(state.account)}`;
                 
+                networkInfo.style.display = 'block';
+                networkInfo.textContent = state.networkName;
+                
                 // Cargar balance
                 updateTokenBalance();
                 
@@ -420,6 +461,11 @@
                 
                 // Listener para cambios de cuenta
                 window.ethereum.on('accountsChanged', async (accounts) => {
+                    window.location.reload();
+                });
+                
+                // Listener para cambios de red
+                window.ethereum.on('chainChanged', (chainId) => {
                     window.location.reload();
                 });
                 
@@ -438,6 +484,7 @@
                 tokenBalance.textContent = `Balance: ${formatPrice(balance)}`;
             } catch (error) {
                 console.error('Error al obtener balance:', error);
+                tokenBalance.textContent = 'Error al cargar balance';
             }
         }
         
@@ -456,6 +503,7 @@
                 };
             } catch (error) {
                 console.error('Error al obtener detalles del ítem:', error);
+                showMessage(`Error al obtener detalles del ítem: ${error.message}`, true);
                 return null;
             }
         }
@@ -489,10 +537,21 @@
             try {
                 showLoading('Aprobando tokens...');
                 
+                // Si no tenemos detalles del ítem, usamos un valor por defecto convertido a wei
+                let totalCost;
                 const itemDetails = await getItemDetails(itemId);
-                if (!itemDetails) throw new Error('No se pudieron obtener detalles del ítem');
                 
-                const totalCost = itemDetails.price.mul(ethers.BigNumber.from(quantity));
+                if (itemDetails) {
+                    totalCost = itemDetails.price.mul(ethers.BigNumber.from(quantity));
+                } else {
+                    // Convertir el precio de string a wei como fallback
+                    const defaultPrice = ethers.utils.parseUnits(
+                        weaponsData.find(w => w.id === itemId)?.price || "100", 
+                        18
+                    );
+                    totalCost = defaultPrice.mul(ethers.BigNumber.from(quantity));
+                    showMessage("Usando precio predeterminado del JSON para la aprobación", false);
+                }
                 
                 const tx = await state.tokenContract.approve(PUNK_QUEST_ADDRESS, totalCost);
                 await tx.wait();
@@ -512,20 +571,22 @@
             try {
                 showLoading('Comprando ítem...');
                 
-                const itemDetails = await getItemDetails(itemId);
-                if (!itemDetails) throw new Error('No se pudieron obtener detalles del ítem');
-                
-                const totalCost = itemDetails.price.mul(ethers.BigNumber.from(quantity));
-                
-                // Verificar si ya se ha dado allowance
-                const hasAllowance = await checkAllowance(itemDetails.price, quantity);
-                
-                if (!hasAllowance) {
-                    showMessage('Se requiere aprobación de tokens primero', true);
-                    hideLoading();
-                    return false;
+                // Intentar obtener detalles del ítem (para verificación)
+                let isApproved = false;
+                try {
+                    const itemDetails = await getItemDetails(itemId);
+                    if (itemDetails) {
+                        isApproved = await checkAllowance(itemDetails.price, quantity);
+                    }
+                } catch (error) {
+                    console.warn('No se pudieron verificar los detalles, pero intentaremos comprar de todos modos');
                 }
                 
+                if (!isApproved) {
+                    showMessage('Es posible que necesites aprobar tokens primero', true);
+                }
+                
+                // Intentar comprar de todos modos
                 const tx = await state.punkQuestContract.buyItem(itemId, quantity);
                 await tx.wait();
                 
@@ -558,11 +619,24 @@
                 let hasAllowance = false;
                 
                 if (state.punkQuestContract && state.account) {
-                    itemDetails = await getItemDetails(weapon.id);
-                    inventoryCount = await getInventoryCount(weapon.id);
+                    try {
+                        itemDetails = await getItemDetails(weapon.id);
+                    } catch (error) {
+                        console.warn(`No se pudieron obtener detalles del ítem ${weapon.id} del contrato`);
+                    }
+                    
+                    try {
+                        inventoryCount = await getInventoryCount(weapon.id);
+                    } catch (error) {
+                        console.warn(`No se pudo obtener cantidad en inventario para el ítem ${weapon.id}`);
+                    }
                     
                     if (itemDetails) {
-                        hasAllowance = await checkAllowance(itemDetails.price, 1);
+                        try {
+                            hasAllowance = await checkAllowance(itemDetails.price, 1);
+                        } catch (error) {
+                            console.warn(`No se pudo verificar allowance para el ítem ${weapon.id}`);
+                        }
                     }
                 }
                 
@@ -573,14 +647,14 @@
                     <p class="weapon-description">${weapon.description}</p>
                     
                     <div class="weapon-stats">
-                        <p>Precio: ${itemDetails ? formatPrice(itemDetails.price) : weapon.price}</p>
+                        <p>Precio: ${itemDetails ? formatPrice(itemDetails.price) : (weapon.price + ' ' + state.tokenSymbol)}</p>
                         <p>Bonus: ${weapon.bonus}</p>
                         <p>Durabilidad: ${weapon.durability}</p>
                     </div>
                 `;
                 
                 // Mostrar cantidad en inventario si tiene
-                if (inventoryCount && inventoryCount.gt(0)) {
+                if (inventoryCount && inventoryCount.gt && inventoryCount.gt(0)) {
                     const ownedBadge = document.createElement('div');
                     ownedBadge.className = 'owned-badge';
                     ownedBadge.textContent = `En inventario: ${inventoryCount.toString()}`;
@@ -643,10 +717,15 @@
         // Inicializar aplicación
         function init() {
             renderWeapons();
+            
+            // Auto-conectar si ya hay una wallet conectada
+            if (window.ethereum && window.ethereum.selectedAddress) {
+                connectWallet();
+            }
         }
         
         // Iniciar la aplicación
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
-</html>
+</html><!-- Update: $(date) -->
