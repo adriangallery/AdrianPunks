@@ -278,6 +278,11 @@
         
         <div id="messageContainer"></div>
         
+        <div class="network-notice" style="text-align: center; margin: 20px 0; padding: 10px; background-color: rgba(46, 229, 157, 0.1); border-radius: 5px; border: 1px solid var(--punk-secondary);">
+            <p>⚠️ Esta aplicación funciona exclusivamente en la red <strong>BASE</strong> (L2 de Ethereum) ⚠️</p>
+            <p style="font-size: 0.9rem; margin-top: 5px;">Al conectar tu wallet, se te solicitará cambiar a esta red si es necesario.</p>
+        </div>
+        
         <div id="tokenBalance" class="token-balance"></div>
         
         <div id="weaponsContainer" class="weapons-container">
@@ -363,9 +368,15 @@
             97: 'BSC Testnet',
             137: 'Polygon Mainnet',
             80001: 'Mumbai Testnet',
+            8453: 'Base Mainnet',
+            84531: 'Base Goerli Testnet',
             31337: 'Hardhat Local',
             1337: 'Local Testnet'
         };
+        
+        // ChainId de BASE - IMPORTANTE: Esta app solo funciona en la red BASE
+        const BASE_CHAIN_ID = 8453;
+        const BASE_RPC_URL = "https://mainnet.base.org";
         
         // Funciones de utilidad
         function showMessage(message, isError = false) {
@@ -380,6 +391,46 @@
             setTimeout(() => {
                 messageElement.remove();
             }, 5000);
+        }
+        
+        // Función para cambiar a la red BASE
+        async function switchToBaseNetwork() {
+            if (!window.ethereum) return false;
+            
+            try {
+                // Intentar cambiar a BASE
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: "0x" + BASE_CHAIN_ID.toString(16) }]
+                });
+                return true;
+            } catch (switchError) {
+                // Si el error es 4902, la red no está añadida en MetaMask
+                if (switchError.code === 4902) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: "0x" + BASE_CHAIN_ID.toString(16),
+                                chainName: 'Base Mainnet',
+                                nativeCurrency: {
+                                    name: 'ETH',
+                                    symbol: 'ETH',
+                                    decimals: 18
+                                },
+                                rpcUrls: [BASE_RPC_URL],
+                                blockExplorerUrls: ['https://basescan.org']
+                            }]
+                        });
+                        return true;
+                    } catch (addError) {
+                        console.error('Error al añadir la red BASE', addError);
+                        return false;
+                    }
+                }
+                console.error('Error al cambiar a la red BASE', switchError);
+                return false;
+            }
         }
         
         function showLoading(text = 'Procesando...') {
@@ -423,10 +474,25 @@
                 state.chainId = chainId;
                 state.networkName = networkNames[chainId] || `Red ${chainId}`;
                 
+                // Verificar si el usuario está en la red BASE y solicitar cambio si es necesario
+                if (chainId !== BASE_CHAIN_ID) {
+                    showMessage("Esta aplicación requiere conectarse a la red BASE (L2 de Ethereum). Solicitando cambio de red...", false);
+                    const switched = await switchToBaseNetwork();
+                    if (!switched) {
+                        throw new Error("Para usar esta aplicación, debes conectarte a la red BASE (L2 de Ethereum)");
+                    }
+                    
+                    // Actualizar chainId después del cambio
+                    const newChainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
+                    const newChainId = parseInt(newChainIdHex, 16);
+                    state.chainId = newChainId;
+                    state.networkName = networkNames[newChainId] || `Red ${newChainId}`;
+                }
+                
                 // Configurar provider con una red específica para evitar problemas de ENS
                 // Usamos JsonRpcProvider directo en lugar de Web3Provider
                 const jsonRpcUrl = window.ethereum.providers?.[0]?.rpcUrl || 
-                                  "https://rpc-mainnet.maticvigil.com"; // Fallback a Polygon
+                                  BASE_RPC_URL; // Fallback a BASE
                                   
                 state.provider = new ethers.providers.JsonRpcProvider(jsonRpcUrl);
                 
