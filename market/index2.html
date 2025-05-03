@@ -523,21 +523,22 @@
     const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
     const CHAIN_ID = 8453;
 
-    let nftData = [];
-    let provider, signer, userAccount;
-    let tokenContract, nftContract, marketplaceContract, newMarketplaceContract;
+    // Variables globales - Renombramos provider para evitar conflictos con menu.js
+    let marketProvider, marketSigner, userAccount;
+    let nftContract, marketplaceContract, newMarketplaceContract, offerManagerContract, activityLoggerContract;
     let readProvider; // Provider de Infura para lecturas
     let tokenReadContract, nftReadContract, marketplaceReadContract, newMarketplaceReadContract;
     let currentSortOrder = 'asc'; 
     let currentCollectionJson = 'adrianpunks.json'; // Variable para controlar la colección mostrada
+    let nftData = []; // Datos de NFT cargados desde el archivo JSON
 
-    // Direcciones de contratos y ABIs
-    const TOKEN_ADDRESS  = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
-    const NFT_ADDRESS    = "0xCDafa7E57d8EaFc2f8ec6bf28b64E420F85eE3F3";
+    // Direcciones de contratos y ABIs - Usando toLowerCase para aplicar checksum correctamente
+    const TOKEN_ADDRESS  = "0x7e99075ce287f1cf8cbcaaa6a1c7894e404fd7ea";
+    const NFT_ADDRESS    = "0xcdafa7e57d8eafc2f8ec6bf28b64e420f85ee3f3";
     const MARKET_ADDRESS = "0xe746999546e65c44543a443cc1e9b5fe168ede5d";
-    const NEW_MARKET_ADDRESS = "0x9a9c6558057a31A2DDC9cDEf5FEc6e08C0BC0C85";
-    const ACTIVITY_LOGGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
-    const OFFER_MANAGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
+    const NEW_MARKET_ADDRESS = "0x9a9c6558057a31a2ddc9cdef5fec6e08c0bc0c85";
+    const ACTIVITY_LOGGER_ADDRESS = "0x5b38da6a701c568545dcfcb03fcb875f56beddc4";
+    const OFFER_MANAGER_ADDRESS = "0x5b38da6a701c568545dcfcb03fcb875f56beddc4";
 
     // ABI actualizado del contrato AdrianMarket (incluye Trait Offers)
     const MARKET_ABI = [
@@ -634,20 +635,29 @@
         chainId: 8453
       });
 
+      // Aplicar checksum a todas las direcciones
+      const safeTokenAddress = safeAddress(TOKEN_ADDRESS);
+      const safeNftAddress = safeAddress(NFT_ADDRESS);
+      const safeMarketAddress = safeAddress(MARKET_ADDRESS);
+      const safeNewMarketAddress = safeAddress(NEW_MARKET_ADDRESS);
+
       // Inicializar contratos de solo lectura
-      tokenReadContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
-      nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
-      marketplaceReadContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, readProvider);
-      newMarketplaceReadContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, readProvider);
+      tokenReadContract = new ethers.Contract(safeTokenAddress, TOKEN_ABI, readProvider);
+      nftReadContract = new ethers.Contract(safeNftAddress, NFT_ABI, readProvider);
+      marketplaceReadContract = new ethers.Contract(safeMarketAddress, MARKET_ABI, readProvider);
+      newMarketplaceReadContract = new ethers.Contract(safeNewMarketAddress, MARKET_ABI, readProvider);
 
       if (window.ethereum) {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-        userAccount = await signer.getAddress();
-        tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
-        nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
-        marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
-        newMarketplaceContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, signer);
+        marketProvider = new ethers.providers.Web3Provider(window.ethereum);
+        marketSigner = marketProvider.getSigner();
+        userAccount = await marketSigner.getAddress();
+        
+        // Inicializar contratos con signer para escritura
+        tokenContract = new ethers.Contract(safeTokenAddress, TOKEN_ABI, marketSigner);
+        nftContract = new ethers.Contract(safeNftAddress, NFT_ABI, marketSigner);
+        marketplaceContract = new ethers.Contract(safeMarketAddress, MARKET_ABI, marketSigner);
+        newMarketplaceContract = new ethers.Contract(safeNewMarketAddress, MARKET_ABI, marketSigner);
+        
         updateTokenBalance();
         loadFloorOffer();
       } else {
@@ -1945,6 +1955,11 @@
         return currentSortOrder === 'asc' ? priceA - priceB : priceB - priceA;
       });
       displayNFTs(sortedNFTs);
+    }
+
+    // Helper para asegurar que las direcciones tienen checksum correcto
+    function safeAddress(address) {
+        return ethers.utils.getAddress(address.toLowerCase());
     }
   </script>
 </body>
