@@ -325,6 +325,10 @@
         <button class="action-btn" id="themeButton" onclick="toggleTheme()">
           <span id="themeButtonText">DarkMode</span>
         </button>
+        <!-- Botón para cambiar entre colecciones de imágenes -->
+        <button class="action-btn" id="collectionToggleButton" onclick="toggleImageCollection()">
+          <span id="collectionToggleText">HalfxAdrian</span>
+        </button>
       </div>
     </div>
 
@@ -533,6 +537,9 @@
     const NEW_MARKET_ADDRESS = "0x4B09395Dd0B826Ab3D54272D5dba6769D1640297";
     const ACTIVITY_LOGGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
     const OFFER_MANAGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
+
+    // Variables para manejar las rutas de imagen
+    let currentImageCollection = 'adrianpunks'; // Por defecto
 
     // ABI actualizado del contrato AdrianMarket (incluye Trait Offers)
     const MARKET_ABI = [
@@ -782,7 +789,7 @@
         const mintedCount = mintedCountBN.toNumber();
         console.log("Minted count:", mintedCount);
 
-        const response = await fetch('adrianpunks.json');
+        const response = await fetch('./adrianpunks.json');
         if (!response.ok) throw new Error('Error loading NFTs');
         const data = await response.json();
         // Filtrar para mostrar solo los tokens cuyo ID <= mintedCount
@@ -825,7 +832,7 @@
             parseFloat(ethers.utils.formatUnits(listing.price, 18)).toFixed(1)) : '';
 
         card.innerHTML = `
-          <img src="${nft.image}" class="card-img-top" alt="${nft.name}" onerror="this.src='placeholder.png'">
+          <img src="${getImageUrl(nft)}" class="card-img-top" alt="${nft.name}">
           <div class="card-body">
             <h5 class="card-title">${nft.name}</h5>
             <p class="card-text">Rarity: ${nft.rarity.toFixed(2)}</p>
@@ -847,7 +854,7 @@
     
     async function showNFTDetails(nftName) {
       try {
-        const data = await fetch('adrianpunks.json').then(response => response.json());
+        const data = await fetch('./adrianpunks.json').then(response => response.json());
         const nft = data.collection.find(n => n.name === nftName);
         if (!nft) throw new Error("NFT not found");
         const tokenId = parseInt(nft.name.split('#')[1]);
@@ -879,7 +886,7 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body text-center">
-            <img src="${nft.image}" class="img-fluid rounded mb-3" alt="${nft.name}" onerror="this.src='placeholder.png'">
+            <img src="${getImageUrl(nft)}" class="img-fluid rounded mb-3" alt="${nft.name}">
             <div class="nft-details text-start">
               ${ownershipStatus}
               <p><strong>Description:</strong> ${nft.description}</p>
@@ -1478,7 +1485,7 @@
           const tokenIds = await Promise.allSettled(tokenPromises);
           
           // Cargar el JSON con la información de los tokens
-          const response = await fetch('adrianpunks.json');
+          const response = await fetch('./adrianpunks.json');
           const data = await response.json();
           const jsonCollection = data.collection;
 
@@ -1916,6 +1923,92 @@
         return currentSortOrder === 'asc' ? priceA - priceB : priceB - priceA;
       });
       displayNFTs(sortedNFTs);
+    }
+
+    // Función para mostrar notificaciones
+    function showToast(message, type = 'info') {
+      // Eliminar cualquier toast anterior
+      const oldToast = document.getElementById('customToast');
+      if (oldToast) {
+        oldToast.remove();
+      }
+      
+      // Crear el nuevo toast
+      const toast = document.createElement('div');
+      toast.id = 'customToast';
+      toast.className = `toast-notification ${type}`;
+      toast.textContent = message;
+      
+      // Agregar estilos al toast
+      toast.style.position = 'fixed';
+      toast.style.bottom = '20px';
+      toast.style.left = '50%';
+      toast.style.transform = 'translateX(-50%)';
+      toast.style.padding = '10px 20px';
+      toast.style.borderRadius = '4px';
+      toast.style.backgroundColor = type === 'error' ? '#f44336' : '#4CAF50';
+      toast.style.color = 'white';
+      toast.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+      toast.style.zIndex = '9999';
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s ease-in-out';
+      
+      // Añadir al DOM
+      document.body.appendChild(toast);
+      
+      // Mostrar y ocultar automáticamente
+      setTimeout(() => {
+        toast.style.opacity = '1';
+      }, 100);
+      
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => {
+          toast.remove();
+        }, 300);
+      }, 3000);
+    }
+    
+    async function toggleImageCollection() {
+      const button = document.getElementById('collectionToggleButton');
+      const buttonText = document.getElementById('collectionToggleText');
+      
+      // Alternar la colección
+      currentImageCollection = currentImageCollection === 'adrianpunks' ? 'halfxadrian' : 'adrianpunks';
+      
+      // Actualizar texto del botón
+      buttonText.textContent = currentImageCollection === 'adrianpunks' ? 'HalfxAdrian' : 'AdrianPunks';
+      
+      // Cambiar el estilo del botón según la colección
+      if (currentImageCollection === 'adrianpunks') {
+        button.classList.remove('btn-success');
+        button.classList.add('btn-danger');
+      } else {
+        button.classList.remove('btn-danger');
+        button.classList.add('btn-success');
+      }
+      
+      // Mostrar mensaje de confirmación
+      const toastMessage = currentImageCollection === 'halfxadrian' ? 'Mostrando imágenes de HalfxAdrian' : 'Mostrando imágenes de AdrianPunks';
+      showToast(toastMessage);
+      
+      // Recargar la visualización con las nuevas imágenes
+      filterAndDisplayNFTs();
+    }
+
+    function getImageUrl(nft) {
+      if (currentImageCollection === 'halfxadrian') {
+        const tokenId = nft.name.split('#')[1];
+        return `./halfxadrianimages/${tokenId}.jpg`;
+      } else {
+        // Para la colección AdrianPunks, usamos las imágenes locales con extensión correcta
+        // Actualización de mayo 2024: Soporte para diferentes extensiones (.gif y .png)
+        const tokenId = nft.name.split('#')[1];
+        // Lista de IDs que tienen formato GIF
+        const gifIds = ['1', '13', '221', '369', '420', '555', '69', '690', '777', '807', '911'];
+        const extension = gifIds.includes(tokenId) ? 'gif' : 'png';
+        return `./adrianpunksimages/${tokenId}.${extension}`;
+      }
     }
   </script>
 </body>
