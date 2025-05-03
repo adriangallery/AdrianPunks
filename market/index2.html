@@ -286,6 +286,9 @@
         <button class="action-btn dark" onclick="openRecentActivityModal()">
           <span class="d-none d-md-inline">Recent</span> Activity
         </button>
+        <button class="action-btn success" id="toggleImagesBtn" onclick="toggleImageSource()">
+          <span>HalfxAdrian</span>
+        </button>
         <div class="dropdown">
           <button class="action-btn primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
             <span>Traits</span>
@@ -324,9 +327,6 @@
         </button>
         <button class="action-btn" id="themeButton" onclick="toggleTheme()">
           <span id="themeButtonText">DarkMode</span>
-        </button>
-        <button class="action-btn primary" id="halfxAdrianButton" onclick="toggleCollection()">
-          <span id="collectionButtonText">HalfxAdrian</span>
         </button>
       </div>
     </div>
@@ -523,22 +523,19 @@
     const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
     const CHAIN_ID = 8453;
 
-    // Variables globales - Renombramos provider para evitar conflictos con menu.js
-    let marketProvider, marketSigner, userAccount;
-    let nftContract, marketplaceContract, newMarketplaceContract, offerManagerContract, activityLoggerContract;
+    let nftData = [];
+    let provider, signer, userAccount;
+    let tokenContract, nftContract, marketplaceContract, newMarketplaceContract;
     let readProvider; // Provider de Infura para lecturas
     let tokenReadContract, nftReadContract, marketplaceReadContract, newMarketplaceReadContract;
-    let currentSortOrder = 'asc'; 
-    let currentCollectionJson = 'adrianpunks.json'; // Variable para controlar la colección mostrada
-    let nftData = []; // Datos de NFT cargados desde el archivo JSON
 
-    // Direcciones de contratos y ABIs - Usando toLowerCase para aplicar checksum correctamente
-    const TOKEN_ADDRESS  = "0x7e99075ce287f1cf8cbcaaa6a1c7894e404fd7ea";
-    const NFT_ADDRESS    = "0xcdafa7e57d8eafc2f8ec6bf28b64e420f85ee3f3";
+    // Direcciones de contratos y ABIs
+    const TOKEN_ADDRESS  = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const NFT_ADDRESS    = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
     const MARKET_ADDRESS = "0xe746999546e65c44543a443cc1e9b5fe168ede5d";
-    const NEW_MARKET_ADDRESS = "0x9a9c6558057a31a2ddc9cdef5fec6e08c0bc0c85";
-    const ACTIVITY_LOGGER_ADDRESS = "0x5b38da6a701c568545dcfcb03fcb875f56beddc4";
-    const OFFER_MANAGER_ADDRESS = "0x5b38da6a701c568545dcfcb03fcb875f56beddc4";
+    const NEW_MARKET_ADDRESS = "0x4B09395Dd0B826Ab3D54272D5dba6769D1640297";
+    const ACTIVITY_LOGGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
+    const OFFER_MANAGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
 
     // ABI actualizado del contrato AdrianMarket (incluye Trait Offers)
     const MARKET_ABI = [
@@ -635,29 +632,20 @@
         chainId: 8453
       });
 
-      // Aplicar checksum a todas las direcciones
-      const safeTokenAddress = safeAddress(TOKEN_ADDRESS);
-      const safeNftAddress = safeAddress(NFT_ADDRESS);
-      const safeMarketAddress = safeAddress(MARKET_ADDRESS);
-      const safeNewMarketAddress = safeAddress(NEW_MARKET_ADDRESS);
-
       // Inicializar contratos de solo lectura
-      tokenReadContract = new ethers.Contract(safeTokenAddress, TOKEN_ABI, readProvider);
-      nftReadContract = new ethers.Contract(safeNftAddress, NFT_ABI, readProvider);
-      marketplaceReadContract = new ethers.Contract(safeMarketAddress, MARKET_ABI, readProvider);
-      newMarketplaceReadContract = new ethers.Contract(safeNewMarketAddress, MARKET_ABI, readProvider);
+      tokenReadContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
+      nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+      marketplaceReadContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, readProvider);
+      newMarketplaceReadContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, readProvider);
 
       if (window.ethereum) {
-        marketProvider = new ethers.providers.Web3Provider(window.ethereum);
-        marketSigner = marketProvider.getSigner();
-        userAccount = await marketSigner.getAddress();
-        
-        // Inicializar contratos con signer para escritura
-        tokenContract = new ethers.Contract(safeTokenAddress, TOKEN_ABI, marketSigner);
-        nftContract = new ethers.Contract(safeNftAddress, NFT_ABI, marketSigner);
-        marketplaceContract = new ethers.Contract(safeMarketAddress, MARKET_ABI, marketSigner);
-        newMarketplaceContract = new ethers.Contract(safeNewMarketAddress, MARKET_ABI, marketSigner);
-        
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+        userAccount = await signer.getAddress();
+        tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+        nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
+        marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
+        newMarketplaceContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, signer);
         updateTokenBalance();
         loadFloorOffer();
       } else {
@@ -760,6 +748,7 @@
     }
     
     let activeListingsData = [];
+    let currentSortOrder = 'asc';
     
     async function loadActiveListings() {
       try {
@@ -775,23 +764,40 @@
     // MODIFICACIÓN: Filtrar NFTs según la cantidad minteada
     async function loadNFTs() {
       try {
-        // Cargar NFTs desde el archivo JSON
-        const response = await fetch(currentCollectionJson);
+        if (!window.ethereum) {
+          document.getElementById("nftGrid").innerHTML = `
+            <div class="col-12 text-center">
+              <p class="text-muted">Please install MetaMask to view NFTs</p>
+            </div>
+          `;
+          return;
+        }
+        if (!userAccount) {
+          document.getElementById("nftGrid").innerHTML = `
+            <div class="col-12 text-center">
+              <p class="text-muted">Please connect your wallet to view NFTs</p>
+            </div>
+          `;
+          return;
+        }
+        // Consultamos cuántos tokens se han minteado hasta el momento
+        const mintedCountBN = await nftContract.totalMinted();
+        const mintedCount = mintedCountBN.toNumber();
+        console.log("Minted count:", mintedCount);
+
+        // Usar la fuente de datos actual (adrianpunks.json o halfxadrian.json)
+        const response = await fetch(currentJsonSource);
+        if (!response.ok) throw new Error('Error loading NFTs');
         const data = await response.json();
-        nftData = [...data.collection];
-        
-        // Asignar rareza a cada NFT si no la tiene
-        nftData.forEach(nft => {
-          if (!nft.rarity) {
-            // Calcular rareza basada en el número de atributos
-            nft.rarity = nft.attributes ? nft.attributes.length * 1.5 : 1;
-          }
+        // Filtrar para mostrar solo los tokens cuyo ID <= mintedCount
+        nftData = (data.collection || []).filter(nft => {
+          const tokenIdStr = nft.name.split('#')[1];
+          const tokenId = parseInt(tokenIdStr);
+          return tokenId <= mintedCount;
         });
-        
-        // Cargar listings activos antes de mostrar los NFTs
         await loadActiveListings();
-        
-        // Filtrar y mostrar NFTs
+        extractTraits(nftData);
+        renderTraitFilters();
         filterAndDisplayNFTs();
       } catch (error) {
         console.error('Error:', error);
@@ -845,7 +851,7 @@
     
     async function showNFTDetails(nftName) {
       try {
-        const data = await fetch(currentCollectionJson).then(response => response.json());
+        const data = await fetch(currentJsonSource).then(response => response.json());
         const nft = data.collection.find(n => n.name === nftName);
         if (!nft) throw new Error("NFT not found");
         const tokenId = parseInt(nft.name.split('#')[1]);
@@ -1854,30 +1860,6 @@
       }
     }
 
-    // Función para cambiar entre colecciones
-    function toggleCollection() {
-      const button = document.getElementById('halfxAdrianButton');
-      const buttonText = document.getElementById('collectionButtonText');
-      
-      // Cambiar la colección
-      if (currentCollectionJson === 'adrianpunks.json') {
-        currentCollectionJson = 'halfxadrian.json';
-        buttonText.textContent = 'AdrianPunks';
-        button.classList.remove('primary');
-        button.classList.add('warning');
-        localStorage.setItem('collection', 'halfxadrian');
-      } else {
-        currentCollectionJson = 'adrianpunks.json';
-        buttonText.textContent = 'HalfxAdrian';
-        button.classList.remove('warning');
-        button.classList.add('primary');
-        localStorage.setItem('collection', 'adrianpunks');
-      }
-      
-      // Recargar los NFTs con la nueva colección
-      loadNFTs();
-    }
-
     // Cargar el tema guardado
     document.addEventListener('DOMContentLoaded', () => {
       const savedTheme = localStorage.getItem('theme');
@@ -1894,23 +1876,6 @@
         themeButtonText.textContent = 'DarkMode';
         themeButton.classList.remove('btn-dark');
         themeButton.classList.add('btn-secondary');
-      }
-      
-      // Cargar la colección guardada
-      const savedCollection = localStorage.getItem('collection');
-      const collectionButton = document.getElementById('halfxAdrianButton');
-      const collectionButtonText = document.getElementById('collectionButtonText');
-      
-      if (savedCollection === 'halfxadrian') {
-        currentCollectionJson = 'halfxadrian.json';
-        collectionButtonText.textContent = 'AdrianPunks';
-        collectionButton.classList.remove('primary');
-        collectionButton.classList.add('warning');
-      } else {
-        currentCollectionJson = 'adrianpunks.json';
-        collectionButtonText.textContent = 'HalfxAdrian';
-        collectionButton.classList.remove('warning');
-        collectionButton.classList.add('primary');
       }
     });
 
@@ -1957,9 +1922,102 @@
       displayNFTs(sortedNFTs);
     }
 
-    // Helper para asegurar que las direcciones tienen checksum correcto
-    function safeAddress(address) {
-        return ethers.utils.getAddress(address.toLowerCase());
+    // Variables globales
+    let nftData = [];
+    let traitCategories = {};
+    let activeFilters = new Map();
+    let currentTheme = localStorage.getItem('theme') || 'light';
+    let userAccount = null;
+    let currentJsonSource = 'adrianpunks.json'; // Variable para controlar la fuente de imágenes
+
+    // Función para alternar entre adrianpunks.json y halfxadrian.json
+    function toggleImageSource() {
+      const toggleBtn = document.getElementById('toggleImagesBtn');
+      
+      if (currentJsonSource === 'adrianpunks.json') {
+        currentJsonSource = 'halfxadrian.json';
+        toggleBtn.innerHTML = '<span>AdrianPunks</span>';
+        toggleBtn.classList.remove('success');
+        toggleBtn.classList.add('danger');
+      } else {
+        currentJsonSource = 'adrianpunks.json';
+        toggleBtn.innerHTML = '<span>HalfxAdrian</span>';
+        toggleBtn.classList.remove('danger');
+        toggleBtn.classList.add('success');
+      }
+      
+      // Recarga los NFTs con la nueva fuente
+      loadNFTs();
+      
+      // Muestra un mensaje de confirmación
+      showToast(`Imágenes cambiadas a ${currentJsonSource === 'adrianpunks.json' ? 'AdrianPunks' : 'HalfxAdrian'}`);
+    }
+    
+    // Función para mostrar un mensaje toast
+    function showToast(message) {
+      // Crear elemento toast si no existe
+      if (!document.getElementById('customToast')) {
+        const toastDiv = document.createElement('div');
+        toastDiv.id = 'customToast';
+        toastDiv.style.position = 'fixed';
+        toastDiv.style.bottom = '20px';
+        toastDiv.style.left = '50%';
+        toastDiv.style.transform = 'translateX(-50%)';
+        toastDiv.style.backgroundColor = 'rgba(0,0,0,0.8)';
+        toastDiv.style.color = 'white';
+        toastDiv.style.padding = '10px 20px';
+        toastDiv.style.borderRadius = '5px';
+        toastDiv.style.zIndex = '9999';
+        toastDiv.style.transition = 'all 0.3s ease';
+        toastDiv.style.opacity = '0';
+        document.body.appendChild(toastDiv);
+      }
+      
+      const toast = document.getElementById('customToast');
+      toast.textContent = message;
+      toast.style.opacity = '1';
+      
+      // Ocultar después de 3 segundos
+      setTimeout(() => {
+        toast.style.opacity = '0';
+      }, 3000);
+    }
+
+    // Función para cargar los tokens con ofertas
+    async function loadTokensWithOffers() {
+      try {
+        if (!window.ethereum || !userAccount) return [];
+  
+        // Obtener todas las ofertas de token
+        const tokenOffers = await newMarketplaceContract.getTokenOffersByBuyer(userAccount);
+  
+        if (!tokenOffers || tokenOffers.length === 0) return [];
+  
+        // Cargar los metadatos para mostrar información de los tokens
+        const response = await fetch(currentJsonSource);
+        if (!response.ok) throw new Error('Error loading token metadata');
+        const data = await response.json();
+        
+        // Mapear las ofertas con los metadatos
+        return tokenOffers
+          .filter(offer => offer.exists && offer.offerAmount.gt(0))
+          .map(offer => {
+            const tokenId = offer.tokenId.toString();
+            const metadata = data.collection.find(item => {
+              const id = item.name.split('#')[1];
+              return id === tokenId;
+            });
+            
+            return {
+              ...offer,
+              metadata,
+              expirationFormatted: new Date(offer.expirationTime.toNumber() * 1000).toLocaleString()
+            };
+          });
+      } catch (error) {
+        console.error('Error loading tokens with offers:', error);
+        return [];
+      }
     }
   </script>
 </body>
