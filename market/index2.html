@@ -326,7 +326,7 @@
           <span id="themeButtonText">DarkMode</span>
         </button>
         <!-- Nuevo botón para cambiar entre colecciones -->
-        <button class="action-btn" id="collectionToggleButton" onclick="toggleCollection()">
+        <button class="action-btn btn-danger" id="collectionToggleButton" onclick="toggleCollection()">
           <span id="collectionToggleText">HalfxAdrian</span>
         </button>
       </div>
@@ -538,97 +538,39 @@
     const ACTIVITY_LOGGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
     const OFFER_MANAGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
     
-    // Variables para manejar las colecciones
-    let currentCollection = 'adrianpunks';  // Por defecto AdrianPunks
-    let currentCollectionData = {};  // Para almacenar los datos de la colección actual
-
-    // ABI actualizado del contrato AdrianMarket (incluye Trait Offers)
-    const MARKET_ABI = [
-      "constructor(address _paymentToken)",
-      "event FloorOfferAccepted(address indexed collection, address indexed seller, uint256 tokenId, uint256 offerAmount)",
-      "event FloorOfferSet(address indexed collection, address indexed buyer, uint256 offerAmount)",
-      "event ListingCancelled(uint256 indexed listingId)",
-      "event ListingCreated(uint256 indexed listingId, address indexed seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)",
-      "event ListingEdited(uint256 indexed listingId, uint256 newPrice, uint256 newExpirationTime)",
-      "event ListingPurchased(uint256 indexed listingId, address indexed buyer, uint256 quantity)",
-      "event OfferAccepted(uint256 indexed offerId, uint256 indexed listingId, address indexed buyer, address seller)",
-      "event OfferCreated(uint256 indexed offerId, uint256 indexed listingId, address indexed buyer, uint256 tokenId, uint256 quantity, uint256 offerAmount)",
-      "event OfferWithdrawn(uint256 indexed offerId, uint256 indexed listingId, address indexed buyer)",
-      "event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)",
-      "event Paused(address account)",
-      "event TokenOfferCreated(uint256 indexed offerId, address indexed collection, uint256 tokenId, address buyer, uint256 quantity, uint256 offerAmount)",
-      "event TokenOfferWithdrawn(uint256 indexed offerId, address indexed collection, uint256 tokenId, address buyer)",
-      "event TokenOfferAccepted(uint256 indexed offerId, address indexed collection, uint256 tokenId, address seller, address buyer, uint256 offerAmount)",
-      "event TraitOfferSet(string traitType, string traitValue, address indexed buyer, uint256 offerAmount)",
-      "event TraitOfferAccepted(string traitType, string traitValue, address indexed seller, uint256 tokenId, uint256 offerAmount)",
-      "event TraitOfferCancelled(string traitType, string traitValue, address indexed buyer)",
-      "event Unpaused(address account)",
-
-      // Funciones de listings
-      "function createListing(address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 duration, uint8 nftTypeParam) external",
-      "function cancelListing(uint256 listingId) external",
-      "function buyListing(uint256 listingId, uint256 purchaseQuantity) external",
-      "function editListing(uint256 listingId, uint256 newPrice, uint256 newDuration) external",
-      "function getActiveListingsDetailed() external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)[])",
-      "function getMyListings(address seller) external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType)[])",
-      "function getListing(uint256 listingId) external view returns (tuple(uint256 id, address seller, address collection, uint256 tokenId, uint256 quantity, uint256 price, uint256 expirationTime, uint8 nftType))",
-      "function getActiveTokenListings() external view returns (tuple(address collection, uint256 tokenId, uint256 totalQuantity)[])",
-      
-      // Floor offers
-      "function floorOffers(address, uint256) external view returns (uint256 offerAmount, address buyer, bool active)",
-      "function setFloorOffer(address collection, uint256 offerAmount) external",
-      "function withdrawFloorOffer(address collection) external",
-      "function acceptFloorOffer(address collection, uint256 tokenId, uint8 nftTypeParam) external",
-      "function acceptMultipleFloorOffers(address collection, uint256 tokenId, uint8 nftTypeParam, address[] buyers) external",
-      
-      // Listing Offers
-      "function makeOffer(uint256 listingId, uint256 quantity, uint256 offerAmount) external",
-      "function withdrawOffer(uint256 listingId) external",
-      "function acceptOffer(uint256 listingId, address buyer) external",
-      "function getMyListingOffers(address buyer) external view returns (tuple(uint256 id, uint256 listingId, address buyer, uint256 tokenId, uint256 quantity, uint256 offerAmount, bool exists)[])",
-      
-      // Token offers
-      "function makeTokenOffer(address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount) external",
-      "function withdrawTokenOffer(address collection, uint256 tokenId) external",
-      "function acceptTokenOffer(address collection, uint256 tokenId, uint256 offerId, uint8 nftTypeParam) external",
-      "function getMyTokenOffers(address buyer) external view returns (tuple(uint256 id, address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount, address buyer, bool exists)[])",
-      "function getTokenOffersForToken(address collection, uint256 tokenId) external view returns (tuple(uint256 id, address collection, uint256 tokenId, uint256 quantity, uint256 offerAmount, address buyer, bool exists)[])",
-      
-      // Trait offers
-      "function setTraitOffer(string traitType, string traitValue, uint256 offerAmount) external",
-      "function cancelTraitOffer(string traitType, string traitValue) external",
-      "function acceptTraitOffer(string traitType, string traitValue, uint256 tokenId, address collection, uint8 nftTypeParam) external",
-      "function getTraitOffers(address buyer) external view returns (tuple(string traitType, string traitValue, uint256 offerAmount, address buyer, bool exists)[])",
-      
-      // Funciones administrativas
-      "function owner() external view returns (address)",
-      "function paused() external view returns (bool)",
-      "function paymentToken() external view returns (address)",
-      "function renounceOwnership() external",
-      "function transferOwnership(address newOwner) external",
-      
-      // Funciones de soporte
-      "function supportsInterface(bytes4 interfaceId) external view returns (bool)",
-      "function onERC1155Received(address, address, uint256, uint256, bytes) external pure returns (bytes4)",
-      "function onERC1155BatchReceived(address, address, uint256[], uint256[], bytes) external pure returns (bytes4)"
-    ];
-
-    const TOKEN_ABI = [
-      "function balanceOf(address account) view returns (uint256)",
-      "function approve(address spender, uint256 amount) external returns (bool)",
-      "function allowance(address owner, address spender) view returns (uint256)"
-    ];
-    const NFT_ABI = [
-      "function tokenURI(uint256 tokenId) view returns (string)",
-      "function ownerOf(uint256 tokenId) view returns (address)",
-      "function getApproved(uint256 tokenId) view returns (address)",
-      "function approve(address to, uint256 tokenId) external",
-      "function isApprovedForAll(address owner, address operator) view returns (bool)",
-      "function setApprovalForAll(address operator, bool approved) external",
-      "function balanceOf(address owner) view returns (uint256)",
-      "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
-      "function totalMinted() view returns (uint256)"
-    ];
+    // Variables para controlar la colección de imágenes
+    let useHalfAdrianImages = false;  // Por defecto usamos las imágenes de AdrianPunks
+    let adrianpunksData = null;  // Almacenará los datos originales
+    let halfAdrianImagesMap = null;  // Mapa para las imágenes alternativas
+    
+    // Función para cargar las imágenes alternativas
+    async function loadHalfAdrianImages() {
+      try {
+        const response = await fetch('./halfxadrian.json');
+        const data = await response.json();
+        
+        // Crear un mapa para acceder rápidamente a las imágenes por ID
+        halfAdrianImagesMap = {};
+        data.forEach(item => {
+          if (item.id && item.image) {
+            halfAdrianImagesMap[item.id] = item.image;
+          }
+        });
+        
+        console.log('Imágenes alternativas cargadas:', Object.keys(halfAdrianImagesMap).length);
+      } catch (error) {
+        console.error('Error al cargar las imágenes alternativas:', error);
+        showToast('Error al cargar las imágenes alternativas', 'error');
+      }
+    }
+    
+    // Función para obtener la URL de la imagen según la colección activa
+    function getImageUrl(nft) {
+      if (useHalfAdrianImages && halfAdrianImagesMap && halfAdrianImagesMap[nft.id]) {
+        return halfAdrianImagesMap[nft.id];
+      }
+      return nft.image;
+    }
     
     async function initContracts() {
       // Configurar el provider de Infura para lecturas
@@ -682,28 +624,33 @@
       const button = document.getElementById('collectionToggleButton');
       const buttonText = document.getElementById('collectionToggleText');
       
-      // Cambiar la colección activa
-      currentCollection = currentCollection === 'adrianpunks' ? 'halfxadrian' : 'adrianpunks';
+      // Cambiar el indicador de colección de imágenes
+      useHalfAdrianImages = !useHalfAdrianImages;
       
       // Actualizar el texto del botón
-      buttonText.textContent = currentCollection === 'adrianpunks' ? 'HalfxAdrian' : 'AdrianPunks';
+      buttonText.textContent = useHalfAdrianImages ? 'AdrianPunks' : 'HalfxAdrian';
       
       // Actualizar el estilo del botón según la colección activa
-      if (currentCollection === 'adrianpunks') {
-        // Si es AdrianPunks, mostrar el botón que permite cambiar a HalfxAdrian
+      if (!useHalfAdrianImages) {
+        // Si estamos mostrando AdrianPunks, el botón permite cambiar a HalfxAdrian
         button.classList.remove('btn-success');
         button.classList.add('btn-danger');
       } else {
-        // Si es HalfxAdrian, mostrar el botón que permite cambiar a AdrianPunks
+        // Si estamos mostrando HalfxAdrian, el botón permite cambiar a AdrianPunks
         button.classList.remove('btn-danger');
         button.classList.add('btn-success');
       }
       
-      // Mostrar mensaje de confirmación
-      showToast(`Mostrando colección: ${currentCollection === 'adrianpunks' ? 'AdrianPunks' : 'HalfxAdrian'}`);
+      // Cargar las imágenes alternativas si es necesario
+      if (useHalfAdrianImages && !halfAdrianImagesMap) {
+        await loadHalfAdrianImages();
+      }
       
-      // Recargar los NFTs con la nueva colección
-      loadNFTs();
+      // Mostrar mensaje de confirmación
+      showToast(`Mostrando imágenes: ${useHalfAdrianImages ? 'HalfxAdrian' : 'AdrianPunks'}`);
+      
+      // Actualizar la visualización sin recargar los datos
+      filterAndDisplayNFTs();
     }
     
     // Función para mostrar mensajes temporales
@@ -930,135 +877,23 @@
     
     async function showNFTDetails(nftName) {
       try {
-        // Usar la colección actual para los detalles
-        const data = await loadCurrentCollection();
-        const nft = data.collection.find(n => n.name === nftName);
-        if (!nft) throw new Error("NFT not found");
-        const tokenId = parseInt(nft.name.split('#')[1]);
-        let ownershipStatus = '';
-        let isOwner = false;
-        try {
-          const owner = await nftContract.ownerOf(tokenId);
-          isOwner = owner.toLowerCase() === userAccount.toLowerCase();
-          ownershipStatus = isOwner ? `<div class="alert alert-success">You are the owner of this token</div>` : `<div class="alert alert-info">Owner: ${owner.substring(0, 6)}...${owner.substring(38)}</div>`;
-        } catch (error) {
-          ownershipStatus = `<div class="alert alert-warning">Could not verify token ownership</div>`;
+        // Ocultar interfaz principal y mostrar detalles
+        document.getElementById('main-interface').classList.add('d-none');
+        document.getElementById('nft-details').classList.remove('d-none');
+        
+        // Buscar el NFT por nombre
+        const nft = nfts.find(n => n.name === nftName);
+        if (!nft) {
+          console.error(`NFT not found: ${nftName}`);
+          return;
         }
-        const activeListings = await newMarketplaceContract.getActiveListingsDetailed();
-        const tokenListing = activeListings.find(listing => listing.tokenId.toString() === tokenId.toString() && listing.expirationTime > Math.floor(Date.now() / 1000));
-        const tokenOffers = await newMarketplaceContract.getTokenOffersForToken(NFT_ADDRESS, tokenId);
-        console.log("Token offers:", tokenOffers);
-        const relevantOffers = tokenOffers.filter(offer => offer.exists);
-        let floorOffer;
-        try {
-          floorOffer = await newMarketplaceContract.callStatic.floorOffers(NFT_ADDRESS, 0);
-        } catch (e) {
-          console.error("Error retrieving floor offer, defaulting to no active offer:", e);
-          floorOffer = { offerAmount: ethers.BigNumber.from(0), buyer: "", active: false };
-        }
-        const modalContent = document.getElementById('nftModalContent');
-        modalContent.innerHTML = `
-          <div class="modal-header">
-            <h5 class="modal-title">${nft.name}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body text-center">
-            <img src="${nft.image}" class="img-fluid rounded mb-3" alt="${nft.name}" onerror="this.src='placeholder.png'">
-            <div class="nft-details text-start">
-              ${ownershipStatus}
-              <p><strong>Description:</strong> ${nft.description || 'N/A'}</p>
-              <p><strong>Compiler:</strong> ${nft.compiler || 'N/A'}</p>
-              <p><strong>Masterminds:</strong> ${Array.isArray(nft.masterminds) ? nft.masterminds.join(', ') : 'N/A'}</p>
-              <p><strong>Rarity:</strong> ${typeof nft.rarity === 'number' ? nft.rarity.toFixed(2) : 'N/A'}</p>
-              ${isOwner ? `
-                ${!tokenListing ? `
-                  <button class="btn btn-primary w-100 mb-2" onclick="openListingForm('${nft.name}', 'NewAdrianMarket')">
-                    List for Sale
-                  </button>
-                ` : `
-                  <div class="listing-info alert alert-info">
-                    <h6>Active Listing</h6>
-                    <p>Price: ${parseFloat(ethers.utils.formatUnits(tokenListing.price, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1})} $ADRIAN</p>
-                    <p>Seller: ${tokenListing.seller.substring(0, 6)}...${tokenListing.seller.substring(38)}</p>
-                    <p>Expires: ${new Date(tokenListing.expirationTime * 1000).toLocaleString()}</p>
-                    <button class="btn btn-danger btn-sm" onclick="cancelListing(${tokenListing.id})">Cancel Listing</button>
-                  </div>
-                `}
-              ` : ''}
-              <div class="offers-section mt-3">
-                <h6>Active Offers</h6>
-                ${relevantOffers && relevantOffers.length > 0 ? `
-                  <div class="list-group">
-                    ${relevantOffers.map(offer => `
-                      <div class="list-group-item">
-                        <p class="mb-1">Offer: ${parseFloat(ethers.utils.formatUnits(offer.offerAmount, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1})} $A</p>
-                        <small>By: ${offer.buyer.substring(0, 6)}...${offer.buyer.substring(38)}</small>
-                        ${isOwner ? `
-                          <button class="btn btn-success btn-sm float-end" 
-                            onclick="acceptTokenOffer('${NFT_ADDRESS}', ${tokenId}, ${offer.id})">
-                            Accept Offer
-                          </button>
-                        ` : ''}
-                        ${offer.buyer.toLowerCase() === userAccount.toLowerCase() ? `
-                          <button class="btn btn-danger btn-sm float-end" 
-                            onclick="cancelTokenOffer('${NFT_ADDRESS}', ${tokenId})">
-                            Cancel Offer
-                          </button>
-                        ` : ''}
-                      </div>
-                    `).join('')}
-                  </div>
-                ` : `
-                  <div class="text-center">
-                    <p class="text-muted">No active offers</p>
-                  </div>
-                `}
-                ${floorOffer.offerAmount.gt(0) ? `
-                  <div class="floor-offer-info mt-2">
-                    <p class="mb-1">Floor Offer: ${parseFloat(ethers.utils.formatUnits(floorOffer.offerAmount, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1})} $A</p>
-                    <small>By: ${floorOffer.buyer.substring(0, 6)}...${floorOffer.buyer.substring(38)}</small>
-                    ${isOwner ? `
-                      <button class="btn btn-success btn-sm" onclick="acceptFloorOffer(${tokenId})">
-                        Accept Floor Offer
-                      </button>
-                    ` : ''}
-                  </div>
-                ` : ''}
-              </div>
-              <h6 class="mt-3">Attributes:</h6>
-              <ul class="list-group">
-                ${Array.isArray(nft.attributes) ? nft.attributes.map(attr => 
-                  `<li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div>
-                      <strong>${attr.trait_type}:</strong> ${attr.value}
-                    </div>
-                    <button class="btn btn-sm btn-outline-primary" 
-                      onclick="openTraitOfferForm('${attr.trait_type}', '${attr.value}')" 
-                      title="Make Trait Offer">
-                      💰
-                    </button>
-                  </li>`
-                ).join('') : '<li class="list-group-item">No attributes available</li>'}
-              </ul>
-              <div class="text-center mt-3">
-                ${!isOwner ? `
-                  <button class="btn btn-secondary w-100" onclick="openMakeTokenOfferForm('${nft.name.split('#')[1]}')">
-                    Make Token Offer
-                  </button>
-                ` : ''}
-              </div>
-            </div>
-          </div>
-        `;
-        const modal = new bootstrap.Modal(document.getElementById('nftModal'));
-        const modalElement = document.getElementById('nftModal');
-        modalElement.addEventListener('hidden.bs.modal', function () {
-          document.body.classList.remove('modal-open');
-          const backdrop = document.querySelector('.modal-backdrop');
-          if (backdrop) { backdrop.remove(); }
-          modalContent.innerHTML = '';
-        });
-        modal.show();
+        
+        // Información general
+        document.getElementById('nft-detail-name').textContent = nft.name;
+        
+        // Usar la función getImageUrl para obtener la imagen según la colección activa
+        document.getElementById('nft-detail-image').src = getImageUrl(nft);
+        document.getElementById('nft-detail-image').alt = nft.name;
       } catch (error) {
         console.error('Error:', error);
         alert('Error loading NFT details: ' + error.message);
@@ -2010,6 +1845,30 @@
         return currentSortOrder === 'asc' ? priceA - priceB : priceB - priceA;
       });
       displayNFTs(sortedNFTs);
+    }
+    let halfAdrianImageCache = {};  // Cache para almacenar las URLs de las imágenes de HalfxAdrian
+    // Función para crear la vista de tarjeta para un NFT
+    function createCardView(nft) {
+      const card = document.createElement('div');
+      card.className = 'nft-card';
+      card.id = `card-${nft.id}`;
+      card.setAttribute('data-id', nft.id);
+      card.setAttribute('data-name', nft.name.toLowerCase());
+      
+      // Contenedor de imagen
+      const imgContainer = document.createElement('div');
+      imgContainer.className = 'img-container';
+      
+      const img = document.createElement('img');
+      img.src = getImageUrl(nft);
+      img.alt = nft.name;
+      img.className = 'nft-image';
+      img.loading = 'lazy';
+      
+      imgContainer.appendChild(img);
+      card.appendChild(imgContainer);
+      
+      // ... resto del código de la función
     }
   </script>
 </body>
