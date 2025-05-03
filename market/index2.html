@@ -540,7 +540,6 @@
 
     // Variables para manejar las rutas de imagen
     let currentImageCollection = 'adrianpunks'; // Por defecto
-    let imageUrls = {}; // Para almacenar las URLs de imagen de HalfxAdrian
 
     // ABI actualizado del contrato AdrianMarket (incluye Trait Offers)
     const MARKET_ABI = [
@@ -1980,50 +1979,18 @@
       // Actualizar texto del botón
       buttonText.textContent = currentImageCollection === 'adrianpunks' ? 'HalfxAdrian' : 'AdrianPunks';
       
-      // Mostrar mensaje de carga
-      const toastMessage = currentImageCollection === 'halfxadrian' ? 'Cargando imágenes de HalfxAdrian...' : 'Mostrando imágenes de AdrianPunks';
-      showToast(toastMessage);
-      
-      // Cargar URLs de HalfxAdrian si no están cargadas ya
-      if (currentImageCollection === 'halfxadrian' && Object.keys(imageUrls).length === 0) {
-        try {
-          const response = await fetch('./halfxadrian.json');
-          
-          if (!response.ok) {
-            throw new Error(`Error ${response.status}: ${response.statusText}`);
-          }
-          
-          const data = await response.json();
-          
-          // Crear un mapa de tokenId -> imageUrl
-          if (Array.isArray(data)) {
-            data.forEach(item => {
-              if (item.id && item.image) {
-                imageUrls[item.id] = item.image;
-              }
-            });
-            console.log(`Cargadas ${Object.keys(imageUrls).length} imágenes de HalfxAdrian`);
-            showToast(`Mostrando imágenes de HalfxAdrian`);
-          } else if (data.collection && Array.isArray(data.collection)) {
-            data.collection.forEach(item => {
-              const tokenId = item.name.split('#')[1];
-              imageUrls[tokenId] = item.image;
-            });
-            console.log(`Cargadas ${Object.keys(imageUrls).length} imágenes de HalfxAdrian`);
-            showToast(`Mostrando imágenes de HalfxAdrian`);
-          } else {
-            console.error('Formato inesperado en halfxadrian.json');
-            showToast('Error al cargar las imágenes alternativas', 'error');
-          }
-        } catch (error) {
-          console.error('Error loading HalfxAdrian images:', error);
-          showToast('Error al cargar las imágenes alternativas', 'error');
-          // Si hay error, volver a la colección original
-          currentImageCollection = 'adrianpunks';
-          buttonText.textContent = 'HalfxAdrian';
-          return;
-        }
+      // Cambiar el estilo del botón según la colección
+      if (currentImageCollection === 'adrianpunks') {
+        button.classList.remove('btn-success');
+        button.classList.add('btn-danger');
+      } else {
+        button.classList.remove('btn-danger');
+        button.classList.add('btn-success');
       }
+      
+      // Mostrar mensaje de confirmación
+      const toastMessage = currentImageCollection === 'halfxadrian' ? 'Mostrando imágenes de HalfxAdrian' : 'Mostrando imágenes de AdrianPunks';
+      showToast(toastMessage);
       
       // Recargar la visualización con las nuevas imágenes
       filterAndDisplayNFTs();
@@ -2032,7 +1999,7 @@
     function getImageUrl(nft) {
       if (currentImageCollection === 'halfxadrian') {
         const tokenId = nft.name.split('#')[1];
-        return imageUrls[tokenId] || nft.image;
+        return `./halfxadrianimages/${tokenId}.jpg`;
       }
       return nft.image;
     }
