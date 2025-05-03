@@ -790,7 +790,7 @@
         const mintedCount = mintedCountBN.toNumber();
         console.log("Minted count:", mintedCount);
 
-        const response = await fetch('adrianpunks.json');
+        const response = await fetch('./adrianpunks.json');
         if (!response.ok) throw new Error('Error loading NFTs');
         const data = await response.json();
         // Filtrar para mostrar solo los tokens cuyo ID <= mintedCount
@@ -833,7 +833,7 @@
             parseFloat(ethers.utils.formatUnits(listing.price, 18)).toFixed(1)) : '';
 
         card.innerHTML = `
-          <img src="${getImageUrl(nft)}" class="card-img-top" alt="${nft.name}" onerror="this.src='placeholder.png'">
+          <img src="${getImageUrl(nft)}" class="card-img-top" alt="${nft.name}">
           <div class="card-body">
             <h5 class="card-title">${nft.name}</h5>
             <p class="card-text">Rarity: ${nft.rarity.toFixed(2)}</p>
@@ -855,7 +855,7 @@
     
     async function showNFTDetails(nftName) {
       try {
-        const data = await fetch('adrianpunks.json').then(response => response.json());
+        const data = await fetch('./adrianpunks.json').then(response => response.json());
         const nft = data.collection.find(n => n.name === nftName);
         if (!nft) throw new Error("NFT not found");
         const tokenId = parseInt(nft.name.split('#')[1]);
@@ -887,7 +887,7 @@
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body text-center">
-            <img src="${getImageUrl(nft)}" class="img-fluid rounded mb-3" alt="${nft.name}" onerror="this.src='placeholder.png'">
+            <img src="${getImageUrl(nft)}" class="img-fluid rounded mb-3" alt="${nft.name}">
             <div class="nft-details text-start">
               ${ownershipStatus}
               <p><strong>Description:</strong> ${nft.description}</p>
@@ -1486,7 +1486,7 @@
           const tokenIds = await Promise.allSettled(tokenPromises);
           
           // Cargar el JSON con la información de los tokens
-          const response = await fetch('adrianpunks.json');
+          const response = await fetch('./adrianpunks.json');
           const data = await response.json();
           const jsonCollection = data.collection;
 
@@ -1927,26 +1927,56 @@
     }
 
     async function toggleImageCollection() {
-      const button = document.getElementById('collectionToggleText');
+      const button = document.getElementById('collectionToggleButton');
+      const buttonText = document.getElementById('collectionToggleText');
       
       // Alternar la colección
       currentImageCollection = currentImageCollection === 'adrianpunks' ? 'halfxadrian' : 'adrianpunks';
       
       // Actualizar texto del botón
-      button.textContent = currentImageCollection === 'adrianpunks' ? 'HalfxAdrian' : 'AdrianPunks';
+      buttonText.textContent = currentImageCollection === 'adrianpunks' ? 'HalfxAdrian' : 'AdrianPunks';
+      
+      // Mostrar mensaje de carga
+      const toastMessage = currentImageCollection === 'halfxadrian' ? 'Cargando imágenes de HalfxAdrian...' : 'Mostrando imágenes de AdrianPunks';
+      showToast(toastMessage);
       
       // Cargar URLs de HalfxAdrian si no están cargadas ya
       if (currentImageCollection === 'halfxadrian' && Object.keys(imageUrls).length === 0) {
         try {
-          const response = await fetch('halfxadrian.json');
+          const response = await fetch('./halfxadrian.json');
+          
+          if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+          }
+          
           const data = await response.json();
+          
           // Crear un mapa de tokenId -> imageUrl
-          data.collection.forEach(item => {
-            const tokenId = item.name.split('#')[1];
-            imageUrls[tokenId] = item.image;
-          });
+          if (Array.isArray(data)) {
+            data.forEach(item => {
+              if (item.id && item.image) {
+                imageUrls[item.id] = item.image;
+              }
+            });
+            console.log(`Cargadas ${Object.keys(imageUrls).length} imágenes de HalfxAdrian`);
+            showToast(`Mostrando imágenes de HalfxAdrian`);
+          } else if (data.collection && Array.isArray(data.collection)) {
+            data.collection.forEach(item => {
+              const tokenId = item.name.split('#')[1];
+              imageUrls[tokenId] = item.image;
+            });
+            console.log(`Cargadas ${Object.keys(imageUrls).length} imágenes de HalfxAdrian`);
+            showToast(`Mostrando imágenes de HalfxAdrian`);
+          } else {
+            console.error('Formato inesperado en halfxadrian.json');
+            showToast('Error al cargar las imágenes alternativas', 'error');
+          }
         } catch (error) {
           console.error('Error loading HalfxAdrian images:', error);
+          showToast('Error al cargar las imágenes alternativas', 'error');
+          // Si hay error, volver a la colección original
+          currentImageCollection = 'adrianpunks';
+          buttonText.textContent = 'HalfxAdrian';
           return;
         }
       }
