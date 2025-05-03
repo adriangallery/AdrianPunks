@@ -540,6 +540,8 @@
 
     // Variables para manejar las rutas de imagen
     let currentImageCollection = 'adrianpunks'; // Por defecto
+    let adrianpunksData = null; // Datos de la colección AdrianPunks
+    let halfxadrianData = null; // Datos de la colección HalfxAdrian
 
     // ABI actualizado del contrato AdrianMarket (incluye Trait Offers)
     const MARKET_ABI = [
@@ -789,11 +791,21 @@
         const mintedCount = mintedCountBN.toNumber();
         console.log("Minted count:", mintedCount);
 
-        const response = await fetch('./adrianpunks.json');
-        if (!response.ok) throw new Error('Error loading NFTs');
-        const data = await response.json();
+        // Cargar datos de AdrianPunks
+        const responseAdrianPunks = await fetch('./adrianpunks.json');
+        if (!responseAdrianPunks.ok) throw new Error('Error loading AdrianPunks data');
+        adrianpunksData = await responseAdrianPunks.json();
+        
+        // Cargar datos de HalfxAdrian
+        const responseHalfxAdrian = await fetch('./halfxadrian.json');
+        if (!responseHalfxAdrian.ok) throw new Error('Error loading HalfxAdrian data');
+        halfxadrianData = await responseHalfxAdrian.json();
+        
+        // Usar los datos de la colección actual
+        let currentData = currentImageCollection === 'adrianpunks' ? adrianpunksData : halfxadrianData;
+        
         // Filtrar para mostrar solo los tokens cuyo ID <= mintedCount
-        nftData = (data.collection || []).filter(nft => {
+        nftData = (currentData.collection || []).filter(nft => {
           const tokenIdStr = nft.name.split('#')[1];
           const tokenId = parseInt(tokenIdStr);
           return tokenId <= mintedCount;
@@ -854,7 +866,8 @@
     
     async function showNFTDetails(nftName) {
       try {
-        const data = await fetch('./adrianpunks.json').then(response => response.json());
+        // Usar la colección correcta de datos
+        const data = currentImageCollection === 'adrianpunks' ? adrianpunksData : halfxadrianData;
         const nft = data.collection.find(n => n.name === nftName);
         if (!nft) throw new Error("NFT not found");
         const tokenId = parseInt(nft.name.split('#')[1]);
@@ -1986,10 +1999,10 @@
       }
       
       // Mostrar mensaje de confirmación
-      const toastMessage = currentImageCollection === 'halfxadrian' ? 'Showing images from HalfxAdrian' : 'Showing images from AdrianPunks';
+      const toastMessage = currentImageCollection === 'halfxadrian' ? 'Showing HalfxAdrian collection' : 'Showing AdrianPunks collection';
       showToast(toastMessage);
       
-      // Recargar la visualización con las nuevas imágenes
+      // Recargar la visualización con los nuevos datos
       filterAndDisplayNFTs();
     }
 
