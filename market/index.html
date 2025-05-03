@@ -815,8 +815,33 @@
         grid.innerHTML = '<div class="alert alert-info">No NFTs found</div>';
         return;
       }
+      
+      // Si estamos mostrando la colección halfxadrian, cargar ese JSON
+      let halfxadrianData = null;
+      if (currentImageCollection === 'halfxadrian') {
+        try {
+          const response = await fetch('./halfxadrian.json');
+          if (response.ok) {
+            const data = await response.json();
+            halfxadrianData = data.collection || [];
+          }
+        } catch (error) {
+          console.error('Error loading halfxadrian.json:', error);
+        }
+      }
+      
       nfts.forEach(nft => {
         const tokenId = nft.name.split('#')[1];
+        
+        // Si es halfxadrian y tenemos los datos, buscar el nombre en ese JSON
+        let displayName = nft.name;
+        if (currentImageCollection === 'halfxadrian' && halfxadrianData) {
+          const halfNft = halfxadrianData.find(n => parseInt(n.name.split('#')[1]) === parseInt(tokenId));
+          if (halfNft) {
+            displayName = halfNft.name;
+          }
+        }
+        
         const listing = activeListingsData.find(l => l.tokenId.toString() === tokenId && l.expirationTime > Math.floor(Date.now() / 1000));
         const card = document.createElement('div');
         card.className = 'card nft-card';
@@ -832,10 +857,10 @@
             parseFloat(ethers.utils.formatUnits(listing.price, 18)).toFixed(1)) : '';
 
         card.innerHTML = `
-          <img src="${getImageUrl(nft)}" class="card-img-top" alt="${nft.name}">
+          <img src="${getImageUrl(nft)}" class="card-img-top" alt="${displayName}">
           <div class="card-body">
-            <h5 class="card-title">${nft.name}</h5>
-            <p class="card-text">Rarity: ${nft.rarity.toFixed(2)}</p>
+            <h5 class="card-title">${displayName}</h5>
+            <p class="card-text">Rarity: ${typeof nft.rarity === 'number' ? nft.rarity.toFixed(2) : 'N/A'}</p>
             ${listing ? `
               <div class="price-tag alert alert-info py-1 px-2 mb-2">
                 <small>Listed: ${formattedPrice} $A</small>
@@ -854,10 +879,18 @@
     
     async function showNFTDetails(nftName) {
       try {
-        const data = await fetch('./adrianpunks.json').then(response => response.json());
-        const nft = data.collection.find(n => n.name === nftName);
+        // Cargar el JSON correspondiente a la colección actual
+        const jsonFile = currentImageCollection === 'adrianpunks' ? './adrianpunks.json' : './halfxadrian.json';
+        const data = await fetch(jsonFile).then(response => response.json());
+        
+        // Obtener el ID del token del nombre
+        const tokenId = parseInt(nftName.split('#')[1]);
+        
+        // Buscar el NFT por su ID en lugar de por su nombre, ya que el nombre puede variar entre colecciones
+        const nft = data.collection.find(n => parseInt(n.name.split('#')[1]) === tokenId);
+        
         if (!nft) throw new Error("NFT not found");
-        const tokenId = parseInt(nft.name.split('#')[1]);
+        
         let ownershipStatus = '';
         let isOwner = false;
         try {
@@ -889,10 +922,10 @@
             <img src="${getImageUrl(nft)}" class="img-fluid rounded mb-3" alt="${nft.name}">
             <div class="nft-details text-start">
               ${ownershipStatus}
-              <p><strong>Description:</strong> ${nft.description}</p>
-              <p><strong>Compiler:</strong> ${nft.compiler}</p>
-              <p><strong>Masterminds:</strong> ${nft.masterminds.join(', ')}</p>
-              <p><strong>Rarity:</strong> ${nft.rarity.toFixed(2)}</p>
+              <p><strong>Description:</strong> ${nft.description || 'N/A'}</p>
+              <p><strong>Compiler:</strong> ${nft.compiler || 'N/A'}</p>
+              <p><strong>Masterminds:</strong> ${nft.masterminds && Array.isArray(nft.masterminds) ? nft.masterminds.join(', ') : 'N/A'}</p>
+              <p><strong>Rarity:</strong> ${typeof nft.rarity === 'number' ? nft.rarity.toFixed(2) : 'N/A'}</p>
               ${isOwner ? `
                 ${!tokenListing ? `
                   <button class="btn btn-primary w-100 mb-2" onclick="openListingForm('${nft.name}', 'NewAdrianMarket')">
@@ -950,7 +983,7 @@
               </div>
               <h6 class="mt-3">Attributes:</h6>
               <ul class="list-group">
-                ${nft.attributes.map(attr => 
+                ${nft.attributes && Array.isArray(nft.attributes) ? nft.attributes.map(attr => 
                   `<li class="list-group-item d-flex justify-content-between align-items-center">
                     <div>
                       <strong>${attr.trait_type}:</strong> ${attr.value}
@@ -961,7 +994,7 @@
                       💰
                     </button>
                   </li>`
-                ).join('')}
+                ).join('') : '<li class="list-group-item">No attributes found</li>'}
               </ul>
               <div class="text-center mt-3">
                 ${!isOwner ? `
