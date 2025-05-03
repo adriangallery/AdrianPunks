@@ -665,7 +665,7 @@
     // Nueva función para cargar la colección actual
     async function loadCurrentCollection() {
       try {
-        const jsonFile = currentCollection === 'adrianpunks' ? 'adrianpunks.json' : 'halxadrian.json';
+        const jsonFile = currentCollection === 'adrianpunks' ? 'adrianpunks.json' : 'halfxadrian.json';
         const response = await fetch(jsonFile);
         if (!response.ok) throw new Error(`Error loading ${jsonFile}`);
         const data = await response.json();
@@ -683,13 +683,59 @@
       const buttonText = document.getElementById('collectionToggleText');
       
       // Cambiar la colección activa
-      currentCollection = currentCollection === 'adrianpunks' ? 'halxadrian' : 'adrianpunks';
+      currentCollection = currentCollection === 'adrianpunks' ? 'halfxadrian' : 'adrianpunks';
       
       // Actualizar el texto del botón
       buttonText.textContent = currentCollection === 'adrianpunks' ? 'HalfxAdrian' : 'AdrianPunks';
       
+      // Actualizar el estilo del botón según la colección activa
+      if (currentCollection === 'adrianpunks') {
+        // Si es AdrianPunks, mostrar el botón que permite cambiar a HalfxAdrian
+        button.classList.remove('btn-success');
+        button.classList.add('btn-danger');
+      } else {
+        // Si es HalfxAdrian, mostrar el botón que permite cambiar a AdrianPunks
+        button.classList.remove('btn-danger');
+        button.classList.add('btn-success');
+      }
+      
+      // Mostrar mensaje de confirmación
+      showToast(`Mostrando colección: ${currentCollection === 'adrianpunks' ? 'AdrianPunks' : 'HalfxAdrian'}`);
+      
       // Recargar los NFTs con la nueva colección
       loadNFTs();
+    }
+    
+    // Función para mostrar mensajes temporales
+    function showToast(message) {
+      // Verificar si ya existe un toast y eliminarlo
+      const existingToast = document.getElementById('collectionToast');
+      if (existingToast) {
+        existingToast.remove();
+      }
+      
+      // Crear nuevo toast
+      const toast = document.createElement('div');
+      toast.id = 'collectionToast';
+      toast.style.position = 'fixed';
+      toast.style.bottom = '20px';
+      toast.style.left = '50%';
+      toast.style.transform = 'translateX(-50%)';
+      toast.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+      toast.style.color = 'white';
+      toast.style.padding = '10px 20px';
+      toast.style.borderRadius = '5px';
+      toast.style.zIndex = '9999';
+      toast.innerText = message;
+      
+      document.body.appendChild(toast);
+      
+      // Eliminar el toast después de 3 segundos
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.5s ease';
+        setTimeout(() => toast.remove(), 500);
+      }, 3000);
     }
     
     function extractTraits(nfts) {
@@ -1910,6 +1956,16 @@
         themeButtonText.textContent = 'DarkMode';
         themeButton.classList.remove('btn-dark');
         themeButton.classList.add('btn-secondary');
+      }
+      
+      // Configurar el estilo inicial del botón de colección
+      const collectionButton = document.getElementById('collectionToggleButton');
+      if (collectionButton) {
+        if (currentCollection === 'adrianpunks') {
+          collectionButton.classList.add('btn-danger');
+        } else {
+          collectionButton.classList.add('btn-success');
+        }
       }
     });
 
