@@ -221,53 +221,40 @@
    
    /* ------------------ 5.  CONEXIÓN WALLET ------------------ */
    
-   async function connectWallet() {
-     try {
-       if (typeof window.ethereum === 'undefined') {
-         throw new Error('MetaMask no está instalado');
+   async function connect() {
+     if (!window.ethereum) throw new Error("Instala MetaMask para continuar");
+     const [acc] = await window.ethereum.request({ method: "eth_requestAccounts" });
+     
+     /* Red Base */
+     if ((await ethereum.request({ method: "eth_chainId" })) !== CFG.network.chainIdHex) {
+       try {
+         await ethereum.request({ method: "wallet_switchEthereumChain",
+                                  params: [{ chainId: CFG.network.chainIdHex }] });
+       } catch (e) {
+         if (e.code === 4902)
+           await ethereum.request({ method: "wallet_addEthereumChain",
+                                    params: [{ ...CFG.network,
+                                               chainId: CFG.network.chainIdHex }] });
+         else throw e;
        }
-
-       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-       if (accounts.length === 0) {
-         throw new Error('No se encontraron cuentas');
-       }
-
-       const account = accounts[0];
-       const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-
-       if (chainId !== CFG.network.chainIdHex) {
-         try {
-           await window.ethereum.request({
-             method: 'wallet_switchEthereumChain',
-             params: [{ chainId: CFG.network.chainIdHex }],
-           });
-         } catch (switchError) {
-           if (switchError.code === 4902) {
-             await window.ethereum.request({
-               method: 'wallet_addEthereumChain',
-               params: [{
-                 chainId: CFG.network.chainIdHex,
-                 chainName: 'Base Mainnet',
-                 nativeCurrency: {
-                   name: 'ETH',
-                   symbol: 'ETH',
-                   decimals: 18
-                 },
-                 rpcUrls: [CFG.network.rpc],
-                 blockExplorerUrls: ['https://basescan.org']
-               }],
-             });
-           } else {
-             throw switchError;
-           }
-         }
-       }
-
-       return account;
-     } catch (error) {
-       console.error('Error al conectar la wallet:', error);
-       throw error;
      }
+   
+     S.provider  = new ethers.providers.Web3Provider(window.ethereum);
+     S.signer    = S.provider.getSigner();
+     S.account   = acc;
+     
+     /* Instancias de contrato */
+     const make = (addr, abi) => new ethers.Contract(addr, abi, S.signer);
+     S.contracts.punks  = make(CFG.addresses.punks,  CFG.abi.punks);
+     S.contracts.quest  = make(CFG.addresses.quest,  CFG.abi.quest);
+     S.contracts.token  = make(CFG.addresses.token,  CFG.abi.erc20);
+     
+     /* Leer decimals & symbol */
+     [S.decimals, S.symbol] = await Promise.all([
+         S.contracts.token.decimals(),  S.contracts.token.symbol() ]);
+   
+     notify(E.ok, "Wallet conectada correctamente");
+     renderAccount(); await bootstrapData();
    }
    
    window.renderAccount = () => {
@@ -299,63 +286,27 @@
    
    /* --- 6-c  TOKEN NFTs ----------------------------------- */
    window.loadTokens = async function() {
-     try {
-       const account = await connectWallet();
-       const punksContract = new ethers.Contract(CFG.addresses.punks, CFG.abi.punks, S.provider);
-       const questContract = new ethers.Contract(CFG.addresses.quest, CFG.abi.quest, S.provider);
-       const tokenContract = new ethers.Contract(CFG.addresses.token, CFG.abi.erc20, S.provider);
-
-       // Cargar balance de tokens
-       const balance = await punksContract.balanceOf(account);
-       const tokenIds = [];
-       for (let i = 0; i < balance.toNumber(); i++) {
-         const tokenId = await punksContract.tokenOfOwnerByIndex(account, i);
-         tokenIds.push(tokenId.toNumber());
-       }
-
-       // Cargar información detallada de cada token
-       const tokens = await Promise.all(tokenIds.map(async (id) => {
-         const [level, xp, maxXp, lastClaim, lastEvent, eventBonus, durability] = 
-           await questContract.getTokenDetailedInfo(id);
-         const [staked, equipped] = await questContract.getTokenStats(id);
-         const [slots, usedSlots, items, lastRepair] = 
-           await questContract.getTokenArmoryDetails(id);
-         
-         return {
-           id,
-           level: parseInt(level),
-           xp: parseInt(xp),
-           maxXp: parseInt(maxXp),
-           lastClaim: parseInt(lastClaim),
-           lastEvent: parseInt(lastEvent),
-           eventBonus: parseInt(eventBonus),
-           durability: parseInt(durability),
-           staked: staked === 'true',
-           equipped: parseInt(equipped),
-           slots: parseInt(slots),
-           usedSlots: parseInt(usedSlots),
-           items: items.map(i => parseInt(i)),
-           lastRepair: parseInt(lastRepair)
-         };
-       }));
-
-       // Cargar balance de ADRIAN
-       const adrianBalance = await tokenContract.balanceOf(account);
-       const decimals = await tokenContract.decimals();
-       const formattedBalance = fmt(adrianBalance, decimals);
-
-       S.ownedTokens = tokenIds;
-       S.inventory = {};
-       for (const token of tokens) {
-         S.inventory[token.id] = token.staked ? 1 : 0;
-       }
-
-       renderTokens();
-       return { tokens, adrianBalance: formattedBalance };
-     } catch (error) {
-       console.error('Error al cargar tokens:', error);
-       throw error;
-     }
+     E.loadingTok.style.display = "block"; E.grid.innerHTML = "";
+     const bal = (await S.contracts.punks.balanceOf(S.account)).toNumber();
+     if (!bal) { E.noTok.style.display = "block"; return; }
+   
+     /* Obtener Ids mediante multicall */
+     const iface = new ethers.utils.Interface(CFG.abi.punks);
+     const calls = [...Array(bal).keys()].map(i => ({
+         target: CFG.addresses.punks,
+         allowFailure: false,
+         callData: iface.encodeFunctionData("tokenOfOwnerByIndex", [S.account, i])
+     }));
+     const results = await new ethers.Contract(
+           CFG.addresses.multicall,
+           ["function aggregate3(tuple(address,bool,bytes)[]) view returns((bool,bytes)[])"],
+           S.provider
+         ).aggregate3(calls);
+   
+     S.ownedTokens = results.map(r =>
+         iface.decodeFunctionResult("tokenOfOwnerByIndex", r.returnData)[0].toNumber());
+   
+     renderTokens();
    };
    
    /* Renderizado de tarjetas NFT */
@@ -565,18 +516,8 @@
    
    /* ------------------ 11.  ARRANQUE ------------------ */
    
-   // Definir ABIs
-   const ADRIAN_PUNKS_ABI = [/* Tu ABI aquí */];
-   const PUNK_QUEST_ABI = [/* Tu ABI aquí */];
-   const ERC20_ABI = [/* Tu ERC20 ABI aquí */];
-
-   // Actualizar CFG con los ABIs
-   CFG.abi.punks = ADRIAN_PUNKS_ABI;
-   CFG.abi.quest = PUNK_QUEST_ABI;
-   CFG.abi.erc20 = ERC20_ABI;
-
    // Exponer funciones al scope global
-   window.connect = connectWallet;
+   window.connect = connect;
    window.renderAccount = renderAccount;
    window.bootstrapData = bootstrapData;
    window.loadBalance = loadBalance;
@@ -590,7 +531,7 @@
 
    // Configurar event listeners
    document.addEventListener('DOMContentLoaded', () => {
-     E.connectBtn.addEventListener('click', withLoad(connectWallet));
+     E.connectBtn.addEventListener('click', withLoad(connect));
      E.selectAll.addEventListener('click', () => {
        if (S.selected.size === S.ownedTokens.length) S.selected.clear();
        else S.ownedTokens.forEach(id => S.selected.add(id));
@@ -614,138 +555,7 @@
      // Verificar si la wallet ya está conectada
      if (window.ethereum) {
        window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
-         if (accounts.length > 0) withLoad(connectWallet)();
+         if (accounts.length > 0) withLoad(connect)();
        });
      }
    });
-
-   /* ------------------ 3.  FUNCIONES DE UI ------------------ */
-
-   function updateTokenCard(token) {
-     const card = document.createElement('div');
-     card.className = 'token-card';
-     card.innerHTML = `
-       <div class="token-image">
-         <img src="${CFG.imgPath}${token.id}.jpg" alt="Token ${token.id}" onerror="this.src='${CFG.placeholder}'">
-       </div>
-       <div class="token-info">
-         <h3>Token #${token.id}</h3>
-         <p>Nivel: ${token.level}</p>
-         <p>XP: ${token.xp}/${token.maxXp}</p>
-         <p>Durabilidad: ${token.durability}%</p>
-         <p>Slots: ${token.usedSlots}/${token.slots}</p>
-         <div class="token-actions">
-           ${token.staked ? 
-             `<button onclick="unstakeToken(${token.id})">Unstake</button>
-              <button onclick="claimRewards(${token.id})">Reclamar</button>` :
-             `<button onclick="stakeToken(${token.id})">Stake</button>`
-           }
-           <button onclick="repairItem(0, ${token.id})">Reparar</button>
-           <button onclick="purchaseFastLevelUpgrade(${token.id})">Mejorar Nivel</button>
-           <button onclick="purchaseExtraSlots(${token.id}, 1)">Comprar Slot</button>
-         </div>
-       </div>
-     `;
-     return card;
-   }
-
-   function updateStoreItem(item) {
-     const card = document.createElement('div');
-     card.className = 'store-item';
-     card.innerHTML = `
-       <div class="item-image">
-         <img src="${CFG.imgPath}items/${item.id}.jpg" alt="Item ${item.id}" onerror="this.src='${CFG.placeholder}'">
-       </div>
-       <div class="item-info">
-         <h3>${item.name}</h3>
-         <p>Tipo: ${item.type}</p>
-         <p>Precio: ${item.price} ADRIAN</p>
-         <p>Bonus: ${item.bonus}%</p>
-         <p>Durabilidad: ${item.durability}%</p>
-         <div class="item-actions">
-           <button onclick="buyItem(${item.id}, 1)">Comprar</button>
-         </div>
-       </div>
-     `;
-     return card;
-   }
-
-   function updateInventoryItem(item) {
-     const card = document.createElement('div');
-     card.className = 'inventory-item';
-     card.innerHTML = `
-       <div class="item-image">
-         <img src="${CFG.imgPath}items/${item.id}.jpg" alt="Item ${item.id}" onerror="this.src='${CFG.placeholder}'">
-       </div>
-       <div class="item-info">
-         <h3>${item.name}</h3>
-         <p>Tipo: ${item.type}</p>
-         <p>Durabilidad: ${item.durability}%</p>
-         <div class="item-actions">
-           <button onclick="equipItem(${item.tokenId}, ${item.id})">Equipar</button>
-           <button onclick="repairItem(${item.instanceId}, ${item.tokenId})">Reparar</button>
-         </div>
-       </div>
-     `;
-     return card;
-   }
-
-   function updateADRIANBalance(balance) {
-     const balanceElement = document.getElementById('adrian-balance');
-     if (balanceElement) {
-       balanceElement.textContent = `${balance} ADRIAN`;
-     }
-   }
-
-   function showNotification(message, type = 'info') {
-     const notification = document.createElement('div');
-     notification.className = `notification ${type}`;
-     notification.textContent = message;
-     document.body.appendChild(notification);
-     setTimeout(() => notification.remove(), 3000);
-   }
-
-   function updateUI(data) {
-     const tokensContainer = document.getElementById('tokens-container');
-     const storeContainer = document.getElementById('store-container');
-     const inventoryContainer = document.getElementById('inventory-container');
-
-     if (tokensContainer) {
-       tokensContainer.innerHTML = '';
-       data.tokens.forEach(token => {
-         tokensContainer.appendChild(updateTokenCard(token));
-       });
-     }
-
-     if (storeContainer) {
-       storeContainer.innerHTML = '';
-       data.storeItems.forEach(item => {
-         storeContainer.appendChild(updateStoreItem(item));
-       });
-     }
-
-     if (inventoryContainer) {
-       inventoryContainer.innerHTML = '';
-       data.inventoryItems.forEach(item => {
-         inventoryContainer.appendChild(updateInventoryItem(item));
-       });
-     }
-
-     updateADRIANBalance(data.adrianBalance);
-   }
-
-   async function initializeApp() {
-     try {
-       const account = await connectWallet();
-       const data = await loadTokens();
-       updateUI(data);
-       showNotification('Aplicación cargada correctamente', 'success');
-     } catch (error) {
-       showNotification(error.message, 'error');
-     }
-   }
-
-   // Event Listeners
-   window.addEventListener('load', initializeApp);
-   window.ethereum?.on('accountsChanged', initializeApp);
-   window.ethereum?.on('chainChanged', initializeApp);
