@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AdrianPunks Toggler - Manage Versions</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/market/styles.css">
+  <!-- Ethers.js -->
+  <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js" type="application/javascript"></script>
+  <style>
+    :root {
+      --bg-color: #f0f0f0;
+      --primary-text: #333333;
+      --accent-purple: #8a2be2;
+      --accent-purple-hover: #7a1dd2;
+      --accent-blue: #4dabf7;
+      --card-bg: #ffffff;
+      --card-border: #e9ecef;
+      --card-selected-border: #8a2be2;
+      --screen-bg: #ffffff;
+      --navbar-height: 60px;
+      --error-bg: #f8d7da;
+      --error-border: #f5c6cb;
+      --error-text: #721c24;
+      --success-bg: #d4edda;
+      --success-border: #c3e6cb;
+      --success-text: #155724;
+    }
+    
+    body {
+      background-color: var(--bg-color);
+      color: var(--primary-text);
+      font-family: 'Share Tech Mono', monospace;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+      padding-top: calc(var(--navbar-height) + 20px);
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 20px;
+      background: var(--screen-bg);
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    
+    header {
+      text-align: center;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      position: relative;
+    }
+    
+    header h1 {
+      font-size: 2.5rem;
+      margin: 0;
+      color: var(--primary-text);
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+    
+    header p {
+      margin-top: 1rem;
+      font-size: 1rem;
+      color: var(--primary-text);
+      opacity: 0.8;
+    }
+    
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .section-title {
+      font-size: 1.4rem;
+      margin-bottom: 1.5rem;
+      color: var(--primary-text);
+      font-weight: 600;
+      border-bottom: 2px solid var(--card-border);
+      padding-bottom: 0.5rem;
+    }
+    
+    .token-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      padding: 0;
+      margin: 0;
+    }
+    
+    @media (max-width: 768px) {
+      .token-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .token-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .token-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    
+    .token-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .token-card img {
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      border-radius: 4px;
+      aspect-ratio: 1/1;
+      background-color: #f0f0f0;
+    }
+    
+    .token-info {
+      padding: 0.5rem 0;
+    }
+    
+    .token-title {
+      font-size: 1.1rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    
+    .token-status {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    
+    .status-mirrored {
+      background-color: #d1fae5;
+      color: #065f46;
+    }
+    
+    .status-not-mirrored {
+      background-color: #fef3c7;
+      color: #92400e;
+    }
+    
+    .token-version {
+      font-size: 0.9rem;
+      color: #6b7280;
+    }
+    
+    .selected-token {
+      border: 2px solid var(--card-selected-border);
+      box-shadow: 0 0 0 2px var(--card-selected-border);
+    }
+    
+    .btn-connect {
+      background-color: var(--accent-purple);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    
+    .btn-connect:hover {
+      background-color: var(--accent-purple-hover);
+    }
+    
+    .btn-action {
+      background-color: var(--accent-purple);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-block;
+      text-align: center;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .btn-action:hover {
+      background-color: var(--accent-purple-hover);
+      transform: translateY(-2px);
+    }
+    
+    .btn-secondary {
+      background-color: #6c757d;
+    }
+    
+    .btn-secondary:hover {
+      background-color: #5a6268;
+    }
+    
+    .account-display {
+      display: inline-block;
+      background-color: #f0f0f0;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-family: monospace;
+      font-size: 0.9rem;
+    }
+    
+    .alert {
+      padding: 1rem;
+      border-radius: 0.375rem;
+      margin-bottom: 1rem;
+    }
+    
+    .alert-danger {
+      background-color: var(--error-bg);
+      border: 1px solid var(--error-border);
+      color: var(--error-text);
+    }
+    
+    .alert-success {
+      background-color: var(--success-bg);
+      border: 1px solid var(--success-border);
+      color: var(--success-text);
+    }
+    
+    .version-selector {
+      width: 100%;
+      padding: 0.5rem;
+      border-radius: 0.375rem;
+      border: 1px solid var(--card-border);
+      margin-bottom: 1rem;
+    }
+    
+    .token-badge {
+      display: inline-block;
+      background-color: #e0e7ff;
+      color: #4338ca;
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      margin-right: 0.25rem;
+      margin-bottom: 0.25rem;
+    }
+    
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--card-border);
+      color: #9ca3af;
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Include the menu -->
+  <div id="menu-container"></div>
+  <script>
+    // Load the menu
+    fetch('/market/components/menu.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('menu-container').innerHTML = html;
+        // Asegurar que el menú tenga el estilo correcto
+        const menu = document.querySelector('.navbar');
+        if (menu) {
+          menu.classList.add('navbar-dark', 'bg-dark');
+        }
+      })
+      .catch(error => console.error('Error loading menu:', error));
+  </script>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>AdrianPunks Toggler</h1>
+      <p>Gestiona tus AdrianPunks y sus versiones en PocketAdrians</p>
+    </header>
+    
+    <!-- Connect Wallet Section -->
+    <div id="connect-section" class="text-center mb-4">
+      <button id="connectWalletBtn" class="btn-connect">Conectar Wallet</button>
+    </div>
+    
+    <!-- Account Info Section (hidden by default) -->
+    <div id="account-section" class="text-center mb-4" style="display: none;">
+      <p>Wallet Conectada:</p>
+      <div id="accountDisplay" class="account-display"></div>
+    </div>
+    
+    <!-- Alert Messages -->
+    <div id="errorAlert" class="alert alert-danger" style="display: none;"></div>
+    <div id="successAlert" class="alert alert-success" style="display: none;"></div>
+    
+    <!-- Token Management Section (hidden by default) -->
+    <div id="token-management" class="card" style="display: none;">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="section-title mb-0">Tus AdrianPunks</h2>
+        <button id="selectAllBtn" class="btn-secondary btn-action">Seleccionar Todos</button>
+      </div>
+      
+      <div id="loading-tokens" class="text-center py-5">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Cargando...</span>
+        </div>
+        <p class="mt-2">Cargando tus tokens...</p>
+      </div>
+      
+      <div id="no-tokens-message" class="text-center py-5" style="display: none;">
+        <p>No posees ningún AdrianPunk todavía</p>
+      </div>
+      
+      <!-- Token Grid -->
+      <div id="token-grid" class="token-grid mb-4"></div>
+      
+      <!-- Action Button -->
+      <button id="syncBtn" class="btn-action w-100 mb-3" disabled>Sincronizar Propiedad (0 seleccionados)</button>
+    </div>
+    
+    <!-- Version Management Section (hidden by default) -->
+    <div id="version-management" class="card" style="display: none;">
+      <h2 class="section-title">Actualizar Versiones</h2>
+      
+      <div id="no-selection-message" class="text-center mb-3">
+        <p>Selecciona tokens arriba para cambiar sus versiones</p>
+      </div>
+      
+      <div id="selection-info" style="display: none;">
+        <p>Tokens Seleccionados: <span id="selectedCount">0</span></p>
+        <div id="selectedTokensList" class="mb-3"></div>
+      </div>
+      
+      <div class="mb-3">
+        <label for="versionSelector" class="form-label">Seleccionar Versión</label>
+        <select id="versionSelector" class="version-selector"></select>
+      </div>
+      
+      <button id="updateVersionBtn" class="btn-action w-100" disabled>Actualizar Versión</button>
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+      <p id="contractAddressInfo"></p>
+      <p>© 2025 AdrianPunks</p>
+    </div>
+  </div>
+
+  <script>
+    // Contract ABIs - simplified for the essential functions we need
+    const ADRIAN_PUNKS_ABI = [
+      "function ownerOf(uint256 id) external view returns (address)",
+      "function currentTokenId() external view returns (uint256)",
+      "function balanceOf(address owner) external view returns (uint256)",
+      "function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256)"
+    ];
+
+    const POCKET_ADRIANS_ABI = [
+      "function mirrored(uint256 id) external view returns (bool)",
+      "function tokenVersion(uint256 id) external view returns (uint256)",
+      "function defaultVersion() external view returns (uint256)",
+      "function versionCount() external view returns (uint256)",
+      "function metadataVersions(uint256 versionId) external view returns (string memory, string memory, bool)",
+      "function syncMultipleTokens(uint256[] calldata ids) external",
+      "function setTokensVersion(uint256[] calldata tokenIds, uint256 versionId) external"
+    ];
+
+    // Contract addresses
+    const ADRIAN_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
+    const POCKET_ADRIANS_ADDRESS = "0x6bA5A93878a0aC34B63Fd9994a874a9B0111d587";
+
+    // Base network configuration
+    const BASE_NETWORK = {
+      chainId: "0x2105", // Base mainnet chainId in hex
+      chainName: "Base",
+      nativeCurrency: {
+        name: "Ethereum",
+        symbol: "ETH",
+        decimals: 18,
+      },
+      rpcUrls: ["https://mainnet.base.org"],
+      blockExplorerUrls: ["https://basescan.org/"],
+    };
+
+    // DOM Elements
+    const connectSection = document.getElementById('connect-section');
+    const accountSection = document.getElementById('account-section');
+    const accountDisplay = document.getElementById('accountDisplay');
+    const errorAlert = document.getElementById('errorAlert');
+    const successAlert = document.getElementById('successAlert');
+    const tokenManagement = document.getElementById('token-management');
+    const versionManagement = document.getElementById('version-management');
+    const loadingTokens = document.getElementById('loading-tokens');
+    const noTokensMessage = document.getElementById('no-tokens-message');
+    const tokenGrid = document.getElementById('token-grid');
+    const noSelectionMessage = document.getElementById('no-selection-message');
+    const selectionInfo = document.getElementById('selection-info');
+    const selectedCount = document.getElementById('selectedCount');
+    const selectedTokensList = document.getElementById('selectedTokensList');
+    const versionSelector = document.getElementById('versionSelector');
+    const syncBtn = document.getElementById('syncBtn');
+    const updateVersionBtn = document.getElementById('updateVersionBtn');
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const connectWalletBtn = document.getElementById('connectWalletBtn');
+    const contractAddressInfo = document.getElementById('contractAddressInfo');
+
+    // App State
+    let account = '';
+    let provider = null;
+    let signer = null;
+    let adrianPunksContract = null;
+    let pocketAdriansContract = null;
+    let ownedTokens = [];
+    let selectedTokens = [];
+    let isLoading = false;
+    let versions = [];
+    let selectedVersion = 1;
+
+    // Set contract address info
+    contractAddressInfo.innerHTML = `
+      AdrianPunks: ${ADRIAN_PUNKS_ADDRESS.substring(0, 6)}...${ADRIAN_PUNKS_ADDRESS.substring(38)} | 
+      PocketAdrians: ${POCKET_ADRIANS_ADDRESS.substring(0, 6)}...${POCKET_ADRIANS_ADDRESS.substring(38)}
+    `;
+
+    // Show error message
+    function showError(message) {
+      errorAlert.textContent = message;
+      errorAlert.style.display = 'block';
+      setTimeout(() => {
+        errorAlert.style.display = 'none';
+      }, 5000);
+    }
+
+    // Show success message
+    function showSuccess(message) {
+      successAlert.textContent = message;
+      successAlert.style.display = 'block';
+      setTimeout(() => {
+        successAlert.style.display = 'none';
+      }, 5000);
+    }
+
+    // Connect wallet
+    async function connectWallet() {
+      setLoading(true);
+      
+      try {
+        // Check if Metamask is installed
+        if (!window.ethereum) {
+          throw new Error("Por favor instala Metamask para usar esta aplicación");
+        }
+
+        // Request account access
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        account = accounts[0];
+        accountDisplay.textContent = `${account.substring(0, 6)}...${account.substring(38)}`;
+
+        // Check if the user is on the Base network
+        const chainId = await window.ethereum.request({ method: "eth_chainId" });
+        
+        if (chainId !== BASE_NETWORK.chainId) {
+          try {
+            // Try to switch to the Base network
+            await window.ethereum.request({
+              method: "wallet_switchEthereumChain",
+              params: [{ chainId: BASE_NETWORK.chainId }],
+            });
+          } catch (switchError) {
+            // If the network is not added to Metamask, add it
+            if (switchError.code === 4902) {
+              await window.ethereum.request({
+                method: "wallet_addEthereumChain",
+                params: [BASE_NETWORK],
+              });
+            } else {
+              throw switchError;
+            }
+          }
+        }
+
+        // Set up provider and signer
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+
+        // Initialize contracts
+        adrianPunksContract = new ethers.Contract(
+          ADRIAN_PUNKS_ADDRESS,
+          ADRIAN_PUNKS_ABI,
+          signer
+        );
+        pocketAdriansContract = new ethers.Contract(
+          POCKET_ADRIANS_ADDRESS,
+          POCKET_ADRIANS_ABI,
+          signer
+        );
+
+        // Add event listeners for account and chain changes
+        window.ethereum.on("accountsChanged", (accounts) => {
+          window.location.reload();
+        });
+        window.ethereum.on("chainChanged", () => {
+          window.location.reload();
+        });
+
+        // Update UI
+        connectSection.style.display = 'none';
+        accountSection.style.display = 'block';
+        tokenManagement.style.display = 'block';
+        versionManagement.style.display = 'block';
+
+        showSuccess("Wallet conectada correctamente!");
+        
+        // Load owned tokens and available versions
+        await loadOwnedTokens();
+        await loadVersions();
+        
+      } catch (error) {
+        console.error("Error de conexión:", error);
+        showError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // Set loading state
+    function setLoading(loading) {
+      isLoading = loading;
+      loadingTokens.style.display = loading ? 'block' : 'none';
+      connectWalletBtn.disabled = loading;
+      syncBtn.disabled = loading || selectedTokens.length === 0;
+      updateVersionBtn.disabled = loading || selectedTokens.length === 0;
+    }
+
+    // Load tokens owned by the connected account
+    async function loadOwnedTokens() {
+      setLoading(true);
+      
+      try {
+        // Get the number of tokens owned by the account
+        const balance = await adrianPunksContract.balanceOf(account);
+        const balanceNumber = balance.toNumber();
+        
+        ownedTokens = [];
+        
+        // Fetch each token ID and its details
+        for (let i = 0; i < balanceNumber; i++) {
+          const tokenId = await adrianPunksContract.tokenOfOwnerByIndex(account, i);
+          const tokenIdNumber = tokenId.toNumber();
+          
+          // Check if the token is mirrored in PocketAdrians
+          const isMirrored = await pocketAdriansContract.mirrored(tokenIdNumber);
+          
+          // Get the token's current version (if mirrored)
+          let tokenVersion = 0;
+          if (isMirrored) {
+            tokenVersion = await pocketAdriansContract.tokenVersion(tokenIdNumber);
+            tokenVersion = tokenVersion.toNumber();
+            
+            // If token version is 0, it's using the default version
+            if (tokenVersion === 0) {
+              const defaultVersion = await pocketAdriansContract.defaultVersion();
+              tokenVersion = defaultVersion.toNumber();
+            }
+          }
+          
+          ownedTokens.push({
+            id: tokenIdNumber,
+            isMirrored,
+            version: tokenVersion
+          });
+        }
+        
+        // Update UI
+        if (ownedTokens.length === 0) {
+          tokenGrid.style.display = 'none';
+          noTokensMessage.style.display = 'block';
+        } else {
+          tokenGrid.style.display = 'grid';
+          noTokensMessage.style.display = 'none';
+          renderTokens();
+        }
+        
+        showSuccess(`Encontrados ${ownedTokens.length} AdrianPunks en tu wallet`);
+        
+      } catch (error) {
+        console.error("Error cargando tokens:", error);
+        showError("Error al cargar tus tokens. Por favor intenta de nuevo.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    // Load available metadata versions
+    async function loadVersions() {
+      try {
+        const versionCount = await pocketAdriansContract.versionCount();
+        const versionCountNumber = versionCount.toNumber();
+        
+        versions = [];
+        
+        for (let i = 1; i <= versionCountNumber; i++) {
+          const versionInfo = await pocketAdriansContract.metadataVersions(i);
+          const [base1, base2, active] = versionInfo;
+          
+          if (active) {
+            versions.push({
+              id: i,
+              base1,
+              base2,
+              active
+            });
+          }
+        }
+        
+        // Populate version selector
+        versionSelector.innerHTML = '';
+        versions.forEach(version => {
+          const option = document.createElement('option');
+          option.value = version.id;
+          option.textContent = `Versión ${version.id}`;
+          versionSelector.appendChild(option);
+        });
+        
+      } catch (error) {
+        console.error("Error cargando versiones:", error);
+        showError("Error al cargar versiones. Por favor intenta de nuevo.");
+      }
+    }
+
+    // Render tokens in the grid
+    function renderTokens() {
+      tokenGrid.innerHTML = '';
+      
+      ownedTokens.forEach(token => {
+        const isSelected = selectedTokens.includes(token.id);
+        
+        const tokenCard = document.createElement('div');
+        tokenCard.className = `token-card ${isSelected ? 'selected-token' : ''}`;
+        tokenCard.onclick = () => toggleSelectToken(token.id);
+        
+        tokenCard.innerHTML = `
+          <div class="token-info">
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="token-title">Adrian #${token.id}</div>
+              <div class="token-status ${token.isMirrored ? 'status-mirrored' : 'status-not-mirrored'}">
+                ${token.isMirrored ? 'Mirrored' : 'No Mirrored'}
+              </div>
+            </div>
+            ${token.isMirrored ? `<div class="token-version">Versión actual: ${token.version}</div>` : ''}
+          </div>
+          <img 
+            src="https://ipfs.io/ipfs/bafybeibhldlrca4t6kz7223s2vg3k4pqhrmgzm6xskcmqohkcnwbszlwhi/${token.id}.png" 
+            alt="Adrian #${token.id}"
+            onerror="this.src='/market/assets/placeholder.png'"
+          />
+        `;
+        
+        tokenGrid.appendChild(tokenCard);
+      });
+      
+      updateSelectedUI();
+    }
+
+    // Toggle token selection
+    function toggleSelectToken(tokenId) {
+      if (selectedTokens.includes(tokenId)) {
+        selectedTokens = selectedTokens.filter(id => id !== tokenId);
+      } else {
+        selectedTokens.push(tokenId);
+      }
+      
+      renderTokens();
+      updateSelectedUI();
+    }
+
+    // Update UI based on selections
+    function updateSelectedUI() {
+      syncBtn.textContent = `Sincronizar Propiedad (${selectedTokens.length} seleccionados)`;
+      syncBtn.disabled = isLoading || selectedTokens.length === 0;
+      updateVersionBtn.disabled = isLoading || selectedTokens.length === 0;
+      
+      selectedCount.textContent = selectedTokens.length;
+      
+      if (selectedTokens.length === 0) {
+        noSelectionMessage.style.display = 'block';
+        selectionInfo.style.display = 'none';
+      } else {
+        noSelectionMessage.style.display = 'none';
+        selectionInfo.style.display = 'block';
+        
+        // Update selected tokens list
+        selectedTokensList.innerHTML = '';
+        selectedTokens.forEach(id => {
+          const badge = document.createElement('span');
+          badge.className = 'token-badge';
+          badge.textContent = `#${id}`;
+          selectedTokensList.appendChild(badge);
+        });
+      }
+      
+      // Update select all button text
+      if (ownedTokens.length > 0) {
+        selectAllBtn.textContent = selectedTokens.length === ownedTokens.length ? 'Deseleccionar Todos' : 'Seleccionar Todos';
+      }
+    }
+
+    // Select/deselect all tokens
+    function selectAllTokens() {
+      if (selectedTokens.length === ownedTokens.length) {
+        // If all are selected, deselect all
+        selectedTokens = [];
+      } else {
+        // Otherwise, select all
+        selectedTokens = ownedTokens.map(token => token.id);
+      }
+      
+      renderTokens();
+      updateSelectedUI();
+    }
+
+    // Sync ownership for selected tokens
+    async function syncSelectedTokens() {
+      setLoading(true);
+      
+      try {
+        if (selectedTokens.length === 0) {
+          throw new Error("Por favor selecciona al menos un token para sincronizar");
+        }
+        
+        const tx = await pocketAdriansContract.syncMultipleTokens(selectedTokens);
+        await tx.wait();
+        
+        showSuccess(`¡Sincronización exitosa para ${selectedTokens.length} tokens!`);
+        
+        // Reload tokens to get updated status
+        await loadOwnedTokens();
+        
+      } catch (error) {
+        console.error("Error sincronizando tokens:", error);
+        showError(error.message || "Error al sincronizar tokens. Por favor intenta de nuevo.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // Change version for selected tokens
+    async function changeTokenVersions() {
+      setLoading(true);
+      
+      try {
+        if (selectedTokens.length === 0) {
+          throw new Error("Por favor selecciona al menos un token para actualizar");
+        }
+        
+        const versionId = parseInt(versionSelector.value);
+        
+        const tx = await pocketAdriansContract.setTokensVersion(selectedTokens, versionId);
+        await tx.wait();
+        
+        showSuccess(`¡Se actualizaron ${selectedTokens.length} tokens a la versión ${versionId}!`);
+        
+        // Reload tokens to get updated versions
+        await loadOwnedTokens();
+        
+      } catch (error) {
+        console.error("Error cambiando versiones:", error);
+        showError(error.message || "Error al actualizar versiones. Por favor intenta de nuevo.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // Event Listeners
+    connectWalletBtn.addEventListener('click', connectWallet);
+    syncBtn.addEventListener('click', syncSelectedTokens);
+    updateVersionBtn.addEventListener('click', changeTokenVersions);
+    selectAllBtn.addEventListener('click', selectAllTokens);
+    versionSelector.addEventListener('change', (e) => {
+      selectedVersion = parseInt(e.target.value);
+    });
+
+    // Initialize
+    updateSelectedUI();
+  </script>
+</body>
+</html>
