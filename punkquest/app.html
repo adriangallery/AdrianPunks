@@ -875,9 +875,11 @@
 
     async function connect() {
       if (!window.ethereum) throw new Error("Instala MetaMask para continuar");
+      
+      // Solicitar cuentas
       const [acc] = await window.ethereum.request({ method: "eth_requestAccounts" });
       
-      /* Red Base */
+      // Verificar y cambiar red si es necesario
       if ((await ethereum.request({ method: "eth_chainId" })) !== CFG.network.chainIdHex) {
         try {
           await ethereum.request({ method: "wallet_switchEthereumChain",
@@ -885,25 +887,52 @@
         } catch (e) {
           if (e.code === 4902)
             await ethereum.request({ method: "wallet_addEthereumChain",
-                                     params: [{ ...CFG.network,
-                                                chainId: CFG.network.chainIdHex }] });
+                                     params: [{ chainName: "Base Mainnet",
+                                                chainId: CFG.network.chainIdHex,
+                                                rpcUrls: [CFG.network.rpc],
+                                                nativeCurrency: {
+                                                  name: "ETH",
+                                                  symbol: "ETH",
+                                                  decimals: 18
+                                                },
+                                                blockExplorerUrls: ["https://basescan.org/"] }] });
           else throw e;
         }
       }
 
-      S.provider  = new ethers.providers.Web3Provider(window.ethereum);
-      S.signer    = S.provider.getSigner();
-      S.account   = acc;
+      // Configurar los providers
+      // 1. Provider web3 (MetaMask) para transacciones firmadas
+      S.provider = new ethers.providers.Web3Provider(window.ethereum);
+      S.signer = S.provider.getSigner();
+      S.account = acc;
       
-      /* Instancias de contrato */
-      const make = (addr, abi) => new ethers.Contract(addr, abi, S.signer);
-      S.contracts.punks  = make(CFG.addresses.punks,  CFG.abi.punks);
-      S.contracts.quest  = make(CFG.addresses.quest,  CFG.abi.quest);
+      // 2. Provider RPC para consultas (más estable que MetaMask)
+      const baseProvider = new ethers.providers.JsonRpcProvider(CFG.network.rpc, {
+        name: "base",
+        chainId: CFG.network.chainIdDec
+      });
+      
+      // Instancias de contrato
+      S.contracts.punks = new ethers.Contract(
+        CFG.addresses.punks,
+        CFG.abi.punks,
+        baseProvider
+      ).connect(S.signer);
+      
+      S.contracts.quest = new ethers.Contract(
+        CFG.addresses.quest,
+        CFG.abi.quest,
+        baseProvider
+      ).connect(S.signer);
       
       // Inicializamos el contrato token con manejo de errores
       try {
         const tokenAddr = CFG.addresses.token.toLowerCase();
-        S.contracts.token = make(tokenAddr, CFG.abi.erc20);
+        S.contracts.token = new ethers.Contract(
+          tokenAddr,
+          CFG.abi.erc20,
+          baseProvider
+        ).connect(S.signer);
         
         try {
           // Intentamos leer decimals y symbol, pero usamos valores por defecto si hay error
@@ -922,6 +951,13 @@
         console.error("Error inicializando contrato token:", e);
         notify(E.error, "Error al conectar con el token ADRIAN. Algunas funciones pueden no estar disponibles.");
       }
+      
+      // Definimos explícitamente el multicall
+      S.contracts.multicall = new ethers.Contract(
+        CFG.addresses.multicall,
+        ["function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"],
+        baseProvider
+      );
 
       notify(E.ok, "Wallet conectada correctamente");
       renderAccount(); 
@@ -989,6 +1025,7 @@
       try {
         E.loadingTok.style.display = "block"; 
         E.grid.innerHTML = "";
+        E.noTok.style.display = "none";
         
         if (!S.contracts.punks) {
           E.noTok.style.display = "block";
@@ -1007,19 +1044,22 @@
         const iface = new ethers.utils.Interface(CFG.abi.punks);
         const calls = [...Array(bal).keys()].map(i => ({
             target: CFG.addresses.punks,
-            allowFailure: false,
+            allowFailure: true,
             callData: iface.encodeFunctionData("tokenOfOwnerByIndex", [S.account, i])
         }));
         
         try {
-          const results = await new ethers.Contract(
-                CFG.addresses.multicall,
-                ["function aggregate3(tuple(address,bool,bytes)[]) view returns((bool,bytes)[])"],
-                S.provider
-              ).aggregate3(calls);
-
-          S.ownedTokens = results.map(r =>
-              iface.decodeFunctionResult("tokenOfOwnerByIndex", r.returnData)[0].toNumber());
+          if (!S.contracts.multicall) {
+            throw new Error("Multicall contract not initialized");
+          }
+          
+          const results = await S.contracts.multicall.aggregate3(calls);
+          S.ownedTokens = results
+            .filter(r => r.success)
+            .map(r => {
+              const decoded = iface.decodeFunctionResult("tokenOfOwnerByIndex", r.returnData);
+              return decoded[0].toNumber();
+            });
         } catch (e) {
           console.error("Error con multicall, intentando método alternativo:", e);
           // Método alternativo si falla multicall
@@ -1038,6 +1078,8 @@
       } catch (e) {
         console.error("Error cargando tokens:", e);
         E.loadingTok.style.display = "none";
+      } finally {
+        if (E.loadingTok) E.loadingTok.style.display = "none";
       }
     }
 
@@ -1082,26 +1124,67 @@
         
         let nextId;
         try {
-          nextId = (await S.contracts.quest.nextItemId()).toNumber();
+          nextId = await S.contracts.quest.nextItemId();
+          nextId = nextId ? nextId.toNumber() : 10; // Valor por defecto si falla
         } catch (e) {
-          console.error("Error obteniendo nextItemId:", e);
+          console.error("Error obteniendo nextItemId, usando default:", e);
           nextId = 10; // Valor por defecto si falla
         }
 
         S.storeItems = [];
-        for (let i = 1; i < nextId; i++) {
+        // Usar multicall para obtener items en lote si hay muchos
+        if (nextId > 5 && S.contracts.multicall) {
           try {
-            const item = await S.contracts.quest.items(i);
-            if (!item.exists) continue;
-            S.storeItems.push({ id: i, ...item });
+            const itemsCalls = [];
+            for (let i = 1; i < nextId; i++) {
+              itemsCalls.push({
+                target: CFG.addresses.quest,
+                allowFailure: true,
+                callData: S.contracts.quest.interface.encodeFunctionData("items", [i])
+              });
+            }
+            
+            const results = await S.contracts.multicall.aggregate3(itemsCalls);
+            
+            for (let i = 0; i < results.length; i++) {
+              if (results[i].success) {
+                try {
+                  const item = S.contracts.quest.interface.decodeFunctionResult("items", results[i].returnData);
+                  if (item && item.exists) {
+                    S.storeItems.push({ id: i+1, ...item });
+                  }
+                } catch (err) {
+                  console.error(`Error decodificando item ${i+1}:`, err);
+                }
+              }
+            }
           } catch (e) {
-            console.error(`Error cargando item de tienda #${i}:`, e);
+            console.error("Error usando multicall para la tienda, usando método individual:", e);
+            // Caer al método individual si falla multicall
+            await loadStoreIndividual(nextId);
           }
+        } else {
+          await loadStoreIndividual(nextId);
         }
+        
         renderStore();
       } catch (e) {
         console.error("Error cargando tienda:", e);
+      } finally {
         if (E.storeLoad) E.storeLoad.style.display = "none";
+      }
+    }
+    
+    // Función auxiliar para cargar items individualmente
+    async function loadStoreIndividual(nextId) {
+      for (let i = 1; i < nextId; i++) {
+        try {
+          const item = await S.contracts.quest.items(i);
+          if (!item || !item.exists) continue;
+          S.storeItems.push({ id: i, ...item });
+        } catch (e) {
+          console.error(`Error cargando item de tienda #${i}:`, e);
+        }
       }
     }
 
@@ -1224,17 +1307,56 @@
           return;
         }
         
-        const inv = {};
-        const promises = S.storeItems.map(async it => {
+        // Verificar que hay items en la tienda primero
+        if (!S.storeItems || S.storeItems.length === 0) {
           try {
-            const qty = await S.contracts.quest.inventory(S.account, it.id);
-            if (qty.gt(0)) inv[it.id] = qty.toNumber();
+            await loadStore();
           } catch (e) {
-            console.error(`Error cargando item #${it.id}:`, e);
+            console.error("Error cargando la tienda para el inventario:", e);
           }
-        });
+        }
         
-        await Promise.all(promises);
+        // Si no hay items en la tienda después de intentar cargarlos, salir
+        if (!S.storeItems || S.storeItems.length === 0) {
+          if (invDiv) invDiv.style.display = "none";
+          $("#no-inventory-message").style.display = "block";
+          return;
+        }
+        
+        const inv = {};
+        
+        // Usar multicall para consultar el inventario en lote
+        if (S.contracts.multicall && S.storeItems.length > 3) {
+          try {
+            const inventoryCalls = S.storeItems.map(item => ({
+              target: CFG.addresses.quest,
+              allowFailure: true,
+              callData: S.contracts.quest.interface.encodeFunctionData("inventory", [S.account, item.id])
+            }));
+            
+            const results = await S.contracts.multicall.aggregate3(inventoryCalls);
+            
+            for (let i = 0; i < results.length; i++) {
+              if (results[i].success) {
+                try {
+                  const qty = S.contracts.quest.interface.decodeFunctionResult("inventory", results[i].returnData)[0];
+                  if (qty && qty.gt(0)) {
+                    inv[S.storeItems[i].id] = qty.toNumber();
+                  }
+                } catch (err) {
+                  console.error(`Error decodificando inventario para item ${S.storeItems[i].id}:`, err);
+                }
+              }
+            }
+          } catch (e) {
+            console.error("Error usando multicall para inventario, usando método individual:", e);
+            // Caer al método individual si falla multicall
+            await loadInventoryIndividual(inv);
+          }
+        } else {
+          await loadInventoryIndividual(inv);
+        }
+        
         S.inventory = inv;
         renderInventory();
       } catch (e) {
@@ -1242,6 +1364,20 @@
         const invDiv = $("#loading-inventory");
         if (invDiv) invDiv.style.display = "none";
       }
+    }
+    
+    // Función auxiliar para cargar inventario individualmente
+    async function loadInventoryIndividual(inv) {
+      const promises = S.storeItems.map(async it => {
+        try {
+          const qty = await S.contracts.quest.inventory(S.account, it.id);
+          if (qty && qty.gt(0)) inv[it.id] = qty.toNumber();
+        } catch (e) {
+          console.error(`Error cargando item #${it.id} para inventario:`, e);
+        }
+      });
+      
+      await Promise.all(promises);
     }
 
     function renderInventory() {
@@ -1260,7 +1396,11 @@
     /* ------------------ 9.  TOKENS → ACCIONES ------------------ */
 
     const batch = withLoad(async (fnName, msg) => {
-      if (!S.selected.size) return;
+      if (!S.selected.size) {
+        notify(E.error, "Ningún token seleccionado");
+        return;
+      }
+      
       if (!S.contracts.quest) {
         notify(E.error, "Contrato no disponible. Intenta reconectar la wallet.");
         return;
@@ -1268,14 +1408,60 @@
       
       try {
         const ids = [...S.selected];
+        
+        // Comprobar si se necesita fee
+        let fee = ethers.BigNumber.from(0);
+        if (fnName === "batchStake") {
+          fee = S.fees.activation.mul(ids.length);
+        } else if (fnName === "batchUnstake") {
+          fee = S.fees.exit.mul(ids.length).add(S.fees.claim.mul(ids.length));
+        } else if (fnName === "batchClaimRewards") {
+          fee = S.fees.claim.mul(ids.length);
+        }
+        
+        // Verificar allowance si hay fee
+        if (fee.gt(0) && S.contracts.token) {
+          const allowance = await S.contracts.token.allowance(S.account, CFG.addresses.quest);
+          if (allowance.lt(fee)) {
+            notify(E.ok, "Aprobando gastos...");
+            const txA = await S.contracts.token.approve(CFG.addresses.quest, fee.mul(2)); // Multiplicar por 2 para tener margen
+            await txA.wait();
+            
+            // Verificar que la aprobación se completó
+            const newAllowance = await S.contracts.token.allowance(S.account, CFG.addresses.quest);
+            if (newAllowance.lt(fee)) {
+              throw new Error('La aprobación falló o es insuficiente');
+            }
+          }
+        }
+        
+        // Ejecutar la operación principal
         const tx = await S.contracts.quest[fnName](ids);
         await tx.wait(); 
         notify(E.ok, msg);
+        
+        // Actualizar UI
         await loadTokens(); 
         S.selected.clear();
       } catch (e) {
         console.error(`Error en operación ${fnName}:`, e);
-        notify(E.error, `Error: ${e.message || "Operación fallida"}`);
+        
+        let errorMsg = `Error: ${e.message || "Operación fallida"}`;
+        
+        // Mensajes de error amigables
+        if (e.code === 'CALL_EXCEPTION' || e.code === 'UNPREDICTABLE_GAS_LIMIT') {
+          if (fnName === "batchStake" && e.message.includes('staked')) {
+            errorMsg = "¡Ops! Algunos de estos tokens ya están stakeados";
+          } else if (fnName === "batchUnstake" && e.message.includes('not staked')) {
+            errorMsg = "¡Ops! Algunos de estos tokens no están stakeados";
+          } else if (e.message.includes('allowance')) {
+            errorMsg = "Es necesario aprobar los tokens primero. Inténtalo de nuevo.";
+          } else if (e.message.includes('429')) {
+            errorMsg = "Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.";
+          }
+        }
+        
+        notify(E.error, errorMsg);
       }
     });
 
