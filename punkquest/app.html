@@ -853,8 +853,46 @@
 
     /* ------------------ 4.  UTILIDADES ------------------ */
 
-    const fmt = (bn, dec = S.decimals, fixed = 2) =>
-      Number(ethers.utils.formatUnits(bn, dec)).toFixed(fixed);
+    // Formatea un BigNumber a un número legible, manejando diferentes casos de decimales
+    const fmt = (bn, dec = S.decimals, fixed = 2) => {
+      if (!bn) return "0";
+      try {
+        // Asegurarse de que bn sea un BigNumber
+        const bigNum = ethers.BigNumber.isBigNumber(bn) 
+          ? bn 
+          : ethers.BigNumber.from(String(bn));
+        
+        // Convertir usando ethers y formatear con precisión fija
+        return Number(ethers.utils.formatUnits(bigNum, dec)).toFixed(fixed);
+      } catch (e) {
+        console.error("Error formateando número:", e, "Valor:", bn);
+        return "Error";
+      }
+    };
+
+    // Parsea un string o número a BigNumber con los decimales correctos
+    const parse = (value, dec = S.decimals) => {
+      if (!value) return ethers.BigNumber.from(0);
+      try {
+        // Convertir a string primero para manejar diferentes tipos de entrada
+        return ethers.utils.parseUnits(String(value), dec);
+      } catch (e) {
+        console.error("Error parseando número:", e, "Valor:", value);
+        return ethers.BigNumber.from(0);
+      }
+    };
+
+    // Sanitiza direcciones Ethereum
+    const safeAddress = (address) => {
+      if (!address) return null;
+      try {
+        // Normalizar la dirección usando ethers
+        return ethers.utils.getAddress(address.toLowerCase());
+      } catch (e) {
+        console.error("Dirección inválida:", address, e);
+        return null;
+      }
+    };
 
     const notify = (box, msg) => {
       box.textContent = msg;
@@ -900,50 +938,82 @@
         }
       }
 
+      // Normalizar la dirección del usuario
+      const normalizedAccount = safeAddress(acc);
+      if (!normalizedAccount) {
+        throw new Error("Dirección de wallet inválida");
+      }
+
       // Configurar los providers
-      // 1. Provider web3 (MetaMask) para transacciones firmadas
       S.provider = new ethers.providers.Web3Provider(window.ethereum);
       S.signer = S.provider.getSigner();
-      S.account = acc;
+      S.account = normalizedAccount;
       
-      // 2. Provider RPC para consultas (más estable que MetaMask)
+      // Provider RPC para consultas
       const baseProvider = new ethers.providers.JsonRpcProvider(CFG.network.rpc, {
         name: "base",
         chainId: CFG.network.chainIdDec
       });
       
-      // Instancias de contrato
-      S.contracts.punks = new ethers.Contract(
-        CFG.addresses.punks,
-        CFG.abi.punks,
-        baseProvider
-      ).connect(S.signer);
+      // Aseguramos que las direcciones de contratos estén normalizadas
+      const normalizedAddresses = {
+        punks: safeAddress(CFG.addresses.punks),
+        quest: safeAddress(CFG.addresses.quest),
+        token: safeAddress(CFG.addresses.token.toLowerCase()),
+        multicall: safeAddress(CFG.addresses.multicall)
+      };
       
-      S.contracts.quest = new ethers.Contract(
-        CFG.addresses.quest,
-        CFG.abi.quest,
-        baseProvider
-      ).connect(S.signer);
+      // Verificar que todas las direcciones son válidas
+      const invalidAddresses = Object.entries(normalizedAddresses)
+        .filter(([_, addr]) => !addr)
+        .map(([name]) => name);
+      
+      if (invalidAddresses.length > 0) {
+        console.error("Direcciones inválidas:", invalidAddresses);
+        notify(E.error, `Direcciones de contratos inválidas: ${invalidAddresses.join(', ')}`);
+      }
+      
+      // Instancias de contrato
+      if (normalizedAddresses.punks) {
+        S.contracts.punks = new ethers.Contract(
+          normalizedAddresses.punks,
+          CFG.abi.punks,
+          baseProvider
+        ).connect(S.signer);
+      }
+      
+      if (normalizedAddresses.quest) {
+        S.contracts.quest = new ethers.Contract(
+          normalizedAddresses.quest,
+          CFG.abi.quest,
+          baseProvider
+        ).connect(S.signer);
+      }
       
       // Inicializamos el contrato token con manejo de errores
       try {
-        const tokenAddr = CFG.addresses.token.toLowerCase();
-        S.contracts.token = new ethers.Contract(
-          tokenAddr,
-          CFG.abi.erc20,
-          baseProvider
-        ).connect(S.signer);
-        
-        try {
-          // Intentamos leer decimals y symbol, pero usamos valores por defecto si hay error
-          const decimals = await S.contracts.token.decimals().catch(() => 18);
-          const symbol = await S.contracts.token.symbol().catch(() => "ADRIAN");
+        if (normalizedAddresses.token) {
+          S.contracts.token = new ethers.Contract(
+            normalizedAddresses.token,
+            CFG.abi.erc20,
+            baseProvider
+          ).connect(S.signer);
           
-          S.decimals = decimals;
-          S.symbol = symbol;
-        } catch (e) {
-          console.warn("Error leyendo decimales o símbolo:", e);
-          // Usamos valores por defecto
+          try {
+            // Intentamos leer decimals y symbol, pero usamos valores por defecto si hay error
+            const decimals = await S.contracts.token.decimals().catch(() => 18);
+            const symbol = await S.contracts.token.symbol().catch(() => "ADRIAN");
+            
+            S.decimals = decimals;
+            S.symbol = symbol;
+          } catch (e) {
+            console.warn("Error leyendo decimales o símbolo:", e);
+            // Usamos valores por defecto
+            S.decimals = 18;
+            S.symbol = "ADRIAN";
+          }
+        } else {
+          console.warn("Dirección de token inválida, usando valores por defecto");
           S.decimals = 18;
           S.symbol = "ADRIAN";
         }
@@ -953,11 +1023,13 @@
       }
       
       // Definimos explícitamente el multicall
-      S.contracts.multicall = new ethers.Contract(
-        CFG.addresses.multicall,
-        ["function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"],
-        baseProvider
-      );
+      if (normalizedAddresses.multicall) {
+        S.contracts.multicall = new ethers.Contract(
+          normalizedAddresses.multicall,
+          ["function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"],
+          baseProvider
+        );
+      }
 
       notify(E.ok, "Wallet conectada correctamente");
       renderAccount(); 
@@ -1235,14 +1307,27 @@
       let total = ethers.BigNumber.from(0);
       S.cart.forEach(it => {
         const storeIt = S.storeItems.find(s => s.id === it.id);
+        if (!storeIt) return; // Omitir si no encontramos el item
+        
         const li = document.createElement("div");
         li.className = "cart-item";
-        li.innerHTML = `
-          <span>#${it.id} × ${it.qty}</span>
-          <strong>${fmt(storeIt.price.mul(it.qty))}</strong>`;
-        E.cartItems.append(li);
-        total = total.add(storeIt.price.mul(it.qty));
+        
+        try {
+          const itemPrice = storeIt.price || ethers.BigNumber.from(0);
+          const itemQtyBN = ethers.BigNumber.from(it.qty || 1);
+          const subtotal = itemPrice.mul(itemQtyBN);
+          
+          li.innerHTML = `
+            <span>#${it.id} × ${it.qty}</span>
+            <strong>${fmt(subtotal)}</strong>`;
+          
+          E.cartItems.append(li);
+          total = total.add(subtotal);
+        } catch (e) {
+          console.error("Error calculando precio para item:", it.id, e);
+        }
       });
+      
       E.cartTotal.textContent = `${fmt(total)} $${S.symbol}`;
       E.cartBadge.textContent = S.cart.length;
       E.checkoutBtn.disabled = !S.cart.length;
@@ -1257,16 +1342,38 @@
       }
       
       try {
+        // Calcular el total usando BigNumbers de manera segura
         const total = S.cart.reduce((sum, it) => {
-          const price = S.storeItems.find(s => s.id === it.id).price;
-          return sum.add(price.mul(it.qty));
+          try {
+            const storeIt = S.storeItems.find(s => s.id === it.id);
+            if (!storeIt || !storeIt.price) return sum;
+            
+            const price = storeIt.price;
+            const qty = ethers.BigNumber.from(it.qty || 1);
+            return sum.add(price.mul(qty));
+          } catch (e) {
+            console.error("Error al calcular precio para item:", it.id, e);
+            return sum;
+          }
         }, ethers.BigNumber.from(0));
         
+        // Si el total es 0, no hay nada que aprobar
+        if (total.eq(0)) {
+          notify(E.error, "No hay items en el carrito o los precios son inválidos");
+          return;
+        }
+        
         const allowance = await S.contracts.token.allowance(S.account, CFG.addresses.quest);
-        if (allowance.gte(total)) return notify(E.ok, "Allowance suficiente 👍");
+        if (allowance.gte(total)) {
+          notify(E.ok, "Allowance suficiente 👍");
+          return;
+        }
 
-        const tx = await S.contracts.token.approve(CFG.addresses.quest, total);
-        await tx.wait(); notify(E.ok, "Allowance actualizado");
+        // Solicitar aprobación con margen adicional (1.1 veces el total)
+        const approveAmount = total.mul(110).div(100); // 110% del total para tener margen
+        const tx = await S.contracts.token.approve(safeAddress(CFG.addresses.quest), approveAmount);
+        await tx.wait(); 
+        notify(E.ok, "Allowance actualizado");
       } catch (e) {
         console.error("Error en approve:", e);
         notify(E.error, "Error al aprobar tokens: " + (e.message || "Error desconocido"));
@@ -1280,17 +1387,65 @@
       }
       
       try {
+        // Verificar que hay items en el carrito
+        if (!S.cart.length) {
+          notify(E.error, "No hay items en el carrito");
+          return;
+        }
+        
+        // Verificar cada item antes de la compra
         for (const it of S.cart) {
-          const tx = await S.contracts.quest.buyItem(it.id, it.qty);
+          if (!it || !it.id || !it.qty) {
+            notify(E.error, "Item inválido en el carrito");
+            return;
+          }
+          
+          const storeItem = S.storeItems.find(s => s.id === it.id);
+          if (!storeItem) {
+            notify(E.error, `El item #${it.id} no está disponible en la tienda`);
+            return;
+          }
+          
+          // Convertir cantidad a BigNumber si no lo es
+          const qty = ethers.BigNumber.isBigNumber(it.qty) 
+                       ? it.qty 
+                       : ethers.BigNumber.from(String(it.qty));
+          
+          // Verificar que la cantidad es válida
+          if (qty.lte(0)) {
+            notify(E.error, `Cantidad inválida para el item #${it.id}`);
+            return;
+          }
+          
+          // Comprar el item
+          const tx = await S.contracts.quest.buyItem(it.id, qty);
           await tx.wait();
         }
+        
         notify(E.ok, "¡Compra completada!");
+        // Limpiar carrito y actualizar UI
         S.cart = []; 
         renderCart(); 
         await loadInventory();
       } catch (e) {
         console.error("Error en checkout:", e);
-        notify(E.error, "Error al completar la compra: " + (e.message || "Error desconocido"));
+        
+        let errorMsg = "Error al completar la compra: " + (e.message || "Error desconocido");
+        
+        // Mensajes de error amigables para casos comunes
+        if (e.code === 'CALL_EXCEPTION' || e.code === 'UNPREDICTABLE_GAS_LIMIT') {
+          if (e.message.includes('allowance')) {
+            errorMsg = "Insuficiente allowance. Por favor, aprueba primero los tokens.";
+          } else if (e.message.includes('balance')) {
+            errorMsg = "Balance insuficiente para completar la compra.";
+          } else if (e.message.includes('429')) {
+            errorMsg = "Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.";
+          } else if (e.message.includes('denied') || e.message.includes('rejected')) {
+            errorMsg = "Transacción rechazada por el usuario.";
+          }
+        }
+        
+        notify(E.error, errorMsg);
       }
     });
 
