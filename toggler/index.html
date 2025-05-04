@@ -279,7 +279,7 @@
       .then(response => response.text())
       .then(html => {
         document.getElementById('menu-container').innerHTML = html;
-        // Asegurar que el menú tenga el estilo correcto
+        // Ensure menu has correct style
         const menu = document.querySelector('.navbar');
         if (menu) {
           menu.classList.add('navbar-dark', 'bg-dark');
@@ -292,17 +292,17 @@
     <!-- Header -->
     <header>
       <h1>AdrianPunks Toggler</h1>
-      <p>Gestiona tus AdrianPunks y sus versiones en PocketAdrians</p>
+      <p>Manage your AdrianPunks and their versions in PocketAdrians</p>
     </header>
     
     <!-- Connect Wallet Section -->
     <div id="connect-section" class="text-center mb-4">
-      <button id="connectWalletBtn" class="btn-connect">Conectar Wallet</button>
+      <button id="connectWalletBtn" class="btn-connect">Connect Wallet</button>
     </div>
     
     <!-- Account Info Section (hidden by default) -->
     <div id="account-section" class="text-center mb-4" style="display: none;">
-      <p>Wallet Conectada:</p>
+      <p>Connected Wallet:</p>
       <div id="accountDisplay" class="account-display"></div>
     </div>
     
@@ -313,47 +313,47 @@
     <!-- Token Management Section (hidden by default) -->
     <div id="token-management" class="card" style="display: none;">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="section-title mb-0">Tus AdrianPunks</h2>
-        <button id="selectAllBtn" class="btn-secondary btn-action">Seleccionar Todos</button>
+        <h2 class="section-title mb-0">Your AdrianPunks</h2>
+        <button id="selectAllBtn" class="btn-secondary btn-action">Select All</button>
       </div>
       
       <div id="loading-tokens" class="text-center py-5">
         <div class="spinner-border text-primary" role="status">
-          <span class="visually-hidden">Cargando...</span>
+          <span class="visually-hidden">Loading...</span>
         </div>
-        <p class="mt-2">Cargando tus tokens...</p>
+        <p class="mt-2">Loading your tokens...</p>
       </div>
       
       <div id="no-tokens-message" class="text-center py-5" style="display: none;">
-        <p>No posees ningún AdrianPunk todavía</p>
+        <p>You don't own any AdrianPunks yet</p>
       </div>
       
       <!-- Token Grid -->
       <div id="token-grid" class="token-grid mb-4"></div>
       
       <!-- Action Button -->
-      <button id="syncBtn" class="btn-action w-100 mb-3" disabled>Sincronizar Propiedad (0 seleccionados)</button>
+      <button id="syncBtn" class="btn-action w-100 mb-3" disabled>Sync Ownership (0 selected)</button>
     </div>
     
     <!-- Version Management Section (hidden by default) -->
     <div id="version-management" class="card" style="display: none;">
-      <h2 class="section-title">Actualizar Versiones</h2>
+      <h2 class="section-title">Update Versions</h2>
       
       <div id="no-selection-message" class="text-center mb-3">
-        <p>Selecciona tokens arriba para cambiar sus versiones</p>
+        <p>Select tokens above to change their versions</p>
       </div>
       
       <div id="selection-info" style="display: none;">
-        <p>Tokens Seleccionados: <span id="selectedCount">0</span></p>
+        <p>Selected Tokens: <span id="selectedCount">0</span></p>
         <div id="selectedTokensList" class="mb-3"></div>
       </div>
       
       <div class="mb-3">
-        <label for="versionSelector" class="form-label">Seleccionar Versión</label>
+        <label for="versionSelector" class="form-label">Select Version</label>
         <select id="versionSelector" class="version-selector"></select>
       </div>
       
-      <button id="updateVersionBtn" class="btn-action w-100" disabled>Actualizar Versión</button>
+      <button id="updateVersionBtn" class="btn-action w-100" disabled>Update Version</button>
     </div>
     
     <!-- Footer -->
@@ -474,7 +474,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       loadingTokens.style.display = 'block';
     
       try {
-        // Configurar Multicall
+        // Configure Multicall
         const multicall = new ethers.Contract(
           "0xcA11bde05977b3631167028862bE2a173976CA11",
           [
@@ -483,18 +483,18 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           infuraProvider
         );
 
-        // Obtener el balance total de NFTs
+        // Get total NFT balance
         const balance = await adrianPunksContract.balanceOf(account);
         const totalTokens = balance.toNumber();
 
         if (totalTokens === 0) {
           tokenGrid.style.display = 'none';
           noTokensMessage.style.display = 'block';
-          showSuccess("No se encontraron AdrianPunks en tu wallet");
+          showSuccess("No AdrianPunks found in your wallet");
           return;
         }
 
-        // Preparar llamadas para obtener todos los tokenIds
+        // Prepare calls to get all tokenIds
         const calls = [];
         for (let i = 0; i < totalTokens; i++) {
           calls.push({
@@ -504,7 +504,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           });
         }
 
-        // Ejecutar todas las llamadas en una sola transacción
+        // Execute all calls in a single transaction
         const results = await multicall.aggregate3(calls);
         const tokenIds = results
           .filter(result => result.success)
@@ -513,7 +513,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
             return decoded[0];
           });
 
-        // Preparar llamadas para obtener el estado de mirroring y versión
+        // Prepare calls to get mirroring status and version
         const mirrorCalls = tokenIds.flatMap(tokenId => [
           {
             target: POCKET_ADRIANS_ADDRESS,
@@ -527,10 +527,10 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           }
         ]);
 
-        // Ejecutar las llamadas de mirroring y versión
+        // Execute mirroring and version calls
         const mirrorResults = await multicall.aggregate3(mirrorCalls);
         
-        // Procesar los resultados
+        // Process results
         ownedTokens = [];
         for (let i = 0; i < tokenIds.length; i++) {
           const tokenId = tokenIds[i];
@@ -555,7 +555,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           });
         }
         
-        // Actualizar UI y mostrar tokens inmediatamente
+        // Update UI and show tokens immediately
         if (ownedTokens.length === 0) {
           tokenGrid.style.display = 'none';
           noTokensMessage.style.display = 'block';
@@ -563,12 +563,12 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           tokenGrid.style.display = 'grid';
           noTokensMessage.style.display = 'none';
           renderTokens();
-          showSuccess(`Encontrados ${ownedTokens.length} AdrianPunks en tu wallet`);
+          showSuccess(`Found ${ownedTokens.length} AdrianPunks in your wallet`);
         }
         
       } catch (error) {
-        console.error("Error cargando tokens:", error);
-        showError("Error al cargar tus tokens. Por favor intenta de nuevo.");
+        console.error("Error loading tokens:", error);
+        showError("Error loading your tokens. Please try again.");
         tokenGrid.style.display = 'none';
         noTokensMessage.style.display = 'block';
       } finally {
@@ -582,59 +582,59 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       setLoading(true);
     
       try {
-        if (!window.ethereum) {
-          throw new Error("Por favor instala Metamask para usar esta aplicación");
-        }
+      if (!window.ethereum) {
+          throw new Error("Please install MetaMask to use this application");
+      }
 
-        // Request account access
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      // Request account access
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         account = accounts[0];
         accountDisplay.textContent = `${account.substring(0, 6)}...${account.substring(38)}`;
 
-        // Check if the user is on the Base network
-        const chainId = await window.ethereum.request({ method: "eth_chainId" });
-        
-        if (chainId !== BASE_NETWORK.chainId) {
-          try {
+      // Check if the user is on the Base network
+      const chainId = await window.ethereum.request({ method: "eth_chainId" });
+      
+      if (chainId !== BASE_NETWORK.chainId) {
+        try {
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: BASE_NETWORK.chainId }],
+          });
+        } catch (switchError) {
+          if (switchError.code === 4902) {
             await window.ethereum.request({
-              method: "wallet_switchEthereumChain",
-              params: [{ chainId: BASE_NETWORK.chainId }],
+              method: "wallet_addEthereumChain",
+              params: [BASE_NETWORK],
             });
-          } catch (switchError) {
-            if (switchError.code === 4902) {
-              await window.ethereum.request({
-                method: "wallet_addEthereumChain",
-                params: [BASE_NETWORK],
-              });
-            } else {
-              throw switchError;
-            }
+          } else {
+            throw switchError;
           }
         }
+      }
 
-        // Set up provider and signer
+      // Set up provider and signer
         provider = new ethers.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
 
-        // Initialize contracts
+      // Initialize contracts
         adrianPunksContract = new ethers.Contract(
-          ADRIAN_PUNKS_ADDRESS,
-          ADRIAN_PUNKS_ABI,
+        ADRIAN_PUNKS_ADDRESS,
+        ADRIAN_PUNKS_ABI,
           infuraProvider
-        );
+      );
         pocketAdriansContract = new ethers.Contract(
-          POCKET_ADRIANS_ADDRESS,
-          POCKET_ADRIANS_ABI,
+        POCKET_ADRIANS_ADDRESS,
+        POCKET_ADRIANS_ABI,
           infuraProvider
-        );
+      );
 
-        // Add event listeners for account and chain changes
-        window.ethereum.on("accountsChanged", (accounts) => {
-          window.location.reload();
-        });
-        window.ethereum.on("chainChanged", () => {
-          window.location.reload();
-        });
+      // Add event listeners for account and chain changes
+      window.ethereum.on("accountsChanged", (accounts) => {
+        window.location.reload();
+      });
+      window.ethereum.on("chainChanged", () => {
+        window.location.reload();
+      });
 
         // Update UI
         connectSection.style.display = 'none';
@@ -642,16 +642,16 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         tokenManagement.style.display = 'block';
         versionManagement.style.display = 'block';
 
-        showSuccess("Wallet conectada correctamente!");
-        
-        // Load owned tokens and available versions
+        showSuccess("Wallet connected successfully!");
+      
+      // Load owned tokens and available versions
         await loadOwnedTokens();
         await loadVersions();
-        
-      } catch (error) {
-        console.error("Error de conexión:", error);
+      
+    } catch (error) {
+      console.error("Connection error:", error);
         showError(error.message);
-      } finally {
+    } finally {
         setLoading(false);
       }
     }
@@ -664,8 +664,8 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       syncBtn.disabled = loading || selectedTokens.length === 0;
       updateVersionBtn.disabled = loading || selectedTokens.length === 0;
     }
-
-    // Load available metadata versions
+  
+  // Load available metadata versions
     async function loadVersions() {
     try {
       const versionCount = await pocketAdriansContract.versionCount();
@@ -692,13 +692,13 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         versions.forEach(version => {
           const option = document.createElement('option');
           option.value = version.id;
-          option.textContent = `Versión ${version.id}`;
+          option.textContent = `Version ${version.id}`;
           versionSelector.appendChild(option);
         });
       
     } catch (error) {
-        console.error("Error cargando versiones:", error);
-        showError("Error al cargar versiones. Por favor intenta de nuevo.");
+      console.error("Error loading versions:", error);
+        showError("Error loading versions. Please try again.");
     }
     }
 
@@ -713,18 +713,18 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         tokenCard.className = `token-card ${isSelected ? 'selected-token' : ''}`;
         tokenCard.onclick = () => toggleSelectToken(token.id);
         
-        // Construir la ruta de la imagen usando la estructura correcta del servidor
-        const imageUrl = `/market/adrianpunksimages/${token.id}.png`;
-        const placeholderUrl = `/market/adrianpunksimages/placeholder.png`;
+        // Build image path using the correct server structure
+        const imageUrl = `/market/halfxadrianimages/${token.id}.jpg`;
+        const placeholderUrl = `/market/halfxadrianimages/placeholder.jpg`;
         
-        // Precargar la imagen
+        // Preload image
         const img = new Image();
         img.src = imageUrl;
         img.className = "token-image";
         img.alt = `Adrian #${token.id}`;
         img.onerror = function() {
           this.src = placeholderUrl;
-          console.log("Error cargando imagen:", imageUrl, "usando placeholder:", placeholderUrl);
+          console.log("Error loading image:", imageUrl, "using placeholder:", placeholderUrl);
         };
         
         tokenCard.innerHTML = `
@@ -732,14 +732,14 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
             <div class="d-flex justify-content-between align-items-center">
               <div class="token-title">Adrian #${token.id}</div>
               <div class="token-status ${token.isMirrored ? 'status-mirrored' : 'status-not-mirrored'}">
-                ${token.isMirrored ? 'Mirrored' : 'No Mirrored'}
+                ${token.isMirrored ? 'Mirrored' : 'Not Mirrored'}
               </div>
             </div>
-            ${token.isMirrored ? `<div class="token-version">Versión actual: ${token.version}</div>` : ''}
+            ${token.isMirrored ? `<div class="token-version">Current Version: ${token.version}</div>` : ''}
           </div>
         `;
         
-        // Añadir la imagen precargada
+        // Add preloaded image
         const imageContainer = document.createElement('div');
         imageContainer.className = "token-image-container";
         imageContainer.appendChild(img);
@@ -748,16 +748,16 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         tokenGrid.appendChild(tokenCard);
       });
       
-      // Mostrar el grid inmediatamente después de renderizar
+      // Show grid immediately after rendering
       tokenGrid.style.display = 'grid';
       noTokensMessage.style.display = 'none';
       
       updateSelectedUI();
     }
 
-    // Toggle token selection
+  // Toggle token selection
     function toggleSelectToken(tokenId) {
-      if (selectedTokens.includes(tokenId)) {
+    if (selectedTokens.includes(tokenId)) {
         selectedTokens = selectedTokens.filter(id => id !== tokenId);
       } else {
         selectedTokens.push(tokenId);
@@ -769,7 +769,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
 
     // Update UI based on selections
     function updateSelectedUI() {
-      syncBtn.textContent = `Sincronizar Propiedad (${selectedTokens.length} seleccionados)`;
+      syncBtn.textContent = `Sync Ownership (${selectedTokens.length} selected)`;
       syncBtn.disabled = isLoading || selectedTokens.length === 0;
       updateVersionBtn.disabled = isLoading || selectedTokens.length === 0;
       
@@ -794,8 +794,8 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       
       // Update select all button text
       if (ownedTokens.length > 0) {
-        selectAllBtn.textContent = selectedTokens.length === ownedTokens.length ? 'Deseleccionar Todos' : 'Seleccionar Todos';
-      }
+        selectAllBtn.textContent = selectedTokens.length === ownedTokens.length ? 'Deselect All' : 'Select All';
+    }
     }
 
     // Select/deselect all tokens
@@ -812,54 +812,54 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       updateSelectedUI();
     }
 
-    // Sync ownership for selected tokens
+  // Sync ownership for selected tokens
     async function syncSelectedTokens() {
       setLoading(true);
+    
+    try {
+      if (selectedTokens.length === 0) {
+        throw new Error("Please select at least one token to sync");
+      }
       
-      try {
-        if (selectedTokens.length === 0) {
-          throw new Error("Por favor selecciona al menos un token para sincronizar");
-        }
-        
-        const tx = await pocketAdriansContract.syncMultipleTokens(selectedTokens);
-        await tx.wait();
-        
-        showSuccess(`¡Sincronización exitosa para ${selectedTokens.length} tokens!`);
-        
-        // Reload tokens to get updated status
+      const tx = await pocketAdriansContract.syncMultipleTokens(selectedTokens);
+      await tx.wait();
+      
+        showSuccess(`Successfully synced ${selectedTokens.length} tokens!`);
+      
+      // Reload tokens to get updated status
         await loadOwnedTokens();
-        
-      } catch (error) {
-        console.error("Error sincronizando tokens:", error);
-        showError(error.message || "Error al sincronizar tokens. Por favor intenta de nuevo.");
-      } finally {
+      
+    } catch (error) {
+      console.error("Error syncing tokens:", error);
+        showError(error.message || "Error syncing tokens. Please try again.");
+    } finally {
         setLoading(false);
       }
     }
 
-    // Change version for selected tokens
+  // Change version for selected tokens
     async function changeTokenVersions() {
       setLoading(true);
+    
+    try {
+      if (selectedTokens.length === 0) {
+        throw new Error("Please select at least one token to update");
+      }
       
-      try {
-        if (selectedTokens.length === 0) {
-          throw new Error("Por favor selecciona al menos un token para actualizar");
-        }
-        
         const versionId = parseInt(versionSelector.value);
         
         const tx = await pocketAdriansContract.setTokensVersion(selectedTokens, versionId);
-        await tx.wait();
-        
-        showSuccess(`¡Se actualizaron ${selectedTokens.length} tokens a la versión ${versionId}!`);
-        
-        // Reload tokens to get updated versions
+      await tx.wait();
+      
+        showSuccess(`Successfully updated ${selectedTokens.length} tokens to version ${versionId}!`);
+      
+      // Reload tokens to get updated versions
         await loadOwnedTokens();
-        
-      } catch (error) {
-        console.error("Error cambiando versiones:", error);
-        showError(error.message || "Error al actualizar versiones. Por favor intenta de nuevo.");
-      } finally {
+      
+    } catch (error) {
+        console.error("Error changing versions:", error);
+        showError(error.message || "Error updating versions. Please try again.");
+    } finally {
         setLoading(false);
       }
     }
@@ -876,7 +876,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
     // Initialize
     updateSelectedUI();
 
-    // Añadir estilos para las imágenes
+    // Add styles for images
     const styleSheet = document.createElement("style");
     styleSheet.textContent = `
       .token-image-container {
@@ -912,18 +912,18 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
     `;
     document.head.appendChild(styleSheet);
 
-    // Verificar si ya hay una wallet conectada al cargar la página
+    // Check if wallet is already connected when page loads
     window.addEventListener('load', async () => {
       try {
         if (window.ethereum) {
           const accounts = await window.ethereum.request({ method: 'eth_accounts' });
           if (accounts.length > 0) {
-            console.log("Wallet encontrada, conectando automáticamente...");
+            console.log("Wallet found, connecting automatically...");
             await connectWallet();
           }
         }
       } catch (error) {
-        console.error("Error verificando wallet:", error);
+        console.error("Error checking wallet:", error);
       }
     });
   </script>
