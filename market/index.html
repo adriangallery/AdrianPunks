@@ -249,14 +249,18 @@
   <!-- Include the menu -->
   <div id="menu-container"></div>
   <script>
-    // Load the menu
-    fetch('components/menu.html')
+    // Load the menu with absolute path to ensure consistency across pages
+    fetch('/components/menu.html')
       .then(response => response.text())
       .then(html => {
         document.getElementById('menu-container').innerHTML = html;
-        const script = document.createElement('script');
-        script.src = 'components/menu.js';
-        document.head.appendChild(script);
+        
+        // Verificar si el script ya ha sido cargado para evitar duplicación
+        if (!document.querySelector('script[src="/components/menu.js"]')) {
+          const script = document.createElement('script');
+          script.src = '/components/menu.js';
+          document.head.appendChild(script);
+        }
       })
       .catch(error => console.error('Error loading menu:', error));
   </script>
@@ -525,7 +529,16 @@
     const CHAIN_ID = 8453;
 
     let nftData = [];
-    let provider, signer, userAccount;
+    // Usar las variables existentes si ya fueron definidas por el menú
+    if (typeof window.provider === 'undefined') window.provider = null;
+    if (typeof window.signer === 'undefined') window.signer = null;
+    if (typeof window.userAccount === 'undefined') window.userAccount = null;
+    
+    // Referencias locales a las variables globales
+    let provider = window.provider;
+    let signer = window.signer;
+    let userAccount = window.userAccount;
+    
     let tokenContract, nftContract, marketplaceContract, newMarketplaceContract;
     let readProvider; // Provider de Infura para lecturas
     let tokenReadContract, nftReadContract, marketplaceReadContract, newMarketplaceReadContract;
@@ -643,15 +656,31 @@
       newMarketplaceReadContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, readProvider);
 
       if (window.ethereum) {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-        userAccount = await signer.getAddress();
-        tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
-        nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
-        marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
-        newMarketplaceContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, signer);
-        updateTokenBalance();
-        loadFloorOffer();
+        // Usar el provider existente si ya fue definido por el menú, o crear uno nuevo
+        if (!window.provider) {
+          window.provider = new ethers.providers.Web3Provider(window.ethereum);
+          window.signer = window.provider.getSigner();
+          
+          try {
+            window.userAccount = await window.signer.getAddress();
+          } catch (e) {
+            console.log("No user connected yet");
+          }
+        }
+        
+        // Actualizar las referencias locales
+        provider = window.provider;
+        signer = window.signer;
+        userAccount = window.userAccount;
+        
+        if (userAccount) {
+          tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+          nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
+          marketplaceContract = new ethers.Contract(MARKET_ADDRESS, MARKET_ABI, signer);
+          newMarketplaceContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, signer);
+          updateTokenBalance();
+          loadFloorOffer();
+        }
       } else {
         console.error("Ethereum provider not found.");
       }
@@ -1869,6 +1898,27 @@
     document.addEventListener('DOMContentLoaded', async () => {
       await initContracts();
       loadNFTs();
+      
+      // Escuchar eventos de cambio de cuenta desde MetaMask
+      if (window.ethereum) {
+        window.ethereum.on('accountsChanged', async (accounts) => {
+          console.log("Accounts changed:", accounts);
+          if (accounts.length > 0) {
+            // Actualizar las referencias locales
+            window.userAccount = accounts[0];
+            userAccount = window.userAccount;
+            
+            // Reinicializar los contratos con la nueva cuenta
+            await initContracts();
+            loadNFTs();
+          } else {
+            // Desconexión
+            window.userAccount = null;
+            userAccount = null;
+            location.reload();
+          }
+        });
+      }
     });
 
     // Función para cambiar el tema
