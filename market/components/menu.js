@@ -24,6 +24,7 @@ function ensureEthers(callback) {
 }
 
 async function connectWallet() {
+  console.log("connectWallet llamado");
   ensureEthers(async () => {
     try {
       if (!window.ethereum) {
@@ -39,13 +40,20 @@ async function connectWallet() {
         
         // Actualizar botones con la dirección truncada
         const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
-        document.getElementById('connectWalletButton').innerHTML = `Connected: ${shortAddress}`;
-        document.getElementById('connectWalletButtonMobile').innerHTML = shortAddress;
+        const desktopButton = document.getElementById('connectWalletButton');
+        const mobileButton = document.getElementById('connectWalletButtonMobile');
+        
+        if (desktopButton) desktopButton.innerHTML = `Connected: ${shortAddress}`;
+        if (mobileButton) mobileButton.innerHTML = shortAddress;
         
         isConnected = true;
         
         // Escuchar cambios de cuenta
         window.ethereum.on('accountsChanged', handleAccountsChanged);
+        
+        // Disparar evento personalizado para notificar que la wallet está conectada
+        const event = new CustomEvent('walletConnected', { detail: { address } });
+        window.dispatchEvent(event);
       } else {
         // Desconectar
         disconnectWallet();
@@ -63,13 +71,20 @@ function disconnectWallet() {
   signer = null;
   
   // Restaurar texto de los botones
-  document.getElementById('connectWalletButton').innerHTML = "Connect Wallet";
-  document.getElementById('connectWalletButtonMobile').innerHTML = "Connect";
+  const desktopButton = document.getElementById('connectWalletButton');
+  const mobileButton = document.getElementById('connectWalletButtonMobile');
+  
+  if (desktopButton) desktopButton.innerHTML = "Connect Wallet";
+  if (mobileButton) mobileButton.innerHTML = "Connect";
   
   // Remover listener
   if (window.ethereum) {
     window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
   }
+  
+  // Disparar evento personalizado para notificar que la wallet está desconectada
+  const event = new CustomEvent('walletDisconnected');
+  window.dispatchEvent(event);
 }
 
 function handleAccountsChanged(accounts) {
@@ -79,8 +94,11 @@ function handleAccountsChanged(accounts) {
   } else {
     // Actualizar con la nueva dirección
     const shortAddress = `${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`;
-    document.getElementById('connectWalletButton').innerHTML = `Connected: ${shortAddress}`;
-    document.getElementById('connectWalletButtonMobile').innerHTML = shortAddress;
+    const desktopButton = document.getElementById('connectWalletButton');
+    const mobileButton = document.getElementById('connectWalletButtonMobile');
+    
+    if (desktopButton) desktopButton.innerHTML = `Connected: ${shortAddress}`;
+    if (mobileButton) mobileButton.innerHTML = shortAddress;
   }
 }
 
@@ -94,12 +112,19 @@ window.addEventListener('load', () => {
         if (accounts.length > 0) {
           signer = provider.getSigner();
           const shortAddress = `${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`;
-          document.getElementById('connectWalletButton').innerHTML = `Connected: ${shortAddress}`;
-          document.getElementById('connectWalletButtonMobile').innerHTML = shortAddress;
+          const desktopButton = document.getElementById('connectWalletButton');
+          const mobileButton = document.getElementById('connectWalletButtonMobile');
+          
+          if (desktopButton) desktopButton.innerHTML = `Connected: ${shortAddress}`;
+          if (mobileButton) mobileButton.innerHTML = shortAddress;
           isConnected = true;
           
           // Escuchar cambios de cuenta
           window.ethereum.on('accountsChanged', handleAccountsChanged);
+          
+          // Disparar evento personalizado para notificar que la wallet está conectada
+          const event = new CustomEvent('walletConnected', { detail: { address: accounts[0] } });
+          window.dispatchEvent(event);
         }
       } catch (error) {
         console.error("Error checking wallet connection:", error);
@@ -108,16 +133,59 @@ window.addEventListener('load', () => {
   });
 });
 
-// Agregar event listeners a ambos botones
-document.addEventListener('DOMContentLoaded', () => {
+// Función para añadir event listeners a los botones
+function setupButtonListeners() {
+  console.log("Configurando listeners de botones");
   const desktopButton = document.getElementById('connectWalletButton');
   const mobileButton = document.getElementById('connectWalletButtonMobile');
   
   if (desktopButton) {
-    desktopButton.addEventListener('click', connectWallet);
+    desktopButton.addEventListener('click', function(e) {
+      e.preventDefault();
+      console.log("Botón desktop clickeado");
+      connectWallet();
+    });
+  } else {
+    console.log("Desktop button no encontrado");
   }
   
   if (mobileButton) {
-    mobileButton.addEventListener('click', connectWallet);
+    mobileButton.addEventListener('click', function(e) {
+      e.preventDefault();
+      console.log("Botón mobile clickeado");
+      connectWallet();
+    });
+  } else {
+    console.log("Mobile button no encontrado");
   }
+}
+
+// Agregar event listeners a ambos botones cuando el DOM esté cargado
+document.addEventListener('DOMContentLoaded', setupButtonListeners);
+
+// Intentar añadir listeners periódicamente para asegurar que funcionan después de cargar dinámicamente
+function checkAndSetupButtons() {
+  if (document.getElementById('connectWalletButton') || document.getElementById('connectWalletButtonMobile')) {
+    setupButtonListeners();
+  }
+}
+
+// Verificar varias veces después de cargar la página
+setTimeout(checkAndSetupButtons, 500);
+setTimeout(checkAndSetupButtons, 1000);
+setTimeout(checkAndSetupButtons, 2000);
+
+// Observer para detectar cambios en el DOM que podrían incluir los botones
+const observer = new MutationObserver(function(mutations) {
+  mutations.forEach(function(mutation) {
+    if (mutation.addedNodes.length) {
+      checkAndSetupButtons();
+    }
+  });
 });
+
+// Comenzar a observar el body para cambios en el DOM
+observer.observe(document.body, { childList: true, subtree: true });
+
+// Función exportada para conectar la wallet desde fuera
+window.connectMetaMaskWallet = connectWallet;
