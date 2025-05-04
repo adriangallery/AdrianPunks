@@ -469,6 +469,9 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
     // Load tokens owned by the connected account
     async function loadOwnedTokens() {
       setLoading(true);
+      tokenGrid.style.display = 'none';
+      noTokensMessage.style.display = 'none';
+      loadingTokens.style.display = 'block';
     
       try {
         // Configurar Multicall
@@ -552,7 +555,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           });
         }
         
-        // Update UI
+        // Actualizar UI y mostrar tokens inmediatamente
         if (ownedTokens.length === 0) {
           tokenGrid.style.display = 'none';
           noTokensMessage.style.display = 'block';
@@ -560,14 +563,16 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           tokenGrid.style.display = 'grid';
           noTokensMessage.style.display = 'none';
           renderTokens();
+          showSuccess(`Encontrados ${ownedTokens.length} AdrianPunks en tu wallet`);
         }
-        
-        showSuccess(`Encontrados ${ownedTokens.length} AdrianPunks en tu wallet`);
         
       } catch (error) {
         console.error("Error cargando tokens:", error);
         showError("Error al cargar tus tokens. Por favor intenta de nuevo.");
+        tokenGrid.style.display = 'none';
+        noTokensMessage.style.display = 'block';
       } finally {
+        loadingTokens.style.display = 'none';
         setLoading(false);
       }
     }
@@ -708,7 +713,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         tokenCard.className = `token-card ${isSelected ? 'selected-token' : ''}`;
         tokenCard.onclick = () => toggleSelectToken(token.id);
         
-        // Construir la ruta de la imagen usando la estructura del servidor
+        // Construir la ruta de la imagen usando la estructura correcta del servidor
         const imageUrl = `/market/adrianpunksimages/${token.id}.png`;
         const placeholderUrl = `/market/adrianpunksimages/placeholder.png`;
         
@@ -719,6 +724,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         img.alt = `Adrian #${token.id}`;
         img.onerror = function() {
           this.src = placeholderUrl;
+          console.log("Error cargando imagen:", imageUrl, "usando placeholder:", placeholderUrl);
         };
         
         tokenCard.innerHTML = `
@@ -741,6 +747,10 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         
         tokenGrid.appendChild(tokenCard);
       });
+      
+      // Mostrar el grid inmediatamente después de renderizar
+      tokenGrid.style.display = 'grid';
+      noTokensMessage.style.display = 'none';
       
       updateSelectedUI();
     }
@@ -785,7 +795,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       // Update select all button text
       if (ownedTokens.length > 0) {
         selectAllBtn.textContent = selectedTokens.length === ownedTokens.length ? 'Deseleccionar Todos' : 'Seleccionar Todos';
-    }
+      }
     }
 
     // Select/deselect all tokens
@@ -875,6 +885,9 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         overflow: hidden;
         border-radius: 4px;
         background-color: #f0f0f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       
       .token-image {
@@ -883,16 +896,34 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         object-fit: contain;
         display: block;
       }
+
+      .token-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+        padding: 1rem;
+      }
+
+      @media (max-width: 768px) {
+        .token-grid {
+          grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        }
+      }
     `;
     document.head.appendChild(styleSheet);
 
     // Verificar si ya hay una wallet conectada al cargar la página
     window.addEventListener('load', async () => {
-      if (window.ethereum) {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        if (accounts.length > 0) {
-          await connectWallet();
+      try {
+        if (window.ethereum) {
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          if (accounts.length > 0) {
+            console.log("Wallet encontrada, conectando automáticamente...");
+            await connectWallet();
+          }
         }
+      } catch (error) {
+        console.error("Error verificando wallet:", error);
       }
     });
   </script>
