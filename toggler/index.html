@@ -467,12 +467,12 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
     }
 
     // Load tokens owned by the connected account
-    async function loadOwnedTokens() {
+    async function loadOwnedTokens(account) {
       setLoading(true);
-      tokenGrid.style.display = 'none';
+      tokenGrid.innerHTML = '';
       noTokensMessage.style.display = 'none';
       loadingTokens.style.display = 'block';
-    
+
       try {
         // Configure Multicall
         const multicall = new ethers.Contract(
@@ -555,20 +555,13 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           });
         }
         
-        // Update UI and show tokens immediately
-        if (ownedTokens.length === 0) {
-          tokenGrid.style.display = 'none';
-          noTokensMessage.style.display = 'block';
-        } else {
-          tokenGrid.style.display = 'grid';
-          noTokensMessage.style.display = 'none';
-          renderTokens();
-          showSuccess(`Found ${ownedTokens.length} AdrianPunks in your wallet`);
-        }
+        // Update UI
+        renderTokens();
+        showSuccess(`Found ${ownedTokens.length} AdrianPunks in your wallet`);
         
       } catch (error) {
         console.error("Error loading tokens:", error);
-        showError("Error loading your tokens. Please try again.");
+        showError("Failed to load your tokens. Please try again.");
         tokenGrid.style.display = 'none';
         noTokensMessage.style.display = 'block';
       } finally {
@@ -616,17 +609,21 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         provider = new ethers.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
 
-      // Initialize contracts
-        adrianPunksContract = new ethers.Contract(
+      // Initialize read-only contracts with infuraProvider (for faster queries)
+        const adrianPunksContractReadOnly = new ethers.Contract(
         ADRIAN_PUNKS_ADDRESS,
         ADRIAN_PUNKS_ABI,
           infuraProvider
       );
-        pocketAdriansContract = new ethers.Contract(
+        const pocketAdriansContractReadOnly = new ethers.Contract(
         POCKET_ADRIANS_ADDRESS,
         POCKET_ADRIANS_ABI,
           infuraProvider
       );
+
+      // Initialize separate contract instances with signer for transactions
+        adrianPunksContract = adrianPunksContractReadOnly.connect(signer);
+        pocketAdriansContract = pocketAdriansContractReadOnly.connect(signer);
 
       // Add event listeners for account and chain changes
       window.ethereum.on("accountsChanged", (accounts) => {
@@ -645,7 +642,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         showSuccess("Wallet connected successfully!");
       
       // Load owned tokens and available versions
-        await loadOwnedTokens();
+        await loadOwnedTokens(account);
         await loadVersions();
       
     } catch (error) {
@@ -757,10 +754,15 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
 
   // Toggle token selection
     function toggleSelectToken(tokenId) {
-    if (selectedTokens.includes(tokenId)) {
-        selectedTokens = selectedTokens.filter(id => id !== tokenId);
+    // Convert tokenId to number for consistent comparison
+    const tokenIdNumber = typeof tokenId === 'object' && tokenId.toNumber ? 
+                        tokenId.toNumber() : 
+                        Number(tokenId);
+                        
+    if (selectedTokens.includes(tokenIdNumber)) {
+        selectedTokens = selectedTokens.filter(id => id !== tokenIdNumber);
       } else {
-        selectedTokens.push(tokenId);
+        selectedTokens.push(tokenIdNumber);
       }
       
       renderTokens();
@@ -821,17 +823,18 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         throw new Error("Please select at least one token to sync");
       }
       
+      // Make sure we're using a contract connected to a signer
       const tx = await pocketAdriansContract.syncMultipleTokens(selectedTokens);
       await tx.wait();
       
         showSuccess(`Successfully synced ${selectedTokens.length} tokens!`);
       
       // Reload tokens to get updated status
-        await loadOwnedTokens();
+        await loadOwnedTokens(account);
       
     } catch (error) {
       console.error("Error syncing tokens:", error);
-        showError(error.message || "Error syncing tokens. Please try again.");
+        showError(error.message || "Failed to sync token ownership. Please try again.");
     } finally {
         setLoading(false);
       }
@@ -848,17 +851,18 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       
         const versionId = parseInt(versionSelector.value);
         
+        // Make sure we're using a contract connected to a signer
         const tx = await pocketAdriansContract.setTokensVersion(selectedTokens, versionId);
       await tx.wait();
       
         showSuccess(`Successfully updated ${selectedTokens.length} tokens to version ${versionId}!`);
       
       // Reload tokens to get updated versions
-        await loadOwnedTokens();
+        await loadOwnedTokens(account);
       
     } catch (error) {
         console.error("Error changing versions:", error);
-        showError(error.message || "Error updating versions. Please try again.");
+        showError(error.message || "Failed to update token versions. Please try again.");
     } finally {
         setLoading(false);
       }
