@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PunkQuest Marketplace</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Ethers.js -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-color: #f0f0f0;
+      --primary-text: #333333;
+      --accent-purple: #8a2be2;
+      --accent-purple-hover: #7a1dd2;
+      --accent-blue: #4dabf7;
+      --card-bg: #ffffff;
+      --card-border: #e9ecef;
+      --card-selected-border: #8a2be2;
+      --screen-bg: #ffffff;
+      --navbar-height: 60px;
+      --error-bg: #f8d7da;
+      --error-border: #f5c6cb;
+      --error-text: #721c24;
+      --success-bg: #d4edda;
+      --success-border: #c3e6cb;
+      --success-text: #155724;
+    }
+    
+    body {
+      background-color: var(--bg-color);
+      color: var(--primary-text);
+      font-family: 'Share Tech Mono', monospace;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+      padding-top: calc(var(--navbar-height) + 20px);
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 20px;
+      background: var(--screen-bg);
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    
+    header {
+      text-align: center;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      position: relative;
+    }
+    
+    header h1 {
+      font-size: 2.5rem;
+      margin: 0;
+      color: var(--primary-text);
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+    
+    header p {
+      margin-top: 1rem;
+      font-size: 1rem;
+      color: var(--primary-text);
+      opacity: 0.8;
+    }
+    
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .section-title {
+      font-size: 1.4rem;
+      margin-bottom: 1.5rem;
+      color: var(--primary-text);
+      font-weight: 600;
+      border-bottom: 2px solid var(--card-border);
+      padding-bottom: 0.5rem;
+    }
+    
+    .token-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .store-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      padding: 0;
+      margin: 0;
+    }
+    
+    @media (max-width: 768px) {
+      .token-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .store-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .token-grid {
+        grid-template-columns: 1fr;
+      }
+      .store-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .token-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    
+    .token-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .token-card img {
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      border-radius: 4px;
+      aspect-ratio: 1/1;
+      background-color: #f0f0f0;
+      transition: opacity 0.3s ease;
+    }
+    
+    .token-card img.loading {
+      opacity: 0.5;
+    }
+    
+    .token-card img.error {
+      opacity: 0.3;
+    }
+    
+    .item-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    
+    .item-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .item-type {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    
+    .type-weapon {
+      background-color: #fee2e2;
+      color: #b91c1c;
+    }
+    
+    .type-armor {
+      background-color: #e0e7ff;
+      color: #4338ca;
+    }
+    
+    .item-bonus {
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .item-durability {
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .item-price {
+      font-size: 1rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    
+    .token-info {
+      padding: 0.5rem 0;
+    }
+    
+    .token-title {
+      font-size: 1.1rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    
+    .token-status {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    
+    .status-staked {
+      background-color: #d1fae5;
+      color: #065f46;
+    }
+    
+    .status-not-staked {
+      background-color: #fef3c7;
+      color: #92400e;
+    }
+    
+    .token-gear {
+      font-size: 0.9rem;
+      color: #6b7280;
+    }
+    
+    .selected-token {
+      border: 2px solid var(--card-selected-border);
+      box-shadow: 0 0 0 2px var(--card-selected-border);
+    }
+    
+    .btn-connect {
+      background-color: var(--accent-purple);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    
+    .btn-connect:hover {
+      background-color: var(--accent-purple-hover);
+    }
+    
+    .btn-action {
+      background-color: var(--accent-purple);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-block;
+      text-align: center;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .btn-action:hover {
+      background-color: var(--accent-purple-hover);
+      transform: translateY(-2px);
+    }
+    
+    .btn-secondary {
+      background-color: #6c757d;
+    }
+    
+    .btn-secondary:hover {
+      background-color: #5a6268;
+    }
+    
+    .btn-add-cart {
+      background-color: #0d6efd;
+      color: white;
+      border: none;
+      padding: 0.5rem;
+      font-size: 0.9rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      width: 100%;
+    }
+    
+    .btn-add-cart:hover {
+      background-color: #0b5ed7;
+    }
+    
+    .cart-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+    
+    .account-display {
+      display: inline-block;
+      background-color: #f0f0f0;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-family: monospace;
+      font-size: 0.9rem;
+    }
+    
+    .alert {
+      padding: 1rem;
+      border-radius: 0.375rem;
+      margin-bottom: 1rem;
+    }
+    
+    .alert-danger {
+      background-color: var(--error-bg);
+      border: 1px solid var(--error-border);
+      color: var(--error-text);
+    }
+    
+    .alert-success {
+      background-color: var(--success-bg);
+      border: 1px solid var(--success-border);
+      color: var(--success-text);
+    }
+    
+    .nav-tabs {
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 1.5rem;
+    }
+    
+    .nav-link {
+      color: var(--primary-text);
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      padding: 0.5rem 1rem;
+      transition: all 0.2s ease;
+    }
+    
+    .nav-link.active {
+      color: var(--accent-purple);
+      border-bottom: 2px solid var(--accent-purple);
+    }
+    
+    .tab-content {
+      padding: 1rem;
+    }
+    
+    .inventory-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem;
+      background-color: #f8f9fa;
+      border-radius: 0.375rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .inventory-count {
+      background-color: var(--accent-purple);
+      color: white;
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+    
+    .badge {
+      margin-left: 0.5rem;
+    }
+    
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--card-border);
+      color: #9ca3af;
+      font-size: 0.875rem;
+    }
+    
+    .spinner-border {
+      width: 1.5rem;
+      height: 1.5rem;
+      margin-right: 0.5rem;
+    }
+    
+    .small-quantity {
+      width: 3rem;
+      text-align: center;
+      margin: 0 0.5rem;
+    }
+    
+    .equipped-badge {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background-color: var(--accent-purple);
+      color: white;
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+    
+    .reward-info {
+      background-color: #f8f9fa;
+      padding: 1rem;
+      border-radius: 0.375rem;
+      margin-bottom: 1rem;
+    }
+    
+    .reward-value {
+      font-weight: bold;
+      color: var(--accent-purple);
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">PunkQuest</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link active" href="#" data-bs-target="#tokensSection" id="tokensTab">My Tokens</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" data-bs-target="#storeSection" id="storeTab">Store</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" data-bs-target="#inventorySection" id="inventoryTab">Inventory</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" data-bs-target="#cartSection" id="cartTab">Cart <span id="cartBadge" class="badge bg-danger">0</span></a>
+          </li>
+        </ul>
+      </div>
+      <div id="account-section" class="text-end" style="display: none;">
+        <span id="tokenBalance" class="text-white me-3">$ADRIAN: 0</span>
+        <span id="accountDisplay" class="account-display text-white"></span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>PunkQuest Marketplace</h1>
+      <p>Buy items, equip your AdrianPunks, and earn rewards</p>
+    </header>
+    
+    <!-- Connect Wallet Section -->
+    <div id="connect-section" class="text-center mb-4">
+      <button id="connectWalletBtn" class="btn-connect">Connect Wallet</button>
+    </div>
+    
+    <!-- Alert Messages -->
+    <div id="errorAlert" class="alert alert-danger" style="display: none;"></div>
+    <div id="successAlert" class="alert alert-success" style="display: none;"></div>
+    
+    <!-- Tab Content Sections -->
+    <div class="tab-content">
+      <!-- Tokens Section -->
+      <div id="tokensSection" class="tab-pane active">
+        <div class="card">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="section-title mb-0">Your AdrianPunks</h2>
+            <div>
+              <button id="selectAllBtn" class="btn-secondary btn-action">Select All</button>
+              <button id="claimAllBtn" class="btn-action">Claim All Rewards</button>
+            </div>
+          </div>
+          
+          <div id="loading-tokens" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading your tokens...</p>
+          </div>
+          
+          <div id="no-tokens-message" class="text-center py-5" style="display: none;">
+            <p>You don't own any AdrianPunks yet</p>
+          </div>
+          
+          <!-- Token Grid -->
+          <div id="token-grid" class="token-grid mb-4"></div>
+          
+          <!-- Token Actions -->
+          <div id="token-actions" style="display: none;">
+            <div class="d-flex flex-wrap">
+              <button id="stakeBtn" class="btn-action">Stake Selected</button>
+              <button id="unstakeBtn" class="btn-action">Unstake Selected</button>
+              <button id="claimBtn" class="btn-action">Claim Selected</button>
+              <button id="levelUpBtn" class="btn-action">Fast Level Upgrade</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Equipment Section -->
+        <div id="equipment-section" class="card" style="display: none;">
+          <h2 class="section-title">Equip Items</h2>
+          
+          <div id="no-token-selected" class="text-center my-3">
+            <p>Select a token to equip items</p>
+          </div>
+          
+          <div id="token-equipment" style="display: none;">
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <h5>Currently Equipped</h5>
+                <div id="current-equipment" class="p-3 bg-light rounded">
+                  <div id="weapon-slot">
+                    <p>Weapon Slot: <span id="current-weapon">None</span></p>
+                  </div>
+                  <div id="armor-slot">
+                    <p>Armor Slot: <span id="current-armor">None</span></p>
+                  </div>
+                  <div id="extra-slots">
+                    <p>Extra Slots: <span id="current-extras">None</span></p>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <h5>Your Inventory</h5>
+                <div id="equipment-inventory" class="p-3 bg-light rounded">
+                  <p>Loading inventory...</p>
+                </div>
+              </div>
+            </div>
+            <button id="purchaseSlotBtn" class="btn-action">Purchase Extra Slot</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Store Section -->
+      <div id="storeSection" class="tab-pane">
+        <div class="card">
+          <h2 class="section-title">Item Store</h2>
+          
+          <div id="loading-store" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading store items...</p>
+          </div>
+          
+          <!-- Filter Controls -->
+          <div class="mb-3">
+            <div class="btn-group" role="group">
+              <button type="button" class="btn btn-outline-secondary active" data-filter="all">All Items</button>
+              <button type="button" class="btn btn-outline-secondary" data-filter="weapon">Weapons</button>
+              <button type="button" class="btn btn-outline-secondary" data-filter="armor">Armor</button>
+            </div>
+          </div>
+          
+          <!-- Item Grid -->
+          <div id="store-grid" class="store-grid"></div>
+        </div>
+      </div>
+      
+      <!-- Inventory Section -->
+      <div id="inventorySection" class="tab-pane">
+        <div class="card">
+          <h2 class="section-title">Your Inventory</h2>
+          
+          <div id="loading-inventory" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading your inventory...</p>
+          </div>
+          
+          <div id="no-inventory-message" class="text-center py-5" style="display: none;">
+            <p>Your inventory is empty. Visit the store to buy items!</p>
+          </div>
+          
+          <!-- Inventory List -->
+          <div id="inventory-list"></div>
+        </div>
+      </div>
+      
+      <!-- Cart Section -->
+      <div id="cartSection" class="tab-pane">
+        <div class="card">
+          <h2 class="section-title">Shopping Cart</h2>
+          
+          <div id="empty-cart-message" class="text-center py-5">
+            <p>Your cart is empty. Add items from the store!</p>
+          </div>
+          
+          <!-- Cart Items -->
+          <div id="cart-items"></div>
+          
+          <!-- Cart Summary -->
+          <div id="cart-summary" class="mt-3" style="display: none;">
+            <hr>
+            <div class="d-flex justify-content-between">
+              <h5>Total:</h5>
+              <h5 id="cart-total">0 $ADRIAN</h5>
+            </div>
+            <button id="approveBtn" class="btn-action w-100 mb-2">Approve $ADRIAN</button>
+            <button id="checkoutBtn" class="btn-action w-100" disabled>Checkout</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+      <p id="contractAddressInfo"></p>
+      <p>© 2025 PunkQuest</p>
+    </div>
+  </div>
+
+  <!-- Modal for Item Details -->
+  <div class="modal fade" id="itemDetailsModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="itemDetailsTitle">Item Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="itemDetailsContent">
+          <!-- Content will be dynamically inserted -->
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" id="addToCartModal">Add to Cart</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JavaScript -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <script>
+    // Configuración de rutas de imágenes
+    const IMAGE_CONFIG = {
+      basePath: '/market/halfxadrianimages/',
+      placeholder: '/market/halfxadrianimages/placeholder.jpg',
+      preloadBatchSize: 5
+    };
+
+    // Preload de imágenes
+    async function preloadImages(tokenIds) {
+      const promises = tokenIds.map(id => {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve({ id, success: true });
+          img.onerror = () => resolve({ id, success: false });
+          img.src = `${IMAGE_CONFIG.basePath}${id}.jpg`;
+        });
+      });
+
+      const results = await Promise.all(promises);
+      return results.reduce((acc, { id, success }) => {
+        acc[id] = success;
+        return acc;
+      }, {});
+    }
+
+    // Función mejorada para cargar imágenes
+    function loadImage(id, element) {
+      const img = new Image();
+      img.src = `${IMAGE_CONFIG.basePath}${id}.jpg`;
+      img.className = 'loading';
+      
+      img.onload = () => {
+        img.className = '';
+        element.replaceWith(img);
+      };
+      
+      img.onerror = () => {
+        console.error(`Error loading image for token ${id}`);
+        img.src = IMAGE_CONFIG.placeholder;
+        img.className = 'error';
+        element.replaceWith(img);
+      };
+    }
+
+    // Función mejorada para renderizar tokens
+    function renderTokens() {
+      E.grid.innerHTML = "";
+      const fragment = document.createDocumentFragment();
+      
+      S.ownedTokens.forEach(id => {
+        const card = document.createElement("div");
+        card.className = "token-card" + (S.selected.has(id) ? " selected-token" : "");
+        card.onclick = () => toggleSelect(id);
+        
+        const imgContainer = document.createElement("div");
+        imgContainer.className = "img-container";
+        loadImage(id, imgContainer);
+        card.append(imgContainer);
+        
+        const info = document.createElement("div");
+        info.className = "token-info";
+        info.innerHTML = `<div class="token-title">Adrian #${id}</div>`;
+        card.append(info);
+        
+        fragment.append(card);
+      });
+      
+      E.grid.append(fragment);
+      toggleUI();
+    }
+
+    // Función mejorada para cargar tokens
+    async function loadTokens() {
+      E.loadingTok.style.display = "block";
+      E.grid.innerHTML = "";
+      
+      try {
+        const bal = (await S.contracts.punks.balanceOf(S.account)).toNumber();
+        if (!bal) {
+          E.noTok.style.display = "block";
+          return;
+        }
+
+        // Obtener Ids mediante multicall
+        const iface = new ethers.utils.Interface(CFG.abi.punks);
+        const calls = [...Array(bal).keys()].map(i => ({
+          target: CFG.addresses.punks,
+          allowFailure: false,
+          callData: iface.encodeFunctionData("tokenOfOwnerByIndex", [S.account, i])
+        }));
+
+        const results = await new ethers.Contract(
+          CFG.addresses.multicall,
+          ["function aggregate3(tuple(address,bool,bytes)[]) view returns((bool,bytes)[])"],
+          S.provider
+        ).aggregate3(calls);
+
+        S.ownedTokens = results.map(r =>
+          iface.decodeFunctionResult("tokenOfOwnerByIndex", r.returnData)[0].toNumber());
+
+        // Preload de imágenes
+        const preloadResults = await preloadImages(S.ownedTokens);
+        console.log('Preload results:', preloadResults);
+
+        renderTokens();
+      } catch (error) {
+        console.error('Error loading tokens:', error);
+        notify(E.error, "Error al cargar los tokens");
+      } finally {
+        E.loadingTok.style.display = "none";
+      }
+    }
+  </script>
+</body>
+</html>
