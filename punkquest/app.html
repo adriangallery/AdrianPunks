@@ -899,14 +899,39 @@
       const make = (addr, abi) => new ethers.Contract(addr, abi, S.signer);
       S.contracts.punks  = make(CFG.addresses.punks,  CFG.abi.punks);
       S.contracts.quest  = make(CFG.addresses.quest,  CFG.abi.quest);
-      S.contracts.token  = make(CFG.addresses.token,  CFG.abi.erc20);
       
-      /* Leer decimals & symbol */
-      [S.decimals, S.symbol] = await Promise.all([
-          S.contracts.token.decimals(),  S.contracts.token.symbol() ]);
+      // Inicializamos el contrato token con manejo de errores
+      try {
+        const tokenAddr = CFG.addresses.token.toLowerCase();
+        S.contracts.token = make(tokenAddr, CFG.abi.erc20);
+        
+        try {
+          // Intentamos leer decimals y symbol, pero usamos valores por defecto si hay error
+          const decimals = await S.contracts.token.decimals().catch(() => 18);
+          const symbol = await S.contracts.token.symbol().catch(() => "ADRIAN");
+          
+          S.decimals = decimals;
+          S.symbol = symbol;
+        } catch (e) {
+          console.warn("Error leyendo decimales o símbolo:", e);
+          // Usamos valores por defecto
+          S.decimals = 18;
+          S.symbol = "ADRIAN";
+        }
+      } catch (e) {
+        console.error("Error inicializando contrato token:", e);
+        notify(E.error, "Error al conectar con el token ADRIAN. Algunas funciones pueden no estar disponibles.");
+      }
 
       notify(E.ok, "Wallet conectada correctamente");
-      renderAccount(); await bootstrapData();
+      renderAccount(); 
+      
+      try {
+        await bootstrapData();
+      } catch (e) {
+        console.error("Error cargando datos:", e);
+        notify(E.error, "Error cargando datos. Intenta recargar la página.");
+      }
     }
 
     function renderAccount() {
@@ -917,48 +942,103 @@
     /* ------------------ 6.  CARGA INICIAL ------------------ */
 
     async function bootstrapData() {
-      await Promise.all([loadFees(), loadBalance(), loadTokens(), loadStore()]);
+      try {
+        await Promise.all([
+          loadFees().catch(e => console.error("Error cargando fees:", e)),
+          loadBalance().catch(e => console.error("Error cargando balance:", e)),
+          loadTokens().catch(e => console.error("Error cargando tokens:", e)),
+          loadStore().catch(e => console.error("Error cargando tienda:", e))
+        ]);
+      } catch (e) {
+        console.error("Error en bootstrapData:", e);
+      }
     }
 
     /* --- 6-a  BALANCE -------------------------------------- */
     async function loadBalance() {
-      const bal = await S.contracts.token.balanceOf(S.account);
-      E.balBox.textContent = `$${S.symbol}: ${fmt(bal, S.decimals, 2)}`;
+      try {
+        if (!S.contracts.token) return;
+        const bal = await S.contracts.token.balanceOf(S.account);
+        E.balBox.textContent = `$${S.symbol}: ${fmt(bal, S.decimals, 2)}`;
+      } catch (e) {
+        console.error("Error cargando balance:", e);
+        E.balBox.textContent = `$${S.symbol}: Error`;
+      }
     }
 
     /* --- 6-b  COMISIONES ----------------------------------- */
     async function loadFees() {
-      const Q = S.contracts.quest;
-      const [activation, exit, claim, levelUp, extra] = await Promise.all([
-        Q.activationFee(), Q.exitFee(), Q.claimFee(),
-        Q.fastLevelUpgradeFee(), Q.extraSlotCost()
-      ]);
-      S.fees = { activation, exit, claim, levelUp, extra };
+      try {
+        if (!S.contracts.quest) return;
+        const Q = S.contracts.quest;
+        const [activation, exit, claim, levelUp, extra] = await Promise.all([
+          Q.activationFee().catch(() => ethers.BigNumber.from(0)),
+          Q.exitFee().catch(() => ethers.BigNumber.from(0)),
+          Q.claimFee().catch(() => ethers.BigNumber.from(0)),
+          Q.fastLevelUpgradeFee().catch(() => ethers.BigNumber.from(0)),
+          Q.extraSlotCost().catch(() => ethers.BigNumber.from(0))
+        ]);
+        S.fees = { activation, exit, claim, levelUp, extra };
+      } catch (e) {
+        console.error("Error cargando fees:", e);
+      }
     }
 
     /* --- 6-c  TOKEN NFTs ----------------------------------- */
     async function loadTokens() {
-      E.loadingTok.style.display = "block"; E.grid.innerHTML = "";
-      const bal = (await S.contracts.punks.balanceOf(S.account)).toNumber();
-      if (!bal) { E.noTok.style.display = "block"; return; }
+      try {
+        E.loadingTok.style.display = "block"; 
+        E.grid.innerHTML = "";
+        
+        if (!S.contracts.punks) {
+          E.noTok.style.display = "block";
+          E.loadingTok.style.display = "none";
+          return;
+        }
+        
+        const bal = (await S.contracts.punks.balanceOf(S.account)).toNumber();
+        if (!bal) { 
+          E.noTok.style.display = "block"; 
+          E.loadingTok.style.display = "none";
+          return; 
+        }
 
-      /* Obtener Ids mediante multicall */
-      const iface = new ethers.utils.Interface(CFG.abi.punks);
-      const calls = [...Array(bal).keys()].map(i => ({
-          target: CFG.addresses.punks,
-          allowFailure: false,
-          callData: iface.encodeFunctionData("tokenOfOwnerByIndex", [S.account, i])
-      }));
-      const results = await new ethers.Contract(
-            CFG.addresses.multicall,
-            ["function aggregate3(tuple(address,bool,bytes)[]) view returns((bool,bytes)[])"],
-            S.provider
-          ).aggregate3(calls);
+        /* Obtener Ids mediante multicall */
+        const iface = new ethers.utils.Interface(CFG.abi.punks);
+        const calls = [...Array(bal).keys()].map(i => ({
+            target: CFG.addresses.punks,
+            allowFailure: false,
+            callData: iface.encodeFunctionData("tokenOfOwnerByIndex", [S.account, i])
+        }));
+        
+        try {
+          const results = await new ethers.Contract(
+                CFG.addresses.multicall,
+                ["function aggregate3(tuple(address,bool,bytes)[]) view returns((bool,bytes)[])"],
+                S.provider
+              ).aggregate3(calls);
 
-      S.ownedTokens = results.map(r =>
-          iface.decodeFunctionResult("tokenOfOwnerByIndex", r.returnData)[0].toNumber());
+          S.ownedTokens = results.map(r =>
+              iface.decodeFunctionResult("tokenOfOwnerByIndex", r.returnData)[0].toNumber());
+        } catch (e) {
+          console.error("Error con multicall, intentando método alternativo:", e);
+          // Método alternativo si falla multicall
+          S.ownedTokens = [];
+          for (let i = 0; i < bal; i++) {
+            try {
+              const tokenId = await S.contracts.punks.tokenOfOwnerByIndex(S.account, i);
+              S.ownedTokens.push(tokenId.toNumber());
+            } catch (err) {
+              console.error(`Error obteniendo token #${i}:`, err);
+            }
+          }
+        }
 
-      renderTokens();
+        renderTokens();
+      } catch (e) {
+        console.error("Error cargando tokens:", e);
+        E.loadingTok.style.display = "none";
+      }
     }
 
     /* Renderizado de tarjetas NFT */
@@ -992,16 +1072,37 @@
 
     /* --- 6-d  TIENDA --------------------------------------- */
     async function loadStore() {
-      E.storeLoad.style.display = "block";
-      const nextId = (await S.contracts.quest.nextItemId()).toNumber();
+      try {
+        if (E.storeLoad) E.storeLoad.style.display = "block";
+        
+        if (!S.contracts.quest) {
+          if (E.storeLoad) E.storeLoad.style.display = "none";
+          return;
+        }
+        
+        let nextId;
+        try {
+          nextId = (await S.contracts.quest.nextItemId()).toNumber();
+        } catch (e) {
+          console.error("Error obteniendo nextItemId:", e);
+          nextId = 10; // Valor por defecto si falla
+        }
 
-      S.storeItems = [];
-      for (let i = 1; i < nextId; i++) {
-        const item = await S.contracts.quest.items(i);
-        if (!item.exists) continue;       // omitidos no existentes
-        S.storeItems.push({ id: i, ...item });
+        S.storeItems = [];
+        for (let i = 1; i < nextId; i++) {
+          try {
+            const item = await S.contracts.quest.items(i);
+            if (!item.exists) continue;
+            S.storeItems.push({ id: i, ...item });
+          } catch (e) {
+            console.error(`Error cargando item de tienda #${i}:`, e);
+          }
+        }
+        renderStore();
+      } catch (e) {
+        console.error("Error cargando tienda:", e);
+        if (E.storeLoad) E.storeLoad.style.display = "none";
       }
-      renderStore();
     }
 
     function renderStore(filter = "all") {
@@ -1067,37 +1168,80 @@
 
     /* APROBAR → TOKEN */
     const approve = withLoad(async () => {
-      const total = S.cart.reduce((sum, it) => {
-        const price = S.storeItems.find(s => s.id === it.id).price;
-        return sum.add(price.mul(it.qty));
-      }, ethers.BigNumber.from(0));
-      const allowance = await S.contracts.token.allowance(S.account, CFG.addresses.quest);
-      if (allowance.gte(total)) return notify(E.ok, "Allowance suficiente 👍");
+      if (!S.contracts.token) {
+        notify(E.error, "Contrato de token no disponible.");
+        return;
+      }
+      
+      try {
+        const total = S.cart.reduce((sum, it) => {
+          const price = S.storeItems.find(s => s.id === it.id).price;
+          return sum.add(price.mul(it.qty));
+        }, ethers.BigNumber.from(0));
+        
+        const allowance = await S.contracts.token.allowance(S.account, CFG.addresses.quest);
+        if (allowance.gte(total)) return notify(E.ok, "Allowance suficiente 👍");
 
-      const tx = await S.contracts.token.approve(CFG.addresses.quest, total);
-      await tx.wait(); notify(E.ok, "Allowance actualizado");
+        const tx = await S.contracts.token.approve(CFG.addresses.quest, total);
+        await tx.wait(); notify(E.ok, "Allowance actualizado");
+      } catch (e) {
+        console.error("Error en approve:", e);
+        notify(E.error, "Error al aprobar tokens: " + (e.message || "Error desconocido"));
+      }
     });
 
     const checkout = withLoad(async () => {
-      for (const it of S.cart) {
-        const tx = await S.contracts.quest.buyItem(it.id, it.qty);
-        await tx.wait();
+      if (!S.contracts.quest || !S.contracts.token) {
+        notify(E.error, "Contratos no disponibles. Intenta reconectar la wallet.");
+        return;
       }
-      notify(E.ok, "¡Compra completada!");
-      S.cart = []; renderCart(); await loadInventory();
+      
+      try {
+        for (const it of S.cart) {
+          const tx = await S.contracts.quest.buyItem(it.id, it.qty);
+          await tx.wait();
+        }
+        notify(E.ok, "¡Compra completada!");
+        S.cart = []; 
+        renderCart(); 
+        await loadInventory();
+      } catch (e) {
+        console.error("Error en checkout:", e);
+        notify(E.error, "Error al completar la compra: " + (e.message || "Error desconocido"));
+      }
     });
 
     /* ------------------ 8.  INVENTARIO ------------------ */
 
     async function loadInventory() {
-      $("#loading-inventory").style.display = "block";
-      const inv = {};
-      await Promise.all(S.storeItems.map(async it => {
-        const qty = await S.contracts.quest.inventory(S.account, it.id);
-        if (qty.gt(0)) inv[it.id] = qty.toNumber();
-      }));
-      S.inventory = inv;
-      renderInventory();
+      try {
+        const invDiv = $("#loading-inventory");
+        if (invDiv) invDiv.style.display = "block";
+        
+        if (!S.contracts.quest) {
+          if (invDiv) invDiv.style.display = "none";
+          $("#no-inventory-message").style.display = "block";
+          return;
+        }
+        
+        const inv = {};
+        const promises = S.storeItems.map(async it => {
+          try {
+            const qty = await S.contracts.quest.inventory(S.account, it.id);
+            if (qty.gt(0)) inv[it.id] = qty.toNumber();
+          } catch (e) {
+            console.error(`Error cargando item #${it.id}:`, e);
+          }
+        });
+        
+        await Promise.all(promises);
+        S.inventory = inv;
+        renderInventory();
+      } catch (e) {
+        console.error("Error cargando inventario:", e);
+        const invDiv = $("#loading-inventory");
+        if (invDiv) invDiv.style.display = "none";
+      }
     }
 
     function renderInventory() {
@@ -1117,10 +1261,22 @@
 
     const batch = withLoad(async (fnName, msg) => {
       if (!S.selected.size) return;
-      const ids = [...S.selected];
-      const tx  = await S.contracts.quest[fnName](ids);
-      await tx.wait(); notify(E.ok, msg);
-      await loadTokens(); S.selected.clear();
+      if (!S.contracts.quest) {
+        notify(E.error, "Contrato no disponible. Intenta reconectar la wallet.");
+        return;
+      }
+      
+      try {
+        const ids = [...S.selected];
+        const tx = await S.contracts.quest[fnName](ids);
+        await tx.wait(); 
+        notify(E.ok, msg);
+        await loadTokens(); 
+        S.selected.clear();
+      } catch (e) {
+        console.error(`Error en operación ${fnName}:`, e);
+        notify(E.error, `Error: ${e.message || "Operación fallida"}`);
+      }
     });
 
     /* ------------------ 10.  UI & EVENTOS ------------------ */
