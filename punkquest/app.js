@@ -19,7 +19,11 @@
        token:  "0xD2a4684edFc70D2B01600416f50Fc5733bFc97D5",
        multicall: "0xcA11bde05977b3631167028862bE2a173976CA11"
      },
-     abi:      { punks: ADRIAN_PUNKS_ABI, quest: PUNK_QUEST_ABI, erc20: ERC20_ABI },
+     abi: { 
+       punks: [], // Se definirá más adelante
+       quest: [],
+       erc20: []
+     },
      imgPath:  "/market/halfxadrianimages/",
      placeholder: "/market/halfxadrianimages/placeholder.jpg"
    };
@@ -99,7 +103,7 @@
    
    /* ------------------ 5.  CONEXIÓN WALLET ------------------ */
    
-   window.connect = async function() {
+   async function connect() {
      if (!window.ethereum) throw new Error("Instala MetaMask para continuar");
      const [acc] = await window.ethereum.request({ method: "eth_requestAccounts" });
      /* Red Base */
@@ -130,7 +134,7 @@
    
      notify(E.ok, "Wallet conectada correctamente");
      renderAccount(); await bootstrapData();
-   };
+   }
    
    window.renderAccount = () => {
      E.accountBox.textContent = `${S.account.slice(0, 6)}…${S.account.slice(-4)}`;
@@ -391,10 +395,56 @@
    
    /* ------------------ 11.  ARRANQUE ------------------ */
    
-   E.connectBtn.onclick = withLoad(connect);
-   
-   /* Si la wallet ya está conectada, conecta auto */
-   window.addEventListener("load", async () => {
-     const accs = window.ethereum ? await ethereum.request({ method: "eth_accounts" }) : [];
-     if (accs.length) withLoad(connect)();
+   // Definir ABIs
+   const ADRIAN_PUNKS_ABI = [/* Tu ABI aquí */];
+   const PUNK_QUEST_ABI = [/* Tu ABI aquí */];
+   const ERC20_ABI = [/* Tu ERC20 ABI aquí */];
+
+   // Actualizar CFG con los ABIs
+   CFG.abi.punks = ADRIAN_PUNKS_ABI;
+   CFG.abi.quest = PUNK_QUEST_ABI;
+   CFG.abi.erc20 = ERC20_ABI;
+
+   // Exponer funciones al scope global
+   window.connect = connect;
+   window.renderAccount = renderAccount;
+   window.bootstrapData = bootstrapData;
+   window.loadBalance = loadBalance;
+   window.loadFees = loadFees;
+   window.loadTokens = loadTokens;
+   window.renderTokens = renderTokens;
+   window.toggleSelect = toggleSelect;
+   window.loadStore = loadStore;
+   window.renderStore = renderStore;
+   window.toggleUI = toggleUI;
+
+   // Configurar event listeners
+   document.addEventListener('DOMContentLoaded', () => {
+     E.connectBtn.addEventListener('click', withLoad(connect));
+     E.selectAll.addEventListener('click', () => {
+       if (S.selected.size === S.ownedTokens.length) S.selected.clear();
+       else S.ownedTokens.forEach(id => S.selected.add(id));
+       renderTokens();
+     });
+     
+     // Event listeners para pestañas
+     E.tabs.forEach(t => t.addEventListener('click', ev => {
+       ev.preventDefault();
+       E.tabs.forEach(n => n.classList.remove('active'));
+       t.classList.add('active');
+       document.querySelector('.tab-pane.active').classList.remove('active');
+       document.querySelector(t.dataset.bsTarget).classList.add('active');
+       if (t.id === 'inventoryTab') loadInventory();
+     }));
+     
+     // Botones del carrito
+     E.approveBtn.addEventListener('click', approve);
+     E.checkoutBtn.addEventListener('click', checkout);
+     
+     // Verificar si la wallet ya está conectada
+     if (window.ethereum) {
+       window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
+         if (accounts.length > 0) withLoad(connect)();
+       });
+     }
    });
