@@ -20,9 +20,127 @@
        multicall: "0xcA11bde05977b3631167028862bE2a173976CA11"
      },
      abi: { 
-       punks: [], // Se definirá más adelante
-       quest: [],
-       erc20: []
+       punks: [
+         "function balanceOf(address owner) view returns (uint256)",
+         "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+         "function tokenURI(uint256 tokenId) view returns (string)",
+         "function ownerOf(uint256 tokenId) view returns (address)",
+         "function getApproved(uint256 tokenId) view returns (address)",
+         "function isApprovedForAll(address owner, address operator) view returns (bool)",
+         "function approve(address to, uint256 tokenId)",
+         "function setApprovalForAll(address operator, bool approved)",
+         "function transferFrom(address from, address to, uint256 tokenId)",
+         "function safeTransferFrom(address from, address to, uint256 tokenId)",
+         "function safeTransferFrom(address from, address to, uint256 tokenId, bytes data)"
+       ],
+       quest: [
+         "function stake(uint256 id)",
+         "function unstake(uint256 id)",
+         "function claimRewards(uint256 id) returns (uint256)",
+         "function batchStake(uint256[] ids)",
+         "function batchUnstake(uint256[] ids)",
+         "function batchClaimRewards(uint256[] ids) returns (uint256)",
+         "function getTokenDetailedInfo(uint256 id) view returns (uint256, uint256, uint256, uint256, uint256, int256, uint256)",
+         "function getTokenStats(uint256 id) view returns (uint256, uint256)",
+         "function getTokenArmoryDetails(uint256 id) view returns (uint256, uint256, uint256[], uint256)",
+         "function activationFee() view returns (uint256)",
+         "function exitFee() view returns (uint256)",
+         "function claimFee() view returns (uint256)",
+         "function fastLevelUpgradeFee() view returns (uint256)",
+         "function extraSlotCost() view returns (uint256)",
+         "function repairFee() view returns (uint256)",
+         "function baseRewardRate() view returns (uint256)",
+         "function eventChance() view returns (uint256)",
+         "function eventCooldown() view returns (uint256)",
+         "function positiveEventBonus() view returns (uint256)",
+         "function negativeEventPenalty() view returns (uint256)",
+         "function maxFastLevelBonus() view returns (uint256)",
+         "function fastLevelUpgradeBonusIncrement() view returns (uint256)",
+         "function maxSlots() view returns (uint256)",
+         "function socialMinTokens() view returns (uint256)",
+         "function socialBoostBonus() view returns (uint256)",
+         "function socialBoostDuration() view returns (uint256)",
+         "function socialBoostActiveUntil() view returns (uint256)",
+         "function totalStaked() view returns (uint256)",
+         "function totalItemsEquipped() view returns (uint256)",
+         "function totalItemsPurchased() view returns (uint256)",
+         "function getGlobalStats() view returns (uint256, uint256, uint256)",
+         "function getEconomicSnapshot() view returns (uint256, uint256, uint256, uint256)",
+         "function getWalletStats(address w, uint256[] tokenIds) view returns (uint256[], uint256, uint256)",
+         "function pendingPassiveReward(uint256 id) view returns (uint256)",
+         "function pendingGameReward(uint256 id) view returns (uint256)",
+         "function pendingTotalReward(uint256 id) view returns (uint256)",
+         "function randomTriggerEvent(uint256 tokenId)",
+         "function triggerEvent(uint256 tokenId, uint256 id)",
+         "function triggerAdvancedEvent(uint256 tokenId, uint256 ev)",
+         "function addEventDefinition(string n, int256 adj, string d)",
+         "function addAdvancedEventDefinition(string n, int256 adj, string d, uint256 deg)",
+         "function setEventParameters(uint256 c, uint256 chance, uint256 pos, uint256 neg)",
+         "function setEventsPaused(bool p)",
+         "function addItem(uint8 t, uint256 p, uint256 b, uint256 d, bool degr)",
+         "function updateItem(uint256 id, uint256 p, uint256 b, uint256 d)",
+         "function buyItem(uint256 id, uint256 qty)",
+         "function batchBuyItems(uint256[] ids, uint256[] qtys)",
+         "function equipItem(uint256 tokenId, uint256 itemId)",
+         "function equipItemInstance(uint256 tokenId, uint256 instId)",
+         "function equipExtraItemInstance(uint256 tokenId, uint256 instId)",
+         "function repairItem(uint256 inst, uint256 tokenId)",
+         "function purchaseFastLevelUpgrade(uint256 id)",
+         "function purchaseExtraSlots(uint256 tokenId, uint256 q)",
+         "function addRewardToken(address t)",
+         "function depositRewardFunds(uint256 a)",
+         "function withdrawRewardFunds(uint256 a, address to)",
+         "function setActivationFee(uint256 v)",
+         "function setExitFee(uint256 v)",
+         "function setClaimFee(uint256 v)",
+         "function setFastLevelUpgradeFee(uint256 v)",
+         "function setExtraSlotCost(uint256 v)",
+         "function setRepairFee(uint256 v)",
+         "function setBaseRewardRate(uint256 v)",
+         "function setFastLevelUpgradeBonusIncrement(uint256 v)",
+         "function setMaxFastLevelBonus(uint256 v)",
+         "function setMaxSlots(uint256 v)",
+         "function setLevelParameters(uint256[] th, uint256[] bn)",
+         "function setSocialStakingParameters(uint256 m, uint256 b, uint256 d)",
+         "function setArtistWallet(address w)",
+         "function setFeeWallet(address w)",
+         "function owner() view returns (address)",
+         "function renounceOwnership()",
+         "function transferOwnership(address newOwner)"
+       ],
+       erc20: [
+         "function balanceOf(address account) view returns (uint256)",
+         "function allowance(address owner, address spender) view returns (uint256)",
+         "function approve(address spender, uint256 amount) returns (bool)",
+         "function transfer(address to, uint256 amount) returns (bool)",
+         "function transferFrom(address from, address to, uint256 amount) returns (bool)",
+         "function decimals() view returns (uint8)",
+         "function symbol() view returns (string)",
+         "function name() view returns (string)",
+         "function totalSupply() view returns (uint256)",
+         "function stake(uint256 amount)",
+         "function withdrawStake()",
+         "function calculateReward(address staker) view returns (uint256)",
+         "function stakedBalance(address account) view returns (uint256)",
+         "function stakingStart(address account) view returns (uint256)",
+         "function rewardRate() view returns (uint256)",
+         "function updateRewardRate(uint256 _newRewardRate)",
+         "function taxFee() view returns (uint256)",
+         "function creatorFee() view returns (uint256)",
+         "function burnFee() view returns (uint256)",
+         "function taxAddress() view returns (address)",
+         "function creatorAddress() view returns (address)",
+         "function isFeeExempt(address account) view returns (bool)",
+         "function setFeeExemption(address account, bool exempt)",
+         "function updateTaxFee(uint256 _newTaxFee)",
+         "function updateCreatorFee(uint256 _newCreatorFee)",
+         "function updateBurnFee(uint256 _newBurnFee)",
+         "function updateTaxAddress(address _newTaxAddress)",
+         "function updateCreatorAddress(address _newCreatorAddress)",
+         "function owner() view returns (address)",
+         "function renounceOwnership()",
+         "function transferOwnership(address newOwner)"
+       ]
      },
      imgPath:  "/market/halfxadrianimages/",
      placeholder: "/market/halfxadrianimages/placeholder.jpg"
@@ -103,37 +221,53 @@
    
    /* ------------------ 5.  CONEXIÓN WALLET ------------------ */
    
-   async function connect() {
-     if (!window.ethereum) throw new Error("Instala MetaMask para continuar");
-     const [acc] = await window.ethereum.request({ method: "eth_requestAccounts" });
-     /* Red Base */
-     if ((await ethereum.request({ method: "eth_chainId" })) !== CFG.network.chainIdHex) {
-       try {
-         await ethereum.request({ method: "wallet_switchEthereumChain",
-                                  params: [{ chainId: CFG.network.chainIdHex }] });
-       } catch (e) {
-         if (e.code === 4902)
-           await ethereum.request({ method: "wallet_addEthereumChain",
-                                    params: [{ ...CFG.network,
-                                               chainId: CFG.network.chainIdHex }] });
-         else throw e;
+   async function connectWallet() {
+     try {
+       if (typeof window.ethereum === 'undefined') {
+         throw new Error('MetaMask no está instalado');
        }
+
+       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+       if (accounts.length === 0) {
+         throw new Error('No se encontraron cuentas');
+       }
+
+       const account = accounts[0];
+       const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+
+       if (chainId !== CFG.network.chainIdHex) {
+         try {
+           await window.ethereum.request({
+             method: 'wallet_switchEthereumChain',
+             params: [{ chainId: CFG.network.chainIdHex }],
+           });
+         } catch (switchError) {
+           if (switchError.code === 4902) {
+             await window.ethereum.request({
+               method: 'wallet_addEthereumChain',
+               params: [{
+                 chainId: CFG.network.chainIdHex,
+                 chainName: 'Base Mainnet',
+                 nativeCurrency: {
+                   name: 'ETH',
+                   symbol: 'ETH',
+                   decimals: 18
+                 },
+                 rpcUrls: [CFG.network.rpc],
+                 blockExplorerUrls: ['https://basescan.org']
+               }],
+             });
+           } else {
+             throw switchError;
+           }
+         }
+       }
+
+       return account;
+     } catch (error) {
+       console.error('Error al conectar la wallet:', error);
+       throw error;
      }
-   
-     S.provider  = new ethers.providers.Web3Provider(window.ethereum);
-     S.signer    = S.provider.getSigner();
-     S.account   = acc;
-     /* Instancias de contrato */
-     const make = (addr, abi) => new ethers.Contract(addr, abi, S.signer);
-     S.contracts.punks  = make(CFG.addresses.punks,  CFG.abi.punks);
-     S.contracts.quest  = make(CFG.addresses.quest,  CFG.abi.quest);
-     S.contracts.token  = make(CFG.addresses.token,  CFG.abi.erc20);
-     /* Leer decimals & symbol */
-     [S.decimals, S.symbol] = await Promise.all([
-         S.contracts.token.decimals(),  S.contracts.token.symbol() ]);
-   
-     notify(E.ok, "Wallet conectada correctamente");
-     renderAccount(); await bootstrapData();
    }
    
    window.renderAccount = () => {
@@ -165,27 +299,63 @@
    
    /* --- 6-c  TOKEN NFTs ----------------------------------- */
    window.loadTokens = async function() {
-     E.loadingTok.style.display = "block"; E.grid.innerHTML = "";
-     const bal = (await S.contracts.punks.balanceOf(S.account)).toNumber();
-     if (!bal) { E.noTok.style.display = "block"; return; }
-   
-     /* Obtener Ids mediante multicall */
-     const iface = new ethers.utils.Interface(CFG.abi.punks);
-     const calls = [...Array(bal).keys()].map(i => ({
-         target: CFG.addresses.punks,
-         allowFailure: false,
-         callData: iface.encodeFunctionData("tokenOfOwnerByIndex", [S.account, i])
-     }));
-     const results = await new ethers.Contract(
-           CFG.addresses.multicall,
-           ["function aggregate3(tuple(address,bool,bytes)[]) view returns((bool,bytes)[])"],
-           S.provider
-         ).aggregate3(calls);
-   
-     S.ownedTokens = results.map(r =>
-         iface.decodeFunctionResult("tokenOfOwnerByIndex", r.returnData)[0].toNumber());
-   
-     renderTokens();
+     try {
+       const account = await connectWallet();
+       const punksContract = new ethers.Contract(CFG.addresses.punks, CFG.abi.punks, S.provider);
+       const questContract = new ethers.Contract(CFG.addresses.quest, CFG.abi.quest, S.provider);
+       const tokenContract = new ethers.Contract(CFG.addresses.token, CFG.abi.erc20, S.provider);
+
+       // Cargar balance de tokens
+       const balance = await punksContract.balanceOf(account);
+       const tokenIds = [];
+       for (let i = 0; i < balance.toNumber(); i++) {
+         const tokenId = await punksContract.tokenOfOwnerByIndex(account, i);
+         tokenIds.push(tokenId.toNumber());
+       }
+
+       // Cargar información detallada de cada token
+       const tokens = await Promise.all(tokenIds.map(async (id) => {
+         const [level, xp, maxXp, lastClaim, lastEvent, eventBonus, durability] = 
+           await questContract.getTokenDetailedInfo(id);
+         const [staked, equipped] = await questContract.getTokenStats(id);
+         const [slots, usedSlots, items, lastRepair] = 
+           await questContract.getTokenArmoryDetails(id);
+         
+         return {
+           id,
+           level: parseInt(level),
+           xp: parseInt(xp),
+           maxXp: parseInt(maxXp),
+           lastClaim: parseInt(lastClaim),
+           lastEvent: parseInt(lastEvent),
+           eventBonus: parseInt(eventBonus),
+           durability: parseInt(durability),
+           staked: staked === 'true',
+           equipped: parseInt(equipped),
+           slots: parseInt(slots),
+           usedSlots: parseInt(usedSlots),
+           items: items.map(i => parseInt(i)),
+           lastRepair: parseInt(lastRepair)
+         };
+       }));
+
+       // Cargar balance de ADRIAN
+       const adrianBalance = await tokenContract.balanceOf(account);
+       const decimals = await tokenContract.decimals();
+       const formattedBalance = fmt(adrianBalance, decimals);
+
+       S.ownedTokens = tokenIds;
+       S.inventory = {};
+       for (const token of tokens) {
+         S.inventory[token.id] = token.staked ? 1 : 0;
+       }
+
+       renderTokens();
+       return { tokens, adrianBalance: formattedBalance };
+     } catch (error) {
+       console.error('Error al cargar tokens:', error);
+       throw error;
+     }
    };
    
    /* Renderizado de tarjetas NFT */
@@ -406,7 +576,7 @@
    CFG.abi.erc20 = ERC20_ABI;
 
    // Exponer funciones al scope global
-   window.connect = connect;
+   window.connect = connectWallet;
    window.renderAccount = renderAccount;
    window.bootstrapData = bootstrapData;
    window.loadBalance = loadBalance;
@@ -420,7 +590,7 @@
 
    // Configurar event listeners
    document.addEventListener('DOMContentLoaded', () => {
-     E.connectBtn.addEventListener('click', withLoad(connect));
+     E.connectBtn.addEventListener('click', withLoad(connectWallet));
      E.selectAll.addEventListener('click', () => {
        if (S.selected.size === S.ownedTokens.length) S.selected.clear();
        else S.ownedTokens.forEach(id => S.selected.add(id));
@@ -444,7 +614,138 @@
      // Verificar si la wallet ya está conectada
      if (window.ethereum) {
        window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
-         if (accounts.length > 0) withLoad(connect)();
+         if (accounts.length > 0) withLoad(connectWallet)();
        });
      }
    });
+
+   /* ------------------ 3.  FUNCIONES DE UI ------------------ */
+
+   function updateTokenCard(token) {
+     const card = document.createElement('div');
+     card.className = 'token-card';
+     card.innerHTML = `
+       <div class="token-image">
+         <img src="${CFG.imgPath}${token.id}.jpg" alt="Token ${token.id}" onerror="this.src='${CFG.placeholder}'">
+       </div>
+       <div class="token-info">
+         <h3>Token #${token.id}</h3>
+         <p>Nivel: ${token.level}</p>
+         <p>XP: ${token.xp}/${token.maxXp}</p>
+         <p>Durabilidad: ${token.durability}%</p>
+         <p>Slots: ${token.usedSlots}/${token.slots}</p>
+         <div class="token-actions">
+           ${token.staked ? 
+             `<button onclick="unstakeToken(${token.id})">Unstake</button>
+              <button onclick="claimRewards(${token.id})">Reclamar</button>` :
+             `<button onclick="stakeToken(${token.id})">Stake</button>`
+           }
+           <button onclick="repairItem(0, ${token.id})">Reparar</button>
+           <button onclick="purchaseFastLevelUpgrade(${token.id})">Mejorar Nivel</button>
+           <button onclick="purchaseExtraSlots(${token.id}, 1)">Comprar Slot</button>
+         </div>
+       </div>
+     `;
+     return card;
+   }
+
+   function updateStoreItem(item) {
+     const card = document.createElement('div');
+     card.className = 'store-item';
+     card.innerHTML = `
+       <div class="item-image">
+         <img src="${CFG.imgPath}items/${item.id}.jpg" alt="Item ${item.id}" onerror="this.src='${CFG.placeholder}'">
+       </div>
+       <div class="item-info">
+         <h3>${item.name}</h3>
+         <p>Tipo: ${item.type}</p>
+         <p>Precio: ${item.price} ADRIAN</p>
+         <p>Bonus: ${item.bonus}%</p>
+         <p>Durabilidad: ${item.durability}%</p>
+         <div class="item-actions">
+           <button onclick="buyItem(${item.id}, 1)">Comprar</button>
+         </div>
+       </div>
+     `;
+     return card;
+   }
+
+   function updateInventoryItem(item) {
+     const card = document.createElement('div');
+     card.className = 'inventory-item';
+     card.innerHTML = `
+       <div class="item-image">
+         <img src="${CFG.imgPath}items/${item.id}.jpg" alt="Item ${item.id}" onerror="this.src='${CFG.placeholder}'">
+       </div>
+       <div class="item-info">
+         <h3>${item.name}</h3>
+         <p>Tipo: ${item.type}</p>
+         <p>Durabilidad: ${item.durability}%</p>
+         <div class="item-actions">
+           <button onclick="equipItem(${item.tokenId}, ${item.id})">Equipar</button>
+           <button onclick="repairItem(${item.instanceId}, ${item.tokenId})">Reparar</button>
+         </div>
+       </div>
+     `;
+     return card;
+   }
+
+   function updateADRIANBalance(balance) {
+     const balanceElement = document.getElementById('adrian-balance');
+     if (balanceElement) {
+       balanceElement.textContent = `${balance} ADRIAN`;
+     }
+   }
+
+   function showNotification(message, type = 'info') {
+     const notification = document.createElement('div');
+     notification.className = `notification ${type}`;
+     notification.textContent = message;
+     document.body.appendChild(notification);
+     setTimeout(() => notification.remove(), 3000);
+   }
+
+   function updateUI(data) {
+     const tokensContainer = document.getElementById('tokens-container');
+     const storeContainer = document.getElementById('store-container');
+     const inventoryContainer = document.getElementById('inventory-container');
+
+     if (tokensContainer) {
+       tokensContainer.innerHTML = '';
+       data.tokens.forEach(token => {
+         tokensContainer.appendChild(updateTokenCard(token));
+       });
+     }
+
+     if (storeContainer) {
+       storeContainer.innerHTML = '';
+       data.storeItems.forEach(item => {
+         storeContainer.appendChild(updateStoreItem(item));
+       });
+     }
+
+     if (inventoryContainer) {
+       inventoryContainer.innerHTML = '';
+       data.inventoryItems.forEach(item => {
+         inventoryContainer.appendChild(updateInventoryItem(item));
+       });
+     }
+
+     updateADRIANBalance(data.adrianBalance);
+   }
+
+   async function initializeApp() {
+     try {
+       const account = await connectWallet();
+       const data = await loadTokens();
+       updateUI(data);
+       showNotification('Aplicación cargada correctamente', 'success');
+     } catch (error) {
+       showNotification(error.message, 'error');
+     }
+   }
+
+   // Event Listeners
+   window.addEventListener('load', initializeApp);
+   window.ethereum?.on('accountsChanged', initializeApp);
+   window.ethereum?.on('chainChanged', initializeApp);
