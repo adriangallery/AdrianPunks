@@ -365,6 +365,10 @@
         <button class="action-btn" id="collectionToggleButton" onclick="toggleImageCollection()">
           <span id="collectionToggleText">HalfxAdrian</span>
         </button>
+        <!-- Nuevo botón de wallet para la botonera principal -->
+        <button class="action-btn outline" id="mainConnectWalletButton">
+          Connect Wallet
+        </button>
       </div>
     </div>
 
@@ -2121,6 +2125,138 @@
         const extension = gifIds.includes(tokenId) ? 'gif' : 'png';
         return `./adrianpunksimages/${tokenId}.${extension}`;
       }
+    }
+  </script>
+
+  <!-- Inicialización de Web3 y conexión a la wallet -->
+  <script>
+    // Setup para el nuevo botón de wallet en la botonera principal
+    document.addEventListener('DOMContentLoaded', function() {
+      const mainWalletButton = document.getElementById('mainConnectWalletButton');
+      if (mainWalletButton) {
+        mainWalletButton.addEventListener('click', connectMainWallet);
+      }
+
+      // Verificar si ya hay una wallet conectada al cargar la página
+      checkWalletConnection();
+    });
+
+    let mainWalletProvider;
+    let mainWalletSigner;
+    let mainWalletConnected = false;
+    let mainWalletAddress = '';
+
+    async function connectMainWallet() {
+      try {
+        const mainWalletButton = document.getElementById('mainConnectWalletButton');
+        
+        if (!window.ethereum) {
+          showToast("Por favor instala MetaMask para conectar tu wallet");
+          return;
+        }
+
+        if (!mainWalletConnected) {
+          mainWalletProvider = new ethers.providers.Web3Provider(window.ethereum);
+          await mainWalletProvider.send("eth_requestAccounts", []);
+          mainWalletSigner = mainWalletProvider.getSigner();
+          mainWalletAddress = await mainWalletSigner.getAddress();
+          
+          const shortAddress = `${mainWalletAddress.slice(0, 6)}...${mainWalletAddress.slice(-4)}`;
+          mainWalletButton.innerHTML = `Connected: ${shortAddress}`;
+          mainWalletButton.classList.add('active');
+          
+          mainWalletConnected = true;
+          
+          // Escuchar cambios de cuenta
+          window.ethereum.on('accountsChanged', handleMainAccountsChanged);
+          
+          // Notificar al usuario
+          showToast("Wallet conectada: " + shortAddress);
+          
+          // Actualizar la información de NFTs del usuario si es necesario
+          loadUserNFTs();
+        } else {
+          // Desconectar
+          disconnectMainWallet();
+        }
+      } catch (error) {
+        console.error("Error conectando wallet:", error);
+        showToast("Error conectando wallet: " + error.message);
+      }
+    }
+
+    function disconnectMainWallet() {
+      mainWalletConnected = false;
+      mainWalletProvider = null;
+      mainWalletSigner = null;
+      mainWalletAddress = '';
+      
+      const mainWalletButton = document.getElementById('mainConnectWalletButton');
+      mainWalletButton.innerHTML = "Connect Wallet";
+      mainWalletButton.classList.remove('active');
+      
+      // Remover listener
+      if (window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', handleMainAccountsChanged);
+      }
+      
+      showToast("Wallet desconectada");
+    }
+
+    function handleMainAccountsChanged(accounts) {
+      if (accounts.length === 0) {
+        // Usuario desconectó desde MetaMask
+        disconnectMainWallet();
+      } else {
+        // Actualizar con la nueva dirección
+        mainWalletAddress = accounts[0];
+        const shortAddress = `${mainWalletAddress.slice(0, 6)}...${mainWalletAddress.slice(-4)}`;
+        
+        const mainWalletButton = document.getElementById('mainConnectWalletButton');
+        mainWalletButton.innerHTML = `Connected: ${shortAddress}`;
+        
+        // Actualizar la información de NFTs del usuario si es necesario
+        loadUserNFTs();
+      }
+    }
+
+    // Verificar si hay una wallet conectada al cargar la página
+    async function checkWalletConnection() {
+      if (window.ethereum) {
+        try {
+          mainWalletProvider = new ethers.providers.Web3Provider(window.ethereum);
+          const accounts = await mainWalletProvider.listAccounts();
+          
+          if (accounts.length > 0) {
+            mainWalletSigner = mainWalletProvider.getSigner();
+            mainWalletAddress = accounts[0];
+            const shortAddress = `${mainWalletAddress.slice(0, 6)}...${mainWalletAddress.slice(-4)}`;
+            
+            const mainWalletButton = document.getElementById('mainConnectWalletButton');
+            if (mainWalletButton) {
+              mainWalletButton.innerHTML = `Connected: ${shortAddress}`;
+              mainWalletButton.classList.add('active');
+            }
+            
+            mainWalletConnected = true;
+            
+            // Escuchar cambios de cuenta
+            window.ethereum.on('accountsChanged', handleMainAccountsChanged);
+            
+            // Actualizar información de NFTs si es necesario
+            loadUserNFTs();
+          }
+        } catch (error) {
+          console.error("Error verificando conexión de wallet:", error);
+        }
+      }
+    }
+
+    // Función para cargar NFTs del usuario si es necesario
+    function loadUserNFTs() {
+      // Aquí puedes agregar la lógica para cargar los NFTs del usuario
+      // cuando se conecte la wallet
+      console.log("Wallet conectada. Puedes implementar la carga de NFTs del usuario aquí.");
     }
   </script>
 </body>
