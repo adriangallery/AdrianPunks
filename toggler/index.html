@@ -466,103 +466,12 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       }, 5000);
     }
 
-    // Connect wallet
-    async function connectWallet() {
-      setLoading(true);
-    
-    try {
-      // Check if Metamask is installed
-      if (!window.ethereum) {
-          throw new Error("Por favor instala Metamask para usar esta aplicación");
-      }
-
-      // Request account access
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-        account = accounts[0];
-        accountDisplay.textContent = `${account.substring(0, 6)}...${account.substring(38)}`;
-
-      // Check if the user is on the Base network
-      const chainId = await window.ethereum.request({ method: "eth_chainId" });
-      
-      if (chainId !== BASE_NETWORK.chainId) {
-        try {
-          // Try to switch to the Base network
-          await window.ethereum.request({
-            method: "wallet_switchEthereumChain",
-            params: [{ chainId: BASE_NETWORK.chainId }],
-          });
-        } catch (switchError) {
-          // If the network is not added to Metamask, add it
-          if (switchError.code === 4902) {
-            await window.ethereum.request({
-              method: "wallet_addEthereumChain",
-              params: [BASE_NETWORK],
-            });
-          } else {
-            throw switchError;
-          }
-        }
-      }
-
-      // Set up provider and signer
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-
-      // Initialize contracts with Infura provider for read operations
-        adrianPunksContract = new ethers.Contract(
-        ADRIAN_PUNKS_ADDRESS,
-        ADRIAN_PUNKS_ABI,
-        infuraProvider
-      );
-        pocketAdriansContract = new ethers.Contract(
-        POCKET_ADRIANS_ADDRESS,
-        POCKET_ADRIANS_ABI,
-        infuraProvider
-      );
-
-      // Add event listeners for account and chain changes
-      window.ethereum.on("accountsChanged", (accounts) => {
-        window.location.reload();
-      });
-      window.ethereum.on("chainChanged", () => {
-        window.location.reload();
-      });
-
-        // Update UI
-        connectSection.style.display = 'none';
-        accountSection.style.display = 'block';
-        tokenManagement.style.display = 'block';
-        versionManagement.style.display = 'block';
-
-        showSuccess("Wallet conectada correctamente!");
-      
-      // Load owned tokens and available versions
-        await loadOwnedTokens();
-        await loadVersions();
-      
-    } catch (error) {
-        console.error("Error de conexión:", error);
-        showError(error.message);
-    } finally {
-        setLoading(false);
-    }
-    }
-
-    // Set loading state
-    function setLoading(loading) {
-      isLoading = loading;
-      loadingTokens.style.display = loading ? 'block' : 'none';
-      connectWalletBtn.disabled = loading;
-      syncBtn.disabled = loading || selectedTokens.length === 0;
-      updateVersionBtn.disabled = loading || selectedTokens.length === 0;
-    }
-
     // Load tokens owned by the connected account
     async function loadOwnedTokens() {
       setLoading(true);
     
       try {
-        // Usar Multicall para obtener todos los tokens de una vez
+        // Configurar Multicall
         const multicall = new ethers.Contract(
           "0xcA11bde05977b3631167028862bE2a173976CA11",
           [
@@ -571,14 +480,20 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           infuraProvider
         );
 
-        // Primero obtenemos el balance
+        // Obtener el balance total de NFTs
         const balance = await adrianPunksContract.balanceOf(account);
-        const balanceNumber = balance.toNumber();
+        const totalTokens = balance.toNumber();
 
-        // Preparar llamadas para obtener los tokens y su estado
+        if (totalTokens === 0) {
+          tokenGrid.style.display = 'none';
+          noTokensMessage.style.display = 'block';
+          showSuccess("No se encontraron AdrianPunks en tu wallet");
+          return;
+        }
+
+        // Preparar llamadas para obtener todos los tokenIds
         const calls = [];
-        for (let i = 0; i < balanceNumber; i++) {
-          // Llamada para obtener el tokenId
+        for (let i = 0; i < totalTokens; i++) {
           calls.push({
             target: ADRIAN_PUNKS_ADDRESS,
             allowFailure: true,
@@ -656,8 +571,96 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         setLoading(false);
       }
     }
-  
-  // Load available metadata versions
+
+    // Connect wallet
+    async function connectWallet() {
+      setLoading(true);
+    
+      try {
+        if (!window.ethereum) {
+          throw new Error("Por favor instala Metamask para usar esta aplicación");
+        }
+
+        // Request account access
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        account = accounts[0];
+        accountDisplay.textContent = `${account.substring(0, 6)}...${account.substring(38)}`;
+
+        // Check if the user is on the Base network
+        const chainId = await window.ethereum.request({ method: "eth_chainId" });
+        
+        if (chainId !== BASE_NETWORK.chainId) {
+          try {
+            await window.ethereum.request({
+              method: "wallet_switchEthereumChain",
+              params: [{ chainId: BASE_NETWORK.chainId }],
+            });
+          } catch (switchError) {
+            if (switchError.code === 4902) {
+              await window.ethereum.request({
+                method: "wallet_addEthereumChain",
+                params: [BASE_NETWORK],
+              });
+            } else {
+              throw switchError;
+            }
+          }
+        }
+
+        // Set up provider and signer
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+
+        // Initialize contracts
+        adrianPunksContract = new ethers.Contract(
+          ADRIAN_PUNKS_ADDRESS,
+          ADRIAN_PUNKS_ABI,
+          infuraProvider
+        );
+        pocketAdriansContract = new ethers.Contract(
+          POCKET_ADRIANS_ADDRESS,
+          POCKET_ADRIANS_ABI,
+          infuraProvider
+        );
+
+        // Add event listeners for account and chain changes
+        window.ethereum.on("accountsChanged", (accounts) => {
+          window.location.reload();
+        });
+        window.ethereum.on("chainChanged", () => {
+          window.location.reload();
+        });
+
+        // Update UI
+        connectSection.style.display = 'none';
+        accountSection.style.display = 'block';
+        tokenManagement.style.display = 'block';
+        versionManagement.style.display = 'block';
+
+        showSuccess("Wallet conectada correctamente!");
+        
+        // Load owned tokens and available versions
+        await loadOwnedTokens();
+        await loadVersions();
+        
+      } catch (error) {
+        console.error("Error de conexión:", error);
+        showError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // Set loading state
+    function setLoading(loading) {
+      isLoading = loading;
+      loadingTokens.style.display = loading ? 'block' : 'none';
+      connectWalletBtn.disabled = loading;
+      syncBtn.disabled = loading || selectedTokens.length === 0;
+      updateVersionBtn.disabled = loading || selectedTokens.length === 0;
+    }
+
+    // Load available metadata versions
     async function loadVersions() {
     try {
       const versionCount = await pocketAdriansContract.versionCount();
@@ -882,6 +885,16 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       }
     `;
     document.head.appendChild(styleSheet);
+
+    // Verificar si ya hay una wallet conectada al cargar la página
+    window.addEventListener('load', async () => {
+      if (window.ethereum) {
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        if (accounts.length > 0) {
+          await connectWallet();
+        }
+      }
+    });
   </script>
 </body>
 </html>
