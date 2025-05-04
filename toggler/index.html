@@ -8,7 +8,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="/market/styles.css">
   <!-- Ethers.js -->
-  <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js" type="application/javascript"></script>
+  <script src="https://cdn.ethers.io/v5/dist/ethers.umd.min.js" type="application/javascript"></script>
   <style>
     :root {
       --bg-color: #f0f0f0;
@@ -364,40 +364,49 @@
   </div>
 
   <script>
-    // Contract ABIs - simplified for the essential functions we need
-    const ADRIAN_PUNKS_ABI = [
-      "function ownerOf(uint256 id) external view returns (address)",
-      "function currentTokenId() external view returns (uint256)",
-      "function balanceOf(address owner) external view returns (uint256)",
-      "function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256)"
-    ];
+// Contract ABIs - simplified for the essential functions we need
+const ADRIAN_PUNKS_ABI = [
+  "function ownerOf(uint256 id) external view returns (address)",
+  "function currentTokenId() external view returns (uint256)",
+  "function balanceOf(address owner) external view returns (uint256)",
+  "function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256)"
+];
 
-    const POCKET_ADRIANS_ABI = [
-      "function mirrored(uint256 id) external view returns (bool)",
-      "function tokenVersion(uint256 id) external view returns (uint256)",
-      "function defaultVersion() external view returns (uint256)",
-      "function versionCount() external view returns (uint256)",
-      "function metadataVersions(uint256 versionId) external view returns (string memory, string memory, bool)",
-      "function syncMultipleTokens(uint256[] calldata ids) external",
-      "function setTokensVersion(uint256[] calldata tokenIds, uint256 versionId) external"
-    ];
+const POCKET_ADRIANS_ABI = [
+  "function mirrored(uint256 id) external view returns (bool)",
+  "function tokenVersion(uint256 id) external view returns (uint256)",
+  "function defaultVersion() external view returns (uint256)",
+  "function versionCount() external view returns (uint256)",
+  "function metadataVersions(uint256 versionId) external view returns (string memory, string memory, bool)",
+  "function syncMultipleTokens(uint256[] calldata ids) external",
+  "function setTokensVersion(uint256[] calldata tokenIds, uint256 versionId) external"
+];
 
-    // Contract addresses
-    const ADRIAN_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
-    const POCKET_ADRIANS_ADDRESS = "0x6bA5A93878a0aC34B63Fd9994a874a9B0111d587";
+// Contract addresses
+const ADRIAN_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
+const POCKET_ADRIANS_ADDRESS = "0x6bA5A93878a0aC34B63Fd9994a874a9B0111d587";
 
-    // Base network configuration
-    const BASE_NETWORK = {
-      chainId: "0x2105", // Base mainnet chainId in hex
-      chainName: "Base",
-      nativeCurrency: {
-        name: "Ethereum",
-        symbol: "ETH",
-        decimals: 18,
-      },
-      rpcUrls: ["https://mainnet.base.org"],
-      blockExplorerUrls: ["https://basescan.org/"],
-    };
+// Base network configuration
+const BASE_NETWORK = {
+  chainId: "0x2105", // Base mainnet chainId in hex
+  chainName: "Base",
+  nativeCurrency: {
+    name: "Ethereum",
+    symbol: "ETH",
+    decimals: 18,
+  },
+  rpcUrls: ["https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1"],
+  blockExplorerUrls: ["https://basescan.org/"],
+};
+
+// Infura provider for read-only operations
+const infuraProvider = new ethers.providers.JsonRpcProvider(
+  "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1",
+  {
+    name: "base",
+    chainId: 8453
+  }
+);
 
     // DOM Elements
     const connectSection = document.getElementById('connect-section');
@@ -460,64 +469,64 @@
     // Connect wallet
     async function connectWallet() {
       setLoading(true);
-      
-      try {
-        // Check if Metamask is installed
-        if (!window.ethereum) {
+    
+    try {
+      // Check if Metamask is installed
+      if (!window.ethereum) {
           throw new Error("Por favor instala Metamask para usar esta aplicación");
-        }
+      }
 
-        // Request account access
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      // Request account access
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         account = accounts[0];
         accountDisplay.textContent = `${account.substring(0, 6)}...${account.substring(38)}`;
 
-        // Check if the user is on the Base network
-        const chainId = await window.ethereum.request({ method: "eth_chainId" });
-        
-        if (chainId !== BASE_NETWORK.chainId) {
-          try {
-            // Try to switch to the Base network
+      // Check if the user is on the Base network
+      const chainId = await window.ethereum.request({ method: "eth_chainId" });
+      
+      if (chainId !== BASE_NETWORK.chainId) {
+        try {
+          // Try to switch to the Base network
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: BASE_NETWORK.chainId }],
+          });
+        } catch (switchError) {
+          // If the network is not added to Metamask, add it
+          if (switchError.code === 4902) {
             await window.ethereum.request({
-              method: "wallet_switchEthereumChain",
-              params: [{ chainId: BASE_NETWORK.chainId }],
+              method: "wallet_addEthereumChain",
+              params: [BASE_NETWORK],
             });
-          } catch (switchError) {
-            // If the network is not added to Metamask, add it
-            if (switchError.code === 4902) {
-              await window.ethereum.request({
-                method: "wallet_addEthereumChain",
-                params: [BASE_NETWORK],
-              });
-            } else {
-              throw switchError;
-            }
+          } else {
+            throw switchError;
           }
         }
+      }
 
-        // Set up provider and signer
+      // Set up provider and signer
         provider = new ethers.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
 
-        // Initialize contracts
+      // Initialize contracts with Infura provider for read operations
         adrianPunksContract = new ethers.Contract(
-          ADRIAN_PUNKS_ADDRESS,
-          ADRIAN_PUNKS_ABI,
-          signer
-        );
+        ADRIAN_PUNKS_ADDRESS,
+        ADRIAN_PUNKS_ABI,
+        infuraProvider
+      );
         pocketAdriansContract = new ethers.Contract(
-          POCKET_ADRIANS_ADDRESS,
-          POCKET_ADRIANS_ABI,
-          signer
-        );
+        POCKET_ADRIANS_ADDRESS,
+        POCKET_ADRIANS_ABI,
+        infuraProvider
+      );
 
-        // Add event listeners for account and chain changes
-        window.ethereum.on("accountsChanged", (accounts) => {
-          window.location.reload();
-        });
-        window.ethereum.on("chainChanged", () => {
-          window.location.reload();
-        });
+      // Add event listeners for account and chain changes
+      window.ethereum.on("accountsChanged", (accounts) => {
+        window.location.reload();
+      });
+      window.ethereum.on("chainChanged", () => {
+        window.location.reload();
+      });
 
         // Update UI
         connectSection.style.display = 'none';
@@ -526,17 +535,17 @@
         versionManagement.style.display = 'block';
 
         showSuccess("Wallet conectada correctamente!");
-        
-        // Load owned tokens and available versions
+      
+      // Load owned tokens and available versions
         await loadOwnedTokens();
         await loadVersions();
-        
-      } catch (error) {
+      
+    } catch (error) {
         console.error("Error de conexión:", error);
         showError(error.message);
-      } finally {
+    } finally {
         setLoading(false);
-      }
+    }
     }
 
     // Set loading state
@@ -548,45 +557,45 @@
       updateVersionBtn.disabled = loading || selectedTokens.length === 0;
     }
 
-    // Load tokens owned by the connected account
+  // Load tokens owned by the connected account
     async function loadOwnedTokens() {
       setLoading(true);
+    
+    try {
+      // Get the number of tokens owned by the account
+      const balance = await adrianPunksContract.balanceOf(account);
+      const balanceNumber = balance.toNumber();
       
-      try {
-        // Get the number of tokens owned by the account
-        const balance = await adrianPunksContract.balanceOf(account);
-        const balanceNumber = balance.toNumber();
-        
         ownedTokens = [];
+      
+      // Fetch each token ID and its details
+      for (let i = 0; i < balanceNumber; i++) {
+        const tokenId = await adrianPunksContract.tokenOfOwnerByIndex(account, i);
+        const tokenIdNumber = tokenId.toNumber();
         
-        // Fetch each token ID and its details
-        for (let i = 0; i < balanceNumber; i++) {
-          const tokenId = await adrianPunksContract.tokenOfOwnerByIndex(account, i);
-          const tokenIdNumber = tokenId.toNumber();
+        // Check if the token is mirrored in PocketAdrians
+        const isMirrored = await pocketAdriansContract.mirrored(tokenIdNumber);
+        
+        // Get the token's current version (if mirrored)
+        let tokenVersion = 0;
+        if (isMirrored) {
+          tokenVersion = await pocketAdriansContract.tokenVersion(tokenIdNumber);
+          tokenVersion = tokenVersion.toNumber();
           
-          // Check if the token is mirrored in PocketAdrians
-          const isMirrored = await pocketAdriansContract.mirrored(tokenIdNumber);
-          
-          // Get the token's current version (if mirrored)
-          let tokenVersion = 0;
-          if (isMirrored) {
-            tokenVersion = await pocketAdriansContract.tokenVersion(tokenIdNumber);
-            tokenVersion = tokenVersion.toNumber();
-            
-            // If token version is 0, it's using the default version
-            if (tokenVersion === 0) {
-              const defaultVersion = await pocketAdriansContract.defaultVersion();
-              tokenVersion = defaultVersion.toNumber();
-            }
+          // If token version is 0, it's using the default version
+          if (tokenVersion === 0) {
+            const defaultVersion = await pocketAdriansContract.defaultVersion();
+            tokenVersion = defaultVersion.toNumber();
           }
-          
-          ownedTokens.push({
-            id: tokenIdNumber,
-            isMirrored,
-            version: tokenVersion
-          });
         }
         
+          ownedTokens.push({
+          id: tokenIdNumber,
+          isMirrored,
+          version: tokenVersion
+        });
+      }
+      
         // Update UI
         if (ownedTokens.length === 0) {
           tokenGrid.style.display = 'none';
@@ -598,37 +607,37 @@
         }
         
         showSuccess(`Encontrados ${ownedTokens.length} AdrianPunks en tu wallet`);
-        
-      } catch (error) {
+      
+    } catch (error) {
         console.error("Error cargando tokens:", error);
         showError("Error al cargar tus tokens. Por favor intenta de nuevo.");
-      } finally {
+    } finally {
         setLoading(false);
       }
     }
-    
-    // Load available metadata versions
+  
+  // Load available metadata versions
     async function loadVersions() {
-      try {
-        const versionCount = await pocketAdriansContract.versionCount();
-        const versionCountNumber = versionCount.toNumber();
-        
+    try {
+      const versionCount = await pocketAdriansContract.versionCount();
+      const versionCountNumber = versionCount.toNumber();
+      
         versions = [];
+      
+      for (let i = 1; i <= versionCountNumber; i++) {
+        const versionInfo = await pocketAdriansContract.metadataVersions(i);
+        const [base1, base2, active] = versionInfo;
         
-        for (let i = 1; i <= versionCountNumber; i++) {
-          const versionInfo = await pocketAdriansContract.metadataVersions(i);
-          const [base1, base2, active] = versionInfo;
-          
-          if (active) {
+        if (active) {
             versions.push({
-              id: i,
-              base1,
-              base2,
-              active
-            });
-          }
+            id: i,
+            base1,
+            base2,
+            active
+          });
         }
-        
+      }
+      
         // Populate version selector
         versionSelector.innerHTML = '';
         versions.forEach(version => {
@@ -637,11 +646,11 @@
           option.textContent = `Versión ${version.id}`;
           versionSelector.appendChild(option);
         });
-        
-      } catch (error) {
+      
+    } catch (error) {
         console.error("Error cargando versiones:", error);
         showError("Error al cargar versiones. Por favor intenta de nuevo.");
-      }
+    }
     }
 
     // Render tokens in the grid
@@ -718,18 +727,18 @@
       // Update select all button text
       if (ownedTokens.length > 0) {
         selectAllBtn.textContent = selectedTokens.length === ownedTokens.length ? 'Deseleccionar Todos' : 'Seleccionar Todos';
-      }
+    }
     }
 
     // Select/deselect all tokens
     function selectAllTokens() {
-      if (selectedTokens.length === ownedTokens.length) {
-        // If all are selected, deselect all
+    if (selectedTokens.length === ownedTokens.length) {
+      // If all are selected, deselect all
         selectedTokens = [];
-      } else {
-        // Otherwise, select all
+    } else {
+      // Otherwise, select all
         selectedTokens = ownedTokens.map(token => token.id);
-      }
+    }
       
       renderTokens();
       updateSelectedUI();
