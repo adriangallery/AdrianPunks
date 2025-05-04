@@ -652,6 +652,7 @@
   <!-- Bootstrap JavaScript -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   
+  <!-- Configuración inicial -->
   <script>
     // Configuración de rutas de imágenes
     const IMAGE_CONFIG = {
@@ -660,111 +661,106 @@
       preloadBatchSize: 5
     };
 
-    // Preload de imágenes
-    async function preloadImages(tokenIds) {
-      const promises = tokenIds.map(id => {
-        return new Promise((resolve) => {
-          const img = new Image();
-          img.onload = () => resolve({ id, success: true });
-          img.onerror = () => resolve({ id, success: false });
-          img.src = `${IMAGE_CONFIG.basePath}${id}.jpg`;
+    // Configuración de la red y contratos
+    const CFG = {
+      network: {
+        chainIdHex: "0x2105",          // Base mainnet
+        chainIdDec: 8453,
+        rpc: "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1"
+      },
+      addresses: {
+        punks:  "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566",
+        quest:  "0x6c1BFa0AfB84e314DF2e8B9a88C3530e0b19a49F",
+        token:  "0xD2a4684edFc70D2B01600416f50Fc5733bFc97D5",
+        multicall: "0xcA11bde05977b3631167028862bE2a173976CA11"
+      }
+    };
+
+    // Estado global
+    const S = {
+      provider: null,
+      signer: null,
+      account: "",
+      contracts: {},
+      ownedTokens: [],
+      selected: new Set(),
+      storeItems: [],
+      inventory: {},
+      cart: [],
+      fees: {},
+      decimals: 18,
+      symbol: "ADRIAN",
+      loading: false,
+      currentTab: "tokens"
+    };
+
+    // Elementos del DOM
+    const E = {
+      connectBtn: document.getElementById("connectWalletBtn"),
+      accountBox: document.getElementById("accountDisplay"),
+      balBox: document.getElementById("tokenBalance"),
+      error: document.getElementById("errorAlert"),
+      ok: document.getElementById("successAlert"),
+      loadingTok: document.getElementById("loading-tokens"),
+      noTok: document.getElementById("no-tokens-message"),
+      grid: document.getElementById("token-grid"),
+      tokActions: document.getElementById("token-actions"),
+      stakeBtn: document.getElementById("stakeBtn"),
+      unstakeBtn: document.getElementById("unstakeBtn"),
+      claimBtn: document.getElementById("claimBtn"),
+      lvlBtn: document.getElementById("levelUpBtn"),
+      selectAll: document.getElementById("selectAllBtn"),
+      storeLoad: document.getElementById("loading-store"),
+      storeGrid: document.getElementById("store-grid"),
+      cartBadge: document.getElementById("cartBadge"),
+      cartItems: document.getElementById("cart-items"),
+      cartSum: document.getElementById("cart-summary"),
+      cartTotal: document.getElementById("cart-total"),
+      approveBtn: document.getElementById("approveBtn"),
+      checkoutBtn: document.getElementById("checkoutBtn"),
+      tabs: document.querySelectorAll(".nav-link")
+    };
+
+    // Funciones de utilidad
+    const fmt = (bn, dec = S.decimals, fixed = 2) =>
+      Number(ethers.utils.formatUnits(bn, dec)).toFixed(fixed);
+
+    const notify = (box, msg) => {
+      box.textContent = msg;
+      box.style.display = "block";
+      setTimeout(() => (box.style.display = "none"), 5000);
+    };
+
+    const handleErr = err => notify(E.error, err.message ?? "Error inesperado");
+
+    // Inicialización de la aplicación
+    document.addEventListener('DOMContentLoaded', () => {
+      // Event listeners para los botones
+      E.connectBtn.addEventListener('click', connect);
+      E.selectAll.addEventListener('click', () => {
+        S.ownedTokens.forEach(id => S.selected.add(id));
+        renderTokens();
+      });
+
+      // Event listeners para las pestañas
+      E.tabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          e.preventDefault();
+          const target = e.target.dataset.bsTarget;
+          document.querySelectorAll('.tab-pane').forEach(pane => {
+            pane.classList.remove('active');
+          });
+          document.querySelector(target).classList.add('active');
+          E.tabs.forEach(t => t.classList.remove('active'));
+          e.target.classList.add('active');
         });
       });
+    });
 
-      const results = await Promise.all(promises);
-      return results.reduce((acc, { id, success }) => {
-        acc[id] = success;
-        return acc;
-      }, {});
-    }
-
-    // Función mejorada para cargar imágenes
-    function loadImage(id, element) {
-      const img = new Image();
-      img.src = `${IMAGE_CONFIG.basePath}${id}.jpg`;
-      img.className = 'loading';
-      
-      img.onload = () => {
-        img.className = '';
-        element.replaceWith(img);
-      };
-      
-      img.onerror = () => {
-        console.error(`Error loading image for token ${id}`);
-        img.src = IMAGE_CONFIG.placeholder;
-        img.className = 'error';
-        element.replaceWith(img);
-      };
-    }
-
-    // Función mejorada para renderizar tokens
-    function renderTokens() {
-      E.grid.innerHTML = "";
-      const fragment = document.createDocumentFragment();
-      
-      S.ownedTokens.forEach(id => {
-        const card = document.createElement("div");
-        card.className = "token-card" + (S.selected.has(id) ? " selected-token" : "");
-        card.onclick = () => toggleSelect(id);
-        
-        const imgContainer = document.createElement("div");
-        imgContainer.className = "img-container";
-        loadImage(id, imgContainer);
-        card.append(imgContainer);
-        
-        const info = document.createElement("div");
-        info.className = "token-info";
-        info.innerHTML = `<div class="token-title">Adrian #${id}</div>`;
-        card.append(info);
-        
-        fragment.append(card);
-      });
-      
-      E.grid.append(fragment);
-      toggleUI();
-    }
-
-    // Función mejorada para cargar tokens
-    async function loadTokens() {
-      E.loadingTok.style.display = "block";
-      E.grid.innerHTML = "";
-      
-      try {
-        const bal = (await S.contracts.punks.balanceOf(S.account)).toNumber();
-        if (!bal) {
-          E.noTok.style.display = "block";
-          return;
-        }
-
-        // Obtener Ids mediante multicall
-        const iface = new ethers.utils.Interface(CFG.abi.punks);
-        const calls = [...Array(bal).keys()].map(i => ({
-          target: CFG.addresses.punks,
-          allowFailure: false,
-          callData: iface.encodeFunctionData("tokenOfOwnerByIndex", [S.account, i])
-        }));
-
-        const results = await new ethers.Contract(
-          CFG.addresses.multicall,
-          ["function aggregate3(tuple(address,bool,bytes)[]) view returns((bool,bytes)[])"],
-          S.provider
-        ).aggregate3(calls);
-
-        S.ownedTokens = results.map(r =>
-          iface.decodeFunctionResult("tokenOfOwnerByIndex", r.returnData)[0].toNumber());
-
-        // Preload de imágenes
-        const preloadResults = await preloadImages(S.ownedTokens);
-        console.log('Preload results:', preloadResults);
-
-        renderTokens();
-      } catch (error) {
-        console.error('Error loading tokens:', error);
-        notify(E.error, "Error al cargar los tokens");
-      } finally {
-        E.loadingTok.style.display = "none";
-      }
-    }
+    // ... existing code for image loading and token rendering ...
   </script>
+
+  <!-- Cargar app.js después de la configuración inicial -->
+  <script src="app.js"></script>
 </body>
 </html>
