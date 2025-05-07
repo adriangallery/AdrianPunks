@@ -722,26 +722,54 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
   
   // Load available metadata versions
     async function loadVersions() {
-    try {
-      const versionCount = await pocketAdriansContract.versionCount();
-      const versionCountNumber = versionCount.toNumber();
-      
-        versions = [];
-      
-      for (let i = 1; i <= versionCountNumber; i++) {
-        const versionInfo = await pocketAdriansContract.metadataVersions(i);
-        const [base1, base2, active] = versionInfo;
+      try {
+        // Configurar Multicall
+        const multicall = new ethers.Contract(
+          "0xcA11bde05977b3631167028862bE2a173976CA11",
+          [
+            "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"
+          ],
+          infuraProvider
+        );
+
+        // Obtener el número total de versiones
+        const versionCount = await pocketAdriansContract.versionCount();
+        const versionCountNumber = versionCount.toNumber();
         
-        if (active) {
-            versions.push({
-            id: i,
-            base1,
-            base2,
-            active
+        versions = [];
+        
+        // Preparar llamadas para obtener información de todas las versiones
+        const calls = [];
+        for (let i = 1; i <= versionCountNumber; i++) {
+          calls.push({
+            target: POCKET_ADRIANS_ADDRESS,
+            allowFailure: true,
+            callData: pocketAdriansContract.interface.encodeFunctionData('metadataVersions', [i])
           });
         }
-      }
-      
+
+        // Ejecutar todas las llamadas en una sola transacción
+        const results = await multicall.aggregate3(calls);
+        
+        // Procesar resultados
+        for (let i = 0; i < results.length; i++) {
+          if (results[i].success) {
+            const [base1, base2, active] = pocketAdriansContract.interface.decodeFunctionResult(
+              'metadataVersions',
+              results[i].returnData
+            );
+            
+            if (active) {
+              versions.push({
+                id: i + 1,
+                base1,
+                base2,
+                active
+              });
+            }
+          }
+        }
+        
         // Populate version selector
         versionSelector.innerHTML = '';
         versions.forEach(version => {
@@ -750,11 +778,19 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           option.textContent = `Version ${version.id}`;
           versionSelector.appendChild(option);
         });
+
+        if (versions.length === 0) {
+          showError("No active versions found");
+        }
       
-    } catch (error) {
-      console.error("Error loading versions:", error);
-        showError("Error loading versions. Please try again.");
-    }
+      } catch (error) {
+        console.error("Error loading versions:", error);
+        if (error.code === -32016 || error.message?.includes('rate limit')) {
+          showError("Rate limit exceeded. Please try again in a few seconds.");
+        } else {
+          showError("Error loading versions. Please try again.");
+        }
+      }
     }
 
     // Render tokens in the grid
@@ -768,19 +804,51 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         tokenCard.className = `token-card ${isSelected ? 'selected-token' : ''}`;
         tokenCard.onclick = () => toggleSelectToken(token.id);
         
-        // Build image path using the correct server structure
-        const imageUrl = `/market/halfxadrianimages/${token.id}.jpg`;
-        const placeholderUrl = `/market/halfxadrianimages/placeholder.jpg`;
+        // Determinar la ruta base según la versión
+        const basePath = token.version === 2 ? '/market/adrianpunksimages/' : '/market/halfxadrianimages/';
+        const placeholderUrl = '/market/halfxadrianimages/placeholder.jpg';
         
-        // Preload image
-        const img = new Image();
-        img.src = imageUrl;
-        img.className = "token-image";
-        img.alt = `Adrian #${token.id}`;
-        img.onerror = function() {
-          this.src = placeholderUrl;
-          console.log("Error loading image:", imageUrl, "using placeholder:", placeholderUrl);
-        };
+        // Crear el contenedor de la imagen
+        const imageContainer = document.createElement('div');
+        imageContainer.className = "token-image-container";
+        
+        // Intentar cargar primero PNG, luego GIF si es versión 2
+        if (token.version === 2) {
+          const pngImg = new Image();
+          pngImg.src = `${basePath}${token.id}.png`;
+          pngImg.className = "token-image";
+          pngImg.alt = `Adrian #${token.id}`;
+          
+          pngImg.onerror = function() {
+            // Si PNG falla, intentar GIF
+            const gifImg = new Image();
+            gifImg.src = `${basePath}${token.id}.gif`;
+            gifImg.className = "token-image";
+            gifImg.alt = `Adrian #${token.id}`;
+            
+            gifImg.onerror = function() {
+              // Si ambos fallan, usar placeholder
+              this.src = placeholderUrl;
+              console.log("Error loading image:", gifImg.src, "using placeholder:", placeholderUrl);
+            };
+            
+            imageContainer.innerHTML = '';
+            imageContainer.appendChild(gifImg);
+          };
+          
+          imageContainer.appendChild(pngImg);
+        } else {
+          // Para versión 1, usar la ruta original
+          const img = new Image();
+          img.src = `${basePath}${token.id}.jpg`;
+          img.className = "token-image";
+          img.alt = `Adrian #${token.id}`;
+          img.onerror = function() {
+            this.src = placeholderUrl;
+            console.log("Error loading image:", img.src, "using placeholder:", placeholderUrl);
+          };
+          imageContainer.appendChild(img);
+        }
         
         tokenCard.innerHTML = `
           <div class="token-info">
@@ -794,10 +862,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           </div>
         `;
         
-        // Add preloaded image
-        const imageContainer = document.createElement('div');
-        imageContainer.className = "token-image-container";
-        imageContainer.appendChild(img);
+        // Añadir el contenedor de la imagen después del token-info
         tokenCard.appendChild(imageContainer);
         
         tokenGrid.appendChild(tokenCard);
@@ -909,33 +974,66 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       
         const versionId = parseInt(versionSelector.value);
         
-        // Calcular el pago total (10 ADRIAN por token)
-        const paymentPerToken = ethers.utils.parseUnits("10", tokenDecimals);
+        // Calcular el pago total (500 ADRIAN por token)
+        const paymentPerToken = ethers.utils.parseUnits("500", tokenDecimals);
         const totalPayment = paymentPerToken.mul(selectedTokens.length);
         
         // Verificar el balance
         const balance = await adrianTokenContract.balanceOf(account);
-        if (balance.lt(totalPayment)) {
-          throw new Error(`Insufficient ADRIAN balance. You need ${ethers.utils.formatUnits(totalPayment, tokenDecimals)} ADRIAN.`);
+        const hasEnoughBalance = balance.gte(totalPayment);
+        
+        // Crear y mostrar el diálogo personalizado
+        const dialog = document.createElement('div');
+        dialog.className = 'modal fade';
+        dialog.innerHTML = `
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">Support Development</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <p>Would you like to support development with ${ethers.utils.formatUnits(totalPayment, tokenDecimals)} ADRIAN tokens?</p>
+                ${!hasEnoughBalance ? '<p class="text-danger">Note: You don\'t have enough ADRIAN tokens for this option.</p>' : ''}
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Continue without support</button>
+                <button type="button" class="btn btn-primary" id="supportBtn" ${!hasEnoughBalance ? 'disabled' : ''}>Support with ADRIAN</button>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        document.body.appendChild(dialog);
+        
+        // Inicializar el modal de Bootstrap
+        const modal = new bootstrap.Modal(dialog);
+        
+        // Esperar la respuesta del usuario
+        const userResponse = await new Promise((resolve) => {
+          dialog.querySelector('.btn-close').onclick = () => resolve(false);
+          dialog.querySelector('.btn-secondary').onclick = () => resolve(false);
+          dialog.querySelector('#supportBtn').onclick = () => resolve(true);
+        });
+        
+        // Remover el modal
+        modal.hide();
+        dialog.remove();
+        
+        // Si el usuario eligió apoyar y tiene suficiente balance
+        if (userResponse && hasEnoughBalance) {
+          showSuccess(`Transferring ${ethers.utils.formatUnits(totalPayment, tokenDecimals)} ADRIAN tokens...`);
+          const transferTx = await adrianTokenContract.transfer(DESTINATION_WALLET, totalPayment);
+          await transferTx.wait();
+          
+          // Actualizar el balance después de la transferencia
+          await updateADRIANBalance();
+          
+          showSuccess("ADRIAN tokens transferred successfully!");
         }
         
-        // Solicitar confirmación al usuario
-        if (!confirm(`This will transfer ${ethers.utils.formatUnits(totalPayment, tokenDecimals)} ADRIAN tokens to support development. Continue?`)) {
-          setLoading(false);
-          return;
-        }
-        
-        // Primero transferir los tokens ADRIAN
-        showSuccess(`Transferring ${ethers.utils.formatUnits(totalPayment, tokenDecimals)} ADRIAN tokens...`);
-        const transferTx = await adrianTokenContract.transfer(DESTINATION_WALLET, totalPayment);
-        await transferTx.wait();
-        
-        // Actualizar el balance después de la transferencia
-        await updateADRIANBalance();
-        
-        showSuccess("ADRIAN tokens transferred successfully! Now updating versions...");
-        
-        // Ahora actualizar la versión
+        // Proceder con la actualización de versión
+        showSuccess("Updating versions...");
         const updateTx = await pocketAdriansContract.setTokensVersion(selectedTokens, versionId);
         await updateTx.wait();
         
