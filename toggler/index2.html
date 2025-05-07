@@ -288,11 +288,16 @@
         const menuScript = document.createElement('script');
         menuScript.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js';
         menuScript.onload = () => {
-          // Initialize the collapse component
-          const collapseElementList = [].slice.call(document.querySelectorAll('.collapse'));
-          collapseElementList.map(function (collapseEl) {
-            return new bootstrap.Collapse(collapseEl);
-          });
+          // Asegurarse de que el menú esté cerrado al cargar
+          const navbarCollapse = document.querySelector('.navbar-collapse');
+          if (navbarCollapse) {
+            navbarCollapse.classList.remove('show');
+            // Forzar el cierre del menú
+            const bsCollapse = new bootstrap.Collapse(navbarCollapse, {
+              toggle: false
+            });
+            bsCollapse.hide();
+          }
         };
         document.head.appendChild(menuScript);
       })
@@ -984,13 +989,17 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         
         // Crear y mostrar el diálogo personalizado
         const dialog = document.createElement('div');
+        dialog.id = 'supportModal';
         dialog.className = 'modal fade';
+        dialog.setAttribute('tabindex', '-1');
+        dialog.setAttribute('aria-labelledby', 'supportModalLabel');
+        dialog.setAttribute('aria-hidden', 'true');
         dialog.innerHTML = `
           <div class="modal-dialog">
             <div class="modal-content">
               <div class="modal-header">
-                <h5 class="modal-title">Support Development</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="supportModalLabel">Support Development</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
               </div>
               <div class="modal-body">
                 <p>Would you like to support development with ${ethers.utils.formatUnits(totalPayment, tokenDecimals)} ADRIAN tokens?</p>
@@ -1007,18 +1016,20 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         document.body.appendChild(dialog);
         
         // Inicializar el modal de Bootstrap
-        const modal = new bootstrap.Modal(dialog);
+        const modalElement = document.getElementById('supportModal');
+        const modal = new bootstrap.Modal(modalElement);
         
         // Esperar la respuesta del usuario
         const userResponse = await new Promise((resolve) => {
-          dialog.querySelector('.btn-close').onclick = () => resolve(false);
-          dialog.querySelector('.btn-secondary').onclick = () => resolve(false);
-          dialog.querySelector('#supportBtn').onclick = () => resolve(true);
+          modalElement.addEventListener('hidden.bs.modal', () => resolve(false), { once: true });
+          document.getElementById('supportBtn').addEventListener('click', () => {
+            modal.hide();
+            resolve(true);
+          }, { once: true });
         });
         
         // Remover el modal
-        modal.hide();
-        dialog.remove();
+        modalElement.remove();
         
         // Si el usuario eligió apoyar y tiene suficiente balance
         if (userResponse && hasEnoughBalance) {
