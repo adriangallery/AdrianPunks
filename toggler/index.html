@@ -726,19 +726,51 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         tokenCard.className = `token-card ${isSelected ? 'selected-token' : ''}`;
         tokenCard.onclick = () => toggleSelectToken(token.id);
         
-        // Build image path using the correct server structure
-        const imageUrl = `/market/halfxadrianimages/${token.id}.jpg`;
-        const placeholderUrl = `/market/halfxadrianimages/placeholder.jpg`;
+        // Determinar la ruta base según la versión
+        const basePath = token.version === 2 ? '/market/adrianpunksimages/' : '/market/halfxadrianimages/';
+        const placeholderUrl = '/market/halfxadrianimages/placeholder.jpg';
         
-        // Preload image
-        const img = new Image();
-        img.src = imageUrl;
-        img.className = "token-image";
-        img.alt = `Adrian #${token.id}`;
-        img.onerror = function() {
-          this.src = placeholderUrl;
-          console.log("Error loading image:", imageUrl, "using placeholder:", placeholderUrl);
-        };
+        // Crear el contenedor de la imagen
+        const imageContainer = document.createElement('div');
+        imageContainer.className = "token-image-container";
+        
+        // Intentar cargar primero PNG, luego GIF si es versión 2
+        if (token.version === 2) {
+          const pngImg = new Image();
+          pngImg.src = `${basePath}${token.id}.png`;
+          pngImg.className = "token-image";
+          pngImg.alt = `Adrian #${token.id}`;
+          
+          pngImg.onerror = function() {
+            // Si PNG falla, intentar GIF
+            const gifImg = new Image();
+            gifImg.src = `${basePath}${token.id}.gif`;
+            gifImg.className = "token-image";
+            gifImg.alt = `Adrian #${token.id}`;
+            
+            gifImg.onerror = function() {
+              // Si ambos fallan, usar placeholder
+              this.src = placeholderUrl;
+              console.log("Error loading image:", gifImg.src, "using placeholder:", placeholderUrl);
+            };
+            
+            imageContainer.innerHTML = '';
+            imageContainer.appendChild(gifImg);
+          };
+          
+          imageContainer.appendChild(pngImg);
+        } else {
+          // Para versión 1, usar la ruta original
+          const img = new Image();
+          img.src = `${basePath}${token.id}.jpg`;
+          img.className = "token-image";
+          img.alt = `Adrian #${token.id}`;
+          img.onerror = function() {
+            this.src = placeholderUrl;
+            console.log("Error loading image:", img.src, "using placeholder:", placeholderUrl);
+          };
+          imageContainer.appendChild(img);
+        }
         
         tokenCard.innerHTML = `
           <div class="token-info">
@@ -752,10 +784,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           </div>
         `;
         
-        // Add preloaded image
-        const imageContainer = document.createElement('div');
-        imageContainer.className = "token-image-container";
-        imageContainer.appendChild(img);
+        // Añadir el contenedor de la imagen después del token-info
         tokenCard.appendChild(imageContainer);
         
         tokenGrid.appendChild(tokenCard);
