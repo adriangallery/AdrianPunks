@@ -477,11 +477,14 @@
     };
 
     /* ---------- auto-refresh when wallet connects ---------- */
-    WALLET.on('wallet:connected', async()=>{
-      // Dejamos de escuchar los eventos para evitar recursión
-      // Cargamos directamente los datos
-      await paintStore(); 
-      await paintInv();
+    WALLET.on('wallet:connected', async () => {
+      // Solo actualizamos los datos globales y de wallet
+      try {
+        await refreshGlobal();
+        await refreshWallet();
+      } catch (error) {
+        console.error("Error al actualizar datos:", error);
+      }
     });
   })();
   </script>
