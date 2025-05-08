@@ -470,6 +470,265 @@
   </script>
   <!-- ───────── END SECTION 5 ───────── -->
 
+  <!-- ───────── SECTION 6: DASHBOARD / STAKING ───────── -->
+  <!-- 1️⃣  Dashboard template -->
+  <template id="TEMPLATE-DASHBOARD">
+    <div class="container-fluid">
+      <!-- Global snapshot -->
+      <div class="row g-3 mb-4" id="dash-global">
+        <div class="col-md-3">
+          <div class="card text-bg-secondary h-100">
+            <div class="card-body">
+              <h6 class="card-title mb-1">Punks staked</h6>
+              <p class="h4 mb-0" id="g-staked">–</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card text-bg-secondary h-100">
+            <div class="card-body">
+              <h6 class="card-title mb-1">Base reward rate</h6>
+              <p class="h4 mb-0" id="g-base">–</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card text-bg-secondary h-100">
+            <div class="card-body">
+              <h6 class="card-title mb-1">Passive pending</h6>
+              <p class="h4 mb-0" id="g-passive">–</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card text-bg-secondary h-100">
+            <div class="card-body">
+              <h6 class="card-title mb-1">Game pending</h6>
+              <p class="h4 mb-0" id="g-game">–</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick actions -->
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        <button class="btn btn-primary" id="btn-refresh">Refresh</button>
+        <button class="btn btn-success" id="btn-claim-all" disabled>Claim all</button>
+        <button class="btn btn-warning" id="btn-unstake-all" disabled>Unstake all</button>
+      </div>
+
+      <!-- Token table -->
+      <div class="table-responsive">
+        <table class="table table-dark table-striped align-middle">
+          <thead>
+            <tr>
+              <th scope="col">Token ID</th>
+              <th scope="col">Passive</th>
+              <th scope="col">Game</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="dash-table">
+            <!-- rows injected dynamically -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Stake input -->
+      <div class="input-group mt-4" style="max-width:22rem;">
+        <input type="number" min="0" step="1" class="form-control" id="inp-stake"
+               placeholder="Punk ID to stake">
+        <button class="btn btn-outline-info" id="btn-stake">Stake</button>
+      </div>
+    </div>
+  </template>
+
+  <!-- 2️⃣  Dashboard logic -->
+  <script id="PQ-DASHBOARD">
+  (() => {
+    const WALLET = window.PQ_WALLET;
+    const STATE  = window.PQ_STATE;
+    const screen = document.getElementById('screen-dashboard');
+
+    /* inject template once */
+    screen.appendChild(
+      document.getElementById('TEMPLATE-DASHBOARD').content.cloneNode(true)
+    );
+
+    /* elements */
+    const el = {
+      staked   : screen.querySelector('#g-staked'),
+      base     : screen.querySelector('#g-base'),
+      pass     : screen.querySelector('#g-passive'),
+      game     : screen.querySelector('#g-game'),
+      tableBdy : screen.querySelector('#dash-table'),
+      claimAll : screen.querySelector('#btn-claim-all'),
+      unstakeAll:screen.querySelector('#btn-unstake-all'),
+      refresh  : screen.querySelector('#btn-refresh'),
+      stakeBtn : screen.querySelector('#btn-stake'),
+      stakeInp : screen.querySelector('#inp-stake')
+    };
+
+    /* utils */
+    const fmt = (v, dec = 18, fixed = 4) =>
+      ethers.utils.commify(Number(ethers.utils.formatUnits(v, dec)).toFixed(fixed));
+
+    function setLoading(button, on){
+      button.disabled = on;
+      button.innerHTML = on ? `<span class="spinner-border spinner-border-sm me-1"></span>Processing`
+                            : button.dataset.label;
+    }
+
+    /* renderers */
+    async function renderGlobal(){
+      const g = STATE.cache.global;
+      if(!g.staked) return;
+      el.staked.textContent = g.staked;
+      el.base.textContent   = fmt(g.base, 18, 0) + ' /s';
+    }
+
+    async function renderWallet(){
+      const w = STATE.cache.wallet;
+      if(!w.stakedIds) return;
+
+      el.pass.textContent  = fmt(w.passive || 0);
+      el.game.textContent  = fmt(w.game   || 0);
+
+      el.claimAll.disabled   = !w.stakedIds.length;
+      el.unstakeAll.disabled = !w.stakedIds.length;
+
+      /* build rows */
+      el.tableBdy.innerHTML = '';
+      for(const id of w.stakedIds){
+        const t   = await STATE.getToken(id);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <th scope="row">${id}</th>
+          <td>${fmt(t.passive)}</td>
+          <td>${fmt(t.game)}</td>
+          <td>
+            <button class="btn btn-sm btn-success me-1" data-act="claim" data-id="${id}">Claim</button>
+            <button class="btn btn-sm btn-warning me-1" data-act="unstake" data-id="${id}">Unstake</button>
+            <button class="btn btn-sm btn-outline-info" data-act="fast" data-id="${id}"
+                    title="Purchase fast-level upgrade">FLU</button>
+          </td>`;
+        el.tableBdy.appendChild(row);
+      }
+    }
+
+    /* actions */
+    async function claim(id){
+      const pq = WALLET.pqContract();
+      setLoading(el.claimAll, true);
+      try{
+        const tx = await pq.claimRewards(id);
+        await tx.wait();
+        await STATE.getToken(id);                 /* refresh cache */
+        STATE.refreshWallet();                    /* update aggregates */
+      }catch(e){ console.error(e); }
+      setLoading(el.claimAll, false);
+    }
+
+    async function unstake(id){
+      const pq = WALLET.pqContract();
+      setLoading(el.unstakeAll, true);
+      try{
+        const tx = await pq.unstake(id);
+        await tx.wait();
+        STATE.refreshWallet();
+      }catch(e){ console.error(e); }
+      setLoading(el.unstakeAll, false);
+    }
+
+    async function fastUpgrade(id){
+      const pq = WALLET.pqContract();
+      try{
+        const tx = await pq.purchaseFastLevelUpgrade(id);
+        await tx.wait();
+        STATE.getToken(id);
+        alert(`Fast-level upgrade purchased for #${id}`);
+      }catch(e){ console.error(e); alert(e.message || e); }
+    }
+
+    async function claimAll(){
+      const ids = STATE.cache.wallet.stakedIds || [];
+      if(!ids.length) return;
+      const pq = WALLET.pqContract();
+      setLoading(el.claimAll, true);
+      try{
+        const tx = await pq.batchClaimRewards(ids);
+        await tx.wait();
+        STATE.refreshWallet();
+      }catch(e){ console.error(e); }
+      setLoading(el.claimAll, false);
+    }
+
+    async function unstakeAll(){
+      const ids = STATE.cache.wallet.stakedIds || [];
+      if(!ids.length) return;
+      const pq = WALLET.pqContract();
+      setLoading(el.unstakeAll, true);
+      try{
+        const tx = await pq.batchUnstake(ids);
+        await tx.wait();
+        STATE.refreshWallet();
+      }catch(e){ console.error(e); }
+      setLoading(el.unstakeAll, false);
+    }
+
+    async function stakeToken(){
+      const id = Number(el.stakeInp.value);
+      if(!id){ alert('Enter a valid token ID'); return; }
+      const pq = WALLET.pqContract();
+      setLoading(el.stakeBtn, true);
+      try{
+        const tx = await pq.stake(id);
+        await tx.wait();
+        el.stakeInp.value = '';
+        STATE.refreshWallet();
+      }catch(e){ console.error(e); alert(e.message || e); }
+      setLoading(el.stakeBtn, false);
+    }
+
+    /* listeners */
+    el.tableBdy.addEventListener('click', e=>{
+      const btn = e.target.closest('button[data-id]');
+      if(!btn) return;
+      const id  = Number(btn.dataset.id);
+      const act = btn.dataset.act;
+      if(act === 'claim')   claim(id);
+      if(act === 'unstake') unstake(id);
+      if(act === 'fast')    fastUpgrade(id);
+    });
+
+    el.claimAll .dataset.label = 'Claim all';
+    el.unstakeAll.dataset.label = 'Unstake all';
+    el.claimAll .addEventListener('click', claimAll);
+    el.unstakeAll.addEventListener('click', unstakeAll);
+    el.refresh  .addEventListener('click', () => {
+      STATE.refreshGlobal();
+      STATE.refreshWallet();
+    });
+
+    el.stakeBtn.dataset.label = 'Stake';
+    el.stakeBtn.addEventListener('click', stakeToken);
+
+    /* react to state changes */
+    STATE.on('state:global',  renderGlobal);
+    STATE.on('state:wallet',  async () => {
+      await renderWallet();
+      renderGlobal();
+    });
+
+    /* initial paint (in case wallet already connected) */
+    if(WALLET.account){
+      renderGlobal();
+      renderWallet();
+    }
+  })();
+  </script>
+  <!-- ───────── END SECTION 6 ───────── -->
+
   <!-- Global scripts placeholder — every JS section is concatenated below -->
   <script id="GLOBAL-SCRIPTS"></script>
 </body>
