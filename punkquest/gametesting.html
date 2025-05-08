@@ -148,25 +148,30 @@
   <script id="PQ-ROUTER">
   (() => {
     /* ----- Inject the nav bar into #MAIN-MENU ----- */
-    const menuClone = document.getElementById('TEMPLATE-MENU').content.cloneNode(true);
-    document.getElementById('MAIN-MENU').replaceWith(menuClone);
+    const menuClone = document.getElementById('TEMPLATE-MENU')?.content.cloneNode(true);
+    const mainMenu = document.getElementById('MAIN-MENU');
+    if (menuClone && mainMenu) {
+      mainMenu.replaceWith(menuClone);
+    }
 
     /* ----- Basic wallet-connect stub (Section 4 will override) ----- */
     const connectBtn = document.getElementById('btn-connect');
-    connectBtn.addEventListener('click', async () => {
-      if (window.PQ_WALLET?.connect) {
-        return window.PQ_WALLET.connect();
-      }
-      if (window.ethereum?.request) {
-        try {
-          await window.ethereum.request({ method: 'eth_requestAccounts' });
-        } catch (err) {
-          alert(err.message || err);
+    if (connectBtn) {
+      connectBtn.addEventListener('click', async () => {
+        if (window.PQ_WALLET?.connect) {
+          return window.PQ_WALLET.connect();
         }
-      } else {
-        alert('MetaMask (or a compatible wallet) isn't detected.');
-      }
-    });
+        if (window.ethereum?.request) {
+          try {
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+          } catch (err) {
+            alert(err.message || err);
+          }
+        } else {
+          alert("MetaMask (or a compatible wallet) isn't detected.");
+        }
+      });
+    }
 
     /* ----- Hash-based router ----- */
     const SCREENS = {
@@ -179,18 +184,22 @@
 
     /* Create (empty) screen containers that later sections will fill */
     const appRoot = document.getElementById('APP');
-    Object.values(SCREENS).forEach(id => {
-      const el = document.createElement('section');
-      el.id = id;
-      el.className = 'screen-hidden';
-      appRoot.appendChild(el);
-    });
+    if (appRoot) {
+      Object.values(SCREENS).forEach(id => {
+        const el = document.createElement('section');
+        el.id = id;
+        el.className = 'screen-hidden';
+        appRoot.appendChild(el);
+      });
+    }
 
     function showScreen(name) {
       const targetId = SCREENS[name] || SCREENS.dashboard;
       Object.values(SCREENS).forEach(id => {
-        document.getElementById(id)
-          .classList.toggle('screen-hidden', id !== targetId);
+        const screen = document.getElementById(id);
+        if (screen) {
+          screen.classList.toggle('screen-hidden', id !== targetId);
+        }
       });
 
       /* Highlight active menu tab */
@@ -752,74 +761,87 @@
     const { pqContract } = PQ_WALLET;
     const { loadStoreTemplates, loadInventory, cache, on } = PQ_STATE;
     const screen = document.getElementById('screen-store');
-    screen.append(TEMPLATE_STORE.content.cloneNode(true));
-
-    const g = {
-      grid : screen.querySelector('#store-grid'),
-      inv  : screen.querySelector('#inv-body')
-    };
-
-    /* ------- render helpers ------- */
-    const fmt = (x)=>ethers.utils.commify(ethers.utils.formatUnits(x,18));
-
-    async function paintStore(){
-      await loadStoreTemplates();
-      g.grid.innerHTML = '';
-      Object.values(cache.items).forEach(it=>{
-        const col=document.createElement('div');
-        col.className='col-sm-6 col-md-4 col-lg-3';
-        col.innerHTML = `
-          <div class="card text-bg-secondary h-100">
-            <div class="card-body d-flex flex-column">
-              <h5 class="card-title">${it.type ? 'Armor':'Weapon'} #${it.id}</h5>
-              <p class="mb-1">Bonus: ${fmt(it.bonus)}</p>
-              <p class="mb-3">Durability: ${it.durability}${it.degradable?' (deg.)':''}</p>
-              <button class="btn btn-primary mt-auto" data-buy="${it.id}">Buy – ${fmt(it.price)}</button>
-            </div>
-          </div>`;
-        g.grid.append(col);
-      });
-    }
-
-    async function paintInv(){
-      await loadInventory();
-      g.inv.innerHTML='';
-      const inv=cache.inventory[PQ_WALLET.account]||{};
-      for(const [id,qty] of Object.entries(inv)){
-        const tr=document.createElement('tr');
-        tr.innerHTML=`<td>${id}</td><td>${qty}</td>
-          <td><button class="btn btn-sm btn-outline-info" data-equip="${id}">Equip</button></td>`;
-        g.inv.append(tr);
+    if (screen) {
+      const template = document.getElementById('TEMPLATE-STORE');
+      if (template) {
+        screen.appendChild(template.content.cloneNode(true));
       }
-    }
 
-    /* ------- actions ------- */
-    g.grid.addEventListener('click', async e=>{
-      const id=e.target.dataset.buy;
-      if(!id)return;
-      try{
-        const tx=await pqContract().buyItem(id,1);
-        await tx.wait();
+      const g = {
+        grid : screen.querySelector('#store-grid'),
+        inv  : screen.querySelector('#inv-body')
+      };
+
+      /* ------- render helpers ------- */
+      const fmt = (x)=>ethers.utils.commify(ethers.utils.formatUnits(x,18));
+
+      async function paintStore(){
+        await loadStoreTemplates();
+        if (g.grid) {
+          g.grid.innerHTML = '';
+          Object.values(cache.items).forEach(it=>{
+            const col=document.createElement('div');
+            col.className='col-sm-6 col-md-4 col-lg-3';
+            col.innerHTML = `
+              <div class="card text-bg-secondary h-100">
+                <div class="card-body d-flex flex-column">
+                  <h5 class="card-title">${it.type ? 'Armor':'Weapon'} #${it.id}</h5>
+                  <p class="mb-1">Bonus: ${fmt(it.bonus)}</p>
+                  <p class="mb-3">Durability: ${it.durability}${it.degradable?' (deg.)':''}</p>
+                  <button class="btn btn-primary mt-auto" data-buy="${it.id}">Buy – ${fmt(it.price)}</button>
+                </div>
+              </div>`;
+            g.grid.append(col);
+          });
+        }
+      }
+
+      async function paintInv(){
         await loadInventory();
-        paintInv();
-      }catch(err){alert(err.message||err);}
-    });
+        if (g.inv) {
+          g.inv.innerHTML='';
+          const inv=cache.inventory[PQ_WALLET.account]||{};
+          for(const [id,qty] of Object.entries(inv)){
+            const tr=document.createElement('tr');
+            tr.innerHTML=`<td>${id}</td><td>${qty}</td>
+              <td><button class="btn btn-sm btn-outline-info" data-equip="${id}">Equip</button></td>`;
+            g.inv.append(tr);
+          }
+        }
+      }
 
-    g.inv.addEventListener('click', async e=>{
-      const id=e.target.dataset.equip;
-      if(!id)return;
-      const token = prompt('Equip to token ID?');
-      if(!token)return;
-      try{
-        const tx=await pqContract().equipItem(token,id);
-        await tx.wait();
-        alert('Equipped!');
-      }catch(err){alert(err.message||err);}
-    });
+      /* ------- actions ------- */
+      if (g.grid) {
+        g.grid.addEventListener('click', async e=>{
+          const id=e.target.dataset.buy;
+          if(!id)return;
+          try{
+            const tx=await pqContract().buyItem(id,1);
+            await tx.wait();
+            await loadInventory();
+            paintInv();
+          }catch(err){alert(err.message||err);}
+        });
+      }
 
-    /* ------- reactive refresh ------- */
-    on('state:items',paintStore);
-    PQ_WALLET.on('wallet:connected', async()=>{await paintStore(); paintInv();});
+      if (g.inv) {
+        g.inv.addEventListener('click', async e=>{
+          const id=e.target.dataset.equip;
+          if(!id)return;
+          const token = prompt('Equip to token ID?');
+          if(!token)return;
+          try{
+            const tx=await pqContract().equipItem(token,id);
+            await tx.wait();
+            alert('Equipped!');
+          }catch(err){alert(err.message||err);}
+        });
+      }
+
+      /* ------- reactive refresh ------- */
+      on('state:items',paintStore);
+      PQ_WALLET.on('wallet:connected', async()=>{await paintStore(); paintInv();});
+    }
   })();
   </script>
 
@@ -842,36 +864,42 @@
   (() => {
     const WAL=PQ_WALLET, ST=PQ_STATE;
     const screen=document.getElementById('screen-armory');
-    screen.append(TEMPLATE_ARMORY.content.cloneNode(true));
-    const tbody=screen.querySelector('#arm-body');
+    if (screen) {
+      const template = document.getElementById('TEMPLATE-ARMORY');
+      if (template) {
+        screen.appendChild(template.content.cloneNode(true));
+      }
+      const tbody=screen.querySelector('#arm-body');
+      if (tbody) {
+        const fmtId=x=>x&&x!='0'?x:'–';
 
-    const fmtId=x=>x&&x!='0'?x:'–';
+        async function paint(){
+          tbody.innerHTML='';
+          const ids=ST.cache.wallet.stakedIds||[];
+          for(const id of ids){
+            const t=await ST.getToken(id);
+            const tr=document.createElement('tr'); tr.innerHTML=`
+              <td>${id}</td><td>${fmtId(t.weapon)}</td><td>${fmtId(t.armor)}</td>
+              <td>${(t.extras||[]).map(fmtId).join(', ')||'–'}</td>
+              <td><button class="btn btn-sm btn-outline-info" data-unequip="${id}">Unequip All</button></td>`;
+            tbody.append(tr);
+          }
+        }
 
-    async function paint(){
-      tbody.innerHTML='';
-      const ids=ST.cache.wallet.stakedIds||[];
-      for(const id of ids){
-        const t=await ST.getToken(id);
-        const tr=document.createElement('tr'); tr.innerHTML=`
-          <td>${id}</td><td>${fmtId(t.weapon)}</td><td>${fmtId(t.armor)}</td>
-          <td>${(t.extras||[]).map(fmtId).join(', ')||'–'}</td>
-          <td><button class="btn btn-sm btn-outline-info" data-unequip="${id}">Unequip All</button></td>`;
-        tbody.append(tr);
+        tbody.addEventListener('click',async e=>{
+          const id=e.target.dataset.unequip;
+          if(!id)return;
+          try{
+            const tx=await WAL.pqContract()
+                     .batchArmoryActionsInstances([id],[3],[0],[0]);   /* UnequipAll */
+            await tx.wait(); await ST.getToken(id); paint();
+          }catch(err){alert(err.message||err);}
+        });
+
+        ST.on('state:wallet',paint);
+        WAL.on('wallet:connected',paint);
       }
     }
-
-    tbody.addEventListener('click',async e=>{
-      const id=e.target.dataset.unequip;
-      if(!id)return;
-      try{
-        const tx=await WAL.pqContract()
-                 .batchArmoryActionsInstances([id],[3],[0],[0]);   /* UnequipAll */
-        await tx.wait(); await ST.getToken(id); paint();
-      }catch(err){alert(err.message||err);}
-    });
-
-    ST.on('state:wallet',paint);
-    WAL.on('wallet:connected',paint);
   })();
   </script>
 
@@ -887,23 +915,29 @@
   <script id="PQ-EVENTS">
   (() => {
     const WAL=PQ_WALLET, screen=document.getElementById('screen-events');
-    screen.append(TEMPLATE_EVENTS.content.cloneNode(true));
-    const log=screen.querySelector('#log'), btn=screen.querySelector('#btn-random');
+    if (screen) {
+      const template = document.getElementById('TEMPLATE-EVENTS');
+      if (template) {
+        screen.appendChild(template.content.cloneNode(true));
+      }
+      const log=screen.querySelector('#log'), btn=screen.querySelector('#btn-random');
+      if (log && btn) {
+        btn.addEventListener('click',async()=>{
+          const token=prompt('Token ID?'); if(!token)return;
+          try{
+            const tx=await WAL.pqContract().randomTriggerEvent(token);
+            await tx.wait(); append(`Random event on #${token}`);
+          }catch(e){alert(e.message||e);}
+        });
 
-    btn.addEventListener('click',async()=>{
-      const token=prompt('Token ID?'); if(!token)return;
-      try{
-        const tx=await WAL.pqContract().randomTriggerEvent(token);
-        await tx.wait(); append(`Random event on #${token}`);
-      }catch(e){alert(e.message||e);}
-    });
+        function append(txt){ log.textContent+=`${new Date().toLocaleTimeString()} — ${txt}\n`; }
 
-    function append(txt){ log.textContent+=`${new Date().toLocaleTimeString()} — ${txt}\n`; }
-
-    WAL.on('wallet:connected', async()=>{
-      const owner=await WAL.pqContract().owner();
-      btn.style.display = owner.toLowerCase()===WAL.account?.toLowerCase()?'':'none';
-    });
+        WAL.on('wallet:connected', async()=>{
+          const owner=await WAL.pqContract().owner();
+          btn.style.display = owner.toLowerCase()===WAL.account?.toLowerCase()?'':'none';
+        });
+      }
+    }
   })();
   </script>
 
@@ -918,26 +952,32 @@
   <script id="PQ-STATS">
   (() => {
     const WAL=PQ_WALLET, ST=PQ_STATE, screen=document.getElementById('screen-stats');
-    screen.append(TEMPLATE_STATS.content.cloneNode(true));
-    const row=screen.querySelector('#stats-cards');
+    if (screen) {
+      const template = document.getElementById('TEMPLATE-STATS');
+      if (template) {
+        screen.appendChild(template.content.cloneNode(true));
+      }
+      const row=screen.querySelector('#stats-cards');
+      if (row) {
+        function card(label,val){return `
+          <div class="col-md-3">
+           <div class="card text-bg-secondary h-100"><div class="card-body">
+            <h6 class="card-title mb-1">${label}</h6><p class="h4 mb-0">${val}</p>
+           </div></div></div>`;}
 
-    function card(label,val){return `
-      <div class="col-md-3">
-       <div class="card text-bg-secondary h-100"><div class="card-body">
-        <h6 class="card-title mb-1">${label}</h6><p class="h4 mb-0">${val}</p>
-       </div></div></div>`;}
+        async function paint(){
+          await ST.refreshGlobal();
+          const g=ST.cache.global;
+          if(!Object.keys(g).length)return;
+          row.innerHTML= card('Total staked',g.staked)+
+                         card('Base rate',ethers.utils.formatUnits(g.base,18))+
+                         card('Social boost ends', g.socialEnd?new Date(g.socialEnd*1000).toLocaleString():'–');
+        }
 
-    async function paint(){
-      await ST.refreshGlobal();
-      const g=ST.cache.global;
-      if(!Object.keys(g).length)return;
-      row.innerHTML= card('Total staked',g.staked)+
-                     card('Base rate',ethers.utils.formatUnits(g.base,18))+
-                     card('Social boost ends', g.socialEnd?new Date(g.socialEnd*1000).toLocaleString():'–');
+        ST.on('state:global',paint);
+        WAL.on('wallet:connected',paint);
+      }
     }
-
-    ST.on('state:global',paint);
-    WAL.on('wallet:connected',paint);
   })();
   </script>
 
