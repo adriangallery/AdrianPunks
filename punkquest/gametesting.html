@@ -62,7 +62,10 @@
       // detail helpers
       "function getTokenArmoryDetails(uint256 id) view returns (uint256 weapon,uint256 armor,uint256[] extras,uint256 lastEvent)",
       // owner
-      "function owner() view returns (address)"
+      "function owner() view returns (address)",
+      // store additional
+      "function nextItemId() view returns (uint256)",
+      "function items(uint256 id) view returns (uint256 price, uint8 itemType, bool exists, uint256 bonus, uint256 durability, bool degradable)"
     ];
 
     const PUNK_NFT_ABI = [
@@ -495,7 +498,50 @@
     async function loadStoreTemplates(maxToScan = 60) {
       if (Object.keys(cache.items).length) return cache.items;      // already cached
       
-      // Necesitamos datos de prueba para evitar el error, ya que el contrato no tiene el método 'items'
+      try {
+        // Intentar cargar desde el contrato real
+        const pq = WALLET.pqContract();
+        // Obtenemos el próximo ID disponible para saber cuántos elementos hay
+        const nextId = await retryOnRateLimit(() => pq.nextItemId());
+        
+        for (let i = 1; i < nextId.toNumber(); i++) {
+          try {
+            // Obtenemos la información del ítem
+            const itm = await retryOnRateLimit(() => pq.items(i));
+            
+            if (itm.exists) {
+              cache.items[i] = {
+                id: i,
+                price: itm.price,
+                bonus: itm.bonus,
+                durability: itm.durability,
+                type: itm.itemType,
+                degradable: itm.degradable,
+                exists: itm.exists
+              };
+            }
+          } catch (error) {
+            console.warn(`Error al cargar ítem ${i}:`, error);
+          }
+        }
+        
+        // Si no se cargó ningún ítem, usamos datos de prueba
+        if (Object.keys(cache.items).length === 0) {
+          fallbackStoreItems();
+        }
+      } catch (error) {
+        console.error("Error al cargar ítems de la tienda:", error);
+        // Si falla todo, usamos datos de prueba
+        fallbackStoreItems();
+      }
+      
+      // No emitimos evento para evitar recursión
+      return cache.items;
+    }
+
+    // Fallback con datos de prueba si no se puede acceder al contrato
+    function fallbackStoreItems() {
+      console.log("Usando datos de tienda de respaldo");
       cache.items = {
         1: {
           id: 1,
@@ -503,7 +549,8 @@
           bonus: ethers.utils.parseEther("0.01"),
           durability: 100,
           type: 0, // Weapon
-          degradable: true
+          degradable: true,
+          exists: true
         },
         2: {
           id: 2,
@@ -511,12 +558,10 @@
           bonus: ethers.utils.parseEther("0.02"),
           durability: 150,
           type: 1, // Armor
-          degradable: false
+          degradable: false,
+          exists: true
         }
       };
-      
-      // No emitimos evento para evitar recursión
-      return cache.items;
     }
 
     /* ---------- PLAYER INVENTORY (TEMPLATE ITEMS) ---------- */
@@ -823,113 +868,138 @@
   <!-- ────────────────────────  SECTION 7: STORE  ──────────────────────── -->
   <template id="TEMPLATE-STORE">
     <div class="container-fluid">
-      <h3 class="mb-3">Item Store</h3>
+      <h3 class="mb-3">Weapon Store</h3>
+      <div class="row g-3" id="grid"></div>
 
-      <!-- Item grid -->
-      <div class="row g-3" id="store-grid"></div>
-
-      <h4 class="mt-4 mb-2">Your inventory</h4>
+      <h4 class="mt-4 mb-2">Cart</h4>
       <div class="table-responsive">
-        <table class="table table-dark table-sm">
-          <thead><tr><th>Item</th><th>Qty</th><th>Equip</th></tr></thead>
-          <tbody id="inv-body"></tbody>
+        <table class="table table-dark table-sm align-middle mb-2">
+          <thead><tr><th>ID</th><th>Qty</th><th>Price</th><th></th></tr></thead>
+          <tbody id="cart-body"></tbody>
         </table>
       </div>
+      <button class="btn btn-success" id="btn-checkout" disabled>Checkout</button>
     </div>
   </template>
 
   <script id="PQ-STORE">
   (() => {
     const { pqContract } = PQ_WALLET;
-    const { loadStoreTemplates, loadInventory, cache, on } = PQ_STATE;
-    const screen = document.getElementById('screen-store');
-    if (screen) {
-      const template = document.getElementById('TEMPLATE-STORE');
-      if (template) {
-        screen.appendChild(template.content.cloneNode(true));
-      }
+    const { loadStoreTemplates, cache, on } = PQ_STATE;
+    const scr = document.getElementById('screen-store');
 
-      const g = {
-        grid : screen.querySelector('#store-grid'),
-        inv  : screen.querySelector('#inv-body')
-      };
+    /* ▸ HTML ---------------------------------------------------------------- */
+    scr.innerHTML = `
+      <div class="container-fluid">
+        <h3 class="mb-3">Weapon Store</h3>
+        <div class="row g-3" id="grid"></div>
 
-      /* ------- render helpers ------- */
-      const fmt = (x)=>ethers.utils.commify(ethers.utils.formatUnits(x,18));
+        <h4 class="mt-4 mb-2">Cart</h4>
+        <div class="table-responsive">
+          <table class="table table-dark table-sm align-middle mb-2">
+            <thead><tr><th>ID</th><th>Qty</th><th>Price</th><th></th></tr></thead>
+            <tbody id="cart-body"></tbody>
+          </table>
+        </div>
+        <button class="btn btn-success" id="btn-checkout" disabled>Checkout</button>
+      </div>`;
 
-      async function paintStore(){
-        // Obtenemos los datos del caché directamente, sin emitir eventos
-        const items = await loadStoreTemplates();
-        if (g.grid) {
-          g.grid.innerHTML = '';
-          Object.values(items).forEach(it=>{
-            const col=document.createElement('div');
-            col.className='col-sm-6 col-md-4 col-lg-3';
-            col.innerHTML = `
-              <div class="card text-bg-secondary h-100">
-                <div class="card-body d-flex flex-column">
-                  <h5 class="card-title">${it.type ? 'Armor':'Weapon'} #${it.id}</h5>
-                  <p class="mb-1">Bonus: ${fmt(it.bonus)}</p>
-                  <p class="mb-3">Durability: ${it.durability}${it.degradable?' (deg.)':''}</p>
-                  <button class="btn btn-primary mt-auto" data-buy="${it.id}">Buy – ${fmt(it.price)}</button>
-                </div>
-              </div>`;
-            g.grid.append(col);
-          });
-        }
-      }
+    const $ = id => scr.querySelector(id);
+    const grid = $('#grid'), cartBody = $('#cart-body'), btnCO = $('#btn-checkout');
 
-      async function paintInv(){
-        // Obtenemos los datos del caché directamente, sin emitir eventos
-        const inv = await loadInventory(PQ_WALLET.account);
-        if (g.inv) {
-          g.inv.innerHTML='';
-          for(const [id,qty] of Object.entries(inv)){
-            const tr=document.createElement('tr');
-            tr.innerHTML=`<td>${id}</td><td>${qty.toString()}</td>
-              <td><button class="btn btn-sm btn-outline-info" data-equip="${id}">Equip</button></td>`;
-            g.inv.append(tr);
-          }
-        }
-      }
+    /* ▸ In-memory cart ------------------------------------------------------- */
+    const cart = new Map();      // id -> qty
 
-      /* ------- actions ------- */
-      if (g.grid) {
-        g.grid.addEventListener('click', async e=>{
-          const id=e.target.dataset.buy;
-          if(!id)return;
-          try{
-            const tx=await pqContract().buyItem(id,1);
-            await tx.wait();
-            await loadInventory();
-            paintInv();
-          }catch(err){alert(err.message||err);}
-        });
-      }
-
-      if (g.inv) {
-        g.inv.addEventListener('click', async e=>{
-          const id=e.target.dataset.equip;
-          if(!id)return;
-          const token = prompt('Equip to token ID?');
-          if(!token)return;
-          try{
-            const tx=await pqContract().equipItem(token,id);
-            await tx.wait();
-            alert('Equipped!');
-          }catch(err){alert(err.message||err);}
-        });
-      }
-
-      /* ------- reactive refresh ------- */
-      on('state:items',paintStore);
-      PQ_WALLET.on('wallet:connected', async()=>{
-        // Dejamos de escuchar los eventos para evitar recursión
-        // Cargamos directamente los datos
-        await paintStore(); 
-        await paintInv();
-      });
+    function addToCart(id, price){
+      const cur = cart.get(id) || 0;
+      cart.set(id, cur + 1);
+      renderCart();
     }
+    function removeFromCart(id){
+      cart.delete(id);
+      renderCart();
+    }
+
+    /* ▸ Rendering ------------------------------------------------------------ */
+    const fmt = v => ethers.utils.commify(ethers.utils.formatUnits(v,18));
+
+    async function paintWeapons(){
+      await loadStoreTemplates();
+      grid.innerHTML = '';
+
+      /* solo Weapon (itemType === 0) */
+      Object.values(cache.items)
+        .filter(it => it.type === 0 && it.exists)
+        .forEach(it => {
+          const col = document.createElement('div');
+          col.className = 'col-sm-6 col-md-4 col-lg-3';
+          col.innerHTML = `
+            <div class="card text-bg-secondary h-100">
+              <div class="card-body d-flex flex-column">
+                <h5 class="card-title">Weapon #${it.id}</h5>
+                <p class="mb-1">Bonus: ${fmt(it.bonus)}</p>
+                <p class="mb-3">Durability: ${it.durability}</p>
+                <button class="btn btn-primary mt-auto" data-add="${it.id}">Add to cart – ${fmt(it.price)}</button>
+              </div>
+            </div>`;
+          grid.append(col);
+        });
+    }
+
+    function renderCart(){
+      cartBody.innerHTML = '';
+      let total = ethers.BigNumber.from(0);
+
+      for (const [id, qty] of cart){
+        const price = cache.items[id].price.mul(qty);
+        total = total.add(price);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${id}</td>
+          <td>${qty}</td>
+          <td>${fmt(price)}</td>
+          <td><button class="btn btn-sm btn-outline-danger" data-del="${id}">✕</button></td>`;
+        cartBody.append(tr);
+      }
+      btnCO.disabled = cart.size === 0;
+      btnCO.textContent = cart.size
+        ? `Checkout – ${fmt(total)}`
+        : 'Checkout';
+    }
+
+    /* ▸ Events --------------------------------------------------------------- */
+    grid.addEventListener('click', e=>{
+      const id = e.target.dataset.add;
+      if(!id) return;
+      addToCart(Number(id));
+    });
+
+    cartBody.addEventListener('click', e=>{
+      const id = e.target.dataset.del;
+      if(id) removeFromCart(Number(id));
+    });
+
+    btnCO.addEventListener('click', async ()=>{
+      const ids  = Array.from(cart.keys());
+      const qtys = ids.map(id => cart.get(id));
+      try{
+        btnCO.disabled = true;
+        const tx = await pqContract().batchBuyItems(ids, qtys);
+        await tx.wait();
+        PQ_UTIL.toast('Purchase complete!');
+        cart.clear(); renderCart();
+        PQ_STATE.loadInventory();                  // refresca inventario
+      }catch(err){
+        PQ_UTIL.toast(err.message||err,false);
+      }finally{
+        btnCO.disabled = false;
+      }
+    });
+
+    /* ▸ Reactive refresh ----------------------------------------------------- */
+    on('state:items', paintWeapons);
+    PQ_WALLET.on('wallet:connected', paintWeapons);
+
   })();
   </script>
 
