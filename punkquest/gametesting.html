@@ -114,5 +114,105 @@
   })();
   </script>
   <!-- ───────── END SECTION 2 ───────── -->
+
+  <!-- ───────── SECTION 3: MENU & ROUTER ───────── -->
+  <!-- 1️⃣  Template that renders the top navigation bar -->
+  <template id="TEMPLATE-MENU">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-secondary shadow-sm">
+      <div class="container-fluid">
+        <a class="navbar-brand fw-bold" href="#/dashboard">PunkQuest</a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#pqNav" aria-controls="pqNav" aria-expanded="false"
+                aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="pqNav">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item"><a class="nav-link" href="#/dashboard">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" href="#/store">Store</a></li>
+            <li class="nav-item"><a class="nav-link" href="#/armory">Armory</a></li>
+            <li class="nav-item"><a class="nav-link" href="#/events">Events</a></li>
+            <li class="nav-item"><a class="nav-link" href="#/stats">Stats</a></li>
+          </ul>
+
+          <!-- Connect / account button -->
+          <button id="btn-connect" class="btn btn-outline-light">Connect Wallet</button>
+        </div>
+      </div>
+    </nav>
+  </template>
+
+  <!-- 2️⃣  Router + menu bootstrapper -->
+  <script id="PQ-ROUTER">
+  (() => {
+    /* ----- Inject the nav bar into #MAIN-MENU ----- */
+    const menuClone = document.getElementById('TEMPLATE-MENU').content.cloneNode(true);
+    document.getElementById('MAIN-MENU').replaceWith(menuClone);
+
+    /* ----- Basic wallet-connect stub (Section 4 will override) ----- */
+    const connectBtn = document.getElementById('btn-connect');
+    connectBtn.addEventListener('click', async () => {
+      if (window.PQ_WALLET?.connect) {
+        return window.PQ_WALLET.connect();
+      }
+      if (window.ethereum?.request) {
+        try {
+          await window.ethereum.request({ method: 'eth_requestAccounts' });
+        } catch (err) {
+          alert(err.message || err);
+        }
+      } else {
+        alert('MetaMask (or a compatible wallet) isn't detected.');
+      }
+    });
+
+    /* ----- Hash-based router ----- */
+    const SCREENS = {
+      dashboard : 'screen-dashboard',
+      store     : 'screen-store',
+      armory    : 'screen-armory',
+      events    : 'screen-events',
+      stats     : 'screen-stats'
+    };
+
+    /* Create (empty) screen containers that later sections will fill */
+    const appRoot = document.getElementById('APP');
+    Object.values(SCREENS).forEach(id => {
+      const el = document.createElement('section');
+      el.id = id;
+      el.className = 'screen-hidden';
+      appRoot.appendChild(el);
+    });
+
+    function showScreen(name) {
+      const targetId = SCREENS[name] || SCREENS.dashboard;
+      Object.values(SCREENS).forEach(id => {
+        document.getElementById(id)
+          .classList.toggle('screen-hidden', id !== targetId);
+      });
+
+      /* Highlight active menu tab */
+      document.querySelectorAll('#pqNav .nav-link').forEach(link => {
+        link.classList.toggle('active', link.getAttribute('href') === '#/' + name);
+      });
+
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+
+    function handleRoute() {
+      const page = location.hash.replace('#/', '') || 'dashboard';
+      showScreen(page);
+    }
+
+    window.addEventListener('hashchange', handleRoute);
+    handleRoute();            // first load
+  })();
+  </script>
+
+  <!-- 3️⃣  Bootstrap JS bundle (for navbar toggler) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- ───────── END SECTION 3 ───────── -->
 </body>
 </html>
