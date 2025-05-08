@@ -373,6 +373,29 @@
       <button id="updateVersionBtn" class="btn-action w-100" disabled>Update Version</button>
     </div>
     
+    <!-- Admin Actions Section (hidden by default) -->
+    <section id="admin-actions" class="mb-4" style="display: none;">
+      <div class="card">
+        <h2 class="section-title">Admin Actions</h2>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="fromId">From ID:</label>
+              <input type="number" id="fromId" class="form-control" min="0">
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="toId">To ID:</label>
+              <input type="number" id="toId" class="form-control" min="0">
+            </div>
+          </div>
+        </div>
+        <button id="mirrorAdminRangeBtn" class="btn-action">Mirror Admin Range</button>
+        <div id="admin-output" class="terminal"></div>
+      </div>
+    </section>
+    
     <!-- Footer -->
     <div class="footer">
       <p id="contractAddressInfo"></p>
@@ -618,101 +641,83 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
 
     // Connect wallet
     async function connectWallet() {
-      setLoading(true);
-    
       try {
-      if (!window.ethereum) {
-          throw new Error("Please install MetaMask to use this application");
-      }
-
-      // Request account access
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-        account = accounts[0];
-        accountDisplay.textContent = `${account.substring(0, 6)}...${account.substring(38)}`;
-
-      // Check if the user is on the Base network
-      const chainId = await window.ethereum.request({ method: "eth_chainId" });
-      
-      if (chainId !== BASE_NETWORK.chainId) {
-        try {
-          await window.ethereum.request({
-            method: "wallet_switchEthereumChain",
-            params: [{ chainId: BASE_NETWORK.chainId }],
-          });
-        } catch (switchError) {
-          if (switchError.code === 4902) {
-            await window.ethereum.request({
-              method: "wallet_addEthereumChain",
-              params: [BASE_NETWORK],
-            });
-          } else {
-            throw switchError;
-          }
+        if (!window.ethereum) {
+          document.getElementById("wallet-info").innerText = "Please install MetaMask.";
+          return;
         }
-      }
 
-      // Set up provider and signer
-        provider = new ethers.providers.Web3Provider(window.ethereum);
+        // Configurar el provider de MetaMask
+        const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+        
+        // Configurar el provider de Base para consultas usando Infura
+        const etherscanProvider = new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+          name: "base",
+          chainId: 8453
+        });
+
+        // Usar el provider de MetaMask para transacciones
+        provider = web3Provider;
+        await provider.send("eth_requestAccounts", []);
         signer = provider.getSigner();
+        const walletAddress = await signer.getAddress();
+        const shortAddress = walletAddress.substring(0,6) + "..." + walletAddress.substring(walletAddress.length - 4);
+        document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddress}</p>`;
 
-      // Initialize read-only contracts with infuraProvider (for faster queries)
-        const adrianPunksContractReadOnly = new ethers.Contract(
-        ADRIAN_PUNKS_ADDRESS,
-        ADRIAN_PUNKS_ABI,
-          infuraProvider
-      );
-        const pocketAdriansContractReadOnly = new ethers.Contract(
-        POCKET_ADRIANS_ADDRESS,
-        POCKET_ADRIANS_ABI,
-          infuraProvider
-      );
-        const adrianTokenContractReadOnly = new ethers.Contract(
-          ADRIAN_TOKEN_ADDRESS,
-          ERC20_ABI,
-          infuraProvider
-        );
+        // Inicializar contratos de solo lectura con Infura
+        nftContract = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI, baseProvider);
+        tokenContract = new ethers.Contract(AD_TOKEN_ADDRESS, erc20ABI, baseProvider);
+        stakingContract = new ethers.Contract(STAKING_ADDRESS, stakingABI, baseProvider);
 
-      // Initialize separate contract instances with signer for transactions
-        adrianPunksContract = adrianPunksContractReadOnly.connect(signer);
-        pocketAdriansContract = pocketAdriansContractReadOnly.connect(signer);
-        adrianTokenContract = adrianTokenContractReadOnly.connect(signer);
+        // Conectar stakingContract con el signer para transacciones
+        stakingContract = stakingContract.connect(signer); // ETH write via MetaMask
 
-      // Get token decimals
-      try {
-        tokenDecimals = await adrianTokenContractReadOnly.decimals();
+        // Obtener decimales del token una sola vez
+        tokenDecimals = await tokenContract.decimals();
+
+        // Conectar los contratos con el signer para transacciones
+        tokenContract = tokenContract.connect(signer);
+
+        document.getElementById("connect-wallet").disabled = true;
+        document.getElementById("stake-actions").style.display = "block";
+        document.getElementById("tokens-section").style.display = "block";
+        document.getElementById("total-rewards-section").style.display = "block";
+        
+        // Verificar si el usuario es admin
+        const owner = await nftContract.owner();
+        if (owner.toLowerCase() === walletAddress.toLowerCase()) {
+          document.getElementById("admin-actions").style.display = "block";
+        }
+        
+        // Cargar tokens y actualizar rewards
+        await loadTokens(walletAddress);
+        await displayAggregateRewards();
+        
+        // Configurar actualización periódica de rewards
+        if (rewardsUpdateInterval) {
+          clearInterval(rewardsUpdateInterval);
+        }
+        rewardsUpdateInterval = setInterval(displayAggregateRewards, 30000); // Actualizar cada 30 segundos
+
+        // Configurar listeners para cambios de cuenta y red
+        window.ethereum.on('accountsChanged', async (accounts) => {
+          if (accounts.length === 0) {
+            // Usuario desconectó la wallet
+            window.location.reload();
+          } else {
+            // Usuario cambió de cuenta
+            await loadTokens(accounts[0]);
+            await displayAggregateRewards();
+          }
+        });
+
+        window.ethereum.on('chainChanged', () => {
+          window.location.reload();
+        });
+
       } catch (error) {
-        console.warn("Error getting token decimals, using default:", error);
-        tokenDecimals = 18; // Default to 18 decimals
-      }
-
-      // Add event listeners for account and chain changes
-      window.ethereum.on("accountsChanged", (accounts) => {
-        window.location.reload();
-      });
-      window.ethereum.on("chainChanged", () => {
-        window.location.reload();
-      });
-
-        // Update UI
-        connectSection.style.display = 'none';
-        accountSection.style.display = 'block';
-        tokenManagement.style.display = 'block';
-        versionManagement.style.display = 'block';
-
-        // Update token balance
-        await updateADRIANBalance();
-
-        showSuccess("Wallet connected successfully!");
-      
-      // Load owned tokens and available versions
-        await loadOwnedTokens(account);
-        await loadVersions();
-      
-    } catch (error) {
-      console.error("Connection error:", error);
-        showError(error.message);
-    } finally {
-        setLoading(false);
+        console.error("Error connecting wallet:", error);
+        document.getElementById("wallet-info").innerText = "Error connecting wallet: " + error.message;
       }
     }
 
@@ -1061,6 +1066,30 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       }
     }
 
+    // Función para mirrorAdminRange
+    async function mirrorAdminRange() {
+      const fromId = document.getElementById('fromId').value;
+      const toId = document.getElementById('toId').value;
+      const output = document.getElementById('admin-output');
+
+      if (!fromId || !toId) {
+        output.textContent = 'Por favor, ingresa los IDs de inicio y fin.';
+        return;
+      }
+
+      try {
+        output.textContent = 'Iniciando mirrorAdminRange...';
+        const tx = await nftContract.mirrorAdminRange(fromId, toId);
+        output.textContent = 'Transacción enviada. Esperando confirmación...';
+        await tx.wait();
+        output.textContent = '¡MirrorAdminRange completado con éxito!';
+        await loadTokens(await signer.getAddress());
+      } catch (error) {
+        console.error('Error en mirrorAdminRange:', error);
+        output.textContent = 'Error: ' + error.message;
+      }
+    }
+
     // Event Listeners
     connectWalletBtn.addEventListener('click', connectWallet);
     syncBtn.addEventListener('click', syncSelectedTokens);
@@ -1069,6 +1098,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
     versionSelector.addEventListener('change', (e) => {
       selectedVersion = parseInt(e.target.value);
     });
+    document.getElementById('mirrorAdminRangeBtn').addEventListener('click', mirrorAdminRange);
 
     // Initialize
     updateSelectedUI();
