@@ -88,6 +88,7 @@
       chainId:        8453,                         // 8453 = Base Mainnet
       chainName:      "Base Mainnet",
       rpcViaInfura:   "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1",
+      rpcBackup:      "https://mainnet.base.org",   // RPC público como respaldo
       explorer:       "https://basescan.org",
       nativeCurrency: { name:"Ether", symbol:"ETH", decimals:18 },
 
@@ -111,7 +112,8 @@
       enums: ENUMS,
 
       /* ── misc constants ── */
-      gasLimitBuffer: 1.15                       // add 15 % head-room to estimated gas
+      gasLimitBuffer: 1.15,                      // add 15 % head-room to estimated gas
+      rateLimitRetryDelay: 2000                  // tiempo de espera en ms para reintentar en caso de límite de tasa
     };
   })();
   </script>
@@ -241,7 +243,35 @@
     let provider, signer, account, networkOk = false;
 
     /* ---------- ethers fall-back (read-only) ---------- */
-    const staticProvider = new ethers.providers.JsonRpcProvider(rpcViaInfura, chainId);
+    const createStaticProvider = () => {
+      // Obtener referencias a las variables de configuración
+      const { chainId, rpcViaInfura, rpcBackup } = window.PQ_CONFIG;
+      
+      // Intentar primero con Infura, si falla usar el respaldo
+      try {
+        const infuraProvider = new ethers.providers.JsonRpcProvider(rpcViaInfura, chainId);
+        // Añadir manejo especial para errores de límite de tasa
+        const originalSend = infuraProvider.send;
+        infuraProvider.send = async function(method, params) {
+          try {
+            return await originalSend.call(this, method, params);
+          } catch (error) {
+            if (error?.message?.includes('429') || error?.error?.message?.includes('rate limit')) {
+              console.warn('Infura rate limit reached, retrying after delay...');
+              await new Promise(resolve => setTimeout(resolve, window.PQ_CONFIG.rateLimitRetryDelay));
+              return originalSend.call(this, method, params);
+            }
+            throw error;
+          }
+        };
+        return infuraProvider;
+      } catch (error) {
+        console.warn('Fallback to backup RPC provider', error);
+        return new ethers.providers.JsonRpcProvider(rpcBackup, chainId);
+      }
+    };
+
+    const staticProvider = createStaticProvider();
 
     /* ---------- helpers ---------- */
     function short(addr){ return addr.slice(0,6)+'…'+addr.slice(-4); }
@@ -385,20 +415,61 @@
 
     /* ---------- GLOBAL STATS ---------- */
     async function refreshGlobal() {
-      const [staked, base, socialEnd] = await WALLET.pqContract().getGlobalStats();
-      cache.global = { staked: staked.toString(), base: base.toString(), socialEnd: Number(socialEnd) };
-      emit('state:global', cache.global);
-      return cache.global;
+      try {
+        const [staked, base, socialEnd] = await retryOnRateLimit(() => 
+          WALLET.pqContract().getGlobalStats()
+        );
+        cache.global = { staked: staked.toString(), base: base.toString(), socialEnd: Number(socialEnd) };
+        emit('state:global', cache.global);
+        return cache.global;
+      } catch (error) {
+        console.error("Error al obtener estadísticas globales:", error);
+        return cache.global;
+      }
+    }
+
+    /* ---------- Utility para reintentar en caso de límite de tasa ---------- */
+    async function retryOnRateLimit(fn, maxRetries = 3) {
+      let lastError;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          return await fn();
+        } catch (error) {
+          lastError = error;
+          // Verificar si es un error de límite de tasa
+          if (error?.message?.includes('429') || 
+              error?.error?.message?.includes('rate limit') ||
+              error?.data?.error?.message?.includes('rate limit')) {
+            console.warn(`Rate limit alcanzado, reintento ${attempt+1}/${maxRetries}...`);
+            // Esperar un tiempo cada vez mayor entre reintentos
+            await new Promise(resolve => 
+              setTimeout(resolve, window.PQ_CONFIG.rateLimitRetryDelay * (attempt + 1))
+            );
+            continue;
+          }
+          // Si no es error de límite de tasa, lanzar el error
+          throw error;
+        }
+      }
+      // Si llegamos aquí, todos los reintentos fallaron
+      console.error("Máximo de reintentos alcanzado");
+      throw lastError;
     }
 
     /* ---------- WALLET-LEVEL AGGREGATES ---------- */
     async function refreshWallet(tokenIds = []) {
       if (!WALLET.account) return {};
-      const [ids, passive, game] = await WALLET.pqContract()
-        .getWalletStats(WALLET.account, tokenIds);
-      cache.wallet = { stakedIds: ids.map(n => Number(n)), passive, game };
-      emit('state:wallet', cache.wallet);
-      return cache.wallet;
+      try {
+        const [ids, passive, game] = await retryOnRateLimit(() => 
+          WALLET.pqContract().getWalletStats(WALLET.account, tokenIds)
+        );
+        cache.wallet = { stakedIds: ids.map(n => Number(n)), passive, game };
+        emit('state:wallet', cache.wallet);
+        return cache.wallet;
+      } catch (error) {
+        console.error("Error al obtener estadísticas de wallet:", error);
+        return cache.wallet;
+      }
     }
 
     /* ---------- SINGLE TOKEN DETAILS ---------- */
