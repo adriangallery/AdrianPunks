@@ -214,5 +214,142 @@
   <!-- 3️⃣  Bootstrap JS bundle (for navbar toggler) -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <!-- ───────── END SECTION 3 ───────── -->
+
+  <!-- ───────── SECTION 4: WALLET MODULE ───────── -->
+  <script id="PQ-WALLET">
+  (() => {
+    const { chainId, chainName, rpcViaInfura, nativeCurrency, contracts } = window.PQ_CONFIG;
+
+    /* ---------- tiny event-bus ---------- */
+    const bus = new EventTarget();
+    function emit(type, detail={}) { bus.dispatchEvent(new CustomEvent(type,{detail})); }
+    function on  (type, fn){ bus.addEventListener(type, fn); }
+    function off (type, fn){ bus.removeEventListener(type,fn); }
+
+    /* ---------- state ---------- */
+    let provider, signer, account, networkOk = false;
+
+    /* ---------- ethers fall-back (read-only) ---------- */
+    const staticProvider = new ethers.providers.JsonRpcProvider(rpcViaInfura, chainId);
+
+    /* ---------- helpers ---------- */
+    function short(addr){ return addr.slice(0,6)+'…'+addr.slice(-4); }
+    function btn(){ return document.getElementById('btn-connect'); }
+    function setBtn(txt, cls='btn-outline-light'){
+      const b = btn();
+      b.textContent = txt;
+      b.className = 'btn '+cls;
+    }
+
+    async function ensureCorrectChain(){
+      const wanted = '0x'+chainId.toString(16);
+      const cur    = await window.ethereum.request({ method:'eth_chainId' });
+      if(cur === wanted){ networkOk = true; return true; }
+
+      /* try to switch, else add */
+      try{
+        await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{chainId:wanted}] });
+        networkOk = true; return true;
+      }catch(switchErr){
+        if(switchErr.code === 4902){            // chain not added
+          try{
+            await window.ethereum.request({
+              method:'wallet_addEthereumChain',
+              params:[{
+                chainId: wanted,
+                chainName,
+                rpcUrls:[rpcViaInfura],
+                nativeCurrency
+              }]
+            });
+            networkOk = true; return true;
+          }catch(addErr){}
+        }
+        networkOk = false; return false;
+      }
+    }
+
+    /* ---------- connect ---------- */
+    async function connect(){
+      if(!window.ethereum){ alert('MetaMask (or compatible) not detected.'); return; }
+      await ensureCorrectChain();
+      try{
+        const accs = await window.ethereum.request({ method:'eth_requestAccounts' });
+        account = ethers.utils.getAddress(accs[0]);
+        provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+        signer   = provider.getSigner();
+        setBtn(short(account), 'btn-success');
+        emit('wallet:connected', { account, provider, signer });
+      }catch(err){
+        console.error(err);
+      }
+    }
+
+    /* ---------- auto-reconnect ---------- */
+    if(window.ethereum && localStorage.getItem('PQ_AUTO_CONNECT')==='1'){
+      connect();
+    }
+
+    on('wallet:connected', () => {
+      localStorage.setItem('PQ_AUTO_CONNECT','1');
+    });
+
+    /* ---------- event listeners ---------- */
+    if(window.ethereum){
+      window.ethereum.on('accountsChanged', (accs)=>{
+        if(accs.length){ connect(); } else { disconnect(); }
+      });
+      window.ethereum.on('chainChanged', () => location.reload());
+    }
+
+    function disconnect(){
+      account = signer = provider = undefined;
+      localStorage.removeItem('PQ_AUTO_CONNECT');
+      setBtn('Connect Wallet', 'btn-outline-light');
+      emit('wallet:disconnected');
+    }
+
+    /* ---------- contract factories ---------- */
+    function pqContract(){
+      const { address, abi } = contracts.punkQuest;
+      return signer
+        ? new ethers.Contract(address, abi, signer)
+        : new ethers.Contract(address, abi, staticProvider);
+    }
+    function nftContract(){
+      const { address, abi } = contracts.punkNFT;
+      return signer
+        ? new ethers.Contract(address, abi, signer)
+        : new ethers.Contract(address, abi, staticProvider);
+    }
+    function rewardTokenContract(){
+      const { address, abi } = contracts.rewardToken;
+      return signer
+        ? new ethers.Contract(address, abi, signer)
+        : new ethers.Contract(address, abi, staticProvider);
+    }
+
+    /* ---------- public API ---------- */
+    window.PQ_WALLET = {
+      /* state */
+      get account(){ return account; },
+      get provider(){ return provider || staticProvider; },
+      get signer(){ return signer; },
+      /* actions */
+      connect, disconnect, ensureCorrectChain,
+      /* contracts */
+      pqContract, nftContract, rewardTokenContract,
+      /* event bus */
+      on, off
+    };
+
+    /* ---------- init button ---------- */
+    btn().addEventListener('click', connect);
+  })();
+  </script>
+  <!-- ───────── END SECTION 4 ───────── -->
+
+  <!-- Global scripts placeholder — every JS section is concatenated below -->
+  <script id="GLOBAL-SCRIPTS"></script>
 </body>
 </html>
