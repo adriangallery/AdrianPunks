@@ -982,17 +982,51 @@
     btnCO.addEventListener('click', async ()=>{
       const ids  = Array.from(cart.keys());
       const qtys = ids.map(id => cart.get(id));
-      try{
+      
+      // Calcular precio total
+      let total = ethers.BigNumber.from(0);
+      for (const [id, qty] of cart) {
+        const price = cache.items[id].price.mul(qty);
+        total = total.add(price);
+      }
+      
+      try {
         btnCO.disabled = true;
-        const tx = await pqContract().batchBuyItems(ids, qtys);
+        btnCO.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+        
+        // Obtener contrato de token $ADRIAN
+        const tokenContract = PQ_WALLET.rewardTokenContract();
+        const questContract = pqContract();
+        
+        // Verificar si necesitamos aprobación
+        const currentAllowance = await retryOnRateLimit(() => 
+          tokenContract.allowance(PQ_WALLET.account, questContract.address)
+        );
+        
+        // Si la aprobación actual es menor que el total, solicitar nueva aprobación
+        if (currentAllowance.lt(total)) {
+          PQ_UTIL.toast('Aprobando tokens $ADRIAN para la compra...', true);
+          
+          // Aprobar el token para gastar
+          const approveTx = await tokenContract.approve(questContract.address, total);
+          await approveTx.wait();
+          
+          PQ_UTIL.toast('¡Aprobación completada!', true);
+        }
+        
+        // Realizar la compra
+        const tx = await questContract.batchBuyItems(ids, qtys);
         await tx.wait();
-        PQ_UTIL.toast('Purchase complete!');
-        cart.clear(); renderCart();
-        PQ_STATE.loadInventory();                  // refresca inventario
-      }catch(err){
-        PQ_UTIL.toast(err.message||err,false);
-      }finally{
+        PQ_UTIL.toast('¡Compra completada!', true);
+        cart.clear(); 
+        renderCart();
+        PQ_STATE.loadInventory();
+      } catch (err) {
+        console.error("Error en checkout:", err);
+        PQ_UTIL.toast(err.message || err, false);
+      } finally {
         btnCO.disabled = false;
+        btnCO.textContent = cart.size ? `Checkout – ${fmt(total)}` : 'Checkout';
       }
     });
 
