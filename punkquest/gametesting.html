@@ -967,6 +967,33 @@
         : 'Checkout';
     }
 
+    /* ▸ Utility para manejar límites de tasa ------------------------------------ */
+    const retryContractCall = async (fn, maxRetries = 3) => {
+      let lastError;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          return await fn();
+        } catch (error) {
+          lastError = error;
+          // Verificar si es un error de límite de tasa
+          if (error?.message?.includes('429') || 
+              error?.error?.message?.includes('rate limit') ||
+              error?.data?.error?.message?.includes('rate limit')) {
+            console.warn(`Rate limit alcanzado, reintento ${attempt+1}/${maxRetries}...`);
+            // Esperar un tiempo cada vez mayor entre reintentos
+            await new Promise(resolve => 
+              setTimeout(resolve, 2000 * (attempt + 1))
+            );
+            continue;
+          }
+          // Si no es error de límite de tasa, lanzar el error
+          throw error;
+        }
+      }
+      // Si llegamos aquí, todos los reintentos fallaron
+      throw lastError;
+    };
+
     /* ▸ Events --------------------------------------------------------------- */
     grid.addEventListener('click', e=>{
       const id = e.target.dataset.add;
@@ -999,7 +1026,7 @@
         const questContract = pqContract();
         
         // Verificar si necesitamos aprobación
-        const currentAllowance = await retryOnRateLimit(() => 
+        const currentAllowance = await retryContractCall(() => 
           tokenContract.allowance(PQ_WALLET.account, questContract.address)
         );
         
