@@ -349,6 +349,127 @@
   </script>
   <!-- ───────── END SECTION 4 ───────── -->
 
+  <!-- ───────── SECTION 5: STATE & HELPERS ───────── -->
+  <script id="PQ-STATE">
+  /*  Light-weight cache layer that wraps PunkQuest reads so every
+      screen can grab fresh data with one-liners like:
+          await PQ_STATE.refreshGlobal();
+          const t = await PQ_STATE.getToken(42);                     */
+
+  (() => {
+    const WALLET = window.PQ_WALLET;
+    const bus    = new EventTarget();                    /* mini pub-sub */
+
+    /* ---------- in-memory cache ---------- */
+    const cache = {
+      global   : {},           /* { staked, base, socialEnd } */
+      wallet   : {},           /* { stakedIds, passive, game } */
+      tokens   : {},           /* tokenId → detailed info     */
+      items    : {},           /* itemId  → template meta      */
+      inventory: {}            /* wallet → { itemId:qty }      */
+    };
+
+    /* ---------- helper: emit events ---------- */
+    const emit = (t, d={}) => bus.dispatchEvent(new CustomEvent(t,{detail:d}));
+
+    /* ---------- GLOBAL STATS ---------- */
+    async function refreshGlobal() {
+      const [staked, base, socialEnd] = await WALLET.pqContract().getGlobalStats();
+      cache.global = { staked: staked.toString(), base: base.toString(), socialEnd: Number(socialEnd) };
+      emit('state:global', cache.global);
+      return cache.global;
+    }
+
+    /* ---------- WALLET-LEVEL AGGREGATES ---------- */
+    async function refreshWallet(tokenIds = []) {
+      if (!WALLET.account) return {};
+      const [ids, passive, game] = await WALLET.pqContract()
+        .getWalletStats(WALLET.account, tokenIds);
+      cache.wallet = { stakedIds: ids.map(n => Number(n)), passive, game };
+      emit('state:wallet', cache.wallet);
+      return cache.wallet;
+    }
+
+    /* ---------- SINGLE TOKEN DETAILS ---------- */
+    async function getToken(id) {
+      if (cache.tokens[id]) return cache.tokens[id];
+
+      const pq = WALLET.pqContract();
+      const [passive, game]                         = await pq.getTokenStats(id);
+      const [stakeStart, lastClaim, fast, itemsB,
+             spec, fix, pending]                    = await pq.getTokenDetailedInfo(id);
+      const [weapon, armor, extras, lastEvent]      = await pq.getTokenArmoryDetails(id);
+
+      cache.tokens[id] = {
+        passive, game, stakeStart, lastClaim, fast,
+        itemsBonus: itemsB, spec, fix, pending,
+        weapon, armor, extras, lastEvent
+      };
+      emit('state:token', { id, data: cache.tokens[id] });
+      return cache.tokens[id];
+    }
+
+    /* ---------- STORE TEMPLATES ---------- */
+    async function loadStoreTemplates(maxToScan = 60) {
+      if (Object.keys(cache.items).length) return cache.items;      // already cached
+      const pq = WALLET.pqContract();
+
+      for (let i = 1; i <= maxToScan; i++) {
+        try {
+          const itm = await pq.items(i);
+          if (!itm.exists) break;                                  // stop at first gap
+          cache.items[i] = {
+            id: i,
+            price: itm.price,
+            bonus: itm.bonus,
+            durability: itm.durability,
+            type: itm.itemType,
+            degradable: itm.degradable
+          };
+        } catch { break; }
+      }
+      emit('state:items', cache.items);
+      return cache.items;
+    }
+
+    /* ---------- PLAYER INVENTORY (TEMPLATE ITEMS) ---------- */
+    async function loadInventory(address = WALLET.account) {
+      if (!address) return {};
+      if (cache.inventory[address]) return cache.inventory[address];
+      await loadStoreTemplates();                                  // ensure we know template IDs
+      const inv = {};
+      const pq  = WALLET.pqContract();
+      for (const id of Object.keys(cache.items)) {
+        const bal = await pq.inventory(address, id);
+        if (bal.gt(0)) inv[id] = bal;
+      }
+      cache.inventory[address] = inv;
+      emit('state:inventory', { owner: address, data: inv });
+      return inv;
+    }
+
+    /* ---------- External API ---------- */
+    window.PQ_STATE = {
+      cache,
+      /* event helpers */     on: (t, f) => bus.addEventListener(t, f),
+                              off: (t, f) => bus.removeEventListener(t, f),
+      /* fetchers */          refreshGlobal,
+                              refreshWallet,
+                              getToken,
+                              loadStoreTemplates,
+                              loadInventory
+    };
+
+    /* ---------- auto-refresh when wallet connects ---------- */
+    WALLET.on('wallet:connected', () => {
+      refreshGlobal();
+      refreshWallet();
+      loadInventory();
+    });
+  })();
+  </script>
+  <!-- ───────── END SECTION 5 ───────── -->
+
   <!-- Global scripts placeholder — every JS section is concatenated below -->
   <script id="GLOBAL-SCRIPTS"></script>
 </body>
