@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Punk Quest DApp</title>
+
+  <!-- --- CSS frameworks & fonts --- -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap">
+
+  <!-- Global style placeholder — Section 12 will be pasted here -->
+  <style id="GLOBAL-STYLES"></style>
+</head>
+
+<body class="bg-dark text-light" style="font-family:'Share Tech Mono', monospace;">
+  <!-- Menu placeholder — Section 3 will inject HTML here -->
+  <nav id="MAIN-MENU"></nav>
+
+  <!-- Router outlet where each screen template mounts -->
+  <main id="APP" class="container py-4"></main>
+
+  <!-- Global scripts placeholder — every JS section is concatenated below -->
+  <script id="GLOBAL-SCRIPTS"></script>
+
+  <!-- Ethers (UMD build) for provider / signer utilities -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
+  <!-- ───────── SECTION 2: PUNK QUEST CONFIG ───────── -->
+  <script id="PQ-CONFIG">
+  /*  Replace ALL "0x…" placeholders and YOUR_INFURA_KEY_HERE
+      with your real addresses / keys before deploying.          */
+
+  (() => {
+    /* Core ABIs – only the functions/events we actually call */
+    const PUNK_QUEST_ABI = [
+      // staking & rewards
+      "function stake(uint256 id)",
+      "function batchStake(uint256[] ids)",
+      "function claimRewards(uint256 id) returns (uint256)",
+      "function batchClaimRewards(uint256[] ids) returns (uint256)",
+      "function unstake(uint256 id)",
+      "function batchUnstake(uint256[] ids)",
+      "function purchaseFastLevelUpgrade(uint256 id)",
+      // views
+      "function pendingPassiveReward(uint256 id) view returns (uint256)",
+      "function pendingGameReward(uint256 id) view returns (uint256)",
+      "function pendingTotalReward(uint256 id) view returns (uint256)",
+      "function getTokenStats(uint256 id) view returns (uint256 passive,uint256 game)",
+      "function getWalletStats(address w,uint256[] tokenIds) view returns (uint256[] stakedIds,uint256 pendingPassive,uint256 pendingGame)",
+      "function getGlobalStats() view returns (uint256 staked,uint256 base,uint256 socialEnd)",
+      // store / armory (templates + instances)
+      "function buyItem(uint256 id,uint256 qty)",
+      "function batchBuyItems(uint256[] ids,uint256[] qtys)",
+      "function equipItem(uint256 tokenId,uint256 itemId)",
+      "function equipItemInstance(uint256 tokenId,uint256 instId)",
+      "function equipExtraItemInstance(uint256 tokenId,uint256 instId)",
+      "function batchArmoryActionsInstances(uint256[] tokenIds,uint8[] acts,uint256[] insts,uint256[] idxs)",
+      "function purchaseExtraSlots(uint256 tokenId,uint256 qty)",
+      "function repairItem(uint256 inst,uint256 tokenId)",
+      // detail helpers
+      "function getTokenArmoryDetails(uint256 id) view returns (uint256 weapon,uint256 armor,uint256[] extras,uint256 lastEvent)"
+    ];
+
+    const PUNK_NFT_ABI = [
+      "function ownerOf(uint256 tokenId) view returns (address)"
+    ];
+
+    const ERC20_ABI = [
+      "function balanceOf(address) view returns (uint256)",
+      "function allowance(address,address) view returns (uint256)",
+      "function approve(address,uint256) returns (bool)",
+      "function decimals() view returns (uint8)"
+    ];
+
+    /* Enumeration helpers for quick look-ups in Armory UI */
+    const ENUMS = {
+      ArmoryActionType:        { EquipDefault: 0, EquipExtra: 1, UnequipExtra: 2, UnequipAll: 3 },
+      AdvancedArmoryActionType:{ EquipDefault: 0, EquipExtra: 1, UnequipExtra: 2, UnequipAll: 3 }
+    };
+
+    /* Public, mutable DApp-wide config object */
+    window.PQ_CONFIG = {
+      /* ── network ── */
+      chainId:        1,                         // 1 = Ethereum Mainnet
+      chainName:      "Ethereum Mainnet",
+      rpcViaInfura:   "https://mainnet.infura.io/v3/YOUR_INFURA_KEY_HERE",
+      explorer:       "https://etherscan.io",
+      nativeCurrency: { name:"Ether", symbol:"ETH", decimals:18 },
+
+      /* ── contracts ── */
+      contracts: {
+        punkQuest: {
+          address: "0xPUNKQUEST_ADDRESS",
+          abi:     PUNK_QUEST_ABI
+        },
+        punkNFT: {
+          address: "0xPUNK_NFT_ADDRESS",
+          abi:     PUNK_NFT_ABI
+        },
+        rewardToken: {
+          address: "0xREWARD_TOKEN_ADDRESS",
+          abi:     ERC20_ABI
+        }
+      },
+
+      /* ── ui helpers ── */
+      enums: ENUMS,
+
+      /* ── misc constants ── */
+      gasLimitBuffer: 1.15                       // add 15 % head-room to estimated gas
+    };
+  })();
+  </script>
+  <!-- ───────── END SECTION 2 ───────── -->
+</body>
+</html>
