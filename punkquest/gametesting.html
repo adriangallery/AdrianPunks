@@ -78,6 +78,10 @@
       "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)"
     ];
 
+    const MULTICALL_ABI = [
+      "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"
+    ];
+
     const ERC20_ABI = [
       "function balanceOf(address) view returns (uint256)",
       "function allowance(address,address) view returns (uint256)",
@@ -114,6 +118,10 @@
         rewardToken: {
           address: "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea",
           abi:     ERC20_ABI
+        },
+        multicall: {
+          address: "0xcA11bde05977b3631167028862bE2a173976CA11", // Multicall3 en todas las redes
+          abi:     MULTICALL_ABI
         }
       },
 
@@ -378,6 +386,10 @@
         ? new ethers.Contract(address, abi, signer)
         : new ethers.Contract(address, abi, staticProvider);
     }
+    function multicallContract(){
+      const { address, abi } = contracts.multicall;
+      return new ethers.Contract(address, abi, provider || staticProvider);
+    }
 
     /* ---------- public API ---------- */
     window.PQ_WALLET = {
@@ -388,7 +400,7 @@
       /* actions */
       connect, disconnect, ensureCorrectChain,
       /* contracts */
-      pqContract, nftContract, rewardTokenContract,
+      pqContract, nftContract, rewardTokenContract, multicallContract,
       /* event bus */
       on, off
     };
@@ -1314,34 +1326,65 @@
           return;
         }
         
-        // Intentamos buscar hasta 100 tokens
-        const tokens = [];
-        for (let i = 1; i <= 100; i++) {
-          try {
-            const owner = await retryRead(() => nftContract.ownerOf(i));
-            if (owner.toLowerCase() === WAL.account.toLowerCase()) {
-              tokens.push(i);
-            }
-          } catch (err) {
-            // Si da error por no existir el token, lo ignoramos
-            if (!err.message.includes('owner query for nonexistent token')) {
-              console.warn(`Error al consultar token #${i}:`, err);
+        // Obtenemos el balance de tokens
+        const balance = await retryRead(() => nftContract.balanceOf(WAL.account));
+        const totalTokens = balance.toNumber();
+        
+        if (totalTokens === 0) {
+          punksWallet.innerHTML = '<div class="alert alert-info">No posees ningún AdrianPunk</div>';
+          return;
+        }
+        
+        // Configuramos Multicall para obtener todos los IDs en una sola llamada
+        const multicall = WAL.multicallContract();
+        
+        // Preparamos las llamadas para TokenOfOwnerByIndex
+        const calls = [];
+        for (let i = 0; i < totalTokens; i++) {
+          calls.push({
+            target: PQ_CONFIG.contracts.punkNFT.address,
+            allowFailure: true,
+            callData: nftContract.interface.encodeFunctionData('tokenOfOwnerByIndex', [WAL.account, i])
+          });
+        }
+        
+        // Ejecutamos todas las llamadas en una sola transacción
+        let tokenIds = [];
+        try {
+          // Intentamos primero con multicall
+          const results = await retryRead(() => multicall.aggregate3(calls));
+          tokenIds = results
+            .filter(result => result.success)
+            .map(result => {
+              const decoded = nftContract.interface.decodeFunctionResult('tokenOfOwnerByIndex', result.returnData);
+              return decoded[0];
+            });
+        } catch (multicallError) {
+          console.warn("Error con multicall, usando método alternativo:", multicallError);
+          // Fallback - si multicall falla, usamos el método individual
+          tokenIds = [];
+          for (let i = 0; i < totalTokens; i++) {
+            try {
+              const tokenId = await retryRead(() => nftContract.tokenOfOwnerByIndex(WAL.account, i));
+              tokenIds.push(tokenId);
+            } catch (err) {
+              console.error(`Error al consultar token #${i}:`, err);
             }
           }
         }
         
-        if (tokens.length === 0) {
-          punksWallet.innerHTML = '<div class="alert alert-info">No posees ningún AdrianPunk</div>';
+        if (tokenIds.length === 0) {
+          punksWallet.innerHTML = '<div class="alert alert-info">No se pudieron cargar tus AdrianPunks</div>';
           return;
         }
         
         // Mostramos los tokens
         punksWallet.innerHTML = '';
-        tokens.forEach(tokenId => {
+        tokenIds.forEach(tokenId => {
           const btn = document.createElement('button');
           btn.className = 'btn btn-outline-secondary punk-select';
-          btn.dataset.id = tokenId;
-          btn.textContent = `#${tokenId}`;
+          btn.dataset.id = tokenId.toString();
+          btn.textContent = `#${tokenId.toString()}`;
           btn.addEventListener('click', () => showPunkDetails(tokenId));
           punksWallet.appendChild(btn);
         });
@@ -1374,15 +1417,40 @@
         detailEvent.innerHTML = '<div class="spinner-border spinner-border-sm"></div>';
         punkDetails.style.display = 'block';
         
-        // Obtener detalles del armory
+        // Obtenemos los contratos necesarios
         const pqContract = WAL.pqContract();
+        const multicall = WAL.multicallContract();
+        
         if (!pqContract) {
           throw new Error('Contrato PunkQuest no inicializado');
         }
         
-        const [weapon, armor, extras, lastEvent] = await retryRead(() => 
-          pqContract.getTokenArmoryDetails(tokenId)
-        );
+        let weapon, armor, extras, lastEvent;
+        
+        try {
+          // Intentamos usar multicall primero (más eficiente)
+          const calls = [{
+            target: PQ_CONFIG.contracts.punkQuest.address,
+            allowFailure: false,
+            callData: pqContract.interface.encodeFunctionData('getTokenArmoryDetails', [tokenId])
+          }];
+          
+          const results = await retryRead(() => multicall.aggregate3(calls));
+          if (results[0].success) {
+            [weapon, armor, extras, lastEvent] = pqContract.interface.decodeFunctionResult(
+              'getTokenArmoryDetails', 
+              results[0].returnData
+            );
+          } else {
+            throw new Error('Multicall falló');
+          }
+        } catch (multicallError) {
+          console.warn("Error con multicall, usando método directo:", multicallError);
+          // Fallback a método directo
+          [weapon, armor, extras, lastEvent] = await retryRead(() => 
+            pqContract.getTokenArmoryDetails(tokenId)
+          );
+        }
         
         // Actualizar UI con los detalles
         detailWeapon.textContent = weapon.toString() === '0' ? '–' : weapon.toString();
