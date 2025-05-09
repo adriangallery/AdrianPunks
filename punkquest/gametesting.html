@@ -615,17 +615,25 @@
         const pq = WALLET.pqContract();
         console.log("Cargando instancias para cuenta actual:", WALLET.account);
         
-        // Llamada correcta - NO pasamos ningún parámetro para que use msg.sender
+        // Llamada correcta - pasamos la dirección como parámetro
         let instances = [];
         let ids = [];
         
         try {
-          // IMPORTANTE: Llamamos sin parámetros para que use msg.sender internamente
-          console.log("Llamando a getOwnedInstances() sin parámetros");
-          ids = await retryOnRateLimit(() => pq.getOwnedInstances());
+          // IMPORTANTE: Llamamos con la dirección como parámetro
+          console.log("Llamando a getOwnedInstances(address)");
+          ids = await retryOnRateLimit(
+            () => pq.getOwnedInstances(address),
+            /*maxRetries*/ 5               // ← sube a 5
+          );
           console.log("Instancias encontradas:", ids.length, ids);
         } catch (getOwnedError) {
-          console.error("Error obteniendo instancias:", getOwnedError);
+          // Diferencia los errores para no spamear la consola
+          if (getOwnedError?.message?.includes('429')) {
+            console.warn('Rate-limit al leer instancias');
+          } else {
+            console.error("Error real al leer instancias:", getOwnedError);
+          }
           
           // Si falla, intentar buscar instancias individualmente (para debug)
           try {
@@ -679,7 +687,12 @@
         
         return cache.instances[address];
       } catch (error) {
-        console.error("Error loading instances:", error);
+        // Diferencia los errores para no spamear la consola
+        if (error?.message?.includes('429')) {
+          console.warn('Rate-limit al cargar instancias');
+        } else {
+          console.error("Error real al cargar instancias:", error);
+        }
         // Devolvemos la caché anterior si existe, o array vacío
         return cache.instances?.[address] || [];
       }
