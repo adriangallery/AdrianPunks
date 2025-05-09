@@ -615,18 +615,48 @@
         const pq = WALLET.pqContract();
         console.log("Cargando instancias para cuenta actual:", WALLET.account);
         
-        // Llamada correcta - pasamos la dirección como parámetro
-        let instances = [];
-        let ids = [];
-        
         try {
-          // IMPORTANTE: Llamamos con la dirección como parámetro
+          // 1. Obtener todos los IDs de instancias del usuario
           console.log("Llamando a getOwnedInstances(address)");
-          ids = await retryOnRateLimit(
+          const ids = await retryOnRateLimit(
             () => pq.getOwnedInstances(address),
-            /*maxRetries*/ 5               // ← sube a 5
+            /*maxRetries*/ 5
           );
           console.log("Instancias encontradas:", ids.length, ids);
+          
+          // Si no hay IDs, devolver un array vacío pero conservar la caché anterior
+          if (!ids || ids.length === 0) {
+            console.log("No se encontraron instancias");
+            // Mantenemos las instancias anteriores si existen
+            return cache.instances?.[address] || [];
+          }
+          
+          // 2. Obtener detalles de todas las instancias en paralelo
+          console.log("Obteniendo detalles de instancias en paralelo...");
+          const details = await Promise.all(
+            ids.map(id => retryOnRateLimit(() => pq.getInstanceDetails(id)))
+          );
+          
+          // 3. Mapear los resultados a un formato más amigable
+          const instances = ids.map((id, i) => ({
+            instanceId: id.toString(),
+            templateId: details[i][0].toString(),
+            durability: details[i][1].toNumber(),
+            equipped: details[i][2],
+            lastEvent: details[i][3].toString(),
+            needsRepair: details[i][1].toNumber() === 0
+          }));
+          
+          // Actualizar caché y emitir evento
+          cache.instances = cache.instances || {};
+          cache.instances[address] = instances;
+          
+          if (instances.length > 0) {
+            emit('state:instances', { address, instances });
+            console.log(`${instances.length} instancias cargadas correctamente`);
+          }
+          
+          return instances;
         } catch (getOwnedError) {
           // Diferencia los errores para no spamear la consola
           if (getOwnedError?.message?.includes('429')) {
@@ -635,57 +665,9 @@
             console.error("Error real al leer instancias:", getOwnedError);
           }
           
-          // Si falla, intentar buscar instancias individualmente (para debug)
-          try {
-            console.log("Intentando obtener instancias manualmente...");
-            // Podríamos implementar un método alternativo si fuera necesario
-          } catch (eventError) {
-            console.error("Error obteniendo instancias alternativo:", eventError);
-          }
-        }
-        
-        // Si no hay IDs, devolver un array vacío pero conservar la caché anterior
-        if (!ids || ids.length === 0) {
-          console.log("No se encontraron instancias");
-          // Mantenemos las instancias anteriores si existen
+          // Si falla, mantener la caché anterior
           return cache.instances?.[address] || [];
         }
-        
-        const arr = [];
-        
-        // Para cada instancia, obtener sus detalles
-        for(const inst of ids){
-          try {
-            console.log("Cargando detalles de instancia:", inst.toString());
-            const [tpl, dur, equipped, lastEvent] = await retryOnRateLimit(() => 
-              pq.getInstanceDetails(inst)
-            );
-            
-            arr.push({ 
-              instanceId: inst.toString(), 
-              templateId: tpl.toString(),
-              durability: dur.toNumber(), 
-              equipped: equipped,
-              lastEvent: lastEvent.toString(),
-              needsRepair: dur.toNumber() === 0
-            });
-          } catch (err) {
-            console.error(`Error loading instance ${inst}:`, err);
-          }
-        }
-        
-        // Solo actualizamos el cache si encontramos instancias
-        if (arr.length > 0) {
-          cache.instances = cache.instances || {};
-          cache.instances[address] = arr;
-          emit('state:instances', { address, instances: arr });
-        } else if (!cache.instances?.[address]) {
-          // Si no había caché previa, inicializamos con array vacío
-          cache.instances = cache.instances || {};
-          cache.instances[address] = [];
-        }
-        
-        return cache.instances[address];
       } catch (error) {
         // Diferencia los errores para no spamear la consola
         if (error?.message?.includes('429')) {
