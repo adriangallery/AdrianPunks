@@ -1151,85 +1151,19 @@
         const tx = await questContract.batchBuyItems(ids, qtys);
         const receipt = await tx.wait();
         
-        // Capturar eventos ItemPurchasedInStore para todas las instancias creadas
-        console.log("Procesando transacción:", tx.hash);
-        console.log("Eventos de transacción:", receipt.events);
-        
-        // Método 1: Intentar encontrar eventos parseando logs
-        let instancesFound = false;
-        
-        try {
-          const eventInterface = new ethers.utils.Interface([
-            "event ItemPurchasedInStore(address indexed user, uint256 templateId, uint256 instanceId)"
-          ]);
-          
-          for (const log of receipt.logs) {
-            try {
-              const parsedLog = eventInterface.parseLog(log);
-              if (parsedLog.name === 'ItemPurchasedInStore') {
-                const user = parsedLog.args.user.toLowerCase();
-                // Verificamos que el evento sea para nuestro usuario
-                if (user === PQ_WALLET.account.toLowerCase()) {
-                  const templateId = parsedLog.args.templateId.toString();
-                  const instanceId = parsedLog.args.instanceId.toString();
-                  
-                  console.log(`Instancia encontrada: Template ${templateId}, Instancia ${instanceId}`);
-                  
-                  // Buscar el template para obtener información adicional
-                  const template = cache.items[templateId];
-                  
-                  // Agregar la nueva instancia a la caché
-                  cache.instances = cache.instances || {};
-                  cache.instances[PQ_WALLET.account] = cache.instances[PQ_WALLET.account] || [];
-                  cache.instances[PQ_WALLET.account].push({
-                    instanceId,
-                    templateId,
-                    durability: template?.durability || 0,
-                    equipped: false,
-                    lastEvent: "0",
-                    needsRepair: false
-                  });
-                  
-                  instancesFound = true;
-                }
-              }
-            } catch (parseError) {
-              // Ignoramos errores de parsing - probablemente no sea nuestro evento
-              console.log("No es un evento ItemPurchasedInStore");
-            }
-          }
-        } catch (eventError) {
-          console.error("Error procesando eventos:", eventError);
+        // 1) limpia caché para este usuario
+        if (PQ_STATE.cache.instances) {
+          delete PQ_STATE.cache.instances[PQ_WALLET.account];
         }
         
-        // Método 2: Forzar recarga completa de instancias
-        PQ_UTIL.toast('Consultando instancias...', true);
-        
-        // Forzar recarga de instancias
-        try {
-          // Limpiamos caché para asegurar recarga completa
-          if (cache.instances && cache.instances[PQ_WALLET.account]) {
-            delete cache.instances[PQ_WALLET.account];
-          }
-          
-          // Esperamos 2 segundos para dar tiempo a la blockchain
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          // Cargamos instancias frescos
-          await loadInstances(PQ_WALLET.account, true);
-          
-          // Si hay instancias, consideramos exitosa la operación
-          if (cache.instances?.[PQ_WALLET.account]?.length > 0) {
-            instancesFound = true;
-          }
-        } catch (loadError) {
-          console.error("Error cargando instancias:", loadError);
+        // 2) vuelve a cargar y repinta
+        await PQ_STATE.loadInstances(PQ_WALLET.account, true);
+        PQ_UTIL.toast('Instancias actualizadas ✅', true);
+        if (location.hash === '#/armory') {
+          window.paintInventory?.();   // expuesta desde PQ-ARMORY
         }
         
-        PQ_UTIL.toast(instancesFound ? 
-          '¡Compra completada! Instancias añadidas a tu inventario.' :
-          '¡Compra completada! Consulta tu inventario en la sección Armory.',
-          true);
+        // 3) no emitimos eventos de compra aquí
         
         cart.clear(); 
         renderCart();
@@ -1915,6 +1849,9 @@
       paintPunks();
       loadWalletPunks();
     }
+    
+    // Exponemos la función paintInventory para poder llamarla desde otros módulos
+    window.paintInventory = paintInventory;
   })();
   </script>
 
