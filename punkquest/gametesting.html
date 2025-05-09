@@ -1296,50 +1296,61 @@
 
     /* --- cargar los AdrianPunks disponibles --- */
     async function loadWalletPunks() {
-      if (!WAL.account) {
-        punksWallet.innerHTML = '<div class="alert alert-secondary">Conecta tu wallet para ver tus AdrianPunks</div>';
-        return;
-      }
-
       punksWallet.innerHTML = '<div class="spinner-border text-light" role="status"><span class="visually-hidden">Cargando...</span></div>';
       
       try {
-        // Creamos contrato NFT
-        const nftContract = WAL.nftContract();
-        
-        // Intentamos buscar hasta 100 tokens
-        const tokens = [];
-        for (let i = 1; i <= 100; i++) {
-          try {
-            const owner = await retryRead(() => nftContract.ownerOf(i));
-            if (owner.toLowerCase() === WAL.account.toLowerCase()) {
-              tokens.push(i);
-            }
-          } catch (err) {
-            // Si da error por no existir el token, lo ignoramos
-            if (!err.message.includes('owner query for nonexistent token')) {
-              console.warn(`Error al consultar token #${i}:`, err);
-            }
-          }
-        }
-        
-        if (tokens.length === 0) {
-          punksWallet.innerHTML = '<div class="alert alert-secondary">No posees ningún AdrianPunk</div>';
+        if (!WAL.account) {
+          punksWallet.innerHTML = '<div class="alert alert-warning">Conecta tu wallet para ver tus AdrianPunks</div>';
           return;
         }
         
-        // Mostramos los tokens
+        const pqContract = WAL.pqContract;
+        const adrianPunksContract = WAL.nftContract;
+        
+        if (!pqContract || !adrianPunksContract) {
+          punksWallet.innerHTML = '<div class="alert alert-warning">Error al cargar contratos</div>';
+          return;
+        }
+        
+        // Obtener cantidad de tokens del usuario
+        const balanceBN = await retryRead(() => adrianPunksContract.balanceOf(WAL.account));
+        const balance = balanceBN.toNumber();
+        
+        if (balance === 0) {
+          punksWallet.innerHTML = '<div class="alert alert-info">No tienes AdrianPunks en tu wallet</div>';
+          return;
+        }
+        
+        // Limpiar área de tokens
         punksWallet.innerHTML = '';
-        tokens.forEach(tokenId => {
-          const btn = document.createElement('button');
-          btn.className = 'btn btn-outline-secondary punk-select';
-          btn.dataset.id = tokenId;
-          btn.innerHTML = `#${tokenId}`;
-          btn.addEventListener('click', () => showPunkDetails(tokenId));
-          punksWallet.appendChild(btn);
-        });
+        
+        // Cargar cada token
+        for (let i = 0; i < balance; i++) {
+          try {
+            // Obtener ID del token en la posición i
+            const tokenId = await retryRead(() => 
+              adrianPunksContract.tokenOfOwnerByIndex(WAL.account, i)
+            );
+            
+            // Crear botón para el token
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-outline-secondary punk-select';
+            btn.dataset.id = tokenId.toString();
+            btn.textContent = `#${tokenId.toString()}`;
+            btn.onclick = () => showPunkDetails(tokenId);
+            punksWallet.appendChild(btn);
+          } catch (err) {
+            console.error(`Error al cargar token #${i}:`, err);
+          }
+        }
+        
+        // Si hay tokens, seleccionar el primero automáticamente
+        if (punksWallet.children.length > 0) {
+          const firstTokenId = punksWallet.children[0].dataset.id;
+          showPunkDetails(firstTokenId);
+        }
       } catch (err) {
-        console.error("Error al cargar AdrianPunks:", err);
+        console.error('Error al cargar tokens del wallet:', err);
         punksWallet.innerHTML = '<div class="alert alert-danger">Error al cargar tus AdrianPunks</div>';
       }
     }
@@ -1362,8 +1373,13 @@
         punkDetails.style.display = 'block';
         
         // Obtener detalles del armory
+        const pqContract = WAL.pqContract;
+        if (!pqContract) {
+          throw new Error('Contrato no inicializado');
+        }
+        
         const [weapon, armor, extras, lastEvent] = await retryRead(() => 
-          WAL.pqContract().getTokenArmoryDetails(tokenId)
+          pqContract.getTokenArmoryDetails(tokenId)
         );
         
         // Actualizar UI con los detalles
