@@ -12,6 +12,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
   
+  <!-- Ethers.js para conectar wallet -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  
   <style>
     :root {
       --menu-bg: #1c1c1c;
@@ -26,6 +29,7 @@
       --border-color: #e5e8eb;
       --accent-purple: #8a2be2;
       --accent-purple-hover: #7a1dd2;
+      --navbar-height: 60px;
     }
     
     * {
@@ -41,6 +45,7 @@
       color: var(--text-primary);
       margin: 0;
       padding: 20px;
+      padding-top: calc(var(--navbar-height) + 20px);
     }
     
     .container {
@@ -183,6 +188,78 @@
       gap: 10px;
     }
     
+    /* Wallet Button Styles */
+    .btn-connect {
+      background-color: var(--accent-purple);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      display: block;
+      margin: 0 auto 20px;
+    }
+    
+    .btn-connect:hover {
+      background-color: var(--accent-purple-hover);
+      transform: translateY(-2px);
+    }
+    
+    .account-display {
+      display: inline-block;
+      background-color: #f0f0f0;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      margin-bottom: 20px;
+    }
+    
+    /* Navbar styling */
+    .navbar {
+      position: fixed;
+      width: 100%;
+      z-index: 1000;
+      top: 0;
+      left: 0;
+      margin: 0;
+      padding: 0;
+      background-color: #212529 !important;
+      border-bottom: 1px solid var(--menu-border);
+      height: var(--navbar-height);
+    }
+    
+    .navbar .container-fluid {
+      padding: 0 15px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+    }
+    
+    .token-symbol {
+      color: #fff !important;
+      font-size: 1.2rem !important;
+      letter-spacing: 1px;
+      text-shadow: 0 0 5px rgba(255,255,255,0.5);
+      margin: 0;
+      padding: 0;
+    }
+    
+    .nav-link {
+      padding: 15px 20px !important;
+      color: #fff !important;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.3s ease !important;
+    }
+    
+    .nav-link:hover {
+      background-color: rgba(255,255,255,0.1);
+      text-shadow: 0 0 5px rgba(255,255,255,0.5);
+    }
+    
     @media (max-width: 600px) {
       .container {
         padding: 15px;
@@ -194,8 +271,23 @@
   </style>
 </head>
 <body>
+  <!-- Menu Component -->
+  <div id="menu-container"></div>
+  
+  <!-- Main Content -->
   <div class="container">
     <h1>AdrianPunks Lambo Builder</h1>
+    
+    <!-- Connect Wallet Section -->
+    <div id="connect-section" class="text-center mb-4">
+      <button id="connectWalletBtn" class="btn-connect">Connect Wallet</button>
+    </div>
+    
+    <!-- Account Info Section (hidden by default) -->
+    <div id="account-section" class="text-center mb-4" style="display: none;">
+      <p>Connected Wallet:</p>
+      <div id="accountDisplay" class="account-display"></div>
+    </div>
     
     <div class="input-section">
       <div>
@@ -205,16 +297,40 @@
       
       <div class="image-selector">
         <div class="image-option">
-          <input type="radio" id="lambo-yellow" name="lambo-color" value="yellow" checked>
+          <input type="radio" id="lambo-yellow" name="lambo-color" value="YELLOW" checked>
           <label for="lambo-yellow">Yellow Lambo</label>
         </div>
         <div class="image-option">
-          <input type="radio" id="lambo-blue" name="lambo-color" value="blue">
+          <input type="radio" id="lambo-blue" name="lambo-color" value="BLUE">
           <label for="lambo-blue">Blue Lambo</label>
         </div>
         <div class="image-option">
-          <input type="radio" id="lambo-red" name="lambo-color" value="red">
+          <input type="radio" id="lambo-red" name="lambo-color" value="RED">
           <label for="lambo-red">Red Lambo</label>
+        </div>
+        <div class="image-option">
+          <input type="radio" id="lambo-black" name="lambo-color" value="BLACK">
+          <label for="lambo-black">Black Lambo</label>
+        </div>
+        <div class="image-option">
+          <input type="radio" id="lambo-white" name="lambo-color" value="WHITE">
+          <label for="lambo-white">White Lambo</label>
+        </div>
+        <div class="image-option">
+          <input type="radio" id="lambo-cyan" name="lambo-color" value="CYAN">
+          <label for="lambo-cyan">Cyan Lambo</label>
+        </div>
+        <div class="image-option">
+          <input type="radio" id="lambo-pink" name="lambo-color" value="PINKjpg">
+          <label for="lambo-pink">Pink Lambo</label>
+        </div>
+        <div class="image-option">
+          <input type="radio" id="lambo-snot" name="lambo-color" value="SNOT">
+          <label for="lambo-snot">Snot Lambo</label>
+        </div>
+        <div class="image-option">
+          <input type="radio" id="lambo-professorx" name="lambo-color" value="ProfessorX">
+          <label for="lambo-professorx">Professor X Lambo</label>
         </div>
       </div>
       
@@ -239,6 +355,61 @@
   
   <script>
     document.addEventListener('DOMContentLoaded', () => {
+      // Load the menu
+      fetch('/market/components/menu.html')
+        .then(response => response.text())
+        .then(html => {
+          document.getElementById('menu-container').innerHTML = html;
+          // Initialize Bootstrap's JavaScript for the menu
+          const menuScript = document.createElement('script');
+          menuScript.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js';
+          document.head.appendChild(menuScript);
+        })
+        .catch(error => console.error('Error loading menu:', error));
+      
+      // Wallet connection
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const connectWalletBtn = document.getElementById('connectWalletBtn');
+      const accountSection = document.getElementById('account-section');
+      const accountDisplay = document.getElementById('accountDisplay');
+      const connectSection = document.getElementById('connect-section');
+      
+      // Check if already connected
+      const checkConnection = async () => {
+        try {
+          const accounts = await provider.listAccounts();
+          if (accounts.length > 0) {
+            const address = accounts[0];
+            displayAccount(address);
+          }
+        } catch (error) {
+          console.error('Error checking connection:', error);
+        }
+      };
+      
+      // Display connected account
+      const displayAccount = (address) => {
+        accountDisplay.textContent = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+        connectSection.style.display = 'none';
+        accountSection.style.display = 'block';
+      };
+      
+      // Connect wallet function
+      connectWalletBtn.addEventListener('click', async () => {
+        try {
+          await provider.send("eth_requestAccounts", []);
+          const signer = provider.getSigner();
+          const address = await signer.getAddress();
+          displayAccount(address);
+        } catch (error) {
+          console.error('Error connecting wallet:', error);
+        }
+      });
+      
+      // Check if already connected on page load
+      checkConnection();
+      
+      // Lambo Builder Logic
       const tokenInput = document.getElementById('token-id');
       const generateBtn = document.getElementById('generate-btn');
       const downloadBtn = document.getElementById('download-btn');
@@ -249,12 +420,12 @@
       const loadingEl = document.getElementById('loading');
       const lamboOptions = document.getElementsByName('lambo-color');
       
-      // Set canvas size
-      canvas.width = 1200;
-      canvas.height = 675;
+      // Set canvas size to match the new lambo images aspect ratio (1500x500)
+      canvas.width = 1500;
+      canvas.height = 500;
       
       // Variables for images
-      let originalLamboImg = new Image();
+      let lamboImg = new Image();
       let punkImg = new Image();
       
       // Handle button click
@@ -277,7 +448,7 @@
         
         try {
           // Determine which lambo color is selected
-          let lamboColor = 'yellow';
+          let lamboColor = 'YELLOW';
           for (let option of lamboOptions) {
             if (option.checked) {
               lamboColor = option.value;
@@ -285,9 +456,9 @@
             }
           }
           
-          // Build the file paths
+          // Build the file paths - usando las nuevas imágenes
           const punkPath = `/market/adrianpunksimages/${tokenId}.png`;
-          const lamboPath = `/lambo.png`; // Usamos la imagen original lambo.png
+          const lamboPath = `/lambo-images/ADRIAN_LAMBO_${lamboColor}.jpg`;
           
           // Load the images
           const [punkImage, lamboImage] = await Promise.all([
@@ -297,10 +468,10 @@
           
           // Store the images for potential reuse
           punkImg = punkImage;
-          originalLamboImg = lamboImage;
+          lamboImg = lamboImage;
           
-          // Draw the images on the canvas with the selected color
-          drawCombinedImage(lamboColor);
+          // Draw the images on the canvas 
+          drawCombinedImage();
           
           // Show the preview section
           loadingEl.style.display = 'none';
@@ -312,51 +483,53 @@
         }
       }
       
-      function drawCombinedImage(lamboColor) {
+      function drawCombinedImage() {
         // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // First draw the Lambo
-        ctx.drawImage(originalLamboImg, 0, 0, canvas.width, canvas.height);
+        // First draw the Lambo (no need to apply color filter, we're using colored images)
+        ctx.drawImage(lamboImg, 0, 0, canvas.width, canvas.height);
         
-        // Apply color filter based on selection
-        const colorFilters = {
-          'yellow': { r: 1.2, g: 1.2, b: 0.2 },
-          'blue': { r: 0.2, g: 0.4, b: 1.2 },
-          'red': { r: 1.2, g: 0.2, b: 0.2 }
-        };
+        // Create a temporary canvas for processing the AdrianPunk image
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
         
-        // Apply tint to the Lambo
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        // Set the size for the temporary canvas
+        const punkSize = Math.min(canvas.width, canvas.height) * 0.28;
+        tempCanvas.width = punkSize;
+        tempCanvas.height = punkSize;
+        
+        // Draw the punk on the temporary canvas
+        tempCtx.drawImage(punkImg, 0, 0, punkSize, punkSize);
+        
+        // Get image data to process the background
+        const imageData = tempCtx.getImageData(0, 0, punkSize, punkSize);
         const data = imageData.data;
-        const filter = colorFilters[lamboColor];
         
-        // Only apply the filter to non-transparent pixels (the Lambo)
+        // Remove background color (#cccccc or #333333)
         for (let i = 0; i < data.length; i += 4) {
-          // Skip fully transparent pixels
-          if (data[i + 3] === 0) continue;
+          // Get pixel RGB values
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
           
-          // Get the average brightness to maintain shading
-          const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-          
-          // Apply the color with intensity preservation
-          data[i] = Math.min(255, avg * filter.r);     // Red
-          data[i + 1] = Math.min(255, avg * filter.g); // Green
-          data[i + 2] = Math.min(255, avg * filter.b); // Blue
+          // Check if the pixel is the background color (cccccc or 333333)
+          if ((r === 204 && g === 204 && b === 204) || // #cccccc
+              (r === 51 && g === 51 && b === 51)) {    // #333333
+            // Make this pixel fully transparent
+            data[i + 3] = 0;
+          }
         }
         
-        // Put the modified image data back to the canvas
-        ctx.putImageData(imageData, 0, 0);
+        // Put the processed image data back to the temporary canvas
+        tempCtx.putImageData(imageData, 0, 0);
         
-        // Calculate size for the punk (30% of the canvas instead of 20%)
-        const punkSize = Math.min(canvas.width, canvas.height) * 0.3;
+        // Calculate position for the punk
+        const punkX = (canvas.width - punkSize) / 2 - 39;
+        const punkY = (canvas.height - punkSize) / 2 - 94;
         
-        // Calculate position to center the punk, then move 35px left and 90px up
-        const punkX = (canvas.width - punkSize) / 2 - 35;
-        const punkY = (canvas.height - punkSize) / 2 - 90;
-        
-        // Draw Punk on top
-        ctx.drawImage(punkImg, punkX, punkY, punkSize, punkSize);
+        // Draw the processed punk on the main canvas
+        ctx.drawImage(tempCanvas, punkX, punkY, punkSize, punkSize);
       }
       
       function loadImage(src) {
@@ -376,7 +549,7 @@
         const tokenId = tokenInput.value;
         
         // Determine which lambo color is selected
-        let lamboColor = 'yellow';
+        let lamboColor = 'YELLOW';
         for (let option of lamboOptions) {
           if (option.checked) {
             lamboColor = option.value;
