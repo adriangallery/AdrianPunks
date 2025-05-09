@@ -340,6 +340,52 @@
     .menu-backdrop.active {
       display: block;
     }
+    
+    /* Forzar menú hamburguesa en todos los dispositivos, incluso en desktop */
+    .navbar-expand-lg .navbar-collapse {
+      display: none !important;
+    }
+    
+    .navbar-expand-lg .navbar-toggler {
+      display: block !important;
+    }
+    
+    .navbar-expand-lg .desktop-wallet-section {
+      display: none !important;
+    }
+    
+    .navbar-collapse {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background-color: #212529;
+      padding: 10px 0;
+      z-index: 1999;
+      border-top: 1px solid var(--menu-border);
+    }
+    
+    .navbar-toggler {
+      margin: 0;
+      border: 1px solid rgba(255,255,255,0.3) !important;
+      padding: 6px 10px;
+      z-index: 2000;
+    }
+    
+    .navbar-toggler-icon {
+      filter: invert(100%);
+    }
+    
+    .nav-link {
+      padding: 10px 15px !important;
+      width: 100%;
+      display: block;
+    }
+    
+    /* Fix para el botón de hamburguesa y el menú en todas las resoluciones */
+    .navbar-collapse.show {
+      display: block !important;
+    }
   </style>
 </head>
 <body>
@@ -435,11 +481,6 @@
         .then(html => {
           document.getElementById('menu-container').innerHTML = html;
           
-          // Crear backdrop para el menú móvil
-          const backdrop = document.createElement('div');
-          backdrop.className = 'menu-backdrop';
-          document.body.appendChild(backdrop);
-          
           // Asegurar que Bootstrap se cargue y se inicialice correctamente
           const bootstrapScript = document.createElement('script');
           bootstrapScript.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js';
@@ -447,59 +488,69 @@
           bootstrapScript.crossOrigin = "anonymous";
           
           bootstrapScript.onload = () => {
-            // Inicializar los elementos del menú después de que Bootstrap esté cargado
+            // Modificar el menú para forzar el comportamiento de hamburguesa en desktop
             const navbarToggler = document.querySelector('.navbar-toggler');
             const navbarCollapse = document.querySelector('.navbar-collapse');
-            const navLinks = document.querySelectorAll('.nav-link');
             
-            if (navbarToggler && navbarCollapse) {
-              // Asegurarse de que el menú esté cerrado al cargar
+            // Eliminar cualquier clase de expansión que pueda estar agregando Bootstrap
+            if (navbarCollapse) {
               navbarCollapse.classList.remove('show');
               
-              // Función para abrir/cerrar el menú
-              const toggleMenu = () => {
-                const isOpen = navbarCollapse.classList.contains('show');
-                
-                if (isOpen) {
-                  navbarCollapse.classList.remove('show');
-                  backdrop.classList.remove('active');
-                  document.body.style.overflow = '';
-                } else {
-                  navbarCollapse.classList.add('show');
-                  backdrop.classList.add('active');
-                  document.body.style.overflow = 'hidden'; // Prevenir scroll
-                }
-              };
+              // Forzar el formato de menú móvil
+              const navbarContainer = document.querySelector('.navbar');
+              if (navbarContainer) {
+                navbarContainer.classList.remove('navbar-expand-lg');
+              }
               
               // Corregir evento de clic en el botón hamburguesa
-              navbarToggler.addEventListener('click', (e) => {
-                e.preventDefault();
-                toggleMenu();
-              });
+              if (navbarToggler) {
+                // Remover cualquier listener existente
+                const newToggler = navbarToggler.cloneNode(true);
+                if (navbarToggler.parentNode) {
+                  navbarToggler.parentNode.replaceChild(newToggler, navbarToggler);
+                }
+                
+                // Aplicar el nuevo evento
+                newToggler.addEventListener('click', (e) => {
+                  e.preventDefault();
+                  navbarCollapse.classList.toggle('show');
+                  
+                  // Gestionar el backdrop
+                  let backdrop = document.querySelector('.menu-backdrop');
+                  if (!backdrop) {
+                    backdrop = document.createElement('div');
+                    backdrop.className = 'menu-backdrop';
+                    document.body.appendChild(backdrop);
+                    
+                    // Cerrar menú al hacer clic en el backdrop
+                    backdrop.addEventListener('click', () => {
+                      navbarCollapse.classList.remove('show');
+                      backdrop.classList.remove('active');
+                      document.body.style.overflow = '';
+                    });
+                  }
+                  
+                  if (navbarCollapse.classList.contains('show')) {
+                    backdrop.classList.add('active');
+                    document.body.style.overflow = 'hidden'; // Prevenir scroll
+                  } else {
+                    backdrop.classList.remove('active');
+                    document.body.style.overflow = '';
+                  }
+                });
+              }
               
               // Cerrar menú al hacer clic en cualquier enlace del menú
+              const navLinks = document.querySelectorAll('.nav-link');
               navLinks.forEach(link => {
                 link.addEventListener('click', () => {
                   navbarCollapse.classList.remove('show');
-                  backdrop.classList.remove('active');
+                  const backdrop = document.querySelector('.menu-backdrop');
+                  if (backdrop) {
+                    backdrop.classList.remove('active');
+                  }
                   document.body.style.overflow = '';
                 });
-              });
-              
-              // Cerrar menú al hacer clic en el backdrop
-              backdrop.addEventListener('click', () => {
-                navbarCollapse.classList.remove('show');
-                backdrop.classList.remove('active');
-                document.body.style.overflow = '';
-              });
-              
-              // Cerrar menú al hacer scroll
-              window.addEventListener('scroll', () => {
-                if (navbarCollapse.classList.contains('show')) {
-                  navbarCollapse.classList.remove('show');
-                  backdrop.classList.remove('active');
-                  document.body.style.overflow = '';
-                }
               });
             }
           };
