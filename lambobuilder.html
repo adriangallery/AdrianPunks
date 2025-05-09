@@ -355,6 +355,38 @@
   
   <script>
     document.addEventListener('DOMContentLoaded', () => {
+      // Contract ABIs y direcciones para consultas on-chain
+      const ADRIAN_PUNKS_ABI = [
+        "function ownerOf(uint256 id) external view returns (address)",
+        "function currentTokenId() external view returns (uint256)",
+        "function balanceOf(address owner) external view returns (uint256)",
+        "function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256)"
+      ];
+      
+      const ADRIAN_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
+      
+      // Base network configuration
+      const BASE_NETWORK = {
+        chainId: "0x2105", // Base mainnet chainId in hex
+        chainName: "Base",
+        nativeCurrency: {
+          name: "Ethereum",
+          symbol: "ETH",
+          decimals: 18,
+        },
+        rpcUrls: ["https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1"],
+        blockExplorerUrls: ["https://basescan.org/"],
+      };
+      
+      // Infura provider para operaciones de solo lectura
+      const infuraProvider = new ethers.providers.JsonRpcProvider(
+        "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1",
+        {
+          name: "base",
+          chainId: 8453
+        }
+      );
+      
       // Load the menu
       fetch('/market/components/menu.html')
         .then(response => response.text())
@@ -373,6 +405,10 @@
       const accountSection = document.getElementById('account-section');
       const accountDisplay = document.getElementById('accountDisplay');
       const connectSection = document.getElementById('connect-section');
+      
+      // Variable para almacenar los tokens del usuario
+      let userTokens = [];
+      let isLoading = false;
       
       // Función para chequear si una URL es un GIF
       const isGif = (url) => {
@@ -424,22 +460,94 @@
         accountDisplay.textContent = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
         connectSection.style.display = 'none';
         accountSection.style.display = 'block';
+        
+        // Cargar los tokens del usuario al conectar la wallet
+        loadUserTokens(address);
       };
       
-      // Connect wallet function
-      connectWalletBtn.addEventListener('click', async () => {
+      // Función para cargar los tokens que posee el usuario
+      async function loadUserTokens(userAddress) {
         try {
-          await provider.send("eth_requestAccounts", []);
-          const signer = provider.getSigner();
-          const address = await signer.getAddress();
-          displayAccount(address);
+          // Mostrar indicador de carga
+          isLoading = true;
+          
+          // Inicializar contrato de solo lectura con infuraProvider (para consultas más rápidas)
+          const adrianPunksContract = new ethers.Contract(
+            ADRIAN_PUNKS_ADDRESS,
+            ADRIAN_PUNKS_ABI,
+            infuraProvider
+          );
+          
+          // Configurar Multicall para peticiones agrupadas
+          const multicall = new ethers.Contract(
+            "0xcA11bde05977b3631167028862bE2a173976CA11",
+            [
+              "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"
+            ],
+            infuraProvider
+          );
+          
+          // Obtener balance total de NFTs
+          const balance = await adrianPunksContract.balanceOf(userAddress);
+          const totalTokens = balance.toNumber();
+          
+          if (totalTokens === 0) {
+            console.log("No AdrianPunks found in this wallet");
+            isLoading = false;
+            return;
+          }
+          
+          // Preparar llamadas para obtener todos los tokenIds
+          const calls = [];
+          for (let i = 0; i < totalTokens; i++) {
+            calls.push({
+              target: ADRIAN_PUNKS_ADDRESS,
+              allowFailure: true,
+              callData: adrianPunksContract.interface.encodeFunctionData('tokenOfOwnerByIndex', [userAddress, i])
+            });
+          }
+          
+          // Ejecutar todas las llamadas en una sola transacción
+          const results = await multicall.aggregate3(calls);
+          userTokens = results
+            .filter(result => result.success)
+            .map(result => {
+              const decoded = adrianPunksContract.interface.decodeFunctionResult('tokenOfOwnerByIndex', result.returnData);
+              return decoded[0].toNumber();
+            });
+          
+          console.log("User tokens:", userTokens);
+          
+          // Actualizar la interfaz para mostrar los tokens del usuario
+          updateTokenSelector();
+          
+          isLoading = false;
         } catch (error) {
-          console.error('Error connecting wallet:', error);
+          console.error("Error loading user tokens:", error);
+          isLoading = false;
         }
-      });
+      }
       
-      // Check if already connected on page load
-      checkConnection();
+      // Función para actualizar el selector de tokens con los que posee el usuario
+      function updateTokenSelector() {
+        if (userTokens.length > 0) {
+          // Cambiar el input de número a un dropdown select
+          const tokenContainer = document.querySelector('.input-section > div:first-child');
+          tokenContainer.innerHTML = `
+            <label for="token-id">Select one of your AdrianPunks:</label>
+            <select id="token-id" class="form-select">
+              ${userTokens.map(tokenId => `<option value="${tokenId}">${tokenId}</option>`).join('')}
+            </select>
+          `;
+          
+          // Volver a asignar el evento change
+          const newTokenSelect = document.getElementById('token-id');
+          newTokenSelect.addEventListener('change', generateImage);
+          
+          // Generar la primera imagen automáticamente
+          generateImage();
+        }
+      }
       
       // Lambo Builder Logic
       const tokenInput = document.getElementById('token-id');
@@ -497,37 +605,65 @@
           }
           
           // Build the file paths - usando las nuevas imágenes
-          const punkPath = `/market/adrianpunksimages/${tokenId}.png`;
+          let punkPath;
+          
+          // Para el token #1, sabemos que necesita una ruta alternativa al PNG
+          if (tokenId === 1) {
+            // Usar una ruta alternativa para el token #1 que sabemos que da error
+            punkPath = `/market/adrianpunksimages/1.gif`;
+          } else {
+            punkPath = `/market/adrianpunksimages/${tokenId}.png`;
+          }
+          
           const lamboPath = `/lambo-images/ADRIAN_LAMBO_${lamboColor}.jpg`;
           
           // Load the images
-          // Verificar si la imagen del punk es un GIF
-          if (isGif(punkPath)) {
-            // Convertir GIF a imagen estática
-            punkImg = await handleGifImage(punkPath);
+          try {
+            // Primero cargamos la imagen del Lambo
             lamboImg = await loadImage(lamboPath);
-          } else {
-            // Cargar imágenes normalmente
-            const [punkImage, lamboImage] = await Promise.all([
-              loadImage(punkPath),
-              loadImage(lamboPath)
-            ]);
             
-            // Store the images for potential reuse
-            punkImg = punkImage;
-            lamboImg = lamboImage;
+            // Después intentamos cargar el AdrianPunk, con manejo especial para GIFs
+            try {
+              // Intentar cargar como imagen normal
+              punkImg = await loadImage(punkPath);
+            } catch (punkError) {
+              console.error("Error loading punk image:", punkError);
+              
+              // Si falla y la ruta no era GIF, intentar con extensión GIF
+              if (!isGif(punkPath)) {
+                try {
+                  // Intentar con extensión .gif
+                  const gifPath = punkPath.replace('.png', '.gif');
+                  punkImg = await handleGifImage(gifPath);
+                } catch (gifError) {
+                  console.error("Error loading GIF alternative:", gifError);
+                  throw new Error(`Failed to load image for token #${tokenId}. Please try a different token.`);
+                }
+              } else {
+                // Si ya era GIF y falló, intentar convertirlo
+                try {
+                  punkImg = await handleGifImage(punkPath);
+                } catch (conversionError) {
+                  console.error("Error converting GIF:", conversionError);
+                  throw new Error(`Failed to convert GIF for token #${tokenId}. Please try a different token.`);
+                }
+              }
+            }
+            
+            // Si llegamos aquí, ambas imágenes se cargaron correctamente
+            drawCombinedImage();
+            
+            // Show the preview section
+            loadingEl.style.display = 'none';
+            previewSection.classList.remove('hidden');
+          } catch (loadError) {
+            console.error("Error in image loading process:", loadError);
+            throw loadError;
           }
-          
-          // Draw the images on the canvas 
-          drawCombinedImage();
-          
-          // Show the preview section
-          loadingEl.style.display = 'none';
-          previewSection.classList.remove('hidden');
         } catch (error) {
           console.error('Error loading images:', error);
           loadingEl.style.display = 'none';
-          showError('Could not load images. Please try another token or check your connection.');
+          showError(error.message || 'Could not load images. Please try another token or check your connection.');
         }
       }
       
@@ -542,8 +678,8 @@
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
         
-        // Set the size for the temporary canvas
-        const punkSize = Math.min(canvas.width, canvas.height) * 0.28;
+        // Set the size for the temporary canvas (5% más pequeño que antes - 0.28 * 0.95 = 0.266)
+        const punkSize = Math.min(canvas.width, canvas.height) * 0.266;
         tempCanvas.width = punkSize;
         tempCanvas.height = punkSize;
         
@@ -572,9 +708,9 @@
         // Put the processed image data back to the temporary canvas
         tempCtx.putImageData(imageData, 0, 0);
         
-        // Calculate position for the punk
+        // Calculate position for the punk (5 píxeles adicionales hacia arriba)
         const punkX = (canvas.width - punkSize) / 2 - 39;
-        const punkY = (canvas.height - punkSize) / 2 - 104; // 10 píxeles adicionales hacia arriba (antes era -94)
+        const punkY = (canvas.height - punkSize) / 2 - 109; // Antes era -104, ahora 5px más arriba
         
         // Draw the processed punk on the main canvas
         ctx.drawImage(tempCanvas, punkX, punkY, punkSize, punkSize);
@@ -623,6 +759,58 @@
         errorMessage.textContent = message;
         errorMessage.classList.remove('hidden');
       }
+      
+      // Connect wallet function
+      connectWalletBtn.addEventListener('click', async () => {
+        try {
+          if (!window.ethereum) {
+            showError("Please install MetaMask to use this application");
+            return;
+          }
+          
+          // Solicitar acceso a la cuenta
+          await provider.send("eth_requestAccounts", []);
+          const signer = provider.getSigner();
+          const address = await signer.getAddress();
+          
+          // Verificar si el usuario está en la red Base
+          const chainId = await window.ethereum.request({ method: "eth_chainId" });
+          
+          if (chainId !== BASE_NETWORK.chainId) {
+            try {
+              await window.ethereum.request({
+                method: "wallet_switchEthereumChain",
+                params: [{ chainId: BASE_NETWORK.chainId }],
+              });
+            } catch (switchError) {
+              if (switchError.code === 4902) {
+                await window.ethereum.request({
+                  method: "wallet_addEthereumChain",
+                  params: [BASE_NETWORK],
+                });
+              } else {
+                throw switchError;
+              }
+            }
+          }
+          
+          // Añadir event listeners para cambios de cuenta y red
+          window.ethereum.on("accountsChanged", (accounts) => {
+            window.location.reload();
+          });
+          window.ethereum.on("chainChanged", () => {
+            window.location.reload();
+          });
+          
+          displayAccount(address);
+        } catch (error) {
+          console.error('Error connecting wallet:', error);
+          showError(error.message || "Error connecting to wallet");
+        }
+      });
+      
+      // Check if already connected on page load
+      checkConnection();
     });
   </script>
 </body>
