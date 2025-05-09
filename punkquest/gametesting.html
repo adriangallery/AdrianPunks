@@ -61,6 +61,7 @@
       "function repairItem(uint256 inst,uint256 tokenId)",
       "function getOwnedInstances(address owner) view returns (uint256[] instanceIds)",
       "function getInstanceDetails(uint256 instId) view returns (uint256 templateId, uint256 durability, bool equipped, uint256 lastEvent)",
+      "function ownedItems(address,uint256) view returns (uint256 instanceId,uint256 templateId,uint256 durability,bool degraded)",
       // detail helpers
       "function getTokenArmoryDetails(uint256 id) view returns (uint256 weapon,uint256 armor,uint256[] extras,uint256 lastEvent)",
       // owner
@@ -599,84 +600,84 @@
     }
 
     /* ---------- PLAYER INSTANCES (ACTUAL ITEMS) ---------- */
-    async function loadInstances(address = WALLET.account, force = false){
-      if(!address) return [];
-      if(cache.instances?.[address] && !force) return cache.instances[address];
+    async function scanOwnedInstances(owner, batch = 20, hardCap = 500) {
+      const q = WALLET.pqContract();
+      const mc = WALLET.multicallContract();
+      const iface = q.interface;
+
+      const out = [];
+      for (let from = 0; from < hardCap; from += batch) {
+        console.log(`Escaneando instancias ${from}-${from + batch - 1}...`);
+        // construimos llamadas ownedItems(owner,from+i)
+        const calls = [];
+        for (let i = 0; i < batch; i++) {
+          calls.push({
+            target: q.address,
+            allowFailure: true,
+            callData: iface.encodeFunctionData("ownedItems", [owner, from + i])
+          });
+        }
+
+        try {
+          const res = await retryOnRateLimit(() => mc.aggregate3(calls));  // multicall3
+          let anyOK = false;
+
+          res.forEach((r, i) => {
+            if (!r.success) return;                    // índice fuera de rango
+            anyOK = true;
+            const [id, tpl, dur, deg] = iface.decodeFunctionResult(
+              "ownedItems",
+              r.returnData
+            );
+            out.push({
+              instanceId: id.toString(),
+              templateId: tpl.toString(),
+              durability: dur.toNumber(),
+              equipped: false,                       // lo obtendrás al pintar el punk
+              needsRepair: deg || dur.isZero(),
+              lastEvent: "0"  // Campo requerido por otras partes del código
+            });
+          });
+
+          if (!anyOK) {
+            console.log(`No más instancias después de ${from}`);
+            break;                          // primer bloque vacío ⇒ terminamos
+          }
+        } catch (err) {
+          console.error(`Error en escaneo ${from}-${from + batch - 1}:`, err);
+          // Continuamos con el siguiente bloque en caso de error
+        }
+      }
+      
+      console.log(`Total instancias encontradas: ${out.length}`);
+      return out;
+    }
+
+    async function loadInstances(addr = WALLET.account, force = false) {
+      if (!addr) return [];
+      if (cache.instances?.[addr] && !force) return cache.instances[addr];
 
       try {
-        // Verificamos que la dirección coincida con la cuenta activa
-        if (address.toLowerCase() !== WALLET.account?.toLowerCase()) {
-          console.log("Advertencia: Solicitando instancias de una cuenta diferente a la conectada");
-          // En este caso, no podemos usar getOwnedInstances ya que usa msg.sender internamente
-          // Podríamos implementar otro método aquí si es necesario
-          return cache.instances?.[address] || [];
-        }
+        console.log("Cargando instancias para cuenta:", addr);
+        const arr = await scanOwnedInstances(addr);     // ⬅️ nuevo método
         
-        const pq = WALLET.pqContract();
-        console.log("Cargando instancias para cuenta actual:", WALLET.account);
-        
-        try {
-          // 1. Obtener todos los IDs de instancias del usuario
-          console.log("Llamando a getOwnedInstances(address)");
-          const ids = await retryOnRateLimit(
-            () => pq.getOwnedInstances(address),
-            /*maxRetries*/ 5
-          );
-          console.log("Instancias encontradas:", ids.length, ids);
-          
-          // Si no hay IDs, devolver un array vacío pero conservar la caché anterior
-          if (!ids || ids.length === 0) {
-            console.log("No se encontraron instancias");
-            // Mantenemos las instancias anteriores si existen
-            return cache.instances?.[address] || [];
-          }
-          
-          // 2. Obtener detalles de todas las instancias en paralelo
-          console.log("Obteniendo detalles de instancias en paralelo...");
-          const details = await Promise.all(
-            ids.map(id => retryOnRateLimit(() => pq.getInstanceDetails(id)))
-          );
-          
-          // 3. Mapear los resultados a un formato más amigable
-          const instances = ids.map((id, i) => ({
-            instanceId: id.toString(),
-            templateId: details[i][0].toString(),
-            durability: details[i][1].toNumber(),
-            equipped: details[i][2],
-            lastEvent: details[i][3].toString(),
-            needsRepair: details[i][1].toNumber() === 0
-          }));
-          
-          // Actualizar caché y emitir evento
+        if (arr.length > 0) {
+          // Actualizar caché solo si encontramos algo
           cache.instances = cache.instances || {};
-          cache.instances[address] = instances;
-          
-          if (instances.length > 0) {
-            emit('state:instances', { address, instances });
-            console.log(`${instances.length} instancias cargadas correctamente`);
-          }
-          
-          return instances;
-        } catch (getOwnedError) {
-          // Diferencia los errores para no spamear la consola
-          if (getOwnedError?.message?.includes('429')) {
-            console.warn('Rate-limit al leer instancias');
-          } else {
-            console.error("Error real al leer instancias:", getOwnedError);
-          }
-          
-          // Si falla, mantener la caché anterior
-          return cache.instances?.[address] || [];
+          cache.instances[addr] = arr;
+          emit("state:instances", { address: addr, instances: arr });
+          console.log(`${arr.length} instancias cargadas correctamente`);
+        } else if (!cache.instances?.[addr]) {
+          // Si no encontramos nada y no hay caché previa, inicializar con array vacío
+          cache.instances = cache.instances || {};
+          cache.instances[addr] = [];
         }
-      } catch (error) {
-        // Diferencia los errores para no spamear la consola
-        if (error?.message?.includes('429')) {
-          console.warn('Rate-limit al cargar instancias');
-        } else {
-          console.error("Error real al cargar instancias:", error);
-        }
-        // Devolvemos la caché anterior si existe, o array vacío
-        return cache.instances?.[address] || [];
+        
+        return cache.instances[addr];
+      } catch (err) {
+        console.error("scanOwnedInstances falló:", err);
+        // Devolver caché anterior o array vacío
+        return cache.instances?.[addr] || [];
       }
     }
 
