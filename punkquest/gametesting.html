@@ -1159,59 +1159,207 @@
   </script>
 
   <!-- ───────────────────────  SECTION 8: ARMORY  ─────────────────────── -->
+  <!-- ───────── NEW TEMPLATE ARMORY ───────── -->
   <template id="TEMPLATE-ARMORY">
     <div class="container-fluid">
       <h3 class="mb-3">Armory</h3>
-      <div class="table-responsive">
-        <table class="table table-dark table-sm">
-          <thead>
-           <tr><th>Token</th><th>Weapon</th><th>Armor</th><th>Extras</th><th>Actions</th></tr>
-          </thead>
-          <tbody id="arm-body"></tbody>
-        </table>
+
+      <div class="row">
+        <!-- ◂▸ Tokens & loadout -->
+        <div class="col-lg-7 mb-4">
+          <h5>Your staked punks</h5>
+          <div class="table-responsive">
+            <table class="table table-dark table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>Punk</th><th>Weapon</th><th>Armor</th><th>Extras</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="tbl-punks"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ◂▸ Inventory -->
+        <div class="col-lg-5">
+          <h5>Your available items</h5>
+          <div class="table-responsive">
+            <table class="table table-dark table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>ID</th><th>Qty</th><th>Type</th><th>Equip</th>
+                </tr>
+              </thead>
+              <tbody id="tbl-inv"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </template>
 
+  <!-- ───────── NEW SCRIPT ARMORY ───────── -->
   <script id="PQ-ARMORY">
   (() => {
-    const WAL=PQ_WALLET, ST=PQ_STATE;
-    const screen=document.getElementById('screen-armory');
-    if (screen) {
-      const template = document.getElementById('TEMPLATE-ARMORY');
-      if (template) {
-        screen.appendChild(template.content.cloneNode(true));
-      }
-      const tbody=screen.querySelector('#arm-body');
-      if (tbody) {
-        const fmtId=x=>x&&x!='0'?x:'–';
+    const WAL  = PQ_WALLET;
+    const ST   = PQ_STATE;
+    const ENUM = PQ_CONFIG.enums;
 
-        async function paint(){
-          tbody.innerHTML='';
-          const ids=ST.cache.wallet.stakedIds||[];
-          for(const id of ids){
-            const t=await ST.getToken(id);
-            const tr=document.createElement('tr'); tr.innerHTML=`
-              <td>${id}</td><td>${fmtId(t.weapon)}</td><td>${fmtId(t.armor)}</td>
-              <td>${(t.extras||[]).map(fmtId).join(', ')||'–'}</td>
-              <td><button class="btn btn-sm btn-outline-info" data-unequip="${id}">Unequip All</button></td>`;
-            tbody.append(tr);
+    const screen = document.getElementById('screen-armory');
+    screen.innerHTML = '';                                   // limpia el viejo contenido
+    screen.append(
+      document.getElementById('TEMPLATE-ARMORY').content.cloneNode(true)
+    );
+
+    /* --- refs --- */
+    const tblPunks = screen.querySelector('#tbl-punks');
+    const tblInv   = screen.querySelector('#tbl-inv');
+
+    /* --- helpers --- */
+    const tokenFmt = x => x && x !== '0' ? x : '–';
+    const fmtQty   = q => ethers.BigNumber.isBigNumber(q) ? q.toString() : q;
+    
+    /* --- retry helper para lecturas del contrato --- */
+    async function retryRead(fn, maxTries = 3) {
+      let lastError;
+      for (let i = 0; i < maxTries; i++) {
+        try {
+          return await fn();
+        } catch (err) {
+          lastError = err;
+          if (err?.message?.includes('429') || err?.data?.error?.message?.includes('rate limit')) {
+            console.warn(`Rate limit alcanzado, reintento ${i+1}/${maxTries}`);
+            await new Promise(r => setTimeout(r, 2000 * (i + 1)));
+            continue;
           }
+          throw err;
         }
-
-        tbody.addEventListener('click',async e=>{
-          const id=e.target.dataset.unequip;
-          if(!id)return;
-          try{
-            const tx=await WAL.pqContract()
-                     .batchArmoryActionsInstances([id],[3],[0],[0]);   /* UnequipAll */
-            await tx.wait(); await ST.getToken(id); paint();
-          }catch(err){alert(err.message||err);}
-        });
-
-        ST.on('state:wallet',paint);
-        WAL.on('wallet:connected',paint);
       }
+      throw lastError;
+    }
+
+    /* --- pintar punks staked + loadout --- */
+    async function paintPunks() {
+      tblPunks.innerHTML = '';
+      const ids = ST.cache.wallet.stakedIds || [];
+      for (const id of ids) {
+        try {
+          // Usar Infura para lecturas
+          const pq = ST.cache.tokens[id] ? null : WAL.provider;
+          const t = await retryRead(() => ST.getToken(id));
+          
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${id}</td>
+            <td>${tokenFmt(t.weapon)}</td>
+            <td>${tokenFmt(t.armor)}</td>
+            <td>${(t.extras||[]).map(tokenFmt).join(', ') || '–'}</td>
+            <td>
+              <button class="btn btn-sm btn-outline-info" data-unequip="${id}">
+                Unequip&nbsp;All
+              </button>
+            </td>`;
+          tblPunks.append(tr);
+        } catch (err) {
+          console.error(`Error al cargar punk ${id}:`, err);
+        }
+      }
+    }
+
+    /* --- pintar inventario disponible --- */
+    async function paintInventory() {
+      tblInv.innerHTML = '';
+      try {
+        const inv = ST.cache.inventory[WAL.account] ||
+                  await retryRead(() => ST.loadInventory(WAL.account));
+    
+        for (const [id, qty] of Object.entries(inv)) {
+          if (qty.eq(0)) continue;           // ya no queda
+    
+          // Asegurar que tenemos la info del template
+          await retryRead(() => ST.loadStoreTemplates());
+          const tpl = ST.cache.items[id];
+          if (!tpl) continue;
+    
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${id}</td>
+            <td>${fmtQty(qty)}</td>
+            <td>${tpl.type === 0 ? 'Weapon' : 'Armor'}</td>
+            <td>
+              <button class="btn btn-sm btn-success" data-equip="${id}">
+                Equip&nbsp;→
+              </button>
+            </td>`;
+          tblInv.append(tr);
+        }
+      } catch (err) {
+        console.error("Error al cargar inventario:", err);
+        tblInv.innerHTML = '<tr><td colspan="4" class="text-center">Error loading inventory</td></tr>';
+      }
+    }
+
+    /* --- acciones --- */
+    tblPunks.addEventListener('click', async e => {
+      const id = e.target.dataset.unequip;
+      if (!id) return;
+      try {
+        const tx = await WAL.pqContract()
+          .batchArmoryActionsInstances([id],
+                                       [ENUM.ArmoryActionType.UnequipAll],
+                                       [0],
+                                       [0]);
+        await tx.wait();
+        await ST.getToken(id);
+        paintPunks();
+        paintInventory();
+      } catch (err) {
+        PQ_UTIL.toast(err.message || err, false);
+      }
+    });
+
+    tblInv.addEventListener('click', async e => {
+      const itemId = e.target.dataset.equip;
+      if (!itemId) return;
+
+      /* Prompt sencillo para saber a qué Punk equipar */
+      const tokenId = prompt('Equip to Punk ID:');
+      if (!tokenId) return;
+
+      try {
+        const btn = e.target;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        const tx = await WAL.pqContract().equipItem(tokenId, itemId);
+        await tx.wait();
+
+        PQ_UTIL.toast(`Item #${itemId} equipped to Punk #${tokenId}`);
+        await ST.getToken(tokenId);
+        await ST.loadInventory(WAL.account, true);      // fuerza refresco
+        paintPunks();
+        paintInventory();
+      } catch (err) {
+        PQ_UTIL.toast(err.message || err, false);
+      } finally {
+        e.target.disabled = false;
+        e.target.innerText = 'Equip →';
+      }
+    });
+
+    /* --- reactivo a cambios de estado --- */
+    ST.on('state:wallet', paintPunks);
+    WAL.on('wallet:connected', async () => {
+      await ST.loadStoreTemplates();
+      await ST.loadInventory();
+      paintPunks();
+      paintInventory();
+    });
+
+    /* si el wallet ya está conectado al abrir */
+    if (WAL.account) {
+      ST.loadStoreTemplates().then(paintInventory);
+      paintPunks();
     }
   })();
   </script>
