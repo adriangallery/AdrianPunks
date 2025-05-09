@@ -1597,9 +1597,16 @@
           throw new Error('Contrato PunkQuest no inicializado');
         }
         
+        // Cargamos primero las instancias disponibles para relacionarlas con las equipadas
+        console.log(`Verificando instancias disponibles para relacionar con los items equipados...`);
+        await ST.loadInstances(WAL.account, true); // Forzar recarga de instancias
+        const instances = ST.cache.instances?.[WAL.account] || [];
+        console.log(`Instancias disponibles:`, instances);
+        
         let weapon, armor, extras, lastEvent;
         
         try {
+          console.log(`Consultando getTokenArmoryDetails para token #${tokenId}...`);
           // Intentamos usar multicall primero (más eficiente)
           const calls = [{
             target: PQ_CONFIG.contracts.punkQuest.address,
@@ -1613,6 +1620,12 @@
               'getTokenArmoryDetails', 
               results[0].returnData
             );
+            console.log(`Resultado de getTokenArmoryDetails:`, {
+              weapon: weapon.toString(),
+              armor: armor.toString(),
+              extras: extras.map(e => e.toString()),
+              lastEvent: lastEvent.toString()
+            });
           } else {
             throw new Error('Multicall falló');
           }
@@ -1622,21 +1635,82 @@
           [weapon, armor, extras, lastEvent] = await retryRead(() => 
             pqContract.getTokenArmoryDetails(tokenId)
           );
+          console.log(`Resultado de getTokenArmoryDetails (fallback):`, {
+            weapon: weapon.toString(),
+            armor: armor.toString(),
+            extras: extras.map(e => e.toString()),
+            lastEvent: lastEvent.toString()
+          });
+        }
+        
+        // Buscar las instancias que corresponden a los template IDs
+        console.log(`Buscando instancias para weapon template ID ${weapon.toString()}...`);
+        const weaponInstances = instances.filter(inst => 
+          inst.templateId === weapon.toString() && inst.equipped);
+        console.log(`Instancias de weapon encontradas:`, weaponInstances);
+        
+        console.log(`Buscando instancias para armor template ID ${armor.toString()}...`);
+        const armorInstances = instances.filter(inst => 
+          inst.templateId === armor.toString() && inst.equipped);
+        console.log(`Instancias de armor encontradas:`, armorInstances);
+        
+        // Comprobar si hay instancias para los extras
+        const extrasInstances = [];
+        for (const extraId of extras) {
+          if (extraId.toString() === '0') continue;
+          console.log(`Buscando instancias para extra template ID ${extraId.toString()}...`);
+          const extraInsts = instances.filter(inst => 
+            inst.templateId === extraId.toString() && inst.equipped);
+          extrasInstances.push(...extraInsts);
+          console.log(`Instancias de extra encontradas:`, extraInsts);
         }
         
         // Actualizar UI con los detalles
-        detailWeapon.textContent = weapon.toString() === '0' ? '–' : weapon.toString();
-        detailArmor.textContent = armor.toString() === '0' ? '–' : armor.toString();
-        detailExtras.textContent = extras.length === 0 ? '–' : extras.map(e => e.toString()).join(', ');
+        detailWeapon.textContent = weapon.toString() === '0' ? '–' : 
+          `${weapon.toString()} ${weaponInstances.length ? '(Inst #' + weaponInstances[0].instanceId + ')' : ''}`;
+        
+        detailArmor.textContent = armor.toString() === '0' ? '–' : 
+          `${armor.toString()} ${armorInstances.length ? '(Inst #' + armorInstances[0].instanceId + ')' : ''}`;
+        
+        detailExtras.textContent = extras.length === 0 || extras.every(e => e.toString() === '0') ? 
+          '–' : 
+          extras
+            .filter(e => e.toString() !== '0')
+            .map(e => {
+              const extraInsts = instances.filter(inst => 
+                inst.templateId === e.toString() && inst.equipped);
+              return `${e.toString()} ${extraInsts.length ? '(Inst #' + extraInsts[0].instanceId + ')' : ''}`;
+            })
+            .join(', ');
+            
         detailEvent.textContent = lastEvent.toString() === '0' ? '–' : lastEvent.toString();
         
-        // Mostrar la respuesta raw como JSON
-        const rawResponse = [
-          weapon.toString(),
-          armor.toString(),
-          extras.map(e => e.toString()),
-          lastEvent.toString()
-        ];
+        // Mostrar la respuesta raw como JSON con información adicional
+        const rawResponse = {
+          result: {
+            weapon: weapon.toString(),
+            armor: armor.toString(),
+            extras: extras.map(e => e.toString()),
+            lastEvent: lastEvent.toString()
+          },
+          matchedInstances: {
+            weaponInstances: weaponInstances.map(i => ({ 
+              instanceId: i.instanceId, 
+              templateId: i.templateId,
+              equipped: i.equipped
+            })),
+            armorInstances: armorInstances.map(i => ({ 
+              instanceId: i.instanceId, 
+              templateId: i.templateId,
+              equipped: i.equipped
+            })),
+            extrasInstances: extrasInstances.map(i => ({ 
+              instanceId: i.instanceId, 
+              templateId: i.templateId,
+              equipped: i.equipped
+            }))
+          }
+        };
         detailRaw.textContent = JSON.stringify(rawResponse, null, 2);
       } catch (err) {
         console.error(`Error al consultar detalles del token #${tokenId}:`, err);
