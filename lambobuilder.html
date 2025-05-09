@@ -605,17 +605,18 @@
           }
           
           // Build the file paths - usando las nuevas imágenes
-          let punkPath;
+          let punkPath = `/market/adrianpunksimages/${tokenId}.png`;
           
           // Para el token #1, sabemos que necesita una ruta alternativa al PNG
           if (tokenId === 1) {
             // Usar una ruta alternativa para el token #1 que sabemos que da error
             punkPath = `/market/adrianpunksimages/1.gif`;
-          } else {
-            punkPath = `/market/adrianpunksimages/${tokenId}.png`;
           }
           
           const lamboPath = `/lambo-images/ADRIAN_LAMBO_${lamboColor}.jpg`;
+          
+          console.log(`Attempting to load punk #${tokenId} from path: ${punkPath}`);
+          console.log(`Attempting to load lambo color: ${lamboColor} from path: ${lamboPath}`);
           
           // Load the images
           try {
@@ -634,6 +635,7 @@
                 try {
                   // Intentar con extensión .gif
                   const gifPath = punkPath.replace('.png', '.gif');
+                  console.log(`Trying alternative GIF path: ${gifPath}`);
                   punkImg = await handleGifImage(gifPath);
                 } catch (gifError) {
                   console.error("Error loading GIF alternative:", gifError);
@@ -642,6 +644,7 @@
               } else {
                 // Si ya era GIF y falló, intentar convertirlo
                 try {
+                  console.log(`Converting GIF: ${punkPath}`);
                   punkImg = await handleGifImage(punkPath);
                 } catch (conversionError) {
                   console.error("Error converting GIF:", conversionError);
@@ -650,6 +653,7 @@
               }
             }
             
+            console.log(`Successfully loaded both images for token #${tokenId}`);
             // Si llegamos aquí, ambas imágenes se cargaron correctamente
             drawCombinedImage();
             
@@ -697,9 +701,9 @@
           const g = data[i + 1];
           const b = data[i + 2];
           
-          // Check if the pixel is the background color (cccccc or 333333)
-          if ((r === 204 && g === 204 && b === 204) || // #cccccc
-              (r === 51 && g === 51 && b === 51)) {    // #333333
+          // Check if the pixel is close to the background color (allow some variation)
+          if ((Math.abs(r - 204) < 10 && Math.abs(g - 204) < 10 && Math.abs(b - 204) < 10) || // cerca de #cccccc
+              (Math.abs(r - 51) < 10 && Math.abs(g - 51) < 10 && Math.abs(b - 51) < 10)) {    // cerca de #333333
             // Make this pixel fully transparent
             data[i + 3] = 0;
           }
@@ -714,17 +718,28 @@
         
         // Draw the processed punk on the main canvas
         ctx.drawImage(tempCanvas, punkX, punkY, punkSize, punkSize);
+        
+        console.log("Combined image drawn successfully");
       }
       
       function loadImage(src) {
         return new Promise((resolve, reject) => {
+          console.log(`Loading image from: ${src}`);
           const img = new Image();
           img.crossOrigin = 'Anonymous';
-          img.onload = () => resolve(img);
-          img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+          img.onload = () => {
+            console.log(`Successfully loaded: ${src}`);
+            resolve(img);
+          };
+          img.onerror = () => {
+            console.error(`Failed to load image: ${src}`);
+            reject(new Error(`Failed to load image: ${src}`));
+          };
           
           // Add a cache-busting parameter to prevent caching issues
-          img.src = src + '?t=' + new Date().getTime();
+          const cacheBustSrc = src + '?t=' + new Date().getTime();
+          console.log(`Cache-busted URL: ${cacheBustSrc}`);
+          img.src = cacheBustSrc;
         });
       }
       
