@@ -1274,53 +1274,39 @@
     async function paintInventory() {
       tblInv.innerHTML = '';
       try {
-        // Cargar plantillas primero
+        // Volver al enfoque anterior de obtener el inventario a través de loadInventory
         await retryRead(() => ST.loadStoreTemplates());
+        const inv = ST.cache.inventory[WAL.account] || 
+                    await retryRead(() => ST.loadInventory(WAL.account));
         
-        // Obtener instancias (items específicos) propiedad del usuario
-        const instanceIds = await retryRead(() => 
-          WAL.pqContract().getOwnedInstances(WAL.account)
-        );
-        
-        if (!instanceIds || instanceIds.length === 0) {
+        if (!inv || Object.keys(inv).length === 0) {
           tblInv.innerHTML = '<tr><td colspan="4" class="text-center">No items in inventory</td></tr>';
           return;
         }
         
-        // Para cada instancia, obtener sus detalles
-        for (const instId of instanceIds) {
-          try {
-            // Obtener detalles de la instancia
-            const [templateId, durability, equipped, lastEvent] = await retryRead(() => 
-              WAL.pqContract().getInstanceDetails(instId)
-            );
-            
-            // No mostrar si ya está equipado
-            if (equipped) continue;
-            
-            // Obtener datos de la plantilla
-            const tpl = ST.cache.items[templateId.toString()];
-            if (!tpl) continue;
-            
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-              <td>${templateId.toString()}</td>
-              <td>1</td>
-              <td>${tpl.type === 0 ? 'Weapon' : 'Armor'}</td>
-              <td>
-                <button class="btn btn-sm btn-success" data-inst="${instId}" data-template="${templateId}">
-                  Equip&nbsp;→
-                </button>
-              </td>`;
-            tblInv.append(tr);
-          } catch (err) {
-            console.warn(`Error al cargar detalles de instancia ${instId}:`, err);
-          }
+        // Para cada ítem en el inventario, mostrar su información
+        for (const [templateId, qty] of Object.entries(inv)) {
+          if (qty.eq(0)) continue;  // Omitir si la cantidad es 0
+          
+          const tpl = ST.cache.items[templateId];
+          if (!tpl) continue;
+          
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${templateId}</td>
+            <td>${qty.toString()}</td>
+            <td>${tpl.type === 0 ? 'Weapon' : 'Armor'}</td>
+            <td>
+              <button class="btn btn-sm btn-success" data-template="${templateId}">
+                Equip&nbsp;→
+              </button>
+            </td>`;
+          tblInv.append(tr);
         }
         
         // Si no se agregó nada, mostrar un mensaje
         if (tblInv.childElementCount === 0) {
-          tblInv.innerHTML = '<tr><td colspan="4" class="text-center">No unequipped items available</td></tr>';
+          tblInv.innerHTML = '<tr><td colspan="4" class="text-center">No items available</td></tr>';
         }
       } catch (err) {
         console.error("Error al cargar inventario:", err);
@@ -1372,29 +1358,48 @@
     });
 
     tblInv.addEventListener('click', async e => {
-      const btn = e.target.closest('button[data-inst]');
+      const btn = e.target.closest('button[data-template]');
       if (!btn) return;
       
-      const instId = btn.dataset.inst;
       const templateId = btn.dataset.template;
       
       /* Prompt sencillo para saber a qué Punk equipar */
-      const tokenId = prompt(`Equip ${templateId} to Punk ID:`);
+      const tokenId = prompt(`Equip item #${templateId} to Punk ID:`);
       if (!tokenId) return;
 
       try {
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
-        // Usar equipItemInstance en lugar de equipItem
-        const tx = await WAL.pqContract().equipItemInstance(tokenId, instId);
-        await tx.wait();
+        // Primero comprar una nueva instancia del ítem
+        PQ_UTIL.toast(`Comprando nueva instancia del ítem #${templateId}...`, true);
+        const buyTx = await WAL.pqContract().buyItem(templateId, 1);
+        const receipt = await buyTx.wait();
+        
+        // Buscar evento de compra para obtener el instanceId
+        const buyEvent = receipt.events?.find(e => 
+          e.event === 'ItemPurchasedInStore' && 
+          e.args?.templateId?.toString() === templateId
+        );
+        
+        if (!buyEvent || !buyEvent.args?.instanceId) {
+          throw new Error("No se pudo obtener la instancia del ítem");
+        }
+        
+        const instanceId = buyEvent.args.instanceId;
+        PQ_UTIL.toast(`Instancia #${instanceId} comprada, equipando...`, true);
+        
+        // Ahora equipar usando el instanceId recién obtenido
+        const equipTx = await WAL.pqContract().equipItemInstance(tokenId, instanceId);
+        await equipTx.wait();
 
-        PQ_UTIL.toast(`Item #${templateId} (instance #${instId}) equipped to Punk #${tokenId}`);
+        PQ_UTIL.toast(`Item #${templateId} (instancia #${instanceId}) equipado a Punk #${tokenId}`, true);
         await ST.getToken(tokenId);
+        await ST.loadInventory(WAL.account, true);
         paintPunks();
         paintInventory();
       } catch (err) {
+        console.error("Error equipando item:", err);
         PQ_UTIL.toast(err.message || err, false);
       } finally {
         btn.disabled = false;
