@@ -598,6 +598,45 @@
       return inv;
     }
 
+    /* ---------- PLAYER INSTANCES (ACTUAL ITEMS) ---------- */
+    async function loadInstances(address = WALLET.account, force = false){
+      if(!address) return [];
+      if(cache.instances?.[address] && !force) return cache.instances[address];
+
+      try {
+        const pq = WALLET.pqContract();
+        const ids = await retryOnRateLimit(() => pq.getOwnedInstances(address));
+        const arr = [];
+        
+        for(const inst of ids){
+          try {
+            const [tpl, dur, equipped, lastEvent] = await retryOnRateLimit(() => 
+              pq.getInstanceDetails(inst)
+            );
+            
+            arr.push({ 
+              instanceId: inst.toString(), 
+              templateId: tpl.toString(),
+              durability: dur.toNumber(), 
+              equipped: equipped,
+              lastEvent: lastEvent.toString(),
+              needsRepair: dur.toNumber() === 0
+            });
+          } catch (err) {
+            console.error(`Error loading instance ${inst}:`, err);
+          }
+        }
+        
+        cache.instances = cache.instances || {};
+        cache.instances[address] = arr;
+        emit('state:instances', arr);
+        return arr;
+      } catch (error) {
+        console.error("Error loading instances:", error);
+        return [];
+      }
+    }
+
     /* ---------- External API ---------- */
     window.PQ_STATE = {
       cache,
@@ -607,7 +646,8 @@
                               refreshWallet,
                               getToken,
                               loadStoreTemplates,
-                              loadInventory
+                              loadInventory,
+                              loadInstances
     };
 
     /* ---------- auto-refresh when wallet connects ---------- */
@@ -888,7 +928,7 @@
   <script id="PQ-STORE">
   (() => {
     const { pqContract } = PQ_WALLET;
-    const { loadStoreTemplates, cache, on } = PQ_STATE;
+    const { loadStoreTemplates, cache, on, loadInstances } = PQ_STATE;
     const scr = document.getElementById('screen-store');
 
     /* ▸ HTML ---------------------------------------------------------------- */
@@ -912,6 +952,7 @@
 
     /* ▸ In-memory cart ------------------------------------------------------- */
     const cart = new Map();      // id -> qty
+    const instDecimals = 18;     // use everywhere
 
     function addToCart(id, price){
       const cur = cart.get(id) || 0;
@@ -1044,13 +1085,48 @@
           PQ_UTIL.toast('¡Aprobación completada!', true);
         }
         
-        // Realizar la compra
+        // Realizar la compra usando batchBuyItems (misma firma)
         const tx = await questContract.batchBuyItems(ids, qtys);
-        await tx.wait();
+        const receipt = await tx.wait();
+        
+        // Capturar eventos ItemPurchasedInStore para todas las instancias creadas
+        const instanceEvents = receipt.events?.filter(
+          e => e.event === 'ItemPurchasedInStore' && 
+               e.args && 
+               e.args.user?.toLowerCase() === PQ_WALLET.account?.toLowerCase()
+        );
+        
+        if (instanceEvents && instanceEvents.length > 0) {
+          // Inicializar la caché de instancias si no existe
+          cache.instances = cache.instances || {};
+          cache.instances[PQ_WALLET.account] = cache.instances[PQ_WALLET.account] || [];
+          
+          // Agregar cada instancia nueva a la caché
+          for (const evt of instanceEvents) {
+            const templateId = evt.args.templateId.toString();
+            const instanceId = evt.args.instanceId.toString();
+            
+            // Buscar el template para obtener información adicional
+            const template = cache.items[templateId];
+            
+            // Agregar la nueva instancia a la caché
+            cache.instances[PQ_WALLET.account].push({
+              instanceId,
+              templateId,
+              durability: template?.durability || 0,
+              equipped: false,
+              lastEvent: "0",
+              needsRepair: false
+            });
+          }
+        }
+        
         PQ_UTIL.toast('¡Compra completada!', true);
         cart.clear(); 
         renderCart();
-        PQ_STATE.loadInventory();
+        
+        // Recargar instancias para asegurar datos actualizados
+        await loadInstances(PQ_WALLET.account, true);
       } catch (err) {
         console.error("Error en checkout:", err);
         PQ_UTIL.toast(err.message || err, false);
@@ -1240,7 +1316,7 @@
             <table class="table table-dark table-sm align-middle">
               <thead>
                 <tr>
-                  <th>Punk</th><th>Weapon</th><th>Armor</th><th>Extras</th><th></th>
+                  <th>Punk</th><th>Weapon Inst</th><th>Armor Inst</th><th>Extras Inst</th><th></th>
                 </tr>
               </thead>
               <tbody id="tbl-punks"></tbody>
@@ -1248,14 +1324,14 @@
           </div>
         </div>
 
-        <!-- ◂▸ Inventory -->
+        <!-- ◂▸ Inventory - Instances -->
         <div class="col-lg-5">
-          <h5>Your available items</h5>
+          <h5>Your available item instances</h5>
           <div class="table-responsive">
             <table class="table table-dark table-sm align-middle">
               <thead>
                 <tr>
-                  <th>ID</th><th>Qty</th><th>Type</th><th>Equip</th>
+                  <th>Inst ID</th><th>Template</th><th>Durability</th><th>Action</th>
                 </tr>
               </thead>
               <tbody id="tbl-inv"></tbody>
@@ -1488,18 +1564,92 @@
     async function paintPunks() {
       tblPunks.innerHTML = '';
       const ids = ST.cache.wallet.stakedIds || [];
+      
+      // Cargamos las instancias para poder identificar qué instancia corresponde a cada item equipado
+      const instances = await ST.loadInstances(WAL.account) || [];
+      const instanceMap = {};
+      
+      // Creamos un mapa por templateId para buscar rápidamente instancias
+      instances.forEach(inst => {
+        if (!instanceMap[inst.templateId]) {
+          instanceMap[inst.templateId] = [];
+        }
+        instanceMap[inst.templateId].push(inst);
+      });
+      
       for (const id of ids) {
         try {
           // Usar Infura para lecturas
-          const pq = ST.cache.tokens[id] ? null : WAL.provider;
           const t = await retryRead(() => ST.getToken(id));
+          
+          // Buscar instancias correspondientes a los items equipados
+          let weaponInstance = '–';
+          let armorInstance = '–';
+          let extrasInstances = '–';
+          
+          // Weapon
+          if (t.weapon && t.weapon !== '0') {
+            const matchingWeapons = instanceMap[t.weapon] || [];
+            const equipped = matchingWeapons.find(inst => inst.equipped);
+            if (equipped) {
+              weaponInstance = equipped.instanceId;
+              
+              // Marcar si necesita reparación
+              if (equipped.needsRepair || equipped.durability === 0) {
+                weaponInstance += ' 🛠️';
+              }
+            } else {
+              weaponInstance = `${t.weapon} (?)`;
+            }
+          }
+          
+          // Armor
+          if (t.armor && t.armor !== '0') {
+            const matchingArmors = instanceMap[t.armor] || [];
+            const equipped = matchingArmors.find(inst => inst.equipped);
+            if (equipped) {
+              armorInstance = equipped.instanceId;
+              
+              // Marcar si necesita reparación
+              if (equipped.needsRepair || equipped.durability === 0) {
+                armorInstance += ' 🛠️';
+              }
+            } else {
+              armorInstance = `${t.armor} (?)`;
+            }
+          }
+          
+          // Extras
+          if (t.extras && t.extras.length > 0) {
+            const extrasList = [];
+            for (const extraId of t.extras) {
+              if (extraId === '0') continue;
+              
+              const matchingExtras = instanceMap[extraId] || [];
+              const equipped = matchingExtras.find(inst => inst.equipped);
+              if (equipped) {
+                let extraText = equipped.instanceId;
+                
+                // Marcar si necesita reparación
+                if (equipped.needsRepair || equipped.durability === 0) {
+                  extraText += ' 🛠️';
+                }
+                
+                extrasList.push(extraText);
+              } else {
+                extrasList.push(`${extraId} (?)`);
+              }
+            }
+            
+            extrasInstances = extrasList.length > 0 ? extrasList.join(', ') : '–';
+          }
           
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td>${id}</td>
-            <td>${tokenFmt(t.weapon)}</td>
-            <td>${tokenFmt(t.armor)}</td>
-            <td>${(t.extras||[]).map(tokenFmt).join(', ') || '–'}</td>
+            <td>${weaponInstance}</td>
+            <td>${armorInstance}</td>
+            <td>${extrasInstances}</td>
             <td>
               <button class="btn btn-sm btn-outline-info" data-unequip="${id}">
                 Unequip&nbsp;All
@@ -1512,36 +1662,41 @@
       }
     }
 
-    /* --- pintar inventario disponible --- */
+    /* --- pintar inventario disponible con instancias --- */
     async function paintInventory() {
       tblInv.innerHTML = '';
       try {
-        // Volver al enfoque anterior de obtener el inventario a través de loadInventory
-        await retryRead(() => ST.loadStoreTemplates());
-        const inv = ST.cache.inventory[WAL.account] || 
-                    await retryRead(() => ST.loadInventory(WAL.account));
+        // Cargar instancias en lugar de inventario de templates
+        const instances = await retryRead(() => ST.loadInstances(WAL.account));
         
-        if (!inv || Object.keys(inv).length === 0) {
+        if (!instances || instances.length === 0) {
           tblInv.innerHTML = '<tr><td colspan="4" class="text-center">No items in inventory</td></tr>';
           return;
         }
         
-        // Para cada ítem en el inventario, mostrar su información
-        for (const [templateId, qty] of Object.entries(inv)) {
-          if (qty.eq(0)) continue;  // Omitir si la cantidad es 0
+        // Cargar metadatos de templates para obtener información adicional
+        await retryRead(() => ST.loadStoreTemplates());
+        
+        // Para cada instancia, mostrar su información
+        for (const inst of instances) {
+          if (inst.equipped) continue;  // Opcionalmente, filtramos items ya equipados
           
-          const tpl = ST.cache.items[templateId];
-          if (!tpl) continue;
+          // Obtener info del template
+          const tpl = ST.cache.items[inst.templateId];
+          const needsRepair = inst.needsRepair || inst.durability === 0;
           
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td>${templateId}</td>
-            <td>${qty.toString()}</td>
-            <td>${tpl.type === 0 ? 'Weapon' : 'Armor'}</td>
+            <td>${inst.instanceId}</td>
+            <td>${inst.templateId}</td>
+            <td>${inst.durability}${inst.equipped ? ' 🔒' : ''}${needsRepair ? ' 🛠️' : ''}</td>
             <td>
-              <button class="btn btn-sm btn-success" data-template="${templateId}">
-                Equip&nbsp;→
-              </button>
+              ${!inst.equipped ? 
+                `<button class="btn btn-sm btn-success"
+                        data-inst="${inst.instanceId}"
+                        data-tpl="${inst.templateId}">
+                  Equip →
+                </button>` : ''}
             </td>`;
           tblInv.append(tr);
         }
@@ -1569,6 +1724,8 @@
         await tx.wait();
         await ST.getToken(id);
         paintPunks();
+        // Recargar instancias en lugar de inventario
+        await ST.loadInstances(WAL.account, true);
         paintInventory();
         
         // Si este token está seleccionado en los detalles, actualizarlo
@@ -1581,59 +1738,33 @@
     });
 
     tblInv.addEventListener('click', async e => {
-      const btn = e.target.closest('button[data-template]');
+      const btn = e.target.closest('button[data-inst]');
       if (!btn) return;
 
-      const templateId = btn.dataset.template;
-      const tokenId = prompt(`Equip item #${templateId} to Punk ID:`);
-      if (!tokenId) return;
+      const instId = btn.dataset.inst;
+      const punkId = prompt(`Equip item instance #${instId} to Punk ID:`);
+      if (!punkId) return;
 
       try {
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
-        // Verificar si necesitamos comprar nuevos items
-        const inv = ST.cache.inventory[WAL.account] || 
-                    await ST.loadInventory(WAL.account);
+        // Equipar directamente usando equipItemInstance
+        PQ_UTIL.toast(`Equipando instancia #${instId} a Punk #${punkId}...`, true);
+        const tx = await WAL.pqContract().equipItemInstance(punkId, instId);
+        await tx.wait();
         
-        const currentQty = inv[templateId] || ethers.BigNumber.from(0);
-        
-        // Si no tenemos suficientes, comprar
-        if (currentQty.eq(0)) {
-          const token = WAL.rewardTokenContract();
-          const cost = ST.cache.items[templateId].price;
-          const pqAddr = PQ_CONFIG.contracts.punkQuest.address;
-
-          // Verificar allowance
-          const allowance = await token.allowance(WAL.account, pqAddr);
-          if (allowance.lt(cost)) {
-            PQ_UTIL.toast('Aprobando tokens para la compra...', true);
-            const appTx = await token.approve(pqAddr, cost);
-            await appTx.wait();
-          }
-
-          // Comprar un nuevo item
-          PQ_UTIL.toast(`Comprando item #${templateId}...`, true);
-          const buyTx = await WAL.pqContract().buyItem(templateId, 1);
-          await buyTx.wait();
-        }
-
-        // Equipar directamente usando equipItem
-        PQ_UTIL.toast(`Equipando item #${templateId} a Punk #${tokenId}...`, true);
-        const eqTx = await WAL.pqContract().equipItem(tokenId, templateId);
-        await eqTx.wait();
-        
-        PQ_UTIL.toast(`Item #${templateId} equipado a Punk #${tokenId}`, true);
+        PQ_UTIL.toast(`Item #${instId} equipado a Punk #${punkId}`, true);
 
         // Actualizar UI
-        await ST.getToken(tokenId);
-        await ST.loadInventory(WAL.account, true);
+        await ST.getToken(punkId);
+        await ST.loadInstances(WAL.account, true);
         paintPunks();
         paintInventory();
         
         // Si este token está seleccionado en los detalles, actualizarlo
-        if (detailId.textContent === tokenId) {
-          showPunkDetails(tokenId);
+        if (detailId.textContent === punkId) {
+          showPunkDetails(punkId);
         }
       } catch (err) {
         console.error("Error en equipamiento:", err);
@@ -1646,9 +1777,10 @@
 
     /* --- reactivo a cambios de estado --- */
     ST.on('state:wallet', paintPunks);
+    ST.on('state:instances', paintInventory);
     WAL.on('wallet:connected', async () => {
       await ST.loadStoreTemplates();
-      await ST.loadInventory();
+      await ST.loadInstances();
       paintPunks();
       paintInventory();
       loadWalletPunks();
@@ -1656,7 +1788,8 @@
 
     /* si el wallet ya está conectado al abrir */
     if (WAL.account) {
-      ST.loadStoreTemplates().then(paintInventory);
+      ST.loadStoreTemplates();
+      ST.loadInstances().then(paintInventory);
       paintPunks();
       loadWalletPunks();
     }
