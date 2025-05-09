@@ -374,6 +374,38 @@
       const accountDisplay = document.getElementById('accountDisplay');
       const connectSection = document.getElementById('connect-section');
       
+      // Función para chequear si una URL es un GIF
+      const isGif = (url) => {
+        return url.toLowerCase().endsWith('.gif');
+      };
+      
+      // Función para manejar imágenes GIF
+      const handleGifImage = (gifUrl) => {
+        return new Promise((resolve, reject) => {
+          // Crear un elemento de imagen para cargar el GIF
+          const gifImg = new Image();
+          gifImg.crossOrigin = 'Anonymous';
+          gifImg.onload = () => {
+            // Crear un canvas temporal para extraer el primer frame
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = gifImg.width;
+            tempCanvas.height = gifImg.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Dibujar solo el primer frame
+            tempCtx.drawImage(gifImg, 0, 0);
+            
+            // Crear una nueva imagen a partir del canvas
+            const staticImg = new Image();
+            staticImg.onload = () => resolve(staticImg);
+            staticImg.onerror = (e) => reject(new Error('Error converting GIF to static image'));
+            staticImg.src = tempCanvas.toDataURL('image/png');
+          };
+          gifImg.onerror = () => reject(new Error(`Failed to load GIF: ${gifUrl}`));
+          gifImg.src = gifUrl + '?t=' + new Date().getTime();
+        });
+      };
+      
       // Check if already connected
       const checkConnection = async () => {
         try {
@@ -428,7 +460,15 @@
       let lamboImg = new Image();
       let punkImg = new Image();
       
-      // Handle button click
+      // Generar imagen automáticamente al cambiar token o color
+      tokenInput.addEventListener('change', generateImage);
+      
+      // Agregar eventos a los radio buttons para generar imagen al cambiar
+      lamboOptions.forEach(option => {
+        option.addEventListener('change', generateImage);
+      });
+      
+      // Handle button click (mantener para compatibilidad)
       generateBtn.addEventListener('click', generateImage);
       downloadBtn.addEventListener('click', downloadImage);
       
@@ -461,14 +501,22 @@
           const lamboPath = `/lambo-images/ADRIAN_LAMBO_${lamboColor}.jpg`;
           
           // Load the images
-          const [punkImage, lamboImage] = await Promise.all([
-            loadImage(punkPath),
-            loadImage(lamboPath)
-          ]);
-          
-          // Store the images for potential reuse
-          punkImg = punkImage;
-          lamboImg = lamboImage;
+          // Verificar si la imagen del punk es un GIF
+          if (isGif(punkPath)) {
+            // Convertir GIF a imagen estática
+            punkImg = await handleGifImage(punkPath);
+            lamboImg = await loadImage(lamboPath);
+          } else {
+            // Cargar imágenes normalmente
+            const [punkImage, lamboImage] = await Promise.all([
+              loadImage(punkPath),
+              loadImage(lamboPath)
+            ]);
+            
+            // Store the images for potential reuse
+            punkImg = punkImage;
+            lamboImg = lamboImage;
+          }
           
           // Draw the images on the canvas 
           drawCombinedImage();
@@ -526,7 +574,7 @@
         
         // Calculate position for the punk
         const punkX = (canvas.width - punkSize) / 2 - 39;
-        const punkY = (canvas.height - punkSize) / 2 - 94;
+        const punkY = (canvas.height - punkSize) / 2 - 104; // 10 píxeles adicionales hacia arriba (antes era -94)
         
         // Draw the processed punk on the main canvas
         ctx.drawImage(tempCanvas, punkX, punkY, punkSize, punkSize);
