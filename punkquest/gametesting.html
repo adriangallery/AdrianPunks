@@ -64,7 +64,7 @@
       "function ownedItems(address,uint256) view returns (uint256 instanceId,uint256 templateId,uint256 durability,bool degraded)",
       // detail helpers
       "function getTokenArmoryDetails(uint256 id) view returns (uint256 weapon,uint256 armor,uint256[] extras,uint256 lastEvent)",
-      "function advancedTokenArmory(uint256 tokenId) view returns (uint256[] armorIds)",
+      "function advancedTokenArmory(uint256 tokenId) view returns (uint256 weaponInstanceId,uint256 armorInstanceId,uint256 lastEventTimestamp,uint256[] extraInstanceIds)",
       // owner
       "function owner() view returns (address)",
       // store additional
@@ -740,56 +740,47 @@
           // Verificar las instancias equipadas usando advancedTokenArmory
           if (staked.length > 0 && typeof WALLET.pqContract().advancedTokenArmory === 'function') {
             try {
-              // Crear llamadas multicall para todos los tokens stakeados
-              const mc = WALLET.multicallContract();
-              const pq = WALLET.pqContract();
-              const calls = staked.map(id => ({
-                target: pq.address,
-                allowFailure: true,
-                callData: pq.interface.encodeFunctionData('advancedTokenArmory', [id])
-              }));
+              // Llamadas individuales para cada token stakeado
+              console.log(`Consultando advancedTokenArmory para ${staked.length} tokens stakeados`);
               
-              console.log(`Realizando ${calls.length} llamadas a advancedTokenArmory via multicall`);
-              const results = await retryOnRateLimit(() => mc.aggregate3(calls));
-              
-              // Procesar los resultados
-              results.forEach((result, i) => {
-                if (!result.success) return;
-                
-                try {
-                  const armorIds = pq.interface.decodeFunctionResult('advancedTokenArmory', result.returnData);
-                  console.log(`Token #${staked[i]} advancedTokenArmory:`, armorIds.map(id => id.toString()));
-                  
-                  // Agregar todas las instancias al set de equipadas
-                  for (const id of armorIds) {
-                    if (id && !id.isZero()) {
-                      equipSet.add(id.toString());
-                    }
-                  }
-                } catch (decodeError) {
-                  console.error(`Error decodificando resultado para token #${staked[i]}:`, decodeError);
-                }
-              });
-            } catch (multicallError) {
-              console.error(`Error en multicall para advancedTokenArmory:`, multicallError);
-              
-              // Fallback: consultar uno por uno
-              console.log(`Fallback: consultando tokens uno por uno`);
               for (const id of staked) {
                 try {
-                  const ar = await retryOnRateLimit(() => WALLET.pqContract().advancedTokenArmory(id));
-                  console.log(`Token #${id} advancedTokenArmory:`, ar.map(id => id.toString()));
+                  // Llamar a advancedTokenArmory y obtener los IDs de instancias
+                  const [weaponInstanceId, armorInstanceId, lastEventTimestamp, extraInstanceIds] = 
+                    await retryOnRateLimit(() => WALLET.pqContract().advancedTokenArmory(id));
                   
-                  // Agregar todas las instancias al set de equipadas
-                  for (const arId of ar) {
-                    if (arId && !arId.isZero()) {
-                      equipSet.add(arId.toString());
+                  console.log(`Token #${id} advancedTokenArmory:`, {
+                    weaponInstanceId: weaponInstanceId.toString(),
+                    armorInstanceId: armorInstanceId.toString(),
+                    lastEventTimestamp: lastEventTimestamp.toString(),
+                    extraInstanceIds: extraInstanceIds.map(e => e.toString())
+                  });
+                  
+                  // Agregar instancias equipadas al Set
+                  if (weaponInstanceId && !weaponInstanceId.isZero()) {
+                    equipSet.add(weaponInstanceId.toString());
+                    console.log(`Token #${id} tiene weaponInstanceId #${weaponInstanceId.toString()} equipado`);
+                  }
+                  
+                  if (armorInstanceId && !armorInstanceId.isZero()) {
+                    equipSet.add(armorInstanceId.toString());
+                    console.log(`Token #${id} tiene armorInstanceId #${armorInstanceId.toString()} equipado`);
+                  }
+                  
+                  if (extraInstanceIds && extraInstanceIds.length > 0) {
+                    for (const extraId of extraInstanceIds) {
+                      if (extraId && !extraId.isZero()) {
+                        equipSet.add(extraId.toString());
+                        console.log(`Token #${id} tiene extraInstanceId #${extraId.toString()} equipado`);
+                      }
                     }
                   }
                 } catch (err) {
                   console.error(`Error consultando advancedTokenArmory para token #${id}:`, err);
                 }
               }
+            } catch (error) {
+              console.error(`Error general consultando advancedTokenArmory:`, error);
             }
           }
           
@@ -1679,14 +1670,22 @@
         console.log(`Instancias disponibles:`, instances);
         
         // Intentar utilizar la función advancedTokenArmory si está disponible
-        let armorIds = [];
+        let weaponInstanceId, armorInstanceId, lastEventTimestamp, extraInstanceIds;
         let useAdvanced = false;
         
         try {
           if (typeof pqContract.advancedTokenArmory === 'function') {
             console.log(`Intentando usar advancedTokenArmory para token #${tokenId}...`);
-            armorIds = await retryRead(() => pqContract.advancedTokenArmory(tokenId));
-            console.log(`Resultado de advancedTokenArmory:`, armorIds.map(id => id.toString()));
+            [weaponInstanceId, armorInstanceId, lastEventTimestamp, extraInstanceIds] = 
+              await retryRead(() => pqContract.advancedTokenArmory(tokenId));
+              
+            console.log(`Resultado de advancedTokenArmory:`, {
+              weaponInstanceId: weaponInstanceId.toString(),
+              armorInstanceId: armorInstanceId.toString(),
+              lastEventTimestamp: lastEventTimestamp.toString(),
+              extraInstanceIds: extraInstanceIds.map(e => e.toString())
+            });
+            
             useAdvanced = true;
           }
         } catch (advError) {
@@ -1696,20 +1695,63 @@
         
         // Si pudimos usar advancedTokenArmory, procesamos los resultados
         let weapon, armor, extras, lastEvent;
+        let weaponInstances = [], armorInstances = [], extrasInstances = [];
         
         if (useAdvanced) {
-          // Formato esperado: [weaponId, armorId, lastEventOrExtraId]
-          weapon = armorIds[0] || ethers.BigNumber.from(0);
-          armor = armorIds[1] || ethers.BigNumber.from(0);
-          // Para extras, depende de la implementación exacta del contrato
-          extras = armorIds.slice(2) || [];
-          lastEvent = ethers.BigNumber.from(0); // No tenemos este dato en advancedTokenArmory
+          // Buscar instancias específicas
+          if (weaponInstanceId && !weaponInstanceId.isZero()) {
+            console.log(`Buscando instancia específica para weaponInstanceId #${weaponInstanceId.toString()}...`);
+            // Buscar la instancia específica
+            const weaponInstance = instances.find(inst => inst.instanceId === weaponInstanceId.toString());
+            if (weaponInstance) {
+              console.log(`Encontrada instancia #${weaponInstance.instanceId} (template ${weaponInstance.templateId})`);
+              weaponInstances = [weaponInstance];
+              // Usar el templateId como weapon
+              weapon = ethers.BigNumber.from(weaponInstance.templateId);
+            } else {
+              console.log(`Instancia #${weaponInstanceId.toString()} no encontrada en el caché`);
+              weapon = ethers.BigNumber.from(0);
+            }
+          } else {
+            weapon = ethers.BigNumber.from(0);
+          }
           
-          console.log(`Datos procesados de advancedTokenArmory:`, {
-            weapon: weapon.toString(),
-            armor: armor.toString(),
-            extras: extras.map(e => e.toString())
-          });
+          if (armorInstanceId && !armorInstanceId.isZero()) {
+            console.log(`Buscando instancia específica para armorInstanceId #${armorInstanceId.toString()}...`);
+            // Buscar la instancia específica
+            const armorInstance = instances.find(inst => inst.instanceId === armorInstanceId.toString());
+            if (armorInstance) {
+              console.log(`Encontrada instancia #${armorInstance.instanceId} (template ${armorInstance.templateId})`);
+              armorInstances = [armorInstance];
+              // Usar el templateId como armor
+              armor = ethers.BigNumber.from(armorInstance.templateId);
+            } else {
+              console.log(`Instancia #${armorInstanceId.toString()} no encontrada en el caché`);
+              armor = ethers.BigNumber.from(0);
+            }
+          } else {
+            armor = ethers.BigNumber.from(0);
+          }
+          
+          // Procesar extras
+          extras = [];
+          if (extraInstanceIds && extraInstanceIds.length > 0) {
+            for (const extraId of extraInstanceIds) {
+              if (extraId.isZero()) continue;
+              
+              console.log(`Buscando instancia específica para extraInstanceId #${extraId.toString()}...`);
+              const extraInstance = instances.find(inst => inst.instanceId === extraId.toString());
+              if (extraInstance) {
+                console.log(`Encontrada instancia #${extraInstance.instanceId} (template ${extraInstance.templateId})`);
+                extrasInstances.push(extraInstance);
+                // Agregar el templateId a extras
+                extras.push(ethers.BigNumber.from(extraInstance.templateId));
+              }
+            }
+          }
+          
+          // Usar el timestamp como lastEvent
+          lastEvent = lastEventTimestamp;
         } else {
           // Caemos de nuevo al método original getTokenArmoryDetails
           try {
@@ -1749,59 +1791,84 @@
               lastEvent: lastEvent.toString()
             });
           }
+          
+          // Buscar las instancias que corresponden a los template IDs
+          console.log(`Buscando instancias para weapon template ID ${weapon.toString()}...`);
+          weaponInstances = instances.filter(inst => 
+            inst.templateId === weapon.toString() && inst.equipped);
+          console.log(`Instancias de weapon encontradas:`, weaponInstances);
+          
+          console.log(`Buscando instancias para armor template ID ${armor.toString()}...`);
+          armorInstances = instances.filter(inst => 
+            inst.templateId === armor.toString() && inst.equipped);
+          console.log(`Instancias de armor encontradas:`, armorInstances);
+          
+          // Comprobar si hay instancias para los extras
+          extrasInstances = [];
+          for (const extraId of extras) {
+            if (extraId.toString() === '0') continue;
+            console.log(`Buscando instancias para extra template ID ${extraId.toString()}...`);
+            const extraInsts = instances.filter(inst => 
+              inst.templateId === extraId.toString() && inst.equipped);
+            extrasInstances.push(...extraInsts);
+            console.log(`Instancias de extra encontradas:`, extraInsts);
+          }
         }
         
-        // Buscar las instancias que corresponden a los template IDs
-        console.log(`Buscando instancias para weapon template ID ${weapon.toString()}...`);
-        const weaponInstances = instances.filter(inst => 
-          inst.templateId === weapon.toString() && inst.equipped);
-        console.log(`Instancias de weapon encontradas:`, weaponInstances);
-        
-        console.log(`Buscando instancias para armor template ID ${armor.toString()}...`);
-        const armorInstances = instances.filter(inst => 
-          inst.templateId === armor.toString() && inst.equipped);
-        console.log(`Instancias de armor encontradas:`, armorInstances);
-        
-        // Comprobar si hay instancias para los extras
-        const extrasInstances = [];
-        for (const extraId of extras) {
-          if (extraId.toString() === '0') continue;
-          console.log(`Buscando instancias para extra template ID ${extraId.toString()}...`);
-          const extraInsts = instances.filter(inst => 
-            inst.templateId === extraId.toString() && inst.equipped);
-          extrasInstances.push(...extraInsts);
-          console.log(`Instancias de extra encontradas:`, extraInsts);
+        // Actualizar UI con los detalles (mostrar información de instancias)
+        if (useAdvanced) {
+          // Con advancedTokenArmory, sabemos exactamente qué instancia está equipada
+          detailWeapon.textContent = weaponInstanceId.isZero() ? '–' : 
+            `${weapon.toString()} (Inst #${weaponInstanceId.toString()})`;
+          
+          detailArmor.textContent = armorInstanceId.isZero() ? '–' : 
+            `${armor.toString()} (Inst #${armorInstanceId.toString()})`;
+          
+          if (extraInstanceIds.length === 0 || extraInstanceIds.every(id => id.isZero())) {
+            detailExtras.textContent = '–';
+          } else {
+            detailExtras.textContent = extraInstanceIds
+              .filter(id => !id.isZero())
+              .map((id, idx) => {
+                const templateId = extras[idx]?.toString() || '?';
+                return `${templateId} (Inst #${id.toString()})`;
+              })
+              .join(', ');
+          }
+        } else {
+          // Usar el método anterior basado en templates
+          detailWeapon.textContent = weapon.toString() === '0' ? '–' : 
+            `${weapon.toString()} ${weaponInstances.length ? '(Inst #' + weaponInstances[0].instanceId + ')' : ''}`;
+          
+          detailArmor.textContent = armor.toString() === '0' ? '–' : 
+            `${armor.toString()} ${armorInstances.length ? '(Inst #' + armorInstances[0].instanceId + ')' : ''}`;
+          
+          detailExtras.textContent = extras.length === 0 || extras.every(e => e.toString() === '0') ? 
+            '–' : 
+            extras
+              .filter(e => e.toString() !== '0')
+              .map(e => {
+                const extraInsts = instances.filter(inst => 
+                  inst.templateId === e.toString() && inst.equipped);
+                return `${e.toString()} ${extraInsts.length ? '(Inst #' + extraInsts[0].instanceId + ')' : ''}`;
+              })
+              .join(', ');
         }
         
-        // Actualizar UI con los detalles
-        detailWeapon.textContent = weapon.toString() === '0' ? '–' : 
-          `${weapon.toString()} ${weaponInstances.length ? '(Inst #' + weaponInstances[0].instanceId + ')' : ''}`;
-        
-        detailArmor.textContent = armor.toString() === '0' ? '–' : 
-          `${armor.toString()} ${armorInstances.length ? '(Inst #' + armorInstances[0].instanceId + ')' : ''}`;
-        
-        detailExtras.textContent = extras.length === 0 || extras.every(e => e.toString() === '0') ? 
-          '–' : 
-          extras
-            .filter(e => e.toString() !== '0')
-            .map(e => {
-              const extraInsts = instances.filter(inst => 
-                inst.templateId === e.toString() && inst.equipped);
-              return `${e.toString()} ${extraInsts.length ? '(Inst #' + extraInsts[0].instanceId + ')' : ''}`;
-            })
-            .join(', ');
-            
         detailEvent.textContent = lastEvent.toString() === '0' ? '–' : lastEvent.toString();
         
         // Mostrar la respuesta raw como JSON con información adicional
         const rawResponse = {
           method: useAdvanced ? 'advancedTokenArmory' : 'getTokenArmoryDetails',
           result: useAdvanced ? {
-            armorIds: armorIds.map(id => id.toString()),
+            weaponInstanceId: weaponInstanceId.toString(),
+            armorInstanceId: armorInstanceId.toString(),
+            lastEventTimestamp: lastEventTimestamp.toString(),
+            extraInstanceIds: extraInstanceIds.map(id => id.toString()),
             processed: {
-              weapon: weapon.toString(),
-              armor: armor.toString(),
-              extras: extras.map(e => e.toString())
+              weapon: weapon?.toString() || '0',
+              armor: armor?.toString() || '0',
+              extras: extras?.map(e => e.toString()) || []
             }
           } : {
             weapon: weapon.toString(),
@@ -1809,18 +1876,18 @@
             extras: extras.map(e => e.toString()),
             lastEvent: lastEvent.toString()
           },
-          matchedInstances: {
-            weaponInstances: weaponInstances.map(i => ({ 
+          instances: {
+            weaponInstances: weaponInstances.map(i => ({
               instanceId: i.instanceId, 
               templateId: i.templateId,
               equipped: i.equipped
             })),
-            armorInstances: armorInstances.map(i => ({ 
+            armorInstances: armorInstances.map(i => ({
               instanceId: i.instanceId, 
               templateId: i.templateId,
               equipped: i.equipped
             })),
-            extrasInstances: extrasInstances.map(i => ({ 
+            extrasInstances: extrasInstances.map(i => ({
               instanceId: i.instanceId, 
               templateId: i.templateId,
               equipped: i.equipped
