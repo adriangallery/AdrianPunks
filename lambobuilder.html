@@ -884,24 +884,97 @@
       }
       
       function downloadImage() {
-        const link = document.createElement('a');
-        const tokenId = tokenInput.value;
-        
-        // Determine which lambo color is selected
-        let lamboColor = 'YELLOW';
-        for (let option of lamboOptions) {
-          if (option.checked) {
-            lamboColor = option.value;
-            break;
+        try {
+          const tokenId = tokenInput.value;
+          
+          // Determine which lambo color is selected
+          let lamboColor = 'YELLOW';
+          for (let option of lamboOptions) {
+            if (option.checked) {
+              lamboColor = option.value;
+              break;
+            }
           }
+          
+          const fileName = `adrianpunk${tokenId}-${lamboColor}-lambo.png`;
+          const imgData = canvas.toDataURL('image/png');
+          
+          // Método tradicional para navegadores de escritorio - puede no funcionar en algunos móviles
+          if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+            // Método para dispositivos móviles
+            // Crear una imagen visible temporalmente
+            const img = document.createElement('img');
+            img.src = imgData;
+            img.style.maxWidth = '100%';
+            
+            const modal = document.createElement('div');
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100%';
+            modal.style.height = '100%';
+            modal.style.backgroundColor = 'rgba(0,0,0,0.9)';
+            modal.style.zIndex = '10000';
+            modal.style.display = 'flex';
+            modal.style.flexDirection = 'column';
+            modal.style.alignItems = 'center';
+            modal.style.justifyContent = 'center';
+            modal.style.padding = '20px';
+            
+            const instructions = document.createElement('p');
+            instructions.textContent = 'Mantenga presionada la imagen para descargarla o tomar captura de pantalla';
+            instructions.style.color = 'white';
+            instructions.style.marginBottom = '20px';
+            instructions.style.textAlign = 'center';
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = 'Cerrar';
+            closeBtn.className = 'btn';
+            closeBtn.style.marginTop = '20px';
+            closeBtn.addEventListener('click', () => document.body.removeChild(modal));
+            
+            modal.appendChild(instructions);
+            modal.appendChild(img);
+            modal.appendChild(closeBtn);
+            document.body.appendChild(modal);
+            
+            // También crea un enlace para navegadores que soportan descargas
+            const link = document.createElement('a');
+            link.href = imgData;
+            link.download = fileName;
+            link.textContent = 'Descargar directamente';
+            link.className = 'btn';
+            link.style.marginTop = '10px';
+            link.style.backgroundColor = '#4c1d95';
+            modal.insertBefore(link, closeBtn);
+            
+            // Intentar abrir la imagen en una nueva pestaña (alternativa para algunos navegadores móviles)
+            const newTabBtn = document.createElement('button');
+            newTabBtn.textContent = 'Abrir en nueva pestaña';
+            newTabBtn.className = 'btn';
+            newTabBtn.style.marginTop = '10px';
+            newTabBtn.style.backgroundColor = '#1d4ed8';
+            newTabBtn.addEventListener('click', () => {
+              window.open(imgData, '_blank');
+            });
+            modal.insertBefore(newTabBtn, closeBtn);
+            
+            showError('Mantenga presionada la imagen para guardarla o use las opciones mostradas');
+          } else {
+            // Desktop browser - usar el método estándar
+            const link = document.createElement('a');
+            link.download = fileName;
+            link.href = imgData;
+            link.click();
+            showError('Imagen descargada correctamente');
+          }
+          
+          // También guardamos las imágenes generadas para el server
+          saveColoredLambo(lamboColor);
+        } catch (error) {
+          console.error('Error downloading image:', error);
+          showError('Error al descargar la imagen. Intente capturar la pantalla como alternativa.');
         }
-        
-        link.download = `adrianpunk${tokenId}-${lamboColor}-lambo.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-        
-        // También guardamos las imágenes generadas para el server
-        saveColoredLambo(lamboColor);
       }
       
       // Función para guardar las imágenes de colores en el servidor (solo simulada)
