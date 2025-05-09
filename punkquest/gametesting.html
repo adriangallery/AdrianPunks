@@ -604,25 +604,34 @@
       if(cache.instances?.[address] && !force) return cache.instances[address];
 
       try {
-        const pq = WALLET.pqContract();
-        console.log("Cargando instancias para:", address);
+        // Verificamos que la dirección coincida con la cuenta activa
+        if (address.toLowerCase() !== WALLET.account?.toLowerCase()) {
+          console.log("Advertencia: Solicitando instancias de una cuenta diferente a la conectada");
+          // En este caso, no podemos usar getOwnedInstances ya que usa msg.sender internamente
+          // Podríamos implementar otro método aquí si es necesario
+          return cache.instances?.[address] || [];
+        }
         
-        // Primer intento - usar getOwnedInstances
+        const pq = WALLET.pqContract();
+        console.log("Cargando instancias para cuenta actual:", WALLET.account);
+        
+        // Primer intento - usar getOwnedInstances sin parámetros (usa msg.sender internamente)
         let instances = [];
         let ids = [];
         
         try {
-          ids = await retryOnRateLimit(() => pq.getOwnedInstances(address));
+          // IMPORTANTE: Llamamos sin parámetros para que use msg.sender
+          ids = await retryOnRateLimit(() => pq.getOwnedInstances());
           console.log("Instancias encontradas:", ids.length);
         } catch (getOwnedError) {
           console.error("Error obteniendo instancias:", getOwnedError);
           
-          // Si falla, intentar encontrar instancias mediante eventos
+          // Si falla, intentar buscar instancias individualmente (para debug)
           try {
-            console.log("Intentando obtener instancias por eventos...");
-            // Esto sería un método alternativo, pero por ahora continuamos con el manejo de errores
+            console.log("Intentando obtener instancias manualmente...");
+            // Podríamos implementar un método alternativo si fuera necesario
           } catch (eventError) {
-            console.error("Error obteniendo instancias por eventos:", eventError);
+            console.error("Error obteniendo instancias alternativo:", eventError);
           }
         }
         
@@ -1129,13 +1138,10 @@
         const receipt = await tx.wait();
         
         // Capturar eventos ItemPurchasedInStore para todas las instancias creadas
+        console.log("Procesando transacción:", tx.hash);
         console.log("Eventos de transacción:", receipt.events);
         
-        // Inicializar la caché de instancias si no existe
-        cache.instances = cache.instances || {};
-        cache.instances[PQ_WALLET.account] = cache.instances[PQ_WALLET.account] || [];
-        
-        // Método 1: Intentar encontrar eventos por la interfaz del contrato
+        // Método 1: Intentar encontrar eventos parseando logs
         let instancesFound = false;
         
         try {
@@ -1159,6 +1165,8 @@
                   const template = cache.items[templateId];
                   
                   // Agregar la nueva instancia a la caché
+                  cache.instances = cache.instances || {};
+                  cache.instances[PQ_WALLET.account] = cache.instances[PQ_WALLET.account] || [];
                   cache.instances[PQ_WALLET.account].push({
                     instanceId,
                     templateId,
@@ -1173,28 +1181,35 @@
               }
             } catch (parseError) {
               // Ignoramos errores de parsing - probablemente no sea nuestro evento
-              console.log("Error al parsear evento:", parseError);
+              console.log("No es un evento ItemPurchasedInStore");
             }
           }
         } catch (eventError) {
           console.error("Error procesando eventos:", eventError);
         }
         
-        // Método 2: Fallback - Consultar directamente las instancias del usuario
-        if (!instancesFound) {
-          PQ_UTIL.toast('Consultando instancias...', true);
-          
-          // Cargar directamente todas las instancias del usuario
-          try {
-            await loadInstances(PQ_WALLET.account, true);
-            
-            // Si hay un cambio en la cantidad de instancias, consideramos que se ha completado la compra
-            if (cache.instances[PQ_WALLET.account].length > 0) {
-              instancesFound = true;
-            }
-          } catch (loadError) {
-            console.error("Error cargando instancias:", loadError);
+        // Método 2: Forzar recarga completa de instancias
+        PQ_UTIL.toast('Consultando instancias...', true);
+        
+        // Forzar recarga de instancias
+        try {
+          // Limpiamos caché para asegurar recarga completa
+          if (cache.instances && cache.instances[PQ_WALLET.account]) {
+            delete cache.instances[PQ_WALLET.account];
           }
+          
+          // Esperamos 2 segundos para dar tiempo a la blockchain
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Cargamos instancias frescos
+          await loadInstances(PQ_WALLET.account, true);
+          
+          // Si hay instancias, consideramos exitosa la operación
+          if (cache.instances?.[PQ_WALLET.account]?.length > 0) {
+            instancesFound = true;
+          }
+        } catch (loadError) {
+          console.error("Error cargando instancias:", loadError);
         }
         
         PQ_UTIL.toast(instancesFound ? 
@@ -1204,9 +1219,6 @@
         
         cart.clear(); 
         renderCart();
-        
-        // Recargar instancias para asegurar datos actualizados
-        await loadInstances(PQ_WALLET.account, true);
       } catch (err) {
         console.error("Error en checkout:", err);
         PQ_UTIL.toast(err.message || err, false);
@@ -1763,17 +1775,11 @@
         // Para cada instancia, mostrar su información
         let rowsAdded = 0;
         for (const inst of instances) {
-          // Omitir instancias equipadas si queremos mostrar solo disponibles
-          if (inst.equipped) {
-            console.log(`Instancia ${inst.instanceId} equipada, omitiendo`);
-            continue;
-          }
-          
           // Obtener info del template
           const tpl = ST.cache.items[inst.templateId];
           const needsRepair = inst.needsRepair || inst.durability === 0;
           
-          console.log(`Mostrando instancia ${inst.instanceId}, template ${inst.templateId}, durabilidad ${inst.durability}`);
+          console.log(`Mostrando instancia ${inst.instanceId}, template ${inst.templateId}, durabilidad ${inst.durability}, equipada: ${inst.equipped}`);
           
           const tr = document.createElement('tr');
           tr.innerHTML = `
@@ -1786,7 +1792,7 @@
                         data-inst="${inst.instanceId}"
                         data-tpl="${inst.templateId}">
                   Equip →
-                </button>` : ''}
+                </button>` : '<span class="badge bg-secondary">Equipado</span>'}
             </td>`;
           tblInv.append(tr);
           rowsAdded++;
