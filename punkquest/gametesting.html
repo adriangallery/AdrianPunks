@@ -605,11 +605,40 @@
 
       try {
         const pq = WALLET.pqContract();
-        const ids = await retryOnRateLimit(() => pq.getOwnedInstances(address));
+        console.log("Cargando instancias para:", address);
+        
+        // Primer intento - usar getOwnedInstances
+        let instances = [];
+        let ids = [];
+        
+        try {
+          ids = await retryOnRateLimit(() => pq.getOwnedInstances(address));
+          console.log("Instancias encontradas:", ids.length);
+        } catch (getOwnedError) {
+          console.error("Error obteniendo instancias:", getOwnedError);
+          
+          // Si falla, intentar encontrar instancias mediante eventos
+          try {
+            console.log("Intentando obtener instancias por eventos...");
+            // Esto sería un método alternativo, pero por ahora continuamos con el manejo de errores
+          } catch (eventError) {
+            console.error("Error obteniendo instancias por eventos:", eventError);
+          }
+        }
+        
+        // Si no hay IDs, devolver un array vacío pero conservar la caché anterior
+        if (!ids || ids.length === 0) {
+          console.log("No se encontraron instancias");
+          // Mantenemos las instancias anteriores si existen
+          return cache.instances?.[address] || [];
+        }
+        
         const arr = [];
         
+        // Para cada instancia, obtener sus detalles
         for(const inst of ids){
           try {
+            console.log("Cargando detalles de instancia:", inst.toString());
             const [tpl, dur, equipped, lastEvent] = await retryOnRateLimit(() => 
               pq.getInstanceDetails(inst)
             );
@@ -627,13 +656,22 @@
           }
         }
         
-        cache.instances = cache.instances || {};
-        cache.instances[address] = arr;
-        emit('state:instances', arr);
-        return arr;
+        // Solo actualizamos el cache si encontramos instancias
+        if (arr.length > 0) {
+          cache.instances = cache.instances || {};
+          cache.instances[address] = arr;
+          emit('state:instances', { address, instances: arr });
+        } else if (!cache.instances?.[address]) {
+          // Si no había caché previa, inicializamos con array vacío
+          cache.instances = cache.instances || {};
+          cache.instances[address] = [];
+        }
+        
+        return cache.instances[address];
       } catch (error) {
         console.error("Error loading instances:", error);
-        return [];
+        // Devolvemos la caché anterior si existe, o array vacío
+        return cache.instances?.[address] || [];
       }
     }
 
@@ -1086,42 +1124,84 @@
         }
         
         // Realizar la compra usando batchBuyItems (misma firma)
+        PQ_UTIL.toast('Comprando items...', true);
         const tx = await questContract.batchBuyItems(ids, qtys);
         const receipt = await tx.wait();
         
         // Capturar eventos ItemPurchasedInStore para todas las instancias creadas
-        const instanceEvents = receipt.events?.filter(
-          e => e.event === 'ItemPurchasedInStore' && 
-               e.args && 
-               e.args.user?.toLowerCase() === PQ_WALLET.account?.toLowerCase()
-        );
+        console.log("Eventos de transacción:", receipt.events);
         
-        if (instanceEvents && instanceEvents.length > 0) {
-          // Inicializar la caché de instancias si no existe
-          cache.instances = cache.instances || {};
-          cache.instances[PQ_WALLET.account] = cache.instances[PQ_WALLET.account] || [];
+        // Inicializar la caché de instancias si no existe
+        cache.instances = cache.instances || {};
+        cache.instances[PQ_WALLET.account] = cache.instances[PQ_WALLET.account] || [];
+        
+        // Método 1: Intentar encontrar eventos por la interfaz del contrato
+        let instancesFound = false;
+        
+        try {
+          const eventInterface = new ethers.utils.Interface([
+            "event ItemPurchasedInStore(address indexed user, uint256 templateId, uint256 instanceId)"
+          ]);
           
-          // Agregar cada instancia nueva a la caché
-          for (const evt of instanceEvents) {
-            const templateId = evt.args.templateId.toString();
-            const instanceId = evt.args.instanceId.toString();
+          for (const log of receipt.logs) {
+            try {
+              const parsedLog = eventInterface.parseLog(log);
+              if (parsedLog.name === 'ItemPurchasedInStore') {
+                const user = parsedLog.args.user.toLowerCase();
+                // Verificamos que el evento sea para nuestro usuario
+                if (user === PQ_WALLET.account.toLowerCase()) {
+                  const templateId = parsedLog.args.templateId.toString();
+                  const instanceId = parsedLog.args.instanceId.toString();
+                  
+                  console.log(`Instancia encontrada: Template ${templateId}, Instancia ${instanceId}`);
+                  
+                  // Buscar el template para obtener información adicional
+                  const template = cache.items[templateId];
+                  
+                  // Agregar la nueva instancia a la caché
+                  cache.instances[PQ_WALLET.account].push({
+                    instanceId,
+                    templateId,
+                    durability: template?.durability || 0,
+                    equipped: false,
+                    lastEvent: "0",
+                    needsRepair: false
+                  });
+                  
+                  instancesFound = true;
+                }
+              }
+            } catch (parseError) {
+              // Ignoramos errores de parsing - probablemente no sea nuestro evento
+              console.log("Error al parsear evento:", parseError);
+            }
+          }
+        } catch (eventError) {
+          console.error("Error procesando eventos:", eventError);
+        }
+        
+        // Método 2: Fallback - Consultar directamente las instancias del usuario
+        if (!instancesFound) {
+          PQ_UTIL.toast('Consultando instancias...', true);
+          
+          // Cargar directamente todas las instancias del usuario
+          try {
+            await loadInstances(PQ_WALLET.account, true);
             
-            // Buscar el template para obtener información adicional
-            const template = cache.items[templateId];
-            
-            // Agregar la nueva instancia a la caché
-            cache.instances[PQ_WALLET.account].push({
-              instanceId,
-              templateId,
-              durability: template?.durability || 0,
-              equipped: false,
-              lastEvent: "0",
-              needsRepair: false
-            });
+            // Si hay un cambio en la cantidad de instancias, consideramos que se ha completado la compra
+            if (cache.instances[PQ_WALLET.account].length > 0) {
+              instancesFound = true;
+            }
+          } catch (loadError) {
+            console.error("Error cargando instancias:", loadError);
           }
         }
         
-        PQ_UTIL.toast('¡Compra completada!', true);
+        PQ_UTIL.toast(instancesFound ? 
+          '¡Compra completada! Instancias añadidas a tu inventario.' :
+          '¡Compra completada! Consulta tu inventario en la sección Armory.',
+          true);
+        
         cart.clear(); 
         renderCart();
         
@@ -1669,7 +1749,10 @@
         // Cargar instancias en lugar de inventario de templates
         const instances = await retryRead(() => ST.loadInstances(WAL.account));
         
+        console.log("Instancias disponibles:", instances);
+        
         if (!instances || instances.length === 0) {
+          console.log("No hay instancias disponibles para mostrar");
           tblInv.innerHTML = '<tr><td colspan="4" class="text-center">No items in inventory</td></tr>';
           return;
         }
@@ -1678,12 +1761,19 @@
         await retryRead(() => ST.loadStoreTemplates());
         
         // Para cada instancia, mostrar su información
+        let rowsAdded = 0;
         for (const inst of instances) {
-          if (inst.equipped) continue;  // Opcionalmente, filtramos items ya equipados
+          // Omitir instancias equipadas si queremos mostrar solo disponibles
+          if (inst.equipped) {
+            console.log(`Instancia ${inst.instanceId} equipada, omitiendo`);
+            continue;
+          }
           
           // Obtener info del template
           const tpl = ST.cache.items[inst.templateId];
           const needsRepair = inst.needsRepair || inst.durability === 0;
+          
+          console.log(`Mostrando instancia ${inst.instanceId}, template ${inst.templateId}, durabilidad ${inst.durability}`);
           
           const tr = document.createElement('tr');
           tr.innerHTML = `
@@ -1699,10 +1789,12 @@
                 </button>` : ''}
             </td>`;
           tblInv.append(tr);
+          rowsAdded++;
         }
         
         // Si no se agregó nada, mostrar un mensaje
-        if (tblInv.childElementCount === 0) {
+        if (rowsAdded === 0) {
+          console.log("No se añadieron filas al inventario");
           tblInv.innerHTML = '<tr><td colspan="4" class="text-center">No items available</td></tr>';
         }
       } catch (err) {
@@ -1777,7 +1869,17 @@
 
     /* --- reactivo a cambios de estado --- */
     ST.on('state:wallet', paintPunks);
-    ST.on('state:instances', paintInventory);
+    // Actualizar el listener para manejar el nuevo formato de eventos
+    ST.on('state:instances', (event) => {
+      const { detail } = event;
+      console.log("Evento state:instances recibido:", detail);
+      
+      // Verificar que el evento sea para nuestro usuario
+      if (detail.address === WAL.account) {
+        console.log("Actualizando inventario con nuevas instancias");
+        paintInventory();
+      }
+    });
     WAL.on('wallet:connected', async () => {
       await ST.loadStoreTemplates();
       await ST.loadInstances();
