@@ -699,7 +699,7 @@
               instanceId: id.toString(),
               templateId: tpl.toString(),
               durability: dur.toNumber(),
-              equipped: false,                       // lo obtendrás al pintar el punk
+              equipped: false,                       // lo actualizaremos después
               needsRepair: deg || dur.isZero(),
               lastEvent: "0"  // Campo requerido por otras partes del código
             });
@@ -725,14 +725,88 @@
 
       try {
         console.log("Cargando instancias para cuenta:", addr);
-        const arr = await scanOwnedInstances(addr);     // ⬅️ nuevo método
         
-        if (arr.length > 0) {
-          // Actualizar caché solo si encontramos algo
+        // 1) Obtener todas las instancias que posee el usuario
+        const instancesArr = await scanOwnedInstances(addr);
+        
+        if (instancesArr.length > 0) {
+          // 2) Obtener los IDs de tokens stakeados para verificar qué instancias están equipadas
+          const staked = cache.wallet.stakedIds || [];
+          console.log(`Verificando ${staked.length} tokens stakeados para instancias equipadas`);
+          
+          // Set para almacenar IDs de instancias equipadas
+          const equipSet = new Set();
+          
+          // Verificar las instancias equipadas usando advancedTokenArmory
+          if (staked.length > 0 && typeof WALLET.pqContract().advancedTokenArmory === 'function') {
+            try {
+              // Crear llamadas multicall para todos los tokens stakeados
+              const mc = WALLET.multicallContract();
+              const pq = WALLET.pqContract();
+              const calls = staked.map(id => ({
+                target: pq.address,
+                allowFailure: true,
+                callData: pq.interface.encodeFunctionData('advancedTokenArmory', [id])
+              }));
+              
+              console.log(`Realizando ${calls.length} llamadas a advancedTokenArmory via multicall`);
+              const results = await retryOnRateLimit(() => mc.aggregate3(calls));
+              
+              // Procesar los resultados
+              results.forEach((result, i) => {
+                if (!result.success) return;
+                
+                try {
+                  const armorIds = pq.interface.decodeFunctionResult('advancedTokenArmory', result.returnData);
+                  console.log(`Token #${staked[i]} advancedTokenArmory:`, armorIds.map(id => id.toString()));
+                  
+                  // Agregar todas las instancias al set de equipadas
+                  for (const id of armorIds) {
+                    if (id && !id.isZero()) {
+                      equipSet.add(id.toString());
+                    }
+                  }
+                } catch (decodeError) {
+                  console.error(`Error decodificando resultado para token #${staked[i]}:`, decodeError);
+                }
+              });
+            } catch (multicallError) {
+              console.error(`Error en multicall para advancedTokenArmory:`, multicallError);
+              
+              // Fallback: consultar uno por uno
+              console.log(`Fallback: consultando tokens uno por uno`);
+              for (const id of staked) {
+                try {
+                  const ar = await retryOnRateLimit(() => WALLET.pqContract().advancedTokenArmory(id));
+                  console.log(`Token #${id} advancedTokenArmory:`, ar.map(id => id.toString()));
+                  
+                  // Agregar todas las instancias al set de equipadas
+                  for (const arId of ar) {
+                    if (arId && !arId.isZero()) {
+                      equipSet.add(arId.toString());
+                    }
+                  }
+                } catch (err) {
+                  console.error(`Error consultando advancedTokenArmory para token #${id}:`, err);
+                }
+              }
+            }
+          }
+          
+          // Marcar las instancias equipadas
+          console.log(`Instancias equipadas encontradas:`, Array.from(equipSet));
+          instancesArr.forEach(inst => {
+            inst.equipped = equipSet.has(inst.instanceId);
+            if (inst.equipped) {
+              console.log(`Instancia #${inst.instanceId} (template ${inst.templateId}) marcada como equipada 🔒`);
+            }
+          });
+          
+          // Actualizar el caché
           cache.instances = cache.instances || {};
-          cache.instances[addr] = arr;
-          emit("state:instances", { address: addr, instances: arr });
-          console.log(`${arr.length} instancias cargadas correctamente`);
+          cache.instances[addr] = instancesArr;
+          emit("state:instances", { address: addr, instances: instancesArr });
+          console.log(`${instancesArr.length} instancias cargadas correctamente`);
         } else if (!cache.instances?.[addr]) {
           // Si no encontramos nada y no hay caché previa, inicializar con array vacío
           cache.instances = cache.instances || {};
