@@ -64,6 +64,7 @@
       "function ownedItems(address,uint256) view returns (uint256 instanceId,uint256 templateId,uint256 durability,bool degraded)",
       // detail helpers
       "function getTokenArmoryDetails(uint256 id) view returns (uint256 weapon,uint256 armor,uint256[] extras,uint256 lastEvent)",
+      "function advancedTokenArmory(uint256 tokenId) view returns (uint256[] armorIds)",
       // owner
       "function owner() view returns (address)",
       // store additional
@@ -1603,44 +1604,77 @@
         const instances = ST.cache.instances?.[WAL.account] || [];
         console.log(`Instancias disponibles:`, instances);
         
-        let weapon, armor, extras, lastEvent;
+        // Intentar utilizar la función advancedTokenArmory si está disponible
+        let armorIds = [];
+        let useAdvanced = false;
         
         try {
-          console.log(`Consultando getTokenArmoryDetails para token #${tokenId}...`);
-          // Intentamos usar multicall primero (más eficiente)
-          const calls = [{
-            target: PQ_CONFIG.contracts.punkQuest.address,
-            allowFailure: false,
-            callData: pqContract.interface.encodeFunctionData('getTokenArmoryDetails', [tokenId])
-          }];
+          if (typeof pqContract.advancedTokenArmory === 'function') {
+            console.log(`Intentando usar advancedTokenArmory para token #${tokenId}...`);
+            armorIds = await retryRead(() => pqContract.advancedTokenArmory(tokenId));
+            console.log(`Resultado de advancedTokenArmory:`, armorIds.map(id => id.toString()));
+            useAdvanced = true;
+          }
+        } catch (advError) {
+          console.warn(`Error al llamar a advancedTokenArmory:`, advError);
+          useAdvanced = false;
+        }
+        
+        // Si pudimos usar advancedTokenArmory, procesamos los resultados
+        let weapon, armor, extras, lastEvent;
+        
+        if (useAdvanced) {
+          // Formato esperado: [weaponId, armorId, lastEventOrExtraId]
+          weapon = armorIds[0] || ethers.BigNumber.from(0);
+          armor = armorIds[1] || ethers.BigNumber.from(0);
+          // Para extras, depende de la implementación exacta del contrato
+          extras = armorIds.slice(2) || [];
+          lastEvent = ethers.BigNumber.from(0); // No tenemos este dato en advancedTokenArmory
           
-          const results = await retryRead(() => multicall.aggregate3(calls));
-          if (results[0].success) {
-            [weapon, armor, extras, lastEvent] = pqContract.interface.decodeFunctionResult(
-              'getTokenArmoryDetails', 
-              results[0].returnData
+          console.log(`Datos procesados de advancedTokenArmory:`, {
+            weapon: weapon.toString(),
+            armor: armor.toString(),
+            extras: extras.map(e => e.toString())
+          });
+        } else {
+          // Caemos de nuevo al método original getTokenArmoryDetails
+          try {
+            console.log(`Consultando getTokenArmoryDetails para token #${tokenId}...`);
+            // Intentamos usar multicall primero (más eficiente)
+            const calls = [{
+              target: PQ_CONFIG.contracts.punkQuest.address,
+              allowFailure: false,
+              callData: pqContract.interface.encodeFunctionData('getTokenArmoryDetails', [tokenId])
+            }];
+            
+            const results = await retryRead(() => multicall.aggregate3(calls));
+            if (results[0].success) {
+              [weapon, armor, extras, lastEvent] = pqContract.interface.decodeFunctionResult(
+                'getTokenArmoryDetails', 
+                results[0].returnData
+              );
+              console.log(`Resultado de getTokenArmoryDetails:`, {
+                weapon: weapon.toString(),
+                armor: armor.toString(),
+                extras: extras.map(e => e.toString()),
+                lastEvent: lastEvent.toString()
+              });
+            } else {
+              throw new Error('Multicall falló');
+            }
+          } catch (multicallError) {
+            console.warn("Error con multicall, usando método directo:", multicallError);
+            // Fallback a método directo
+            [weapon, armor, extras, lastEvent] = await retryRead(() => 
+              pqContract.getTokenArmoryDetails(tokenId)
             );
-            console.log(`Resultado de getTokenArmoryDetails:`, {
+            console.log(`Resultado de getTokenArmoryDetails (fallback):`, {
               weapon: weapon.toString(),
               armor: armor.toString(),
               extras: extras.map(e => e.toString()),
               lastEvent: lastEvent.toString()
             });
-          } else {
-            throw new Error('Multicall falló');
           }
-        } catch (multicallError) {
-          console.warn("Error con multicall, usando método directo:", multicallError);
-          // Fallback a método directo
-          [weapon, armor, extras, lastEvent] = await retryRead(() => 
-            pqContract.getTokenArmoryDetails(tokenId)
-          );
-          console.log(`Resultado de getTokenArmoryDetails (fallback):`, {
-            weapon: weapon.toString(),
-            armor: armor.toString(),
-            extras: extras.map(e => e.toString()),
-            lastEvent: lastEvent.toString()
-          });
         }
         
         // Buscar las instancias que corresponden a los template IDs
@@ -1687,7 +1721,15 @@
         
         // Mostrar la respuesta raw como JSON con información adicional
         const rawResponse = {
-          result: {
+          method: useAdvanced ? 'advancedTokenArmory' : 'getTokenArmoryDetails',
+          result: useAdvanced ? {
+            armorIds: armorIds.map(id => id.toString()),
+            processed: {
+              weapon: weapon.toString(),
+              armor: armor.toString(),
+              extras: extras.map(e => e.toString())
+            }
+          } : {
             weapon: weapon.toString(),
             armor: armor.toString(),
             extras: extras.map(e => e.toString()),
