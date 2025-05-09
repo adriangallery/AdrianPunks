@@ -268,6 +268,26 @@
         flex-direction: column;
       }
     }
+    
+    /* Modificar estilos para el selector */
+    .form-select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: #fff;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 16px;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+    
+    .form-select:disabled {
+      background-color: #f8f8f8;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
   </style>
 </head>
 <body>
@@ -291,8 +311,10 @@
     
     <div class="input-section">
       <div>
-        <label for="token-id">Select your AdrianPunk (1-1000):</label>
-        <input type="number" id="token-id" min="1" max="1000" value="1">
+        <label for="token-id">Select your AdrianPunk:</label>
+        <select id="token-id" class="form-select">
+          <option value="" disabled selected>Connect wallet to see your tokens</option>
+        </select>
       </div>
       
       <div class="image-selector">
@@ -488,11 +510,9 @@
           generateBtn.disabled = false;
           
           if (ownedTokens.length > 0) {
-            // Establecer el primer token como valor por defecto
-            tokenInput.value = ownedTokens[0];
-            // Crear datalist con opciones
+            // Crear opciones del selector con los tokens
             createTokenOptions(ownedTokens);
-            // Generar primera imagen
+            // Generar primera imagen automáticamente
             generateImage();
             showError(`Loaded ${ownedTokens.length} AdrianPunks from your wallet`);
           }
@@ -504,25 +524,29 @@
       
       // Crear opciones de datalist para los tokens
       const createTokenOptions = (tokens) => {
-        // Crear o limpiar datalist existente
-        let dataList = document.getElementById('token-options');
-        if (!dataList) {
-          dataList = document.createElement('datalist');
-          dataList.id = 'token-options';
-          document.body.appendChild(dataList);
-          
-          // Asociar datalist con el input
-          tokenInput.setAttribute('list', 'token-options');
-        } else {
-          dataList.innerHTML = '';
+        // Limpiar opciones existentes
+        tokenInput.innerHTML = '';
+        
+        if (tokens.length === 0) {
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = 'No tokens found';
+          option.disabled = true;
+          option.selected = true;
+          tokenInput.appendChild(option);
+          return;
         }
         
-        // Agregar opciones
-        tokens.forEach(tokenId => {
+        // Agregar opciones ordenadas numéricamente
+        tokens.sort((a, b) => a - b).forEach(tokenId => {
           const option = document.createElement('option');
           option.value = tokenId;
-          dataList.appendChild(option);
+          option.textContent = `AdrianPunk #${tokenId}`;
+          tokenInput.appendChild(option);
         });
+        
+        // Seleccionar el primer token
+        tokenInput.selectedIndex = 0;
       };
       
       // Check if already connected
@@ -615,14 +639,11 @@
         
         // Validate input
         if (isNaN(tokenId) || tokenId < 1 || tokenId > 1000) {
-          showError('Please enter a token number between 1 and 1000.');
+          showError('Please select a valid AdrianPunk token.');
           return;
         }
         
-        // Verificar que el usuario sea dueño del token
-        if (userAccount && ownedTokens.length > 0 && !validateTokenOwnership(tokenId)) {
-          return;
-        }
+        // No need to verify ownership since the dropdown only shows owned tokens
         
         // Show loading
         errorMessage.classList.add('hidden');
