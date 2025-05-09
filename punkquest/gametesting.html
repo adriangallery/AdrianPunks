@@ -503,17 +503,15 @@
       const iface = pq.interface;
       
       try {
-        // Agrupar todas las llamadas usando multicall3
+        // Verificar qué funciones están disponibles
+        const hasDetailedInfo = typeof pq.getTokenDetailedInfo === 'function';
+        
+        // Definir las llamadas que haremos
         const calls = [
           {
             target: pq.address, 
             allowFailure: false,
             callData: iface.encodeFunctionData('getTokenStats', [id])
-          },
-          {
-            target: pq.address, 
-            allowFailure: false,
-            callData: iface.encodeFunctionData('getTokenDetailedInfo', [id])
           },
           {
             target: pq.address, 
@@ -527,36 +525,48 @@
         
         // Decodificar los resultados
         const [passive, game] = iface.decodeFunctionResult('getTokenStats', res[0].returnData);
+        const [weapon, armor, extras, lastEvent] = iface.decodeFunctionResult('getTokenArmoryDetails', res[1].returnData);
         
-        const [stakeStart, lastClaim, fast, itemsB, spec, fix, pending] = 
-          iface.decodeFunctionResult('getTokenDetailedInfo', res[1].returnData);
-          
-        const [weapon, armor, extras, lastEvent] = 
-          iface.decodeFunctionResult('getTokenArmoryDetails', res[2].returnData);
-        
-        // Guardar en caché
+        // Crear objeto token con valores por defecto para los campos que podrían faltar
         cache.tokens[id] = {
-          passive, game, stakeStart, lastClaim, fast,
-          itemsBonus: itemsB, spec, fix, pending,
-          weapon, armor, extras, lastEvent
+          passive, 
+          game, 
+          stakeStart: ethers.BigNumber.from(0),
+          lastClaim: ethers.BigNumber.from(0),
+          fast: ethers.BigNumber.from(0),
+          itemsBonus: ethers.BigNumber.from(0),
+          spec: ethers.BigNumber.from(0),
+          fix: ethers.BigNumber.from(0),
+          pending: ethers.BigNumber.from(0),
+          weapon, 
+          armor, 
+          extras, 
+          lastEvent
         };
         
         emit('state:token', { id, data: cache.tokens[id] });
         return cache.tokens[id];
       } catch (error) {
         console.error(`Error al cargar detalles del token #${id}:`, error);
-        // Si falla multicall, intentar el método anterior
+        // Si falla multicall, intentar el método directo pero solo con las funciones que sabemos que existen
         try {
           const [passive, game] = await retryOnRateLimit(() => pq.getTokenStats(id));
-          const [stakeStart, lastClaim, fast, itemsB, spec, fix, pending] = 
-            await retryOnRateLimit(() => pq.getTokenDetailedInfo(id));
-          const [weapon, armor, extras, lastEvent] = 
-            await retryOnRateLimit(() => pq.getTokenArmoryDetails(id));
+          const [weapon, armor, extras, lastEvent] = await retryOnRateLimit(() => pq.getTokenArmoryDetails(id));
           
           cache.tokens[id] = {
-            passive, game, stakeStart, lastClaim, fast,
-            itemsBonus: itemsB, spec, fix, pending,
-            weapon, armor, extras, lastEvent
+            passive, 
+            game, 
+            stakeStart: ethers.BigNumber.from(0),
+            lastClaim: ethers.BigNumber.from(0),
+            fast: ethers.BigNumber.from(0),
+            itemsBonus: ethers.BigNumber.from(0),
+            spec: ethers.BigNumber.from(0),
+            fix: ethers.BigNumber.from(0),
+            pending: ethers.BigNumber.from(0),
+            weapon, 
+            armor, 
+            extras, 
+            lastEvent
           };
           
           emit('state:token', { id, data: cache.tokens[id] });
