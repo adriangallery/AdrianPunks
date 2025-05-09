@@ -59,13 +59,17 @@
       "function batchArmoryActionsInstances(uint256[] tokenIds,uint8[] acts,uint256[] insts,uint256[] idxs)",
       "function purchaseExtraSlots(uint256 tokenId,uint256 qty)",
       "function repairItem(uint256 inst,uint256 tokenId)",
+      "function getOwnedInstances(address owner) view returns (uint256[] instanceIds)",
+      "function getInstanceDetails(uint256 instId) view returns (uint256 templateId, uint256 durability, bool equipped, uint256 lastEvent)",
       // detail helpers
       "function getTokenArmoryDetails(uint256 id) view returns (uint256 weapon,uint256 armor,uint256[] extras,uint256 lastEvent)",
       // owner
       "function owner() view returns (address)",
       // store additional
       "function nextItemId() view returns (uint256)",
-      "function items(uint256 id) view returns (uint256 price, uint256 bonus, uint256 durability, bool exists, uint8 itemType, bool degradable)"
+      "function items(uint256 id) view returns (uint256 price, uint256 bonus, uint256 durability, bool exists, uint8 itemType, bool degradable)",
+      // eventos
+      "event ItemPurchasedInStore(address indexed user, uint256 templateId, uint256 instanceId)"
     ];
 
     const PUNK_NFT_ABI = [
@@ -1270,33 +1274,82 @@
     async function paintInventory() {
       tblInv.innerHTML = '';
       try {
-        const inv = ST.cache.inventory[WAL.account] ||
-                  await retryRead(() => ST.loadInventory(WAL.account));
-    
-        for (const [id, qty] of Object.entries(inv)) {
-          if (qty.eq(0)) continue;           // ya no queda
-    
-          // Asegurar que tenemos la info del template
-          await retryRead(() => ST.loadStoreTemplates());
-          const tpl = ST.cache.items[id];
-          if (!tpl) continue;
-    
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${id}</td>
-            <td>${fmtQty(qty)}</td>
-            <td>${tpl.type === 0 ? 'Weapon' : 'Armor'}</td>
-            <td>
-              <button class="btn btn-sm btn-success" data-equip="${id}">
-                Equip&nbsp;→
-              </button>
-            </td>`;
-          tblInv.append(tr);
+        // Cargar plantillas primero
+        await retryRead(() => ST.loadStoreTemplates());
+        
+        // Obtener instancias (items específicos) propiedad del usuario
+        const instanceIds = await retryRead(() => 
+          WAL.pqContract().getOwnedInstances(WAL.account)
+        );
+        
+        if (!instanceIds || instanceIds.length === 0) {
+          tblInv.innerHTML = '<tr><td colspan="4" class="text-center">No items in inventory</td></tr>';
+          return;
+        }
+        
+        // Para cada instancia, obtener sus detalles
+        for (const instId of instanceIds) {
+          try {
+            // Obtener detalles de la instancia
+            const [templateId, durability, equipped, lastEvent] = await retryRead(() => 
+              WAL.pqContract().getInstanceDetails(instId)
+            );
+            
+            // No mostrar si ya está equipado
+            if (equipped) continue;
+            
+            // Obtener datos de la plantilla
+            const tpl = ST.cache.items[templateId.toString()];
+            if (!tpl) continue;
+            
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td>${templateId.toString()}</td>
+              <td>1</td>
+              <td>${tpl.type === 0 ? 'Weapon' : 'Armor'}</td>
+              <td>
+                <button class="btn btn-sm btn-success" data-inst="${instId}" data-template="${templateId}">
+                  Equip&nbsp;→
+                </button>
+              </td>`;
+            tblInv.append(tr);
+          } catch (err) {
+            console.warn(`Error al cargar detalles de instancia ${instId}:`, err);
+          }
+        }
+        
+        // Si no se agregó nada, mostrar un mensaje
+        if (tblInv.childElementCount === 0) {
+          tblInv.innerHTML = '<tr><td colspan="4" class="text-center">No unequipped items available</td></tr>';
         }
       } catch (err) {
         console.error("Error al cargar inventario:", err);
         tblInv.innerHTML = '<tr><td colspan="4" class="text-center">Error loading inventory</td></tr>';
       }
+    }
+
+    /* --- funciones adicionales para capturar instanceIds de compras --- */
+    async function handleBuyItemEvents(tx) {
+      try {
+        const receipt = await tx.wait();
+        // Buscar eventos de ItemPurchasedInStore
+        const itemEvents = receipt.events?.filter(e => e.event === 'ItemPurchasedInStore');
+        
+        if (itemEvents && itemEvents.length > 0) {
+          // Extraer los instanceIds de los eventos
+          const instanceData = itemEvents.map(event => ({
+            templateId: event.args.templateId.toString(),
+            instanceId: event.args.instanceId.toString()
+          }));
+          
+          console.log("Purchased items:", instanceData);
+          // Se podrían guardar en localStorage o cache para acceso más rápido
+          return instanceData;
+        }
+      } catch (err) {
+        console.error("Error processing buy events:", err);
+      }
+      return [];
     }
 
     /* --- acciones --- */
@@ -1319,31 +1372,33 @@
     });
 
     tblInv.addEventListener('click', async e => {
-      const itemId = e.target.dataset.equip;
-      if (!itemId) return;
-
+      const btn = e.target.closest('button[data-inst]');
+      if (!btn) return;
+      
+      const instId = btn.dataset.inst;
+      const templateId = btn.dataset.template;
+      
       /* Prompt sencillo para saber a qué Punk equipar */
-      const tokenId = prompt('Equip to Punk ID:');
+      const tokenId = prompt(`Equip ${templateId} to Punk ID:`);
       if (!tokenId) return;
 
       try {
-        const btn = e.target;
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
-        const tx = await WAL.pqContract().equipItem(tokenId, itemId);
+        // Usar equipItemInstance en lugar de equipItem
+        const tx = await WAL.pqContract().equipItemInstance(tokenId, instId);
         await tx.wait();
 
-        PQ_UTIL.toast(`Item #${itemId} equipped to Punk #${tokenId}`);
+        PQ_UTIL.toast(`Item #${templateId} (instance #${instId}) equipped to Punk #${tokenId}`);
         await ST.getToken(tokenId);
-        await ST.loadInventory(WAL.account, true);      // fuerza refresco
         paintPunks();
         paintInventory();
       } catch (err) {
         PQ_UTIL.toast(err.message || err, false);
       } finally {
-        e.target.disabled = false;
-        e.target.innerText = 'Equip →';
+        btn.disabled = false;
+        btn.innerText = 'Equip →';
       }
     });
 
