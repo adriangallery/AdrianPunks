@@ -746,7 +746,8 @@
                               getToken,
                               loadStoreTemplates,
                               loadInventory,
-                              loadInstances
+                              loadInstances,
+      /* helpers */           retryOnRateLimit
     };
 
     /* ---------- auto-refresh when wallet connects ---------- */
@@ -1807,8 +1808,8 @@
                                        [0]);
         await tx.wait();
         // Actualizar UI con retry para evitar errores de rate-limit
-        await retryOnRateLimit(() => ST.getToken(id));
-        await retryOnRateLimit(() => ST.loadInstances(WAL.account, true));
+        await ST.retryOnRateLimit(() => ST.getToken(id));
+        await ST.retryOnRateLimit(() => ST.loadInstances(WAL.account, true));
         paintPunks();
         paintInventory();
         
@@ -1841,8 +1842,8 @@
         PQ_UTIL.toast(`Item #${instId} equipado a Punk #${punkId}`, true);
 
         // Actualizar UI con retry para evitar errores de rate-limit
-        await retryOnRateLimit(() => ST.getToken(punkId));
-        await retryOnRateLimit(() => ST.loadInstances(WAL.account, true));
+        await ST.retryOnRateLimit(() => ST.getToken(punkId));
+        await ST.retryOnRateLimit(() => ST.loadInstances(WAL.account, true));
         paintPunks();
         paintInventory();
         
