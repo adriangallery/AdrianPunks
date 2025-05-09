@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AdrianPunks Lambo Builder</title>
+  <style>
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background-color: #121212;
+      color: #e5e7eb;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #1e1e1e;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #c084fc;
+      margin-bottom: 20px;
+    }
+    .input-section {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    input[type="number"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #333;
+      border-radius: 4px;
+      background-color: #2a2a2a;
+      color: #fff;
+      font-family: inherit;
+      font-size: 16px;
+    }
+    .btn {
+      background-color: #c084fc;
+      color: #fff;
+      border: none;
+      padding: 12px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: bold;
+      transition: background-color 0.2s;
+    }
+    .btn:hover {
+      background-color: #a855f7;
+    }
+    .btn:disabled {
+      background-color: #555;
+      cursor: not-allowed;
+    }
+    .preview-section {
+      margin-top: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .canvas-container {
+      width: 100%;
+      max-width: 800px;
+      margin-bottom: 20px;
+      border: 2px solid #333;
+      border-radius: 4px;
+      overflow: hidden;
+      background-color: #2a2a2a;
+    }
+    canvas {
+      width: 100%;
+      display: block;
+    }
+    .error-message {
+      color: #ef4444;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    .loading {
+      display: none;
+      margin: 20px 0;
+      text-align: center;
+    }
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      border-top: 4px solid #c084fc;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .hidden {
+      display: none;
+    }
+    .preview-label {
+      margin-bottom: 10px;
+      color: #c084fc;
+      font-weight: bold;
+    }
+    .image-selector {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .image-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    @media (max-width: 600px) {
+      .container {
+        padding: 15px;
+      }
+      .image-selector {
+        flex-direction: column;
+      }
+    }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap">
+</head>
+<body>
+  <div class="container">
+    <h1>AdrianPunks Lambo Builder</h1>
+    
+    <div class="input-section">
+      <div>
+        <label for="token-id">Selecciona tu AdrianPunk (1-1000):</label>
+        <input type="number" id="token-id" min="1" max="1000" value="1">
+      </div>
+      
+      <div class="image-selector">
+        <div class="image-option">
+          <input type="radio" id="lambo-yellow" name="lambo-color" value="yellow" checked>
+          <label for="lambo-yellow">Lambo Amarillo</label>
+        </div>
+        <div class="image-option">
+          <input type="radio" id="lambo-blue" name="lambo-color" value="blue">
+          <label for="lambo-blue">Lambo Azul</label>
+        </div>
+        <div class="image-option">
+          <input type="radio" id="lambo-red" name="lambo-color" value="red">
+          <label for="lambo-red">Lambo Rojo</label>
+        </div>
+      </div>
+      
+      <button id="generate-btn" class="btn">Generar Imagen</button>
+    </div>
+    
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Generando tu Lambo personalizado...</p>
+    </div>
+    
+    <div class="preview-section hidden" id="preview-section">
+      <p class="preview-label">Vista previa:</p>
+      <div class="canvas-container">
+        <canvas id="canvas"></canvas>
+      </div>
+      <button id="download-btn" class="btn">Descargar Imagen</button>
+    </div>
+    
+    <p id="error-message" class="error-message hidden"></p>
+  </div>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const tokenInput = document.getElementById('token-id');
+      const generateBtn = document.getElementById('generate-btn');
+      const downloadBtn = document.getElementById('download-btn');
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      const previewSection = document.getElementById('preview-section');
+      const errorMessage = document.getElementById('error-message');
+      const loadingEl = document.getElementById('loading');
+      const lamboOptions = document.getElementsByName('lambo-color');
+      
+      // Set canvas size
+      canvas.width = 1200;
+      canvas.height = 675;
+      
+      // Variables for images
+      let originalLamboImg = new Image();
+      let punkImg = new Image();
+      
+      // Handle button click
+      generateBtn.addEventListener('click', generateImage);
+      downloadBtn.addEventListener('click', downloadImage);
+      
+      async function generateImage() {
+        const tokenId = parseInt(tokenInput.value);
+        
+        // Validate input
+        if (isNaN(tokenId) || tokenId < 1 || tokenId > 1000) {
+          showError('Por favor introduce un número de token entre 1 y 1000.');
+          return;
+        }
+        
+        // Show loading
+        errorMessage.classList.add('hidden');
+        previewSection.classList.add('hidden');
+        loadingEl.style.display = 'block';
+        
+        try {
+          // Determine which lambo color is selected
+          let lamboColor = 'yellow';
+          for (let option of lamboOptions) {
+            if (option.checked) {
+              lamboColor = option.value;
+              break;
+            }
+          }
+          
+          // Build the file paths
+          const punkPath = `/market/adrianpunksimages/${tokenId}.png`;
+          const lamboPath = `/lambo.png`; // Usamos la imagen original lambo.png
+          
+          // Load the images
+          const [punkImage, lamboImage] = await Promise.all([
+            loadImage(punkPath),
+            loadImage(lamboPath)
+          ]);
+          
+          // Store the images for potential reuse
+          punkImg = punkImage;
+          originalLamboImg = lamboImage;
+          
+          // Draw the images on the canvas with the selected color
+          drawCombinedImage(lamboColor);
+          
+          // Show the preview section
+          loadingEl.style.display = 'none';
+          previewSection.classList.remove('hidden');
+        } catch (error) {
+          console.error('Error loading images:', error);
+          loadingEl.style.display = 'none';
+          showError('No se pudo cargar la imagen. Por favor intenta con otro token o verifica tu conexión.');
+        }
+      }
+      
+      function drawCombinedImage(lamboColor) {
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // First draw the Lambo
+        ctx.drawImage(originalLamboImg, 0, 0, canvas.width, canvas.height);
+        
+        // Apply color filter based on selection
+        const colorFilters = {
+          'yellow': { r: 1.2, g: 1.2, b: 0.2 },
+          'blue': { r: 0.2, g: 0.4, b: 1.2 },
+          'red': { r: 1.2, g: 0.2, b: 0.2 }
+        };
+        
+        // Apply tint to the Lambo
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        const filter = colorFilters[lamboColor];
+        
+        // Only apply the filter to non-transparent pixels (the Lambo)
+        for (let i = 0; i < data.length; i += 4) {
+          // Skip fully transparent pixels
+          if (data[i + 3] === 0) continue;
+          
+          // Get the average brightness to maintain shading
+          const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+          
+          // Apply the color with intensity preservation
+          data[i] = Math.min(255, avg * filter.r);     // Red
+          data[i + 1] = Math.min(255, avg * filter.g); // Green
+          data[i + 2] = Math.min(255, avg * filter.b); // Blue
+        }
+        
+        // Put the modified image data back to the canvas
+        ctx.putImageData(imageData, 0, 0);
+        
+        // Calculate size for the punk (10% of the canvas)
+        const punkSize = Math.min(canvas.width, canvas.height) * 0.1;
+        
+        // Calculate position to center the punk
+        const punkX = (canvas.width - punkSize) / 2;
+        const punkY = (canvas.height - punkSize) / 2;
+        
+        // Draw Punk on top
+        ctx.drawImage(punkImg, punkX, punkY, punkSize, punkSize);
+      }
+      
+      function loadImage(src) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'Anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+          
+          // Add a cache-busting parameter to prevent caching issues
+          img.src = src + '?t=' + new Date().getTime();
+        });
+      }
+      
+      function downloadImage() {
+        const link = document.createElement('a');
+        const tokenId = tokenInput.value;
+        
+        // Determine which lambo color is selected
+        let lamboColor = 'yellow';
+        for (let option of lamboOptions) {
+          if (option.checked) {
+            lamboColor = option.value;
+            break;
+          }
+        }
+        
+        link.download = `adrianpunk${tokenId}-${lamboColor}-lambo.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        
+        // También guardamos las imágenes generadas para el server
+        saveColoredLambo(lamboColor);
+      }
+      
+      // Función para guardar las imágenes de colores en el servidor (solo simulada)
+      function saveColoredLambo(color) {
+        console.log(`Imagen de Lambo ${color} guardada para uso del servidor`);
+        // En un entorno real, aquí enviaríamos la imagen al servidor
+      }
+      
+      function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.classList.remove('hidden');
+      }
+    });
+  </script>
+</body>
+</html> 
