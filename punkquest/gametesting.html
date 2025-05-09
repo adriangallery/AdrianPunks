@@ -1169,6 +1169,51 @@
       <h3 class="mb-3">Armory</h3>
 
       <div class="row">
+        <!-- ◂▸ Tus AdrianPunks -->
+        <div class="col-lg-12 mb-4">
+          <h5>Tus AdrianPunks</h5>
+          <div class="d-flex flex-wrap gap-2 mb-4" id="punks-wallet">
+            <div class="spinner-border text-light" role="status">
+              <span class="visually-hidden">Cargando...</span>
+            </div>
+          </div>
+          
+          <!-- Detalles del punk seleccionado -->
+          <div id="punk-details" class="card bg-dark border-secondary mb-4" style="display: none;">
+            <div class="card-header">
+              <h5 class="mb-0">Detalles de AdrianPunk #<span id="detail-id">0</span></h5>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-3">
+                  <div class="mb-3">
+                    <h6 class="text-muted">Weapon</h6>
+                    <p class="h5" id="detail-weapon">-</p>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="mb-3">
+                    <h6 class="text-muted">Armor</h6>
+                    <p class="h5" id="detail-armor">-</p>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="mb-3">
+                    <h6 class="text-muted">Extras</h6>
+                    <p class="h5" id="detail-extras">-</p>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="mb-3">
+                    <h6 class="text-muted">Last Event</h6>
+                    <p class="h5" id="detail-event">-</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- ◂▸ Tokens & loadout -->
         <div class="col-lg-7 mb-4">
           <h5>Your staked punks</h5>
@@ -1218,6 +1263,13 @@
     /* --- refs --- */
     const tblPunks = screen.querySelector('#tbl-punks');
     const tblInv   = screen.querySelector('#tbl-inv');
+    const punksWallet = screen.querySelector('#punks-wallet');
+    const punkDetails = screen.querySelector('#punk-details');
+    const detailId = screen.querySelector('#detail-id');
+    const detailWeapon = screen.querySelector('#detail-weapon');
+    const detailArmor = screen.querySelector('#detail-armor');
+    const detailExtras = screen.querySelector('#detail-extras');
+    const detailEvent = screen.querySelector('#detail-event');
 
     /* --- helpers --- */
     const tokenFmt = x => x && x !== '0' ? x : '–';
@@ -1240,6 +1292,93 @@
         }
       }
       throw lastError;
+    }
+
+    /* --- cargar los AdrianPunks disponibles --- */
+    async function loadWalletPunks() {
+      if (!WAL.account) {
+        punksWallet.innerHTML = '<div class="alert alert-secondary">Conecta tu wallet para ver tus AdrianPunks</div>';
+        return;
+      }
+
+      punksWallet.innerHTML = '<div class="spinner-border text-light" role="status"><span class="visually-hidden">Cargando...</span></div>';
+      
+      try {
+        // Creamos contrato NFT
+        const nftContract = WAL.nftContract();
+        
+        // Intentamos buscar hasta 100 tokens
+        const tokens = [];
+        for (let i = 1; i <= 100; i++) {
+          try {
+            const owner = await retryRead(() => nftContract.ownerOf(i));
+            if (owner.toLowerCase() === WAL.account.toLowerCase()) {
+              tokens.push(i);
+            }
+          } catch (err) {
+            // Si da error por no existir el token, lo ignoramos
+            if (!err.message.includes('owner query for nonexistent token')) {
+              console.warn(`Error al consultar token #${i}:`, err);
+            }
+          }
+        }
+        
+        if (tokens.length === 0) {
+          punksWallet.innerHTML = '<div class="alert alert-secondary">No posees ningún AdrianPunk</div>';
+          return;
+        }
+        
+        // Mostramos los tokens
+        punksWallet.innerHTML = '';
+        tokens.forEach(tokenId => {
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-outline-secondary punk-select';
+          btn.dataset.id = tokenId;
+          btn.innerHTML = `#${tokenId}`;
+          btn.addEventListener('click', () => showPunkDetails(tokenId));
+          punksWallet.appendChild(btn);
+        });
+      } catch (err) {
+        console.error("Error al cargar AdrianPunks:", err);
+        punksWallet.innerHTML = '<div class="alert alert-danger">Error al cargar tus AdrianPunks</div>';
+      }
+    }
+    
+    /* --- mostrar detalles de un AdrianPunk --- */
+    async function showPunkDetails(tokenId) {
+      try {
+        // Actualizar selección visual
+        document.querySelectorAll('.punk-select').forEach(btn => {
+          btn.classList.toggle('btn-outline-secondary', btn.dataset.id != tokenId);
+          btn.classList.toggle('btn-secondary', btn.dataset.id == tokenId);
+        });
+        
+        // Mostrar spinner mientras cargamos
+        detailId.textContent = tokenId;
+        detailWeapon.innerHTML = '<div class="spinner-border spinner-border-sm"></div>';
+        detailArmor.innerHTML = '<div class="spinner-border spinner-border-sm"></div>';
+        detailExtras.innerHTML = '<div class="spinner-border spinner-border-sm"></div>';
+        detailEvent.innerHTML = '<div class="spinner-border spinner-border-sm"></div>';
+        punkDetails.style.display = 'block';
+        
+        // Obtener detalles del armory
+        const [weapon, armor, extras, lastEvent] = await retryRead(() => 
+          WAL.pqContract().getTokenArmoryDetails(tokenId)
+        );
+        
+        // Actualizar UI con los detalles
+        detailWeapon.textContent = weapon.toString() === '0' ? '–' : weapon.toString();
+        detailArmor.textContent = armor.toString() === '0' ? '–' : armor.toString();
+        detailExtras.textContent = extras.length === 0 ? '–' : extras.map(e => e.toString()).join(', ');
+        detailEvent.textContent = lastEvent.toString() === '0' ? '–' : lastEvent.toString();
+      } catch (err) {
+        console.error(`Error al consultar detalles del token #${tokenId}:`, err);
+        punkDetails.style.display = 'block';
+        detailWeapon.textContent = 'Error';
+        detailArmor.textContent = 'Error';
+        detailExtras.textContent = 'Error';
+        detailEvent.textContent = 'Error';
+      }
     }
 
     /* --- pintar punks staked + loadout --- */
@@ -1313,31 +1452,7 @@
         tblInv.innerHTML = '<tr><td colspan="4" class="text-center">Error loading inventory</td></tr>';
       }
     }
-
-    /* --- funciones adicionales para capturar instanceIds de compras --- */
-    async function handleBuyItemEvents(tx) {
-      try {
-        const receipt = await tx.wait();
-        // Buscar eventos de ItemPurchasedInStore
-        const itemEvents = receipt.events?.filter(e => e.event === 'ItemPurchasedInStore');
-        
-        if (itemEvents && itemEvents.length > 0) {
-          // Extraer los instanceIds de los eventos
-          const instanceData = itemEvents.map(event => ({
-            templateId: event.args.templateId.toString(),
-            instanceId: event.args.instanceId.toString()
-          }));
-          
-          console.log("Purchased items:", instanceData);
-          // Se podrían guardar en localStorage o cache para acceso más rápido
-          return instanceData;
-        }
-      } catch (err) {
-        console.error("Error processing buy events:", err);
-      }
-      return [];
-    }
-
+    
     /* --- acciones --- */
     tblPunks.addEventListener('click', async e => {
       const id = e.target.dataset.unequip;
@@ -1352,6 +1467,11 @@
         await ST.getToken(id);
         paintPunks();
         paintInventory();
+        
+        // Si este token está seleccionado en los detalles, actualizarlo
+        if (detailId.textContent === id) {
+          showPunkDetails(id);
+        }
       } catch (err) {
         PQ_UTIL.toast(err.message || err, false);
       }
@@ -1360,7 +1480,7 @@
     tblInv.addEventListener('click', async e => {
       const btn = e.target.closest('button[data-template]');
       if (!btn) return;
-      
+
       const templateId = btn.dataset.template;
       const tokenId = prompt(`Equip item #${templateId} to Punk ID:`);
       if (!tokenId) return;
@@ -1407,6 +1527,11 @@
         await ST.loadInventory(WAL.account, true);
         paintPunks();
         paintInventory();
+        
+        // Si este token está seleccionado en los detalles, actualizarlo
+        if (detailId.textContent === tokenId) {
+          showPunkDetails(tokenId);
+        }
       } catch (err) {
         console.error("Error en equipamiento:", err);
         PQ_UTIL.toast(err.message || err, false);
@@ -1423,12 +1548,14 @@
       await ST.loadInventory();
       paintPunks();
       paintInventory();
+      loadWalletPunks();
     });
 
     /* si el wallet ya está conectado al abrir */
     if (WAL.account) {
       ST.loadStoreTemplates().then(paintInventory);
       paintPunks();
+      loadWalletPunks();
     }
   })();
   </script>
