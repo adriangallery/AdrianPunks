@@ -463,9 +463,9 @@
               error?.error?.message?.includes('rate limit') ||
               error?.data?.error?.message?.includes('rate limit')) {
             console.warn(`Rate limit alcanzado, reintento ${attempt+1}/${maxRetries}...`);
-            // Esperar un tiempo cada vez mayor entre reintentos
+            // Esperar un tiempo cada vez mayor entre reintentos (back-off exponencial)
             await new Promise(resolve => 
-              setTimeout(resolve, window.PQ_CONFIG.rateLimitRetryDelay * (attempt + 1))
+              setTimeout(resolve, 2000 * (attempt + 1))
             );
             continue;
           }
@@ -499,18 +499,73 @@
       if (cache.tokens[id]) return cache.tokens[id];
 
       const pq = WALLET.pqContract();
-      const [passive, game]                         = await pq.getTokenStats(id);
-      const [stakeStart, lastClaim, fast, itemsB,
-             spec, fix, pending]                    = await pq.getTokenDetailedInfo(id);
-      const [weapon, armor, extras, lastEvent]      = await pq.getTokenArmoryDetails(id);
-
-      cache.tokens[id] = {
-        passive, game, stakeStart, lastClaim, fast,
-        itemsBonus: itemsB, spec, fix, pending,
-        weapon, armor, extras, lastEvent
-      };
-      emit('state:token', { id, data: cache.tokens[id] });
-      return cache.tokens[id];
+      const mc = WALLET.multicallContract();
+      const iface = pq.interface;
+      
+      try {
+        // Agrupar todas las llamadas usando multicall3
+        const calls = [
+          {
+            target: pq.address, 
+            allowFailure: false,
+            callData: iface.encodeFunctionData('getTokenStats', [id])
+          },
+          {
+            target: pq.address, 
+            allowFailure: false,
+            callData: iface.encodeFunctionData('getTokenDetailedInfo', [id])
+          },
+          {
+            target: pq.address, 
+            allowFailure: false,
+            callData: iface.encodeFunctionData('getTokenArmoryDetails', [id])
+          }
+        ];
+        
+        // Realizar una sola llamada a la red con retry en caso de límite de tasa
+        const res = await retryOnRateLimit(() => mc.aggregate3(calls));
+        
+        // Decodificar los resultados
+        const [passive, game] = iface.decodeFunctionResult('getTokenStats', res[0].returnData);
+        
+        const [stakeStart, lastClaim, fast, itemsB, spec, fix, pending] = 
+          iface.decodeFunctionResult('getTokenDetailedInfo', res[1].returnData);
+          
+        const [weapon, armor, extras, lastEvent] = 
+          iface.decodeFunctionResult('getTokenArmoryDetails', res[2].returnData);
+        
+        // Guardar en caché
+        cache.tokens[id] = {
+          passive, game, stakeStart, lastClaim, fast,
+          itemsBonus: itemsB, spec, fix, pending,
+          weapon, armor, extras, lastEvent
+        };
+        
+        emit('state:token', { id, data: cache.tokens[id] });
+        return cache.tokens[id];
+      } catch (error) {
+        console.error(`Error al cargar detalles del token #${id}:`, error);
+        // Si falla multicall, intentar el método anterior
+        try {
+          const [passive, game] = await retryOnRateLimit(() => pq.getTokenStats(id));
+          const [stakeStart, lastClaim, fast, itemsB, spec, fix, pending] = 
+            await retryOnRateLimit(() => pq.getTokenDetailedInfo(id));
+          const [weapon, armor, extras, lastEvent] = 
+            await retryOnRateLimit(() => pq.getTokenArmoryDetails(id));
+          
+          cache.tokens[id] = {
+            passive, game, stakeStart, lastClaim, fast,
+            itemsBonus: itemsB, spec, fix, pending,
+            weapon, armor, extras, lastEvent
+          };
+          
+          emit('state:token', { id, data: cache.tokens[id] });
+          return cache.tokens[id];
+        } catch (fallbackError) {
+          console.error(`Error en fallback para token #${id}:`, fallbackError);
+          throw fallbackError;
+        }
+      }
     }
 
     /* ---------- STORE TEMPLATES ---------- */
@@ -1751,10 +1806,10 @@
                                        [0],
                                        [0]);
         await tx.wait();
-        await ST.getToken(id);
+        // Actualizar UI con retry para evitar errores de rate-limit
+        await retryOnRateLimit(() => ST.getToken(id));
+        await retryOnRateLimit(() => ST.loadInstances(WAL.account, true));
         paintPunks();
-        // Recargar instancias en lugar de inventario
-        await ST.loadInstances(WAL.account, true);
         paintInventory();
         
         // Si este token está seleccionado en los detalles, actualizarlo
@@ -1785,9 +1840,9 @@
         
         PQ_UTIL.toast(`Item #${instId} equipado a Punk #${punkId}`, true);
 
-        // Actualizar UI
-        await ST.getToken(punkId);
-        await ST.loadInstances(WAL.account, true);
+        // Actualizar UI con retry para evitar errores de rate-limit
+        await retryOnRateLimit(() => ST.getToken(punkId));
+        await retryOnRateLimit(() => ST.loadInstances(WAL.account, true));
         paintPunks();
         paintInventory();
         
