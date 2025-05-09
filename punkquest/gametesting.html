@@ -1362,67 +1362,59 @@
       if (!btn) return;
       
       const templateId = btn.dataset.template;
-      const tokenId = prompt(`Equip item #${templateId} to Punk ID:`);  if (!tokenId) return;
+      const tokenId = prompt(`Equip item #${templateId} to Punk ID:`);
+      if (!tokenId) return;
 
       try {
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
-        /* 1️⃣  ¿ya tenemos instancia libre? */
-        let instId = await findFreeInstance(templateId);
-
-        /* 2️⃣  si no, comprar una nueva (con approve si hace falta) */
-        if (!instId){
-          const token  = WAL.rewardTokenContract();
-          const cost   = PQ_STATE.cache.items[templateId].price;
+        // Verificar si necesitamos comprar nuevos items
+        const inv = ST.cache.inventory[WAL.account] || 
+                    await ST.loadInventory(WAL.account);
+        
+        const currentQty = inv[templateId] || ethers.BigNumber.from(0);
+        
+        // Si no tenemos suficientes, comprar
+        if (currentQty.eq(0)) {
+          const token = WAL.rewardTokenContract();
+          const cost = ST.cache.items[templateId].price;
           const pqAddr = PQ_CONFIG.contracts.punkQuest.address;
 
+          // Verificar allowance
           const allowance = await token.allowance(WAL.account, pqAddr);
-          if (allowance.lt(cost)){
+          if (allowance.lt(cost)) {
+            PQ_UTIL.toast('Aprobando tokens para la compra...', true);
             const appTx = await token.approve(pqAddr, cost);
             await appTx.wait();
           }
 
-          const buyTx  = await WAL.pqContract().buyItem(templateId, 1);
-          const rcpt   = await buyTx.wait();
-          const ev     = rcpt.events.find(e=>e.event==='ItemPurchasedInStore');
-          instId       = ev.args.instanceId;
-          PQ_UTIL.toast(`Nueva instancia #${instId} comprada`);
+          // Comprar un nuevo item
+          PQ_UTIL.toast(`Comprando item #${templateId}...`, true);
+          const buyTx = await WAL.pqContract().buyItem(templateId, 1);
+          await buyTx.wait();
         }
 
-        /* 3️⃣  equipar instancia */
-        const eqTx = await WAL.pqContract().equipItemInstance(tokenId, instId);
+        // Equipar directamente usando equipItem
+        PQ_UTIL.toast(`Equipando item #${templateId} a Punk #${tokenId}...`, true);
+        const eqTx = await WAL.pqContract().equipItem(tokenId, templateId);
         await eqTx.wait();
-        PQ_UTIL.toast(`Instance #${instId} equipada a Punk #${tokenId}`);
+        
+        PQ_UTIL.toast(`Item #${templateId} equipado a Punk #${tokenId}`, true);
 
-        /* refrescar UI */
+        // Actualizar UI
         await ST.getToken(tokenId);
         await ST.loadInventory(WAL.account, true);
-        document.dispatchEvent(new Event('state:wallet'));   // fuerza repaint
-      } catch(err){
-        console.error(err);
+        paintPunks();
+        paintInventory();
+      } catch (err) {
+        console.error("Error en equipamiento:", err);
         PQ_UTIL.toast(err.message || err, false);
-      } finally{
+      } finally {
         btn.disabled = false;
         btn.innerText = 'Equip →';
       }
     });
-
-    /* helper: devuelve un instanceId libre o null */
-    async function findFreeInstance(tplId){
-      try {
-        const ids = await WAL.pqContract().getOwnedInstances(WAL.account);
-        for (const inst of ids){
-          const [templateId, durability,, equipped] = await WAL.pqContract().getInstanceDetails(inst);
-          if (templateId.eq(tplId) && !equipped && durability.gt(0)) {
-            return inst;
-          }
-        }
-      } catch (err) {
-        console.warn("Error buscando instancias libres:", err);
-      }
-      return null;
-    }
 
     /* --- reactivo a cambios de estado --- */
     ST.on('state:wallet', paintPunks);
