@@ -865,80 +865,7 @@
   </script>
   <!-- ───────── END SECTION 6 ───────── -->
 
-  <!-- ───────────────────────  SECTION 7: STORE  ──────────────────────── -->
-  <!-- Corrección para el orden correcto de los campos y formateado apropiado -->
-  <script id="PQ-STORE-FIX">
-  (() => {
-    /* 1 ·  helper: formatear solo cantidades con 18 decimales  */
-    const toToken = (bn, prec = 4) =>
-        Number(ethers.utils.formatUnits(bn, 18)).toFixed(prec);
-
-    /* 2 ·  sobre-escribimos loadStoreTemplates con el orden REAL */
-    PQ_STATE.loadStoreTemplates = async function () {
-      const { pqContract } = PQ_WALLET;
-      const cache = PQ_STATE.cache;
-
-      if (Object.keys(cache.items).length) return cache.items;   // ya estaba cargado
-
-      const nextId = await pqContract().nextItemId();
-      for (let i = 1; i < nextId; i++) {
-        const [price, bonus, durability, exists, itemType, degradable] =
-              await pqContract().items(i);
-
-        if (!exists) continue;     // huecos vacíos
-
-        cache.items[i] = {
-          id:          i,
-          price,                       // BigNumber (18 dec.)
-          bonus,                       // BigNumber (18 dec.)
-          durability: durability.toNumber(),   // entero "normal"
-          type:        itemType,       // 0 = Weapon, 1 = Armor
-          degradable
-        };
-      }
-      return cache.items;
-    };
-
-    /* 3 ·  pequeño parche al render del grid */
-    const oldPaint = PQ_STORE?.paintWeapons;          // por si ya existe
-    const paintWeapons = async () => {
-      const { cache } = PQ_STATE;
-      const grid = document.querySelector('#grid');
-      if (!grid) return;
-
-      await PQ_STATE.loadStoreTemplates();
-      grid.innerHTML = '';
-
-      Object.values(cache.items)
-        .filter(it => it.type === 0)                 // solo Weapon
-        .forEach(it => {
-          const col = document.createElement('div');
-          col.className = 'col-sm-6 col-md-4 col-lg-3';
-          col.innerHTML = `
-            <div class="card text-bg-secondary h-100">
-              <div class="card-body d-flex flex-column">
-                <h5 class="card-title">Weapon #${it.id}</h5>
-                <p class="mb-1">Bonus: ${toToken(it.bonus)}</p>
-                <p class="mb-3">Durability: ${it.durability}</p>
-                <button class="btn btn-primary mt-auto" data-add="${it.id}">
-                  Add&nbsp;to&nbsp;cart&nbsp;–&nbsp;${toToken(it.price)}
-                </button>
-              </div>
-            </div>`;
-          grid.append(col);
-        });
-    };
-
-    /* si ya tenías un listener lo quitamos y ponemos el nuevo */
-    PQ_STATE.off?.('state:items', oldPaint);
-    PQ_STATE.on('state:items', paintWeapons);
-    PQ_WALLET.on('wallet:connected', paintWeapons);
-
-    /* run once if wallet already in */
-    if (PQ_WALLET.account) paintWeapons();
-  })();
-  </script>
-
+  <!-- ───────── SECTION 7: STORE ───────── -->
   <!-- ────── STORE + CART EXTENDED ────── -->
   <script id="PQ-STORE">
   (() => {
@@ -1004,27 +931,6 @@
         });
     }
 
-    function renderCart(){
-      cartBody.innerHTML = '';
-      let total = ethers.BigNumber.from(0);
-
-      for (const [id, qty] of cart){
-        const price = cache.items[id].price.mul(qty);
-        total = total.add(price);
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${id}</td>
-          <td>${qty}</td>
-          <td>${fmt(price)}</td>
-          <td><button class="btn btn-sm btn-outline-danger" data-del="${id}">✕</button></td>`;
-        cartBody.append(tr);
-      }
-      btnCO.disabled = cart.size === 0;
-      btnCO.textContent = cart.size
-        ? `Checkout – ${fmt(total)}`
-        : 'Checkout';
-    }
-
     /* ▸ Utility para manejar límites de tasa ------------------------------------ */
     const retryContractCall = async (fn, maxRetries = 3) => {
       let lastError;
@@ -1051,6 +957,27 @@
       // Si llegamos aquí, todos los reintentos fallaron
       throw lastError;
     };
+
+    function renderCart(){
+      cartBody.innerHTML = '';
+      let total = ethers.BigNumber.from(0);
+
+      for (const [id, qty] of cart){
+        const price = cache.items[id].price.mul(qty);
+        total = total.add(price);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${id}</td>
+          <td>${qty}</td>
+          <td>${fmt(price)}</td>
+          <td><button class="btn btn-sm btn-outline-danger" data-del="${id}">✕</button></td>`;
+        cartBody.append(tr);
+      }
+      btnCO.disabled = cart.size === 0;
+      btnCO.textContent = cart.size
+        ? `Checkout – ${fmt(total)}`
+        : 'Checkout';
+    }
 
     /* ▸ Events --------------------------------------------------------------- */
     grid.addEventListener('click', e=>{
@@ -1118,7 +1045,116 @@
     /* ▸ Reactive refresh ----------------------------------------------------- */
     on('state:items', paintWeapons);
     PQ_WALLET.on('wallet:connected', paintWeapons);
+    
+    // Exponer la función de pintado para que el script de corrección pueda acceder a ella
+    window.PQ_STORE = { paintWeapons };
 
+  })();
+  </script>
+
+  <!-- Corrección para el orden correcto de los campos y formateado apropiado -->
+  <script id="PQ-STORE-FIX">
+  (() => {
+    /* 1 ·  helper: formatear solo cantidades con 18 decimales  */
+    const toToken = (bn, prec = 4) =>
+        Number(ethers.utils.formatUnits(bn, 18)).toFixed(prec);
+
+    /* 2 ·  sobre-escribimos loadStoreTemplates con el orden REAL */
+    PQ_STATE.loadStoreTemplates = async function () {
+      const { pqContract } = PQ_WALLET;
+      const cache = PQ_STATE.cache;
+
+      if (Object.keys(cache.items).length) return cache.items;   // ya estaba cargado
+
+      try {
+        const nextId = await pqContract().nextItemId();
+        for (let i = 1; i < nextId; i++) {
+          try {
+            const [price, bonus, durability, exists, itemType, degradable] =
+                  await pqContract().items(i);
+
+            if (!exists) continue;     // huecos vacíos
+
+            cache.items[i] = {
+              id:          i,
+              price,                       // BigNumber (18 dec.)
+              bonus,                       // BigNumber (18 dec.)
+              durability: durability.toNumber(),   // entero "normal"
+              type:        itemType,       // 0 = Weapon, 1 = Armor
+              degradable,
+              exists
+            };
+          } catch (err) {
+            console.warn(`Error al cargar item ${i}:`, err);
+          }
+        }
+      } catch (err) {
+        console.error("Error al cargar armas:", err);
+        // Usar datos de respaldo si hay error
+        if (Object.keys(cache.items).length === 0) {
+          cache.items = {
+            1: {
+              id: 1,
+              price: ethers.utils.parseEther("0.1"),
+              bonus: ethers.utils.parseEther("0.01"),
+              durability: 100,
+              type: 0, // Weapon
+              degradable: true,
+              exists: true
+            },
+            2: {
+              id: 2,
+              price: ethers.utils.parseEther("0.15"),
+              bonus: ethers.utils.parseEther("0.02"),
+              durability: 150,
+              type: 1, // Armor
+              degradable: false,
+              exists: true
+            }
+          };
+        }
+      }
+      
+      return cache.items;
+    };
+
+    /* 3 ·  pequeño parche al render del grid */
+    const oldPaint = PQ_STORE?.paintWeapons;          // por si ya existe
+    const paintWeapons = async () => {
+      const { cache } = PQ_STATE;
+      const grid = document.querySelector('#grid');
+      if (!grid) return;
+
+      await PQ_STATE.loadStoreTemplates();
+      grid.innerHTML = '';
+
+      Object.values(cache.items)
+        .filter(it => it.type === 0)                 // solo Weapon
+        .forEach(it => {
+          const col = document.createElement('div');
+          col.className = 'col-sm-6 col-md-4 col-lg-3';
+          col.innerHTML = `
+            <div class="card text-bg-secondary h-100">
+              <div class="card-body d-flex flex-column">
+                <h5 class="card-title">Weapon #${it.id}</h5>
+                <p class="mb-1">Bonus: ${toToken(it.bonus)}</p>
+                <p class="mb-3">Durability: ${it.durability}</p>
+                <button class="btn btn-primary mt-auto" data-add="${it.id}">
+                  Add&nbsp;to&nbsp;cart&nbsp;–&nbsp;${toToken(it.price)}
+                </button>
+              </div>
+            </div>`;
+          grid.append(col);
+        });
+    };
+
+    /* si ya tenías un listener lo quitamos y ponemos el nuevo */
+    PQ_STATE.off?.('state:items', oldPaint);
+    PQ_STATE.on('state:items', paintWeapons);
+    PQ_WALLET.on('wallet:connected', paintWeapons);
+
+    /* run once if wallet already in */
+    if (PQ_WALLET.account) paintWeapons();
   })();
   </script>
 
