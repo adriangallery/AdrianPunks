@@ -899,6 +899,10 @@
           const fileName = `adrianpunk${tokenId}-${lamboColor}-lambo.png`;
           const imgData = canvas.toDataURL('image/png');
           
+          // Detectar específicamente Metamask en iOS
+          const isMetamaskiOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) && 
+                               (window.ethereum || /MetaMask/i.test(navigator.userAgent));
+          
           // Método tradicional para navegadores de escritorio - puede no funcionar en algunos móviles
           if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
             // Método para dispositivos móviles
@@ -906,6 +910,9 @@
             const img = document.createElement('img');
             img.src = imgData;
             img.style.maxWidth = '100%';
+            img.style.margin = '10px 0';
+            img.style.borderRadius = '8px';
+            img.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
             
             const modal = document.createElement('div');
             modal.style.position = 'fixed';
@@ -920,60 +927,123 @@
             modal.style.alignItems = 'center';
             modal.style.justifyContent = 'center';
             modal.style.padding = '20px';
+            modal.style.overflowY = 'auto';
+            
+            // Solución específica para Metamask iOS
+            if (isMetamaskiOS) {
+              // Crear un contenedor para la data URI que funcionará en Metamask iOS
+              const dataContainer = document.createElement('div');
+              dataContainer.style.width = '100%';
+              dataContainer.style.marginTop = '20px';
+              dataContainer.style.display = 'flex';
+              dataContainer.style.flexDirection = 'column';
+              dataContainer.style.alignItems = 'center';
+              
+              const dataLabel = document.createElement('p');
+              dataLabel.textContent = 'To save the image, copy this link and open it in Safari:';
+              dataLabel.style.color = 'white';
+              dataLabel.style.marginBottom = '10px';
+              dataLabel.style.textAlign = 'center';
+              
+              const dataInput = document.createElement('textarea');
+              dataInput.value = imgData;
+              dataInput.style.width = '100%';
+              dataInput.style.height = '80px';
+              dataInput.style.padding = '5px';
+              dataInput.style.borderRadius = '4px';
+              dataInput.style.marginBottom = '10px';
+              dataInput.style.fontSize = '12px';
+              
+              const copyButton = document.createElement('button');
+              copyButton.textContent = 'Copy Image URL';
+              copyButton.className = 'btn';
+              copyButton.style.marginBottom = '15px';
+              copyButton.style.backgroundColor = '#2563eb';
+              
+              copyButton.addEventListener('click', () => {
+                dataInput.select();
+                document.execCommand('copy');
+                copyButton.textContent = 'Copied!';
+                setTimeout(() => {
+                  copyButton.textContent = 'Copy Image URL';
+                }, 2000);
+              });
+              
+              dataContainer.appendChild(dataLabel);
+              dataContainer.appendChild(dataInput);
+              dataContainer.appendChild(copyButton);
+            }
             
             const instructions = document.createElement('p');
-            instructions.textContent = 'Mantenga presionada la imagen para descargarla o tomar captura de pantalla';
+            instructions.textContent = 'Press and hold the image to save it or take a screenshot';
             instructions.style.color = 'white';
             instructions.style.marginBottom = '20px';
             instructions.style.textAlign = 'center';
             
             const closeBtn = document.createElement('button');
-            closeBtn.textContent = 'Cerrar';
+            closeBtn.textContent = 'Close';
             closeBtn.className = 'btn';
             closeBtn.style.marginTop = '20px';
             closeBtn.addEventListener('click', () => document.body.removeChild(modal));
             
             modal.appendChild(instructions);
             modal.appendChild(img);
-            modal.appendChild(closeBtn);
-            document.body.appendChild(modal);
             
-            // También crea un enlace para navegadores que soportan descargas
+            // Añadir el contenedor de data URI solo para Metamask iOS
+            if (isMetamaskiOS) {
+              modal.appendChild(dataContainer);
+            }
+            
+            // Aún incluimos estos botones, pero con advertencias para Metamask
+            if (isMetamaskiOS) {
+              const warningMsg = document.createElement('p');
+              warningMsg.textContent = 'Note: Direct download and open in new tab may not work in Metamask browser';
+              warningMsg.style.color = '#ff9800';
+              warningMsg.style.margin = '10px 0';
+              warningMsg.style.textAlign = 'center';
+              warningMsg.style.fontSize = '14px';
+              modal.appendChild(warningMsg);
+            }
+            
+            // Botón de descarga directa
             const link = document.createElement('a');
             link.href = imgData;
             link.download = fileName;
-            link.textContent = 'Descargar directamente';
+            link.textContent = 'Download Directly';
             link.className = 'btn';
             link.style.marginTop = '10px';
             link.style.backgroundColor = '#4c1d95';
-            modal.insertBefore(link, closeBtn);
+            modal.appendChild(link);
             
-            // Intentar abrir la imagen en una nueva pestaña (alternativa para algunos navegadores móviles)
+            // Botón de abrir en nueva pestaña
             const newTabBtn = document.createElement('button');
-            newTabBtn.textContent = 'Abrir en nueva pestaña';
+            newTabBtn.textContent = 'Open in New Tab';
             newTabBtn.className = 'btn';
             newTabBtn.style.marginTop = '10px';
             newTabBtn.style.backgroundColor = '#1d4ed8';
             newTabBtn.addEventListener('click', () => {
               window.open(imgData, '_blank');
             });
-            modal.insertBefore(newTabBtn, closeBtn);
+            modal.appendChild(newTabBtn);
             
-            showError('Mantenga presionada la imagen para guardarla o use las opciones mostradas');
+            modal.appendChild(closeBtn);
+            document.body.appendChild(modal);
+            
+            showError('Image ready. Try press and hold to save or use options provided.');
           } else {
             // Desktop browser - usar el método estándar
             const link = document.createElement('a');
             link.download = fileName;
             link.href = imgData;
             link.click();
-            showError('Imagen descargada correctamente');
+            showError('Image downloaded successfully');
           }
           
           // También guardamos las imágenes generadas para el server
           saveColoredLambo(lamboColor);
         } catch (error) {
           console.error('Error downloading image:', error);
-          showError('Error al descargar la imagen. Intente capturar la pantalla como alternativa.');
+          showError('Error downloading image. Try taking a screenshot as an alternative.');
         }
       }
       
