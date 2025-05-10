@@ -660,7 +660,7 @@
         });
       };
       
-      // Función para cargar los tokens que posee el usuario
+      // Load user tokens function
       const loadUserTokens = async (address) => {
         try {
           // Message indicating we're loading tokens
@@ -755,16 +755,25 @@
           if (accounts.length > 0) {
             userAccount = accounts[0];
             displayAccount(userAccount);
-            // Cargar tokens del usuario
+            // Load user tokens
             await loadUserTokens(userAccount);
           } else {
-            // Deshabilitar inputs si no hay wallet conectada
+            // No wallet connected - show a message to use custom token input
+            showError('No wallet connected. You can still use the custom token field to view any AdrianPunk.');
             tokenInput.disabled = true;
-            generateBtn.disabled = true;
-            showError('Please connect your wallet to access your AdrianPunks');
+            connectWalletBtn.style.display = 'block';
+            // Make sure custom token input is enabled
+            customTokenInput.disabled = false;
+            customTokenBtn.disabled = false;
           }
         } catch (error) {
           console.error('Error checking connection:', error);
+          // Show a helpful error message for users without a wallet
+          showError('No wallet detected. You can still use the custom token field to view any AdrianPunk.');
+          tokenInput.disabled = true;
+          // Make sure custom token input is enabled
+          customTokenInput.disabled = false;
+          customTokenBtn.disabled = false;
         }
       };
       
@@ -782,11 +791,14 @@
           const signer = provider.getSigner();
           userAccount = await signer.getAddress();
           displayAccount(userAccount);
-          // Cargar tokens del usuario
+          // Load user tokens
           await loadUserTokens(userAccount);
         } catch (error) {
           console.error('Error connecting wallet:', error);
-          showError('Could not connect to wallet. Please try again.');
+          showError('Could not connect to wallet. You can still use the custom token field to view any AdrianPunk.');
+          // Make sure custom token input is enabled
+          customTokenInput.disabled = false;
+          customTokenBtn.disabled = false;
         }
       });
       
