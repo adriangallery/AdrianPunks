@@ -820,8 +820,10 @@
         let tokenId;
         
         // Check which source should be used for the token ID
-        if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000 && document.activeElement === customTokenInput) {
-          // If the custom input field has focus and contains a valid value, use it
+        if (window.useCustomToken || 
+            (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000 && 
+            (document.activeElement === customTokenInput || document.activeElement === customTokenBtn))) {
+          // If we're explicitly using the custom token or the custom input field has focus/was just used
           tokenId = customTokenId;
         } else if (!isNaN(dropdownTokenId) && dropdownTokenId >= 1 && dropdownTokenId <= 1000) {
           // Otherwise use the dropdown value if valid
@@ -1016,12 +1018,34 @@
       const customTokenInput = document.getElementById('custom-token-id');
       const customTokenBtn = document.getElementById('custom-token-btn');
       
-      customTokenBtn.addEventListener('click', () => {
+      customTokenBtn.addEventListener('click', function() {
+        // Get the token ID from the input
         const customTokenId = parseInt(customTokenInput.value);
+        
+        // Validate the token ID
         if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000) {
-          // Disable the dropdown temporarily
-          tokenInput.value = customTokenId;
+          // For mobile devices, ensure focus is on the custom input so the logic works
+          customTokenInput.focus();
+          
+          // Clear the dropdown selection to avoid conflicts
+          if (tokenInput) {
+            // Only change the dropdown if it exists and has options
+            if (tokenInput.options && tokenInput.options.length > 0) {
+              // Try to select the first option (usually empty) to clear selection
+              tokenInput.selectedIndex = -1;
+            }
+          }
+          
+          // Set this flag to explicitly indicate we want to use the custom token
+          window.useCustomToken = true;
+          
+          // Call generate image function
           generateImage();
+          
+          // Clear the flag after use
+          setTimeout(() => {
+            window.useCustomToken = false;
+          }, 500);
         } else {
           showError('Please enter a valid token ID between 1 and 1000');
         }
