@@ -101,13 +101,7 @@
       transition: background-color 0.2s;
       text-transform: uppercase;
       letter-spacing: 1px;
-      -webkit-appearance: none;
-      -moz-appearance: none;
-      appearance: none;
       touch-action: manipulation;
-      user-select: none;
-      position: relative;
-      overflow: hidden;
     }
     
     .btn:hover {
@@ -404,11 +398,6 @@
       .btn {
         min-height: 44px; /* Apple's recommended minimum touch target size */
         font-size: 16px; /* Prevent iOS zoom on focus */
-      }
-      
-      /* Add tap highlight color for mobile */
-      .btn {
-        -webkit-tap-highlight-color: rgba(138, 43, 226, 0.3);
       }
       
       /* Ensure input fields don't zoom */
@@ -1050,58 +1039,22 @@
       const customTokenInput = document.getElementById('custom-token-id');
       const customTokenBtn = document.getElementById('custom-token-btn');
       
-      // Fix for touch events on custom token button
+      // Simple click event for custom token button
       if (customTokenBtn) {
-        // Remove existing event listeners first to prevent duplicates
-        const newBtn = customTokenBtn.cloneNode(true);
-        customTokenBtn.parentNode.replaceChild(newBtn, customTokenBtn);
-        
-        // Add new event listener
-        newBtn.addEventListener('click', handleCustomTokenButtonClick);
-        
-        // Also add touch event for mobile devices
-        newBtn.addEventListener('touchend', function(e) {
-          e.preventDefault();
-          handleCustomTokenButtonClick();
-        });
+        customTokenBtn.addEventListener('click', handleCustomTokenButtonClick);
       }
       
       function handleCustomTokenButtonClick() {
         // Get the token ID from the input
         const customTokenId = parseInt(customTokenInput.value);
         
-        // Debug output for mobile testing
-        console.log("Custom token button clicked, ID:", customTokenId);
-        
         // Validate the token ID
         if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000) {
-          // For mobile devices, ensure focus is on the custom input
-          customTokenInput.focus();
-          
-          try {
-            // Clear the dropdown selection to avoid conflicts
-            if (tokenInput) {
-              // Only change the dropdown if it exists and has options
-              if (tokenInput.options && tokenInput.options.length > 0) {
-                // Try to select the first option to clear selection
-                tokenInput.selectedIndex = -1;
-              }
-            }
-          } catch (e) {
-            console.warn("Error clearing dropdown:", e);
-          }
-          
-          // Set this flag to explicitly indicate we want to use the custom token
+          // Set flag to use custom token
           window.useCustomToken = true;
           
-          try {
-            // Call generate image function directly
-            console.log("Generating image with token:", customTokenId);
-            generateImage();
-          } catch (e) {
-            console.error("Error generating image:", e);
-            showError('Error generating image: ' + e.message);
-          }
+          // Call generate image function
+          generateImage();
           
           // Clear the flag after use
           setTimeout(() => {
@@ -1129,112 +1082,37 @@
         });
       }
       
-      // Generate button needs similar fix
+      // Standard click events for buttons - no cloning needed
       if (generateBtn) {
-        // Remove existing event listeners
-        const newGenerateBtn = generateBtn.cloneNode(true);
-        generateBtn.parentNode.replaceChild(newGenerateBtn, generateBtn);
-        generateBtn = newGenerateBtn;
-        
-        // Add new event listener
-        generateBtn.addEventListener('click', function(e) {
-          e.preventDefault();
-          console.log("Generate button clicked");
-          try {
-            generateImage();
-          } catch (e) {
-            console.error("Error in generate button click:", e);
-            showError('Error generating image: ' + e.message);
-          }
-        });
-        
-        // Also add touch event for mobile
-        generateBtn.addEventListener('touchend', function(e) {
-          e.preventDefault();
-          console.log("Generate button touched");
-          try {
-            generateImage();
-          } catch (e) {
-            console.error("Error in generate button touch:", e);
-            showError('Error generating image: ' + e.message);
-          }
-        });
+        // Clear any existing event listeners by cloning and replacing
+        generateBtn.replaceWith(generateBtn.cloneNode(true));
+        // Get the fresh button reference
+        generateBtn = document.getElementById('generate-btn');
+        // Add the click event
+        generateBtn.addEventListener('click', generateImage);
       }
       
-      // Download button also needs the fix
       if (downloadBtn) {
-        // Remove existing event listeners
-        const newDownloadBtn = downloadBtn.cloneNode(true);
-        downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
-        downloadBtn = newDownloadBtn;
-        
-        // Add new event listener
-        downloadBtn.addEventListener('click', function(e) {
-          e.preventDefault();
-          console.log("Download button clicked");
-          try {
-            downloadImage();
-          } catch (e) {
-            console.error("Error in download button click:", e);
-            showError('Error downloading image: ' + e.message);
-          }
-        });
-        
-        // Also add touch event for mobile
-        downloadBtn.addEventListener('touchend', function(e) {
-          e.preventDefault();
-          console.log("Download button touched");
-          try {
-            downloadImage();
-          } catch (e) {
-            console.error("Error in download button touch:", e);
-            showError('Error downloading image: ' + e.message);
-          }
+        // Clear any existing event listeners by cloning and replacing
+        downloadBtn.replaceWith(downloadBtn.cloneNode(true));
+        // Get the fresh button reference
+        downloadBtn = document.getElementById('download-btn');
+        // Add the click event
+        downloadBtn.addEventListener('click', downloadImage);
+      }
+      
+      // Mobile-specific adjustments
+      function setupMobileOptimizations() {
+        // Add basic styles for mobile
+        document.querySelectorAll('.btn').forEach(button => {
+          // Ensure buttons display correctly on mobile
+          button.style.display = 'inline-block';
+          button.style.width = 'auto';
         });
       }
       
-      // Mobile optimization for buttons
-      function initMobileButtonFixes() {
-        // Get all buttons
-        const allButtons = document.querySelectorAll('.btn');
-        
-        // Add touch event listeners to all buttons
-        allButtons.forEach(button => {
-          // Add touchstart event
-          button.addEventListener('touchstart', function(e) {
-            // Add active class on touch
-            this.classList.add('btn-active');
-            
-            // Prevent double tap zoom on iOS
-            e.preventDefault();
-          }, { passive: false });
-          
-          // Add touchend event
-          button.addEventListener('touchend', function() {
-            // Remove active class
-            this.classList.remove('btn-active');
-            
-            // Trigger click event programmatically
-            setTimeout(() => {
-              this.click();
-            }, 0);
-          });
-          
-          // Add touchcancel event
-          button.addEventListener('touchcancel', function() {
-            // Remove active class
-            this.classList.remove('btn-active');
-          });
-        });
-      }
-      
-      // Run mobile optimization after a short delay
-      setTimeout(initMobileButtonFixes, 1000);
-      
-      // Re-run optimization when dynamically added buttons might be present
-      document.addEventListener('click', function() {
-        setTimeout(initMobileButtonFixes, 200);
-      });
+      // Run mobile optimizations when DOM is loaded
+      setupMobileOptimizations();
     });
   </script>
 </body>
