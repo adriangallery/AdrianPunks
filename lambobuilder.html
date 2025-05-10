@@ -852,25 +852,29 @@
         
         let tokenId;
         
-        // Check which source should be used for the token ID
-        if (window.useCustomToken || 
-            (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000 && 
-            (document.activeElement === customTokenInput || document.activeElement === customTokenBtn))) {
-          // If we're explicitly using the custom token or the custom input field has focus/was just used
+        // First check if we have a manual token ID set from mobile
+        if (window.manualTokenId && window.manualTokenId >= 1 && window.manualTokenId <= 1000) {
+          tokenId = window.manualTokenId;
+          window.manualTokenId = null; // Clear it after use
+        }
+        // Otherwise check which source should be used for the token ID
+        else if (window.useCustomToken || 
+            (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000)) {
+          // If we're explicitly using the custom token or the custom field has a valid value
           tokenId = customTokenId;
         } else if (!isNaN(dropdownTokenId) && dropdownTokenId >= 1 && dropdownTokenId <= 1000) {
           // Otherwise use the dropdown value if valid
           tokenId = dropdownTokenId;
           // Clear the custom input field to avoid confusion
           customTokenInput.value = '';
-        } else if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000) {
-          // Fallback to custom token ID if dropdown is not valid
-          tokenId = customTokenId;
         } else {
           // No valid token ID found
           showError('Please select a valid AdrianPunk token.');
           return;
         }
+        
+        // Debug output for mobile troubleshooting
+        console.log("generateImage using token ID:", tokenId);
         
         // Validate input
         if (isNaN(tokenId) || tokenId < 1 || tokenId > 1000) {
@@ -1051,22 +1055,33 @@
       const customTokenInput = document.getElementById('custom-token-id');
       const customTokenBtn = document.getElementById('custom-token-btn');
       
-      // Simple click event for custom token button
-      if (customTokenBtn) {
-        customTokenBtn.addEventListener('click', handleCustomTokenButtonClick);
-      }
-      
-      function handleCustomTokenButtonClick() {
+      function handleCustomTokenButtonClick(e) {
+        // If there's an event, prevent default behavior
+        if (e) e.preventDefault();
+        
         // Get the token ID from the input
         const customTokenId = parseInt(customTokenInput.value);
         
+        // Debug output for mobile troubleshooting
+        console.log("Custom token button clicked on mobile. Token ID:", customTokenId);
+        
         // Validate the token ID
         if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000) {
-          // Set flag to use custom token
+          // Explicitly set the token value to use in generateImage
+          window.manualTokenId = customTokenId;
           window.useCustomToken = true;
           
-          // Call generate image function
-          generateImage();
+          // Force a focus blur to hide mobile keyboard
+          customTokenInput.blur();
+          
+          // Call generate image function directly
+          try {
+            console.log("Calling generateImage with manual token:", customTokenId);
+            generateImage();
+          } catch (error) {
+            console.error("Error in generateImage:", error);
+            showError('Error generating image. Please try again.');
+          }
           
           // Clear the flag after use
           setTimeout(() => {
@@ -1075,6 +1090,19 @@
         } else {
           showError('Please enter a valid token ID between 1 and 1000');
         }
+      }
+      
+      // Standard click events for buttons - ensure they work on mobile
+      if (customTokenBtn) {
+        // Remove any existing listeners
+        const newCustomBtn = customTokenBtn.cloneNode(true);
+        customTokenBtn.parentNode.replaceChild(newCustomBtn, customTokenBtn);
+        customTokenBtn = document.getElementById('custom-token-btn');
+        
+        // Add multiple event types for better mobile compatibility
+        ['click', 'touchend'].forEach(eventType => {
+          customTokenBtn.addEventListener(eventType, handleCustomTokenButtonClick, {passive: false});
+        });
       }
       
       // Allow Enter key to trigger the custom token button
