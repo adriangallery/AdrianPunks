@@ -954,6 +954,9 @@
         const isMetaMaskMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) && 
                                (window.ethereum || /MetaMask/i.test(navigator.userAgent));
         
+        // Detectar si es un dispositivo móvil
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        
         // Si estamos en MetaMask móvil, subir a NFT.Storage
         if (isMetaMaskMobile) {
           showLoading("Preparando imagen para descarga...");
@@ -1109,21 +1112,28 @@
               showError('Error al subir la imagen. Intenta de nuevo más tarde.');
               
               // Mostrar el modal normal como fallback
-              showStandardModal(imgData);
+              showStandardModal(imgData, fileName);
             }
           });
           
+        } else if (isMobile) {
+          // Para otros navegadores móviles, mostrar el modal estándar
+          showStandardModal(imgData, fileName);
         } else {
-          // Para navegadores normales, mostrar el modal estándar
-          showStandardModal(imgData);
+          // Para navegadores de escritorio, descarga directa sin modal
+          const link = document.createElement('a');
+          link.download = fileName;
+          link.href = imgData;
+          link.click();
+          showError('Imagen descargada con éxito');
         }
         
         // También guardamos las imágenes generadas para el server
         saveColoredLambo(lamboColor);
       }
       
-      // Función para mostrar el modal estándar
-      function showStandardModal(imgData) {
+      // Actualizar la función para recibir el nombre del archivo
+      function showStandardModal(imgData, fileName) {
         // Crear modal visual
         const modal = document.createElement('div');
         modal.style.position = 'fixed';
@@ -1156,7 +1166,7 @@
         const downloadBtn = document.createElement('a');
         downloadBtn.textContent = 'Descargar imagen';
         downloadBtn.href = imgData;
-        downloadBtn.download = `adrianpunk-lambo.png`;
+        downloadBtn.download = fileName;
         downloadBtn.className = 'btn';
         downloadBtn.style.marginTop = '20px';
         downloadBtn.style.marginBottom = '20px';
