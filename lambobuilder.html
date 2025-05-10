@@ -101,12 +101,18 @@
       transition: background-color 0.2s;
       text-transform: uppercase;
       letter-spacing: 1px;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      touch-action: manipulation;
+      user-select: none;
+      position: relative;
+      overflow: hidden;
     }
     
     .btn:hover {
       background-color: var(--accent-purple-hover);
       transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(138, 43, 226, 0.3);
     }
     
     .btn:disabled {
@@ -385,6 +391,32 @@
     /* Fix para el botón de hamburguesa y el menú en todas las resoluciones */
     .navbar-collapse.show {
       display: block !important;
+    }
+    
+    /* Add mobile-specific active state */
+    .btn:active {
+      background-color: var(--accent-purple-hover);
+      transform: translateY(1px);
+    }
+    
+    /* Ensure buttons are easy to tap on mobile */
+    @media (max-width: 768px) {
+      .btn {
+        min-height: 44px; /* Apple's recommended minimum touch target size */
+        font-size: 16px; /* Prevent iOS zoom on focus */
+      }
+      
+      /* Add tap highlight color for mobile */
+      .btn {
+        -webkit-tap-highlight-color: rgba(138, 43, 226, 0.3);
+      }
+      
+      /* Ensure input fields don't zoom */
+      input[type="number"],
+      input[type="text"],
+      select {
+        font-size: 16px;
+      }
     }
   </style>
 </head>
@@ -783,8 +815,8 @@
       
       // Lambo Builder Logic
       const tokenInput = document.getElementById('token-id');
-      const generateBtn = document.getElementById('generate-btn');
-      const downloadBtn = document.getElementById('download-btn');
+      let generateBtn = document.getElementById('generate-btn');
+      let downloadBtn = document.getElementById('download-btn');
       const canvas = document.getElementById('canvas');
       const ctx = canvas.getContext('2d');
       const previewSection = document.getElementById('preview-section');
@@ -1018,29 +1050,58 @@
       const customTokenInput = document.getElementById('custom-token-id');
       const customTokenBtn = document.getElementById('custom-token-btn');
       
-      customTokenBtn.addEventListener('click', function() {
+      // Fix for touch events on custom token button
+      if (customTokenBtn) {
+        // Remove existing event listeners first to prevent duplicates
+        const newBtn = customTokenBtn.cloneNode(true);
+        customTokenBtn.parentNode.replaceChild(newBtn, customTokenBtn);
+        
+        // Add new event listener
+        newBtn.addEventListener('click', handleCustomTokenButtonClick);
+        
+        // Also add touch event for mobile devices
+        newBtn.addEventListener('touchend', function(e) {
+          e.preventDefault();
+          handleCustomTokenButtonClick();
+        });
+      }
+      
+      function handleCustomTokenButtonClick() {
         // Get the token ID from the input
         const customTokenId = parseInt(customTokenInput.value);
         
+        // Debug output for mobile testing
+        console.log("Custom token button clicked, ID:", customTokenId);
+        
         // Validate the token ID
         if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000) {
-          // For mobile devices, ensure focus is on the custom input so the logic works
+          // For mobile devices, ensure focus is on the custom input
           customTokenInput.focus();
           
-          // Clear the dropdown selection to avoid conflicts
-          if (tokenInput) {
-            // Only change the dropdown if it exists and has options
-            if (tokenInput.options && tokenInput.options.length > 0) {
-              // Try to select the first option (usually empty) to clear selection
-              tokenInput.selectedIndex = -1;
+          try {
+            // Clear the dropdown selection to avoid conflicts
+            if (tokenInput) {
+              // Only change the dropdown if it exists and has options
+              if (tokenInput.options && tokenInput.options.length > 0) {
+                // Try to select the first option to clear selection
+                tokenInput.selectedIndex = -1;
+              }
             }
+          } catch (e) {
+            console.warn("Error clearing dropdown:", e);
           }
           
           // Set this flag to explicitly indicate we want to use the custom token
           window.useCustomToken = true;
           
-          // Call generate image function
-          generateImage();
+          try {
+            // Call generate image function directly
+            console.log("Generating image with token:", customTokenId);
+            generateImage();
+          } catch (e) {
+            console.error("Error generating image:", e);
+            showError('Error generating image: ' + e.message);
+          }
           
           // Clear the flag after use
           setTimeout(() => {
@@ -1049,20 +1110,130 @@
         } else {
           showError('Please enter a valid token ID between 1 and 1000');
         }
-      });
+      }
       
       // Allow Enter key to trigger the custom token button
       customTokenInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
-          customTokenBtn.click();
+          e.preventDefault();
+          handleCustomTokenButtonClick();
         }
       });
-
+      
       // Add change event to token dropdown
-      tokenInput.addEventListener('change', () => {
-        // Clear the custom token input when using the dropdown
-        customTokenInput.value = '';
-        generateImage();
+      if (tokenInput) {
+        tokenInput.addEventListener('change', () => {
+          // Clear the custom token input when using the dropdown
+          customTokenInput.value = '';
+          generateImage();
+        });
+      }
+      
+      // Generate button needs similar fix
+      if (generateBtn) {
+        // Remove existing event listeners
+        const newGenerateBtn = generateBtn.cloneNode(true);
+        generateBtn.parentNode.replaceChild(newGenerateBtn, generateBtn);
+        generateBtn = newGenerateBtn;
+        
+        // Add new event listener
+        generateBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          console.log("Generate button clicked");
+          try {
+            generateImage();
+          } catch (e) {
+            console.error("Error in generate button click:", e);
+            showError('Error generating image: ' + e.message);
+          }
+        });
+        
+        // Also add touch event for mobile
+        generateBtn.addEventListener('touchend', function(e) {
+          e.preventDefault();
+          console.log("Generate button touched");
+          try {
+            generateImage();
+          } catch (e) {
+            console.error("Error in generate button touch:", e);
+            showError('Error generating image: ' + e.message);
+          }
+        });
+      }
+      
+      // Download button also needs the fix
+      if (downloadBtn) {
+        // Remove existing event listeners
+        const newDownloadBtn = downloadBtn.cloneNode(true);
+        downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
+        downloadBtn = newDownloadBtn;
+        
+        // Add new event listener
+        downloadBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          console.log("Download button clicked");
+          try {
+            downloadImage();
+          } catch (e) {
+            console.error("Error in download button click:", e);
+            showError('Error downloading image: ' + e.message);
+          }
+        });
+        
+        // Also add touch event for mobile
+        downloadBtn.addEventListener('touchend', function(e) {
+          e.preventDefault();
+          console.log("Download button touched");
+          try {
+            downloadImage();
+          } catch (e) {
+            console.error("Error in download button touch:", e);
+            showError('Error downloading image: ' + e.message);
+          }
+        });
+      }
+      
+      // Mobile optimization for buttons
+      function initMobileButtonFixes() {
+        // Get all buttons
+        const allButtons = document.querySelectorAll('.btn');
+        
+        // Add touch event listeners to all buttons
+        allButtons.forEach(button => {
+          // Add touchstart event
+          button.addEventListener('touchstart', function(e) {
+            // Add active class on touch
+            this.classList.add('btn-active');
+            
+            // Prevent double tap zoom on iOS
+            e.preventDefault();
+          }, { passive: false });
+          
+          // Add touchend event
+          button.addEventListener('touchend', function() {
+            // Remove active class
+            this.classList.remove('btn-active');
+            
+            // Trigger click event programmatically
+            setTimeout(() => {
+              this.click();
+            }, 0);
+          });
+          
+          // Add touchcancel event
+          button.addEventListener('touchcancel', function() {
+            // Remove active class
+            this.classList.remove('btn-active');
+          });
+        });
+      }
+      
+      // Run mobile optimization after a short delay
+      setTimeout(initMobileButtonFixes, 1000);
+      
+      // Re-run optimization when dynamically added buttons might be present
+      document.addEventListener('click', function() {
+        setTimeout(initMobileButtonFixes, 200);
       });
     });
   </script>
