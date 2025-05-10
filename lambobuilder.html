@@ -817,10 +817,25 @@
         const dropdownTokenId = parseInt(tokenInput.value);
         const customTokenId = parseInt(customTokenInput.value);
         
-        // Use custom token ID if entered, otherwise use dropdown selection
-        const tokenId = !isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000 
-                       ? customTokenId 
-                       : dropdownTokenId;
+        let tokenId;
+        
+        // Check which source should be used for the token ID
+        if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000 && document.activeElement === customTokenInput) {
+          // If the custom input field has focus and contains a valid value, use it
+          tokenId = customTokenId;
+        } else if (!isNaN(dropdownTokenId) && dropdownTokenId >= 1 && dropdownTokenId <= 1000) {
+          // Otherwise use the dropdown value if valid
+          tokenId = dropdownTokenId;
+          // Clear the custom input field to avoid confusion
+          customTokenInput.value = '';
+        } else if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000) {
+          // Fallback to custom token ID if dropdown is not valid
+          tokenId = customTokenId;
+        } else {
+          // No valid token ID found
+          showError('Please select a valid AdrianPunk token.');
+          return;
+        }
         
         // Validate input
         if (isNaN(tokenId) || tokenId < 1 || tokenId > 1000) {
@@ -1017,6 +1032,13 @@
         if (e.key === 'Enter') {
           customTokenBtn.click();
         }
+      });
+
+      // Add change event to token dropdown
+      tokenInput.addEventListener('change', () => {
+        // Clear the custom token input when using the dropdown
+        customTokenInput.value = '';
+        generateImage();
       });
     });
   </script>
