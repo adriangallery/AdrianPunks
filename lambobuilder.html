@@ -846,45 +846,49 @@
       downloadBtn.addEventListener('click', downloadImage);
       
       async function generateImage() {
-        // Get token ID from appropriate source
+        // Get token ID from dropdown or custom input
         const dropdownTokenId = parseInt(tokenInput.value);
         const customTokenId = parseInt(customTokenInput.value);
         
         let tokenId;
         
-        // Priorizar token manual para móviles
+        // First check if we have a manual token ID set from mobile
         if (window.manualTokenId && window.manualTokenId >= 1 && window.manualTokenId <= 1000) {
           tokenId = window.manualTokenId;
-          console.log("Usando token manual (móvil):", tokenId);
-          window.manualTokenId = null; // Limpiar después de usar
+          window.manualTokenId = null; // Clear it after use
         }
-        // Usar token personalizado si está activo
-        else if (window.useCustomToken && !isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000) {
+        // Otherwise check which source should be used for the token ID
+        else if (window.useCustomToken || 
+            (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000)) {
+          // If we're explicitly using the custom token or the custom field has a valid value
           tokenId = customTokenId;
-          console.log("Usando token personalizado:", tokenId);
-        }
-        // Usar token del dropdown si es válido
-        else if (!isNaN(dropdownTokenId) && dropdownTokenId >= 1 && dropdownTokenId <= 1000) {
+        } else if (!isNaN(dropdownTokenId) && dropdownTokenId >= 1 && dropdownTokenId <= 1000) {
+          // Otherwise use the dropdown value if valid
           tokenId = dropdownTokenId;
-          console.log("Usando token del selector:", tokenId);
-        }
-        // Si no hay token válido, mostrar error
-        else {
-          showError('Por favor, selecciona un token válido de AdrianPunk.');
+          // Clear the custom input field to avoid confusion
+          customTokenInput.value = '';
+        } else {
+          // No valid token ID found
+          showError('Please select a valid AdrianPunk token.');
           return;
         }
         
-        // Validación final del token
+        // Debug output for mobile troubleshooting
+        console.log("generateImage using token ID:", tokenId);
+        
+        // Validate input
         if (isNaN(tokenId) || tokenId < 1 || tokenId > 1000) {
-          showError('Por favor, selecciona un token válido de AdrianPunk.');
+          showError('Please select a valid AdrianPunk token.');
           return;
         }
-
-        // Mostrar loading
+        
+        // No need to verify ownership since we want to allow any token ID
+        
+        // Show loading
         errorMessage.classList.add('hidden');
         previewSection.classList.add('hidden');
         loadingEl.style.display = 'block';
-
+        
         try {
           // Determine which lambo color is selected
           let lamboColor = 'YELLOW';
@@ -1003,24 +1007,7 @@
       }
       
       function downloadImage() {
-        // Obtener el token ID actual
-        let tokenId;
-        
-        // Intentar obtener el token del input personalizado primero
-        const customTokenId = parseInt(customTokenInput.value);
-        if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000) {
-          tokenId = customTokenId;
-        } else {
-          // Si no hay token personalizado, usar el del dropdown
-          tokenId = parseInt(tokenInput.value);
-        }
-        
-        // Validar que tengamos un token válido
-        if (isNaN(tokenId) || tokenId < 1 || tokenId > 1000) {
-          showError('Por favor, genera una imagen primero');
-          return;
-        }
-
+        const tokenId = tokenInput.value;
         let lamboColor = 'YELLOW';
         for (let option of lamboOptions) {
           if (option.checked) {
@@ -1032,12 +1019,14 @@
         const fileName = `adrianpunk${tokenId}-${lamboColor}-lambo.png`;
         const imgData = canvas.toDataURL('image/png');
         
+        // Simple direct download for all devices
         const link = document.createElement('a');
         link.download = fileName;
         link.href = imgData;
         link.click();
-        showError('Imagen descargada exitosamente');
+        showError('Image downloaded successfully');
         
+        // Also save the colored images for the server
         saveColoredLambo(lamboColor);
       }
       
@@ -1067,63 +1056,62 @@
       const customTokenBtn = document.getElementById('custom-token-btn');
       
       function handleCustomTokenButtonClick(e) {
-        // Prevenir comportamiento predeterminado para todos los eventos
-        if (e) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
+        // If there's an event, prevent default behavior
+        if (e) e.preventDefault();
         
-        // Obtener el token ID del input y validar
+        // Get the token ID from the input
         const customTokenId = parseInt(customTokenInput.value);
         
-        // Debug para móviles
-        console.log("Custom token button clicked. Token ID:", customTokenId);
+        // Debug output for mobile troubleshooting
+        console.log("Custom token button clicked on mobile. Token ID:", customTokenId);
         
+        // Validate the token ID
         if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000) {
-          // Forzar blur para ocultar teclado en móviles
-          customTokenInput.blur();
-          
-          // Establecer el token personalizado
+          // Explicitly set the token value to use in generateImage
           window.manualTokenId = customTokenId;
           window.useCustomToken = true;
           
-          // Generar imagen con un pequeño retraso para asegurar que el estado se actualice
+          // Force a focus blur to hide mobile keyboard
+          customTokenInput.blur();
+          
+          // Call generate image function directly
+          try {
+            console.log("Calling generateImage with manual token:", customTokenId);
+            generateImage();
+          } catch (error) {
+            console.error("Error in generateImage:", error);
+            showError('Error generating image. Please try again.');
+          }
+          
+          // Clear the flag after use
           setTimeout(() => {
-            try {
-              console.log("Generando imagen con token manual:", customTokenId);
-              generateImage();
-            } catch (error) {
-              console.error("Error en generateImage:", error);
-              showError('Error al generar la imagen. Por favor, inténtalo de nuevo.');
-            }
-          }, 100);
+            window.useCustomToken = false;
+          }, 500);
         } else {
-          showError('Por favor, introduce un ID de token válido entre 1 y 1000');
+          showError('Please enter a valid token ID between 1 and 1000');
         }
       }
-
-      // Mejorar manejo de eventos táctiles
-      function setupCustomTokenButton() {
-        if (!customTokenBtn) return;
+      
+      // Standard click events for buttons - ensure they work on mobile
+      if (customTokenBtn) {
+        // Remove any existing listeners
+        const newCustomBtn = customTokenBtn.cloneNode(true);
+        customTokenBtn.parentNode.replaceChild(newCustomBtn, customTokenBtn);
+        customTokenBtn = document.getElementById('custom-token-btn');
         
-        // Clonar y reemplazar para limpiar eventos existentes
-        const newBtn = customTokenBtn.cloneNode(true);
-        if (customTokenBtn.parentNode) {
-          customTokenBtn.parentNode.replaceChild(newBtn, customTokenBtn);
-        }
-        
-        // Añadir eventos para desktop y móvil
+        // Add multiple event types for better mobile compatibility
         ['click', 'touchend'].forEach(eventType => {
-          newBtn.addEventListener(eventType, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            handleCustomTokenButtonClick(e);
-          }, { passive: false });
+          customTokenBtn.addEventListener(eventType, handleCustomTokenButtonClick, {passive: false});
         });
-        
-        // Actualizar referencia
-        customTokenBtn = newBtn;
       }
+      
+      // Allow Enter key to trigger the custom token button
+      customTokenInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleCustomTokenButtonClick();
+        }
+      });
       
       // Add change event to token dropdown
       if (tokenInput) {
