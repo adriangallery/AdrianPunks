@@ -1486,7 +1486,7 @@
             <table class="table table-dark table-sm align-middle">
               <thead>
                 <tr>
-                  <th>Template</th><th>Durability</th><th>Action</th>
+                  <th>QTY</th><th>Template</th><th>Durability</th><th>Action</th>
                 </tr>
               </thead>
               <tbody id="tbl-inv"></tbody>
@@ -2019,12 +2019,26 @@
         
         if (!instances || instances.length === 0) {
           console.log("No hay instancias disponibles para mostrar");
-          tblInv.innerHTML = '<tr><td colspan="3" class="text-center">No items in inventory</td></tr>';
+          tblInv.innerHTML = '<tr><td colspan="4" class="text-center">No items in inventory</td></tr>';
           return;
         }
         
         // Cargar metadatos de templates para obtener información adicional
         await retryRead(() => ST.loadStoreTemplates());
+        
+        // Cargar metadata de weapons.json
+        let weaponsMetadata = {};
+        try {
+          const response = await fetch('/punkquest/weapons.json');
+          const weapons = await response.json();
+          weaponsMetadata = weapons.reduce((acc, weapon) => {
+            acc[weapon.id] = weapon;
+            return acc;
+          }, {});
+          console.log("Metadata de armas cargada:", weaponsMetadata);
+        } catch (err) {
+          console.error("Error cargando weapons.json:", err);
+        }
         
         // Agrupar instancias por template y durabilidad
         const groupedInstances = {};
@@ -2068,11 +2082,15 @@
           // La instancia con el ID más bajo será la que se equipe
           const lowestInstance = group.instances[0];
           
-          console.log(`Mostrando grupo template ${group.templateId}, durabilidad ${group.durability}, cantidad: ${quantity}`);
+          // Obtener el nombre del arma desde la metadata
+          const weaponName = weaponsMetadata[group.templateId]?.name || `Template #${group.templateId}`;
+          
+          console.log(`Mostrando grupo template ${group.templateId} (${weaponName}), durabilidad ${group.durability}, cantidad: ${quantity}`);
           
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td>${group.templateId} ${quantity > 1 ? `(x${quantity})` : ''}</td>
+            <td>${quantity}</td>
+            <td>${weaponName}</td>
             <td>${group.durability}${needsRepair ? ' 🛠️' : ''}</td>
             <td>
               <button class="btn btn-sm btn-success"
@@ -2088,11 +2106,11 @@
         // Si no se agregó nada, mostrar un mensaje
         if (rowsAdded === 0) {
           console.log("No se añadieron filas al inventario");
-          tblInv.innerHTML = '<tr><td colspan="3" class="text-center">No items available</td></tr>';
+          tblInv.innerHTML = '<tr><td colspan="4" class="text-center">No items available</td></tr>';
         }
       } catch (err) {
         console.error("Error al cargar inventario:", err);
-        tblInv.innerHTML = '<tr><td colspan="3" class="text-center">Error loading inventory</td></tr>';
+        tblInv.innerHTML = '<tr><td colspan="4" class="text-center">Error loading inventory</td></tr>';
       }
     }
     
