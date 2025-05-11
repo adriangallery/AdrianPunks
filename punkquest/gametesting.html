@@ -1486,7 +1486,7 @@
             <table class="table table-dark table-sm align-middle">
               <thead>
                 <tr>
-                  <th>Inst ID</th><th>Template</th><th>Durability</th><th>Action</th>
+                  <th>Template</th><th>Durability</th><th>Action</th>
                 </tr>
               </thead>
               <tbody id="tbl-inv"></tbody>
@@ -2008,45 +2008,78 @@
       }
     }
 
-    /* --- pintar inventario disponible con instancias --- */
+    /* --- pintar inventario disponible con instancias agrupadas --- */
     async function paintInventory() {
       tblInv.innerHTML = '';
       try {
-        // Cargar instancias en lugar de inventario de templates
+        // Cargar instancias
         const instances = await retryRead(() => ST.loadInstances(WAL.account));
         
         console.log("Instancias disponibles:", instances);
         
         if (!instances || instances.length === 0) {
           console.log("No hay instancias disponibles para mostrar");
-          tblInv.innerHTML = '<tr><td colspan="4" class="text-center">No items in inventory</td></tr>';
+          tblInv.innerHTML = '<tr><td colspan="3" class="text-center">No items in inventory</td></tr>';
           return;
         }
         
         // Cargar metadatos de templates para obtener información adicional
         await retryRead(() => ST.loadStoreTemplates());
         
-        // Para cada instancia, mostrar su información
-        let rowsAdded = 0;
+        // Agrupar instancias por template y durabilidad
+        const groupedInstances = {};
+        
         for (const inst of instances) {
-          // Obtener info del template
-          const tpl = ST.cache.items[inst.templateId];
-          const needsRepair = inst.needsRepair || inst.durability === 0;
+          // Solo agregar instancias no equipadas
+          if (!inst.equipped) {
+            const key = `${inst.templateId}-${inst.durability}`;
+            
+            if (!groupedInstances[key]) {
+              groupedInstances[key] = {
+                templateId: inst.templateId,
+                durability: inst.durability,
+                instances: [],
+                needsRepair: false
+              };
+            }
+            
+            groupedInstances[key].instances.push(inst);
+            // Si alguna instancia necesita reparación, marcar el grupo
+            if (inst.needsRepair || inst.durability === 0) {
+              groupedInstances[key].needsRepair = true;
+            }
+          }
+        }
+        
+        // Ordenar las instancias dentro de cada grupo por instanceId
+        for (const key in groupedInstances) {
+          groupedInstances[key].instances.sort((a, b) => 
+            parseInt(a.instanceId) - parseInt(b.instanceId)
+          );
+        }
+        
+        // Mostrar grupos
+        let rowsAdded = 0;
+        for (const key in groupedInstances) {
+          const group = groupedInstances[key];
+          const quantity = group.instances.length;
+          const needsRepair = group.needsRepair;
           
-          console.log(`Mostrando instancia ${inst.instanceId}, template ${inst.templateId}, durabilidad ${inst.durability}, equipada: ${inst.equipped}`);
+          // La instancia con el ID más bajo será la que se equipe
+          const lowestInstance = group.instances[0];
+          
+          console.log(`Mostrando grupo template ${group.templateId}, durabilidad ${group.durability}, cantidad: ${quantity}`);
           
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td>${inst.instanceId}</td>
-            <td>${inst.templateId}</td>
-            <td>${inst.durability}${inst.equipped ? ' 🔒' : ''}${needsRepair ? ' 🛠️' : ''}</td>
+            <td>${group.templateId} ${quantity > 1 ? `(x${quantity})` : ''}</td>
+            <td>${group.durability}${needsRepair ? ' 🛠️' : ''}</td>
             <td>
-              ${!inst.equipped ? 
-                `<button class="btn btn-sm btn-success"
-                        data-inst="${inst.instanceId}"
-                        data-tpl="${inst.templateId}">
-                  Equip →
-                </button>` : '<span class="badge bg-secondary">Equipado</span>'}
+              <button class="btn btn-sm btn-success"
+                      data-inst="${lowestInstance.instanceId}"
+                      data-tpl="${group.templateId}">
+                Equip →
+              </button>
             </td>`;
           tblInv.append(tr);
           rowsAdded++;
@@ -2055,11 +2088,11 @@
         // Si no se agregó nada, mostrar un mensaje
         if (rowsAdded === 0) {
           console.log("No se añadieron filas al inventario");
-          tblInv.innerHTML = '<tr><td colspan="4" class="text-center">No items available</td></tr>';
+          tblInv.innerHTML = '<tr><td colspan="3" class="text-center">No items available</td></tr>';
         }
       } catch (err) {
         console.error("Error al cargar inventario:", err);
-        tblInv.innerHTML = '<tr><td colspan="4" class="text-center">Error loading inventory</td></tr>';
+        tblInv.innerHTML = '<tr><td colspan="3" class="text-center">Error loading inventory</td></tr>';
       }
     }
     
