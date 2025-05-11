@@ -833,100 +833,18 @@
       let lamboImg = new Image();
       let punkImg = new Image();
       
-      // Configuración de botones y eventos
-      function setupButtons() {
-        // Generate button
-        if (generateBtn) {
-          const newGenerateBtn = generateBtn.cloneNode(true);
-          generateBtn.parentNode.replaceChild(newGenerateBtn, generateBtn);
-          generateBtn = newGenerateBtn;
-
-          ['click', 'touchend'].forEach(eventType => {
-            generateBtn.addEventListener(eventType, handleGenerateClick, { passive: false });
-          });
-        }
-
-        // Download button
-        if (downloadBtn) {
-          const newDownloadBtn = downloadBtn.cloneNode(true);
-          downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
-          downloadBtn = newDownloadBtn;
-
-          ['click', 'touchend'].forEach(eventType => {
-            downloadBtn.addEventListener(eventType, handleDownloadClick, { passive: false });
-          });
-        }
-      }
-
-      function handleGenerateClick(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        try {
-          console.log("Generate button clicked");
-          generateImage();
-        } catch (error) {
-          console.error("Error in generateImage:", error);
-          showError('Error generating image. Please try again.');
-        }
-      }
-
-      function handleDownloadClick(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        try {
-          console.log("Download button clicked");
-          downloadImage();
-        } catch (error) {
-          console.error("Error in downloadImage:", error);
-          showError('Error downloading image. Please try again.');
-        }
-      }
-
-      // Inicializar la aplicación
-      document.addEventListener('DOMContentLoaded', () => {
-        setupButtons();
-        setupCustomTokenButton();
-        checkConnection();
-        setupMobileOptimizations();
-      });
-
       // Generar imagen automáticamente al cambiar token o color
-      if (tokenInput) {
-        tokenInput.addEventListener('change', () => {
-          try {
-            generateImage();
-          } catch (error) {
-            console.error("Error in generateImage from token change:", error);
-            showError('Error generating image. Please try again.');
-          }
-        });
-      }
-
-      // Añadir eventos a los radio buttons para generar imagen al cambiar
+      tokenInput.addEventListener('change', generateImage);
+      
+      // Agregar eventos a los radio buttons para generar imagen al cambiar
       lamboOptions.forEach(option => {
-        option.addEventListener('change', () => {
-          try {
-            generateImage();
-          } catch (error) {
-            console.error("Error in generateImage from color change:", error);
-            showError('Error generating image. Please try again.');
-          }
-        });
+        option.addEventListener('change', generateImage);
       });
-
-      // Asegurar que los botones sean fáciles de tocar en móvil
-      function setupMobileOptimizations() {
-        const buttons = document.querySelectorAll('.btn');
-        buttons.forEach(button => {
-          button.style.minHeight = '44px';
-          button.style.minWidth = '44px';
-          button.style.padding = '12px 20px';
-          button.style.touchAction = 'manipulation';
-        });
-      }
-
+      
+      // Handle button click (mantener para compatibilidad)
+      generateBtn.addEventListener('click', generateImage);
+      downloadBtn.addEventListener('click', downloadImage);
+      
       async function generateImage() {
         // Get token ID from dropdown or custom input
         const dropdownTokenId = parseInt(tokenInput.value);
@@ -951,7 +869,7 @@
           customTokenInput.value = '';
         } else {
           // No valid token ID found
-          showError('Please select a valid AdrianPunk token.');
+          showError('Please enter a valid token ID between 1 and 580');
           return;
         }
         
@@ -960,63 +878,70 @@
         
         // Validate input
         if (isNaN(tokenId) || tokenId < 1 || tokenId > 580) {
-          showError('Please select a valid AdrianPunk token.');
+          showError('Please enter a valid token ID between 1 and 580');
           return;
         }
-
+        
+        // No need to verify ownership since we want to allow any token ID
+        
         // Show loading
         errorMessage.classList.add('hidden');
         previewSection.classList.add('hidden');
         loadingEl.style.display = 'block';
-
+        
         try {
+          // Determine which lambo color is selected
+          let lamboColor = 'YELLOW';
+          for (let option of lamboOptions) {
+            if (option.checked) {
+              lamboColor = option.value;
+              break;
+            }
+          }
+          
           // Build the file paths - using the new images
           const punkPath = `/market/adrianpunksimages/${tokenId}.png`;
-          const lamboColor = Array.from(lamboOptions).find(opt => opt.checked)?.value || 'YELLOW';
           const lamboPath = `/lambo-images/ADRIAN_LAMBO_${lamboColor}.jpg`;
           
-          console.log("Loading images from:", { punkPath, lamboPath });
-
           // Load the images
-          try {
-            // Check if punk image is a GIF or a problematic token
-            if (isGif(punkPath, tokenId)) {
-              try {
-                // Convert GIF to static image
-                punkImg = await handleGifImage(punkPath);
-              } catch (gifError) {
-                console.warn("Error handling GIF, trying alternate method:", gifError);
-                punkImg = await loadImage(`/market/adrianpunksimages/${tokenId}.png`);
-              }
-              
-              // Load the Lambo separately
-              lamboImg = await loadImage(lamboPath);
-            } else {
-              // Load images normally
-              const [punkImage, lamboImage] = await Promise.all([
-                loadImage(punkPath),
-                loadImage(lamboPath)
-              ]);
-              
-              punkImg = punkImage;
-              lamboImg = lamboImage;
+          // Check if punk image is a GIF or a problematic token
+          if (isGif(punkPath, tokenId)) {
+            try {
+              // Convert GIF to static image
+              punkImg = await handleGifImage(punkPath);
+            } catch (gifError) {
+              // If it fails to load as GIF, try loading as PNG directly
+              console.warn("Error handling GIF, trying alternate method:", gifError);
+              punkImg = await loadImage(`/market/adrianpunksimages/${tokenId}.png`);
             }
-
-            // Draw the images
-            drawCombinedImage();
             
-            // Show preview
-            loadingEl.style.display = 'none';
-            previewSection.classList.remove('hidden');
-          } catch (error) {
-            console.error('Error loading images:', error);
-            loadingEl.style.display = 'none';
-            showError('Could not load images. Please try another token or check your connection.');
+            // Load the Lambo separately
+            lamboImg = await loadImage(lamboPath);
+          } else {
+            // Load images normally
+            const [punkImage, lamboImage] = await Promise.all([
+              loadImage(punkPath),
+              loadImage(lamboPath)
+            ]);
+            
+            // Store the images for potential reuse
+            punkImg = punkImage;
+            lamboImg = lamboImage;
           }
-        } catch (error) {
-          console.error('Error in generateImage:', error);
+          
+          // Draw the images on the canvas 
+          drawCombinedImage();
+          
+          // Show the preview section
           loadingEl.style.display = 'none';
-          showError('An error occurred while generating the image.');
+          previewSection.classList.remove('hidden');
+          
+          // Update custom token field to match current token
+          customTokenInput.value = tokenId;
+        } catch (error) {
+          console.error('Error loading images:', error);
+          loadingEl.style.display = 'none';
+          showError('Could not load images. Please try another token or check your connection.');
         }
       }
       
@@ -1082,63 +1007,27 @@
       }
       
       function downloadImage() {
-        try {
-          // Asegurarse de que hay una imagen generada
-          if (!canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some(pixel => pixel !== 0)) {
-            showError('Please generate an image first');
-            return;
+        const tokenId = tokenInput.value;
+        let lamboColor = 'YELLOW';
+        for (let option of lamboOptions) {
+          if (option.checked) {
+            lamboColor = option.value;
+            break;
           }
-
-          // Get current token ID from the active source
-          let tokenId;
-          const customTokenId = parseInt(customTokenInput.value);
-          
-          // If custom token is being used and is valid, use it
-          if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 580) {
-            tokenId = customTokenId;
-          } else {
-            // Otherwise use the dropdown value
-            tokenId = parseInt(tokenInput.value);
-          }
-
-          // Get current lambo color
-          let lamboColor = 'YELLOW';
-          for (let option of lamboOptions) {
-            if (option.checked) {
-              lamboColor = option.value;
-              break;
-            }
-          }
-
-          const fileName = `adrianpunk${tokenId}-${lamboColor}-lambo.png`;
-          
-          // Get the current canvas content
-          const imgData = canvas.toDataURL('image/png');
-          
-          // Create download link
-          const link = document.createElement('a');
-          link.download = fileName;
-          link.href = imgData;
-          link.style.display = 'none';
-          document.body.appendChild(link);
-          
-          // Trigger download
-          link.click();
-          
-          // Clean up
-          setTimeout(() => {
-            document.body.removeChild(link);
-            URL.revokeObjectURL(link.href);
-          }, 100);
-
-          showError('Image downloaded successfully');
-          
-          // Save for server
-          saveColoredLambo(lamboColor);
-        } catch (error) {
-          console.error('Error downloading image:', error);
-          showError('Error downloading image. Please try again.');
         }
+
+        const fileName = `adrianpunk${tokenId}-${lamboColor}-lambo.png`;
+        const imgData = canvas.toDataURL('image/png');
+        
+        // Simple direct download for all devices
+        const link = document.createElement('a');
+        link.download = fileName;
+        link.href = imgData;
+        link.click();
+        showError('Image downloaded successfully');
+        
+        // Also save the colored images for the server
+        saveColoredLambo(lamboColor);
       }
       
       function showLoading(message) {
@@ -1251,6 +1140,19 @@
         // Add the click event
         downloadBtn.addEventListener('click', downloadImage);
       }
+      
+      // Mobile-specific adjustments
+      function setupMobileOptimizations() {
+        // Add basic styles for mobile
+        document.querySelectorAll('.btn').forEach(button => {
+          // Ensure buttons display correctly on mobile
+          button.style.display = 'inline-block';
+          button.style.width = 'auto';
+        });
+      }
+      
+      // Run mobile optimizations when DOM is loaded
+      setupMobileOptimizations();
     });
   </script>
 </body>
