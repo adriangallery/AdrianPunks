@@ -765,15 +765,19 @@
             // Make sure custom token input is enabled
             customTokenInput.disabled = false;
             customTokenBtn.disabled = false;
+            
+            // Habilitar la generación de imágenes sin wallet
+            generateBtn.disabled = false;
           }
         } catch (error) {
           console.error('Error checking connection:', error);
           // Show a helpful error message for users without a wallet
           showError('No wallet detected. You can still use the custom token field to view any AdrianPunk.');
           tokenInput.disabled = true;
-          // Make sure custom token input is enabled
+          // Make sure custom token input is enabled and generate button works
           customTokenInput.disabled = false;
           customTokenBtn.disabled = false;
+          generateBtn.disabled = false;
         }
       };
       
@@ -928,49 +932,46 @@
       }
 
       async function generateImage() {
-        // Get token ID from dropdown or custom input
+        // Get token ID from appropriate source
         const dropdownTokenId = parseInt(tokenInput.value);
         const customTokenId = parseInt(customTokenInput.value);
         
         let tokenId;
         
-        // First check if we have a manual token ID set from mobile
+        // Priorizar token manual para móviles
         if (window.manualTokenId && window.manualTokenId >= 1 && window.manualTokenId <= 580) {
           tokenId = window.manualTokenId;
-          window.manualTokenId = null; // Clear it after use
+          console.log("Usando token manual (móvil):", tokenId);
+          window.manualTokenId = null; // Limpiar después de usar
         }
-        // Otherwise check which source should be used for the token ID
-        else if (window.useCustomToken || 
-            (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 580)) {
-          // If we're explicitly using the custom token or the custom field has a valid value
+        // Usar token personalizado si está activo o si hay un valor válido
+        else if ((window.useCustomToken || !userAccount) && 
+                 !isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 580) {
           tokenId = customTokenId;
-        } else if (!isNaN(dropdownTokenId) && dropdownTokenId >= 1 && dropdownTokenId <= 580) {
-          // Otherwise use the dropdown value if valid
+          console.log("Usando token personalizado:", tokenId);
+        }
+        // Usar token del dropdown solo si hay wallet conectada
+        else if (userAccount && !isNaN(dropdownTokenId) && dropdownTokenId >= 1 && dropdownTokenId <= 580) {
           tokenId = dropdownTokenId;
-          // Clear the custom input field to avoid confusion
-          customTokenInput.value = '';
-        } else {
-          // No valid token ID found
-          showError('Please select a valid AdrianPunk token.');
+          console.log("Usando token del selector:", tokenId);
+        }
+        // Si no hay token válido, mostrar error
+        else {
+          showError('Please enter a valid token ID between 1 and 580');
           return;
         }
-        
-        // Debug output for mobile troubleshooting
-        console.log("generateImage using token ID:", tokenId);
-        
-        // Validate input
+
+        // Validación final del token
         if (isNaN(tokenId) || tokenId < 1 || tokenId > 580) {
-          showError('Please select a valid AdrianPunk token.');
+          showError('Please enter a valid token ID between 1 and 580');
           return;
         }
-        
-        // No need to verify ownership since we want to allow any token ID
-        
-        // Show loading
+
+        // Mostrar loading
         errorMessage.classList.add('hidden');
         previewSection.classList.add('hidden');
         loadingEl.style.display = 'block';
-        
+
         try {
           // Determine which lambo color is selected
           let lamboColor = 'YELLOW';
