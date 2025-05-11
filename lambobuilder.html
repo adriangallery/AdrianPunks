@@ -1082,47 +1082,63 @@
       }
       
       function downloadImage() {
-        // Get current token ID from the active source
-        let tokenId;
-        const customTokenId = parseInt(customTokenInput.value);
-        
-        // If custom token is being used and is valid, use it
-        if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 580) {
-          tokenId = customTokenId;
-        } else {
-          // Otherwise use the dropdown value
-          tokenId = parseInt(tokenInput.value);
-        }
-
-        // Validate we have a valid token
-        if (isNaN(tokenId) || tokenId < 1 || tokenId > 580) {
-          showError('Please generate an image first');
-          return;
-        }
-
-        let lamboColor = 'YELLOW';
-        for (let option of lamboOptions) {
-          if (option.checked) {
-            lamboColor = option.value;
-            break;
+        try {
+          // Asegurarse de que hay una imagen generada
+          if (!canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some(pixel => pixel !== 0)) {
+            showError('Please generate an image first');
+            return;
           }
-        }
 
-        const fileName = `adrianpunk${tokenId}-${lamboColor}-lambo.png`;
-        const imgData = canvas.toDataURL('image/png');
-        
-        // Simple direct download for all devices
-        const link = document.createElement('a');
-        link.download = fileName;
-        link.href = imgData;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        showError('Image downloaded successfully');
-        
-        // Also save the colored images for the server
-        saveColoredLambo(lamboColor);
+          // Get current token ID from the active source
+          let tokenId;
+          const customTokenId = parseInt(customTokenInput.value);
+          
+          // If custom token is being used and is valid, use it
+          if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 580) {
+            tokenId = customTokenId;
+          } else {
+            // Otherwise use the dropdown value
+            tokenId = parseInt(tokenInput.value);
+          }
+
+          // Get current lambo color
+          let lamboColor = 'YELLOW';
+          for (let option of lamboOptions) {
+            if (option.checked) {
+              lamboColor = option.value;
+              break;
+            }
+          }
+
+          const fileName = `adrianpunk${tokenId}-${lamboColor}-lambo.png`;
+          
+          // Get the current canvas content
+          const imgData = canvas.toDataURL('image/png');
+          
+          // Create download link
+          const link = document.createElement('a');
+          link.download = fileName;
+          link.href = imgData;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          
+          // Trigger download
+          link.click();
+          
+          // Clean up
+          setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(link.href);
+          }, 100);
+
+          showError('Image downloaded successfully');
+          
+          // Save for server
+          saveColoredLambo(lamboColor);
+        } catch (error) {
+          console.error('Error downloading image:', error);
+          showError('Error downloading image. Please try again.');
+        }
       }
       
       function showLoading(message) {
