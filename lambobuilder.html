@@ -518,71 +518,10 @@
           bootstrapScript.crossOrigin = "anonymous";
           
           bootstrapScript.onload = () => {
-            // Modificar el menú para forzar el comportamiento de hamburguesa en desktop
-            const navbarToggler = document.querySelector('.navbar-toggler');
-            const navbarCollapse = document.querySelector('.navbar-collapse');
-            
-            // Eliminar cualquier clase de expansión que pueda estar agregando Bootstrap
-            if (navbarCollapse) {
-              navbarCollapse.classList.remove('show');
-              
-              // Forzar el formato de menú móvil
-              const navbarContainer = document.querySelector('.navbar');
-              if (navbarContainer) {
-                navbarContainer.classList.remove('navbar-expand-lg');
-              }
-              
-              // Corregir evento de clic en el botón hamburguesa
-              if (navbarToggler) {
-                // Remover cualquier listener existente
-                const newToggler = navbarToggler.cloneNode(true);
-                if (navbarToggler.parentNode) {
-                  navbarToggler.parentNode.replaceChild(newToggler, navbarToggler);
-                }
-                
-                // Aplicar el nuevo evento
-                newToggler.addEventListener('click', (e) => {
-                  e.preventDefault();
-                  navbarCollapse.classList.toggle('show');
-                  
-                  // Gestionar el backdrop
-                  let backdrop = document.querySelector('.menu-backdrop');
-                  if (!backdrop) {
-                    backdrop = document.createElement('div');
-                    backdrop.className = 'menu-backdrop';
-                    document.body.appendChild(backdrop);
-                    
-                    // Cerrar menú al hacer clic en el backdrop
-                    backdrop.addEventListener('click', () => {
-                      navbarCollapse.classList.remove('show');
-                      backdrop.classList.remove('active');
-                      document.body.style.overflow = '';
-                    });
-                  }
-                  
-                  if (navbarCollapse.classList.contains('show')) {
-                    backdrop.classList.add('active');
-                    document.body.style.overflow = 'hidden'; // Prevenir scroll
-                  } else {
-                    backdrop.classList.remove('active');
-                    document.body.style.overflow = '';
-                  }
-                });
-              }
-              
-              // Cerrar menú al hacer clic en cualquier enlace del menú
-              const navLinks = document.querySelectorAll('.nav-link');
-              navLinks.forEach(link => {
-                link.addEventListener('click', () => {
-                  navbarCollapse.classList.remove('show');
-                  const backdrop = document.querySelector('.menu-backdrop');
-                  if (backdrop) {
-                    backdrop.classList.remove('active');
-                  }
-                  document.body.style.overflow = '';
-                });
-              });
-            }
+            // Inicializar el menú después de cargar Bootstrap
+            initializeMenu();
+            // Inicializar el resto de la aplicación
+            initializeApp();
           };
           
           document.head.appendChild(bootstrapScript);
@@ -853,7 +792,8 @@
       const tokenState = {
         manualTokenId: null,
         useCustomToken: false,
-        lastTokenId: null
+        lastTokenId: null,
+        currentTokenId: null  // Nuevo: para trackear el token actual en uso
       };
 
       function handleCustomTokenButtonClick(e) {
@@ -951,6 +891,10 @@
           showError('Por favor, selecciona un token válido de AdrianPunk.');
           return;
         }
+
+        // Actualizar el token actual en el estado
+        tokenState.currentTokenId = tokenId;
+        tokenState.lastTokenId = tokenId;
 
         // Mostrar loading y ocultar preview
         errorMessage.classList.add('hidden');
@@ -1075,7 +1019,13 @@
       }
       
       function downloadImage() {
-        const tokenId = tokenInput.value;
+        // Usar el token actual del estado
+        const tokenId = tokenState.currentTokenId || tokenState.lastTokenId;
+        if (!tokenId) {
+          showError('Por favor, genera una imagen primero');
+          return;
+        }
+
         let lamboColor = 'YELLOW';
         for (let option of lamboOptions) {
           if (option.checked) {
@@ -1092,7 +1042,7 @@
         link.download = fileName;
         link.href = imgData;
         link.click();
-        showError('Image downloaded successfully');
+        showError('Imagen descargada exitosamente');
         
         // Also save the colored images for the server
         saveColoredLambo(lamboColor);
@@ -1160,11 +1110,111 @@
       // Run mobile optimizations when DOM is loaded
       setupMobileOptimizations();
       
-      // Inicializar eventos al cargar la página
-      document.addEventListener('DOMContentLoaded', () => {
+      // Separar la inicialización del menú
+      function initializeMenu() {
+        const navbarToggler = document.querySelector('.navbar-toggler');
+        const navbarCollapse = document.querySelector('.navbar-collapse');
+        
+        if (navbarCollapse) {
+          navbarCollapse.classList.remove('show');
+          
+          const navbarContainer = document.querySelector('.navbar');
+          if (navbarContainer) {
+            navbarContainer.classList.remove('navbar-expand-lg');
+          }
+          
+          if (navbarToggler) {
+            const newToggler = navbarToggler.cloneNode(true);
+            navbarToggler.parentNode.replaceChild(newToggler, navbarToggler);
+            
+            newToggler.addEventListener('click', handleMenuToggle);
+          }
+          
+          setupMenuLinks();
+        }
+      }
+
+      // Separar la inicialización de la aplicación
+      function initializeApp() {
+        // Inicializar los elementos de la UI
         setupCustomTokenButton();
-        // ... resto del código de inicialización ...
-      });
+        setupEventListeners();
+        checkConnection();
+        setupMobileOptimizations();
+      }
+
+      // Configurar los event listeners principales
+      function setupEventListeners() {
+        if (tokenInput) {
+          tokenInput.addEventListener('change', () => {
+            customTokenInput.value = '';
+            generateImage();
+          });
+        }
+
+        if (generateBtn) {
+          const newGenerateBtn = generateBtn.cloneNode(true);
+          generateBtn.parentNode.replaceChild(newGenerateBtn, generateBtn);
+          generateBtn = newGenerateBtn;
+          generateBtn.addEventListener('click', generateImage);
+        }
+
+        if (downloadBtn) {
+          const newDownloadBtn = downloadBtn.cloneNode(true);
+          downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
+          downloadBtn = newDownloadBtn;
+          downloadBtn.addEventListener('click', downloadImage);
+        }
+
+        // Event listeners para los radio buttons de color
+        lamboOptions.forEach(option => {
+          option.addEventListener('change', generateImage);
+        });
+      }
+
+      // Función auxiliar para el manejo del menú
+      function handleMenuToggle(e) {
+        e.preventDefault();
+        const navbarCollapse = document.querySelector('.navbar-collapse');
+        navbarCollapse.classList.toggle('show');
+        
+        let backdrop = document.querySelector('.menu-backdrop');
+        if (!backdrop) {
+          backdrop = document.createElement('div');
+          backdrop.className = 'menu-backdrop';
+          document.body.appendChild(backdrop);
+          
+          backdrop.addEventListener('click', () => {
+            navbarCollapse.classList.remove('show');
+            backdrop.classList.remove('active');
+            document.body.style.overflow = '';
+          });
+        }
+        
+        if (navbarCollapse.classList.contains('show')) {
+          backdrop.classList.add('active');
+          document.body.style.overflow = 'hidden';
+        } else {
+          backdrop.classList.remove('active');
+          document.body.style.overflow = '';
+        }
+      }
+
+      // Configurar los enlaces del menú
+      function setupMenuLinks() {
+        const navLinks = document.querySelectorAll('.nav-link');
+        navLinks.forEach(link => {
+          link.addEventListener('click', () => {
+            const navbarCollapse = document.querySelector('.navbar-collapse');
+            navbarCollapse.classList.remove('show');
+            const backdrop = document.querySelector('.menu-backdrop');
+            if (backdrop) {
+              backdrop.classList.remove('active');
+            }
+            document.body.style.overflow = '';
+          });
+        });
+      }
     });
   </script>
 </body>
