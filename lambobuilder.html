@@ -833,18 +833,100 @@
       let lamboImg = new Image();
       let punkImg = new Image();
       
-      // Generar imagen automáticamente al cambiar token o color
-      tokenInput.addEventListener('change', generateImage);
-      
-      // Agregar eventos a los radio buttons para generar imagen al cambiar
-      lamboOptions.forEach(option => {
-        option.addEventListener('change', generateImage);
+      // Configuración de botones y eventos
+      function setupButtons() {
+        // Generate button
+        if (generateBtn) {
+          const newGenerateBtn = generateBtn.cloneNode(true);
+          generateBtn.parentNode.replaceChild(newGenerateBtn, generateBtn);
+          generateBtn = newGenerateBtn;
+
+          ['click', 'touchend'].forEach(eventType => {
+            generateBtn.addEventListener(eventType, handleGenerateClick, { passive: false });
+          });
+        }
+
+        // Download button
+        if (downloadBtn) {
+          const newDownloadBtn = downloadBtn.cloneNode(true);
+          downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
+          downloadBtn = newDownloadBtn;
+
+          ['click', 'touchend'].forEach(eventType => {
+            downloadBtn.addEventListener(eventType, handleDownloadClick, { passive: false });
+          });
+        }
+      }
+
+      function handleGenerateClick(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        try {
+          console.log("Generate button clicked");
+          generateImage();
+        } catch (error) {
+          console.error("Error in generateImage:", error);
+          showError('Error generating image. Please try again.');
+        }
+      }
+
+      function handleDownloadClick(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        try {
+          console.log("Download button clicked");
+          downloadImage();
+        } catch (error) {
+          console.error("Error in downloadImage:", error);
+          showError('Error downloading image. Please try again.');
+        }
+      }
+
+      // Inicializar la aplicación
+      document.addEventListener('DOMContentLoaded', () => {
+        setupButtons();
+        setupCustomTokenButton();
+        checkConnection();
+        setupMobileOptimizations();
       });
-      
-      // Handle button click (mantener para compatibilidad)
-      generateBtn.addEventListener('click', generateImage);
-      downloadBtn.addEventListener('click', downloadImage);
-      
+
+      // Generar imagen automáticamente al cambiar token o color
+      if (tokenInput) {
+        tokenInput.addEventListener('change', () => {
+          try {
+            generateImage();
+          } catch (error) {
+            console.error("Error in generateImage from token change:", error);
+            showError('Error generating image. Please try again.');
+          }
+        });
+      }
+
+      // Añadir eventos a los radio buttons para generar imagen al cambiar
+      lamboOptions.forEach(option => {
+        option.addEventListener('change', () => {
+          try {
+            generateImage();
+          } catch (error) {
+            console.error("Error in generateImage from color change:", error);
+            showError('Error generating image. Please try again.');
+          }
+        });
+      });
+
+      // Asegurar que los botones sean fáciles de tocar en móvil
+      function setupMobileOptimizations() {
+        const buttons = document.querySelectorAll('.btn');
+        buttons.forEach(button => {
+          button.style.minHeight = '44px';
+          button.style.minWidth = '44px';
+          button.style.padding = '12px 20px';
+          button.style.touchAction = 'manipulation';
+        });
+      }
+
       async function generateImage() {
         // Get token ID from dropdown or custom input
         const dropdownTokenId = parseInt(tokenInput.value);
@@ -1140,19 +1222,6 @@
         // Add the click event
         downloadBtn.addEventListener('click', downloadImage);
       }
-      
-      // Mobile-specific adjustments
-      function setupMobileOptimizations() {
-        // Add basic styles for mobile
-        document.querySelectorAll('.btn').forEach(button => {
-          // Ensure buttons display correctly on mobile
-          button.style.display = 'inline-block';
-          button.style.width = 'auto';
-        });
-      }
-      
-      // Run mobile optimizations when DOM is loaded
-      setupMobileOptimizations();
     });
   </script>
 </body>
