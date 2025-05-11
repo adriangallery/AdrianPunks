@@ -518,10 +518,71 @@
           bootstrapScript.crossOrigin = "anonymous";
           
           bootstrapScript.onload = () => {
-            // Inicializar el menú después de cargar Bootstrap
-            initializeMenu();
-            // Inicializar el resto de la aplicación
-            initializeApp();
+            // Modificar el menú para forzar el comportamiento de hamburguesa en desktop
+            const navbarToggler = document.querySelector('.navbar-toggler');
+            const navbarCollapse = document.querySelector('.navbar-collapse');
+            
+            // Eliminar cualquier clase de expansión que pueda estar agregando Bootstrap
+            if (navbarCollapse) {
+              navbarCollapse.classList.remove('show');
+              
+              // Forzar el formato de menú móvil
+              const navbarContainer = document.querySelector('.navbar');
+              if (navbarContainer) {
+                navbarContainer.classList.remove('navbar-expand-lg');
+              }
+              
+              // Corregir evento de clic en el botón hamburguesa
+              if (navbarToggler) {
+                // Remover cualquier listener existente
+                const newToggler = navbarToggler.cloneNode(true);
+                if (navbarToggler.parentNode) {
+                  navbarToggler.parentNode.replaceChild(newToggler, navbarToggler);
+                }
+                
+                // Aplicar el nuevo evento
+                newToggler.addEventListener('click', (e) => {
+                  e.preventDefault();
+                  navbarCollapse.classList.toggle('show');
+                  
+                  // Gestionar el backdrop
+                  let backdrop = document.querySelector('.menu-backdrop');
+                  if (!backdrop) {
+                    backdrop = document.createElement('div');
+                    backdrop.className = 'menu-backdrop';
+                    document.body.appendChild(backdrop);
+                    
+                    // Cerrar menú al hacer clic en el backdrop
+                    backdrop.addEventListener('click', () => {
+                      navbarCollapse.classList.remove('show');
+                      backdrop.classList.remove('active');
+                      document.body.style.overflow = '';
+                    });
+                  }
+                  
+                  if (navbarCollapse.classList.contains('show')) {
+                    backdrop.classList.add('active');
+                    document.body.style.overflow = 'hidden'; // Prevenir scroll
+                  } else {
+                    backdrop.classList.remove('active');
+                    document.body.style.overflow = '';
+                  }
+                });
+              }
+              
+              // Cerrar menú al hacer clic en cualquier enlace del menú
+              const navLinks = document.querySelectorAll('.nav-link');
+              navLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                  navbarCollapse.classList.remove('show');
+                  const backdrop = document.querySelector('.menu-backdrop');
+                  if (backdrop) {
+                    backdrop.classList.remove('active');
+                  }
+                  document.body.style.overflow = '';
+                });
+              });
+            }
           };
           
           document.head.appendChild(bootstrapScript);
@@ -784,119 +845,42 @@
       generateBtn.addEventListener('click', generateImage);
       downloadBtn.addEventListener('click', downloadImage);
       
-      // Custom token input handling
-      const customTokenInput = document.getElementById('custom-token-id');
-      const customTokenBtn = document.getElementById('custom-token-btn');
-      
-      // Estado global para el manejo de tokens
-      const tokenState = {
-        manualTokenId: null,
-        useCustomToken: false,
-        lastTokenId: null,
-        currentTokenId: null  // Nuevo: para trackear el token actual en uso
-      };
-
-      function handleCustomTokenButtonClick(e) {
-        // Prevenir comportamiento predeterminado para todos los eventos
-        if (e) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-        
-        // Obtener el token ID del input
+      async function generateImage() {
+        // Get token ID from appropriate source
+        const dropdownTokenId = parseInt(tokenInput.value);
         const customTokenId = parseInt(customTokenInput.value);
         
-        // Debug para móviles
-        console.log("Custom token button clicked. Token ID:", customTokenId);
-        
-        // Validar el token ID
-        if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000) {
-          // Actualizar el estado global
-          tokenState.manualTokenId = customTokenId;
-          tokenState.useCustomToken = true;
-          tokenState.lastTokenId = customTokenId;
-          
-          // Ocultar teclado en móviles
-          if (document.activeElement instanceof HTMLElement) {
-            document.activeElement.blur();
-          }
-          
-          // Generar imagen con retraso para asegurar que el estado se actualice
-          requestAnimationFrame(() => {
-            try {
-              console.log("Generando imagen con token manual:", tokenState.manualTokenId);
-              generateImage();
-            } catch (error) {
-              console.error("Error en generateImage:", error);
-              showError('Error al generar la imagen. Por favor, inténtalo de nuevo.');
-            }
-          });
-          
-          // Limpiar el estado después de un tiempo
-          setTimeout(() => {
-            tokenState.useCustomToken = false;
-          }, 1000);
-        } else {
-          showError('Por favor, introduce un ID de token válido entre 1 y 1000');
-        }
-      }
-
-      // Configurar eventos táctiles y de clic para el botón de token personalizado
-      function setupCustomTokenButton() {
-        if (customTokenBtn) {
-          const events = ['click', 'touchend'];
-          
-          // Eliminar eventos existentes
-          const newBtn = customTokenBtn.cloneNode(true);
-          customTokenBtn.parentNode.replaceChild(newBtn, customTokenBtn);
-          
-          events.forEach(eventType => {
-            newBtn.addEventListener(eventType, (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleCustomTokenButtonClick(e);
-            }, { passive: false });
-          });
-        }
-      }
-
-      // Configurar evento de Enter en el input
-      if (customTokenInput) {
-        customTokenInput.addEventListener('keypress', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            handleCustomTokenButtonClick();
-          }
-        });
-      }
-
-      async function generateImage() {
         let tokenId;
         
-        // Determinar qué token ID usar
-        if (tokenState.manualTokenId !== null) {
-          tokenId = tokenState.manualTokenId;
-          console.log("Usando token manual:", tokenId);
-          tokenState.manualTokenId = null; // Limpiar después de usar
-        } else if (tokenState.useCustomToken) {
-          tokenId = parseInt(customTokenInput.value);
+        // Priorizar token manual para móviles
+        if (window.manualTokenId && window.manualTokenId >= 1 && window.manualTokenId <= 1000) {
+          tokenId = window.manualTokenId;
+          console.log("Usando token manual (móvil):", tokenId);
+          window.manualTokenId = null; // Limpiar después de usar
+        }
+        // Usar token personalizado si está activo
+        else if (window.useCustomToken && !isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000) {
+          tokenId = customTokenId;
           console.log("Usando token personalizado:", tokenId);
-        } else {
-          tokenId = parseInt(tokenInput.value);
+        }
+        // Usar token del dropdown si es válido
+        else if (!isNaN(dropdownTokenId) && dropdownTokenId >= 1 && dropdownTokenId <= 1000) {
+          tokenId = dropdownTokenId;
           console.log("Usando token del selector:", tokenId);
         }
-
-        // Validar el token ID
+        // Si no hay token válido, mostrar error
+        else {
+          showError('Por favor, selecciona un token válido de AdrianPunk.');
+          return;
+        }
+        
+        // Validación final del token
         if (isNaN(tokenId) || tokenId < 1 || tokenId > 1000) {
           showError('Por favor, selecciona un token válido de AdrianPunk.');
           return;
         }
 
-        // Actualizar el token actual en el estado
-        tokenState.currentTokenId = tokenId;
-        tokenState.lastTokenId = tokenId;
-
-        // Mostrar loading y ocultar preview
+        // Mostrar loading
         errorMessage.classList.add('hidden');
         previewSection.classList.add('hidden');
         loadingEl.style.display = 'block';
@@ -1019,9 +1003,20 @@
       }
       
       function downloadImage() {
-        // Usar el token actual del estado
-        const tokenId = tokenState.currentTokenId || tokenState.lastTokenId;
-        if (!tokenId) {
+        // Obtener el token ID actual
+        let tokenId;
+        
+        // Intentar obtener el token del input personalizado primero
+        const customTokenId = parseInt(customTokenInput.value);
+        if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000) {
+          tokenId = customTokenId;
+        } else {
+          // Si no hay token personalizado, usar el del dropdown
+          tokenId = parseInt(tokenInput.value);
+        }
+        
+        // Validar que tengamos un token válido
+        if (isNaN(tokenId) || tokenId < 1 || tokenId > 1000) {
           showError('Por favor, genera una imagen primero');
           return;
         }
@@ -1037,14 +1032,12 @@
         const fileName = `adrianpunk${tokenId}-${lamboColor}-lambo.png`;
         const imgData = canvas.toDataURL('image/png');
         
-        // Simple direct download for all devices
         const link = document.createElement('a');
         link.download = fileName;
         link.href = imgData;
         link.click();
         showError('Imagen descargada exitosamente');
         
-        // Also save the colored images for the server
         saveColoredLambo(lamboColor);
       }
       
@@ -1067,6 +1060,69 @@
       function saveColoredLambo(color) {
         console.log(`${color} Lambo image saved for server use`);
         // En un entorno real, aquí enviaríamos la imagen al servidor
+      }
+      
+      // Custom token input handling
+      const customTokenInput = document.getElementById('custom-token-id');
+      const customTokenBtn = document.getElementById('custom-token-btn');
+      
+      function handleCustomTokenButtonClick(e) {
+        // Prevenir comportamiento predeterminado para todos los eventos
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        
+        // Obtener el token ID del input y validar
+        const customTokenId = parseInt(customTokenInput.value);
+        
+        // Debug para móviles
+        console.log("Custom token button clicked. Token ID:", customTokenId);
+        
+        if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000) {
+          // Forzar blur para ocultar teclado en móviles
+          customTokenInput.blur();
+          
+          // Establecer el token personalizado
+          window.manualTokenId = customTokenId;
+          window.useCustomToken = true;
+          
+          // Generar imagen con un pequeño retraso para asegurar que el estado se actualice
+          setTimeout(() => {
+            try {
+              console.log("Generando imagen con token manual:", customTokenId);
+              generateImage();
+            } catch (error) {
+              console.error("Error en generateImage:", error);
+              showError('Error al generar la imagen. Por favor, inténtalo de nuevo.');
+            }
+          }, 100);
+        } else {
+          showError('Por favor, introduce un ID de token válido entre 1 y 1000');
+        }
+      }
+
+      // Mejorar manejo de eventos táctiles
+      function setupCustomTokenButton() {
+        if (!customTokenBtn) return;
+        
+        // Clonar y reemplazar para limpiar eventos existentes
+        const newBtn = customTokenBtn.cloneNode(true);
+        if (customTokenBtn.parentNode) {
+          customTokenBtn.parentNode.replaceChild(newBtn, customTokenBtn);
+        }
+        
+        // Añadir eventos para desktop y móvil
+        ['click', 'touchend'].forEach(eventType => {
+          newBtn.addEventListener(eventType, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleCustomTokenButtonClick(e);
+          }, { passive: false });
+        });
+        
+        // Actualizar referencia
+        customTokenBtn = newBtn;
       }
       
       // Add change event to token dropdown
@@ -1109,112 +1165,6 @@
       
       // Run mobile optimizations when DOM is loaded
       setupMobileOptimizations();
-      
-      // Separar la inicialización del menú
-      function initializeMenu() {
-        const navbarToggler = document.querySelector('.navbar-toggler');
-        const navbarCollapse = document.querySelector('.navbar-collapse');
-        
-        if (navbarCollapse) {
-          navbarCollapse.classList.remove('show');
-          
-          const navbarContainer = document.querySelector('.navbar');
-          if (navbarContainer) {
-            navbarContainer.classList.remove('navbar-expand-lg');
-          }
-          
-          if (navbarToggler) {
-            const newToggler = navbarToggler.cloneNode(true);
-            navbarToggler.parentNode.replaceChild(newToggler, navbarToggler);
-            
-            newToggler.addEventListener('click', handleMenuToggle);
-          }
-          
-          setupMenuLinks();
-        }
-      }
-
-      // Separar la inicialización de la aplicación
-      function initializeApp() {
-        // Inicializar los elementos de la UI
-        setupCustomTokenButton();
-        setupEventListeners();
-        checkConnection();
-        setupMobileOptimizations();
-      }
-
-      // Configurar los event listeners principales
-      function setupEventListeners() {
-        if (tokenInput) {
-          tokenInput.addEventListener('change', () => {
-            customTokenInput.value = '';
-            generateImage();
-          });
-        }
-
-        if (generateBtn) {
-          const newGenerateBtn = generateBtn.cloneNode(true);
-          generateBtn.parentNode.replaceChild(newGenerateBtn, generateBtn);
-          generateBtn = newGenerateBtn;
-          generateBtn.addEventListener('click', generateImage);
-        }
-
-        if (downloadBtn) {
-          const newDownloadBtn = downloadBtn.cloneNode(true);
-          downloadBtn.parentNode.replaceChild(newDownloadBtn, downloadBtn);
-          downloadBtn = newDownloadBtn;
-          downloadBtn.addEventListener('click', downloadImage);
-        }
-
-        // Event listeners para los radio buttons de color
-        lamboOptions.forEach(option => {
-          option.addEventListener('change', generateImage);
-        });
-      }
-
-      // Función auxiliar para el manejo del menú
-      function handleMenuToggle(e) {
-        e.preventDefault();
-        const navbarCollapse = document.querySelector('.navbar-collapse');
-        navbarCollapse.classList.toggle('show');
-        
-        let backdrop = document.querySelector('.menu-backdrop');
-        if (!backdrop) {
-          backdrop = document.createElement('div');
-          backdrop.className = 'menu-backdrop';
-          document.body.appendChild(backdrop);
-          
-          backdrop.addEventListener('click', () => {
-            navbarCollapse.classList.remove('show');
-            backdrop.classList.remove('active');
-            document.body.style.overflow = '';
-          });
-        }
-        
-        if (navbarCollapse.classList.contains('show')) {
-          backdrop.classList.add('active');
-          document.body.style.overflow = 'hidden';
-        } else {
-          backdrop.classList.remove('active');
-          document.body.style.overflow = '';
-        }
-      }
-
-      // Configurar los enlaces del menú
-      function setupMenuLinks() {
-        const navLinks = document.querySelectorAll('.nav-link');
-        navLinks.forEach(link => {
-          link.addEventListener('click', () => {
-            const navbarCollapse = document.querySelector('.navbar-collapse');
-            navbarCollapse.classList.remove('show');
-            const backdrop = document.querySelector('.menu-backdrop');
-            if (backdrop) {
-              backdrop.classList.remove('active');
-            }
-            document.body.style.overflow = '';
-          });
-        });
-      }
     });
   </script>
 </body>
