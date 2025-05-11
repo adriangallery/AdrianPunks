@@ -1411,82 +1411,35 @@
   <!-- ───────── NEW TEMPLATE ARMORY ───────── -->
   <template id="TEMPLATE-ARMORY">
     <div class="container-fluid">
-      <h3 class="mb-3">Armory</h3>
-
       <div class="row">
-        <!-- ◂▸ Tus AdrianPunks -->
-        <div class="col-lg-12 mb-4">
-          <h5>Tus AdrianPunks</h5>
-          <div class="d-flex flex-wrap gap-2 mb-4" id="punks-wallet">
-            <div class="spinner-border text-light" role="status">
-              <span class="visually-hidden">Cargando...</span>
-            </div>
-          </div>
+        <div class="col-md-6">
+          <h4>Your AdrianPunks</h4>
+          <div id="punks-wallet" class="d-flex flex-wrap gap-2 mb-4"></div>
           
-          <!-- Detalles del punk seleccionado -->
-          <div id="punk-details" class="card bg-dark border-secondary mb-4" style="display: none;">
-            <div class="card-header">
-              <h5 class="mb-0 text-white">Detalles de AdrianPunk #<span id="detail-id">0</span></h5>
+          <div id="punk-details" style="display:none">
+            <h5>Details for Punk #<span id="detail-id"></span></h5>
+            <div class="table-responsive">
+              <table class="table table-sm table-dark">
+                <tr><td>Weapon</td><td id="detail-weapon"></td></tr>
+                <tr><td>Armor</td><td id="detail-armor"></td></tr>
+                <tr><td>Extras</td><td id="detail-extras"></td></tr>
+                <tr><td>Last Event</td><td id="detail-event"></td></tr>
+              </table>
             </div>
-            <div class="card-body">
-              <div class="row">
-                <div class="col-md-3">
-                  <div class="mb-3">
-                    <h6 class="text-white">Weapon</h6>
-                    <p class="h5 text-white" id="detail-weapon">-</p>
-                  </div>
-                </div>
-                <div class="col-md-3">
-                  <div class="mb-3">
-                    <h6 class="text-white">Armor</h6>
-                    <p class="h5 text-white" id="detail-armor">-</p>
-                  </div>
-                </div>
-                <div class="col-md-3">
-                  <div class="mb-3">
-                    <h6 class="text-white">Extras</h6>
-                    <p class="h5 text-white" id="detail-extras">-</p>
-                  </div>
-                </div>
-                <div class="col-md-3">
-                  <div class="mb-3">
-                    <h6 class="text-white">Last Event</h6>
-                    <p class="h5 text-white" id="detail-event">-</p>
-                  </div>
-                </div>
-              </div>
-              <!-- Respuesta raw de getTokenArmoryDetails -->
-              <div class="mt-3">
-                <h6 class="text-white">Respuesta completa de getTokenArmoryDetails:</h6>
-                <pre id="detail-raw" class="bg-dark text-light p-3 border border-secondary rounded">-</pre>
-              </div>
-            </div>
+            <pre id="detail-raw" class="bg-black p-2 rounded mt-2" style="font-size:85%"></pre>
           </div>
         </div>
-
-        <!-- ◂▸ Tokens & loadout -->
-        <div class="col-lg-7 mb-4">
-          <h5>Your staked punks</h5>
+        
+        <div class="col-md-6">
+          <h4>Your available items</h4>
           <div class="table-responsive">
             <table class="table table-dark table-sm align-middle">
               <thead>
                 <tr>
-                  <th>Punk</th><th>Weapon Inst</th><th>Armor Inst</th><th>Extras Inst</th><th></th>
-                </tr>
-              </thead>
-              <tbody id="tbl-punks"></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- ◂▸ Inventory - Instances -->
-        <div class="col-lg-5">
-          <h5>Your available item instances</h5>
-          <div class="table-responsive">
-            <table class="table table-dark table-sm align-middle">
-              <thead>
-                <tr>
-                  <th>Inst ID</th><th>Template</th><th>Durability</th><th>Action</th>
+                  <th>Template</th>
+                  <th>QTY</th>
+                  <th>Durability</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody id="tbl-inv"></tbody>
@@ -2026,25 +1979,47 @@
         // Cargar metadatos de templates para obtener información adicional
         await retryRead(() => ST.loadStoreTemplates());
         
-        // Para cada instancia, mostrar su información
+        // Agrupar instancias por templateId y durabilidad
+        const groupedInstances = new Map(); // clave: `${templateId}-${durability}`, valor: {instances: [], templateId, durability}
+        
+        instances.forEach(inst => {
+          const key = `${inst.templateId}-${inst.durability}`;
+          if (!groupedInstances.has(key)) {
+            groupedInstances.set(key, {
+              instances: [],
+              templateId: inst.templateId,
+              durability: inst.durability,
+              equipped: inst.equipped
+            });
+          }
+          groupedInstances.get(key).instances.push(inst);
+        });
+        
+        // Ordenar las instancias por templateId y durabilidad
+        const sortedGroups = Array.from(groupedInstances.values())
+          .sort((a, b) => a.templateId - b.templateId || b.durability - a.durability);
+        
+        // Para cada grupo, mostrar una fila
         let rowsAdded = 0;
-        for (const inst of instances) {
-          // Obtener info del template
-          const tpl = ST.cache.items[inst.templateId];
-          const needsRepair = inst.needsRepair || inst.durability === 0;
+        for (const group of sortedGroups) {
+          const needsRepair = group.durability === 0;
+          const someEquipped = group.instances.some(inst => inst.equipped);
           
-          console.log(`Mostrando instancia ${inst.instanceId}, template ${inst.templateId}, durabilidad ${inst.durability}, equipada: ${inst.equipped}`);
+          // Encontrar la instancia con el ID más bajo que no esté equipada
+          const lowestUnequippedInstance = group.instances
+            .filter(inst => !inst.equipped)
+            .sort((a, b) => a.instanceId - b.instanceId)[0];
           
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td>${inst.instanceId}</td>
-            <td>${inst.templateId}</td>
-            <td>${inst.durability}${inst.equipped ? ' 🔒' : ''}${needsRepair ? ' 🛠️' : ''}</td>
+            <td>${group.templateId}</td>
+            <td>${group.instances.length}</td>
+            <td>${group.durability}${someEquipped ? ' 🔒' : ''}${needsRepair ? ' 🛠️' : ''}</td>
             <td>
-              ${!inst.equipped ? 
+              ${!someEquipped && lowestUnequippedInstance ? 
                 `<button class="btn btn-sm btn-success"
-                        data-inst="${inst.instanceId}"
-                        data-tpl="${inst.templateId}">
+                        data-inst="${lowestUnequippedInstance.instanceId}"
+                        data-tpl="${group.templateId}">
                   Equip →
                 </button>` : '<span class="badge bg-secondary">Equipado</span>'}
             </td>`;
