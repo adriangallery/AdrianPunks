@@ -1082,7 +1082,24 @@
       }
       
       function downloadImage() {
-        const tokenId = tokenInput.value;
+        // Get current token ID from the active source
+        let tokenId;
+        const customTokenId = parseInt(customTokenInput.value);
+        
+        // If custom token is being used and is valid, use it
+        if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 580) {
+          tokenId = customTokenId;
+        } else {
+          // Otherwise use the dropdown value
+          tokenId = parseInt(tokenInput.value);
+        }
+
+        // Validate we have a valid token
+        if (isNaN(tokenId) || tokenId < 1 || tokenId > 580) {
+          showError('Please generate an image first');
+          return;
+        }
+
         let lamboColor = 'YELLOW';
         for (let option of lamboOptions) {
           if (option.checked) {
@@ -1098,7 +1115,10 @@
         const link = document.createElement('a');
         link.download = fileName;
         link.href = imgData;
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
+        
         showError('Image downloaded successfully');
         
         // Also save the colored images for the server
