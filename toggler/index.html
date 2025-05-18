@@ -758,30 +758,83 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           };
           imageContainer.appendChild(img);
         } else {
-          // Para versión 2 y 3, intentar cargar primero PNG, luego GIF
-          const pngImg = new Image();
-          pngImg.src = `${basePath}${token.id}.png`;
-          pngImg.className = "token-image";
-          pngImg.alt = `Adrian #${token.id}`;
-          
-          pngImg.onerror = function() {
-            // Si PNG falla, intentar GIF
+          // Para versiones 2 y 3
+          // Casos especiales conocidos que son GIF
+          if (token.id === 1 || token.id === 13 || token.id === 69 || token.id === 221 || 
+              token.id === 369 || token.id === 420 || token.id === 555 || token.id === 690 || 
+              token.id === 777 || token.id === 807 || token.id === 1000) {
+            // Cargar directamente como GIF para estos tokens
             const gifImg = new Image();
-            gifImg.src = `${basePath}${token.id}.gif`;
+            gifImg.src = `${basePath}adrianpunks#${token.id}.gif`;
             gifImg.className = "token-image";
             gifImg.alt = `Adrian #${token.id}`;
             
             gifImg.onerror = function() {
-              // Si ambos fallan, usar placeholder
-              this.src = placeholderUrl;
-              console.log("Error loading image:", gifImg.src, "using placeholder:", placeholderUrl);
+              // Si GIF falla, intentar con formatos alternativos
+              const pngImg = new Image();
+              pngImg.src = `${basePath}${token.id}.png`;
+              pngImg.className = "token-image";
+              pngImg.alt = `Adrian #${token.id}`;
+              
+              pngImg.onerror = function() {
+                // Si PNG falla, intentar JPG
+                const jpgImg = new Image();
+                jpgImg.src = `${basePath}${token.id}.jpg`;
+                jpgImg.className = "token-image";
+                jpgImg.alt = `Adrian #${token.id}`;
+                
+                jpgImg.onerror = function() {
+                  // Si todo falla, usar placeholder
+                  this.src = placeholderUrl;
+                  console.log("Error loading all formats for:", token.id, "using placeholder:", placeholderUrl);
+                };
+                
+                imageContainer.innerHTML = '';
+                imageContainer.appendChild(jpgImg);
+              };
+              
+              imageContainer.innerHTML = '';
+              imageContainer.appendChild(pngImg);
             };
             
-            imageContainer.innerHTML = '';
             imageContainer.appendChild(gifImg);
-          };
-          
-          imageContainer.appendChild(pngImg);
+          } else {
+            // Para otros tokens, intentar PNG primero
+            const pngImg = new Image();
+            pngImg.src = `${basePath}${token.id}.png`;
+            pngImg.className = "token-image";
+            pngImg.alt = `Adrian #${token.id}`;
+            
+            pngImg.onerror = function() {
+              // Si PNG falla, intentar GIF
+              const gifImg = new Image();
+              gifImg.src = `${basePath}adrianpunks#${token.id}.gif`;
+              gifImg.className = "token-image";
+              gifImg.alt = `Adrian #${token.id}`;
+              
+              gifImg.onerror = function() {
+                // Si GIF falla, intentar JPG
+                const jpgImg = new Image();
+                jpgImg.src = `${basePath}AdrianPunks#${token.id}.jpg`;
+                jpgImg.className = "token-image";
+                jpgImg.alt = `Adrian #${token.id}`;
+                
+                jpgImg.onerror = function() {
+                  // Si todo falla, usar placeholder
+                  this.src = placeholderUrl;
+                  console.log("Error loading all formats for:", token.id, "using placeholder:", placeholderUrl);
+                };
+                
+                imageContainer.innerHTML = '';
+                imageContainer.appendChild(jpgImg);
+              };
+              
+              imageContainer.innerHTML = '';
+              imageContainer.appendChild(gifImg);
+            };
+            
+            imageContainer.appendChild(pngImg);
+          }
         }
         
         tokenCard.innerHTML = `
