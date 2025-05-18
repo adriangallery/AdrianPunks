@@ -841,15 +841,38 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         tokenCard.onclick = () => toggleSelectToken(token.id);
         
         // Determinar la ruta base según la versión
-        const basePath = token.version === 2 ? '/market/adrianpunksimages/' : '/market/halfxadrianimages/';
+        let basePath;
+        if (token.version === 1) {
+          basePath = '/market/halfxadrianimages/';
+        } else if (token.version === 2) {
+          basePath = '/market/alpha/';
+        } else if (token.version === 3) {
+          basePath = '/market/omega/';
+        } else {
+          // Versión por defecto o desconocida
+          basePath = '/market/halfxadrianimages/';
+        }
+        
         const placeholderUrl = '/market/halfxadrianimages/placeholder.jpg';
         
         // Crear el contenedor de la imagen
         const imageContainer = document.createElement('div');
         imageContainer.className = "token-image-container";
         
-        // Intentar cargar primero PNG, luego GIF si es versión 2
-        if (token.version === 2) {
+        // Cargar imagen según la versión
+        if (token.version === 1) {
+          // Para versión 1, usar JPG de la ruta original
+          const img = new Image();
+          img.src = `${basePath}${token.id}.jpg`;
+          img.className = "token-image";
+          img.alt = `Adrian #${token.id}`;
+          img.onerror = function() {
+            this.src = placeholderUrl;
+            console.log("Error loading image:", img.src, "using placeholder:", placeholderUrl);
+          };
+          imageContainer.appendChild(img);
+        } else {
+          // Para versión 2 y 3, intentar cargar primero PNG, luego GIF
           const pngImg = new Image();
           pngImg.src = `${basePath}${token.id}.png`;
           pngImg.className = "token-image";
@@ -873,17 +896,6 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           };
           
           imageContainer.appendChild(pngImg);
-        } else {
-          // Para versión 1, usar la ruta original
-          const img = new Image();
-          img.src = `${basePath}${token.id}.jpg`;
-          img.className = "token-image";
-          img.alt = `Adrian #${token.id}`;
-          img.onerror = function() {
-            this.src = placeholderUrl;
-            console.log("Error loading image:", img.src, "using placeholder:", placeholderUrl);
-          };
-          imageContainer.appendChild(img);
         }
         
         tokenCard.innerHTML = `
@@ -1025,8 +1037,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         dialog.setAttribute('tabindex', '-1');
         dialog.setAttribute('aria-labelledby', 'supportModalLabel');
         dialog.setAttribute('aria-hidden', 'true');
-        dialog.innerHTML = `
-          <div class="modal-dialog">
+        dialog.innerHTML = `          <div class="modal-dialog">
             <div class="modal-content">
               <div class="modal-header">
                 <h5 class="modal-title" id="supportModalLabel">Support Development</h5>
