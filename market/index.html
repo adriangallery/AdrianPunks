@@ -589,6 +589,8 @@
 
     // Variables para manejar las rutas de imagen
     let currentImageCollection = 'adrianpunks'; // Por defecto
+    // Array para rotar entre las colecciones disponibles
+    const availableCollections = ['adrianpunks', 'halfxadrian', 'vectoradrians', 'adrianvectors'];
 
     // ABI actualizado del contrato AdrianMarket (incluye Trait Offers)
     const MARKET_ABI = [
@@ -945,24 +947,7 @@
     async function showNFTDetails(nftName) {
       try {
         // Cargar el JSON correspondiente a la colección actual
-        let jsonFile;
-        switch (currentImageCollection) {
-          case 'adrianpunks':
-            jsonFile = './adrianpunks.json';
-            break;
-          case 'halfxadrian':
-            jsonFile = './halfxadrian.json';
-            break;
-          case 'vectoradrians':
-          case 'adrianvectors':
-            // Para las nuevas colecciones, usamos el mismo JSON que AdrianPunks
-            // ya que solo cambian las imágenes, no los metadatos
-            jsonFile = './adrianpunks.json';
-            break;
-          default:
-            jsonFile = './adrianpunks.json';
-        }
-        
+        const jsonFile = currentImageCollection === 'adrianpunks' ? './adrianpunks.json' : './halfxadrian.json';
         const data = await fetch(jsonFile).then(response => response.json());
         
         // Obtener el ID del token del nombre
@@ -2106,31 +2091,51 @@
       const button = document.getElementById('collectionToggleButton');
       const buttonText = document.getElementById('collectionToggleText');
       
-      // Rotar entre las cuatro colecciones
-      if (currentImageCollection === 'adrianpunks') {
-        currentImageCollection = 'vectoradrians';
-        buttonText.textContent = 'VECTORadrians';
-        button.classList.remove('btn-danger');
-        button.classList.add('btn-info');
-      } else if (currentImageCollection === 'vectoradrians') {
-        currentImageCollection = 'adrianvectors';
-        buttonText.textContent = 'ADRIANvectors';
-        button.classList.remove('btn-info');
-        button.classList.add('btn-warning');
-      } else if (currentImageCollection === 'adrianvectors') {
-        currentImageCollection = 'halfxadrian';
-        buttonText.textContent = 'HalfxAdrian';
-        button.classList.remove('btn-warning');
-        button.classList.add('btn-success');
-      } else { // halfxadrian
-        currentImageCollection = 'adrianpunks';
-        buttonText.textContent = 'AdrianPunks';
-        button.classList.remove('btn-success');
-        button.classList.add('btn-danger');
+      // Obtener el índice actual en el array de colecciones
+      const currentIndex = availableCollections.indexOf(currentImageCollection);
+      // Calcular el siguiente índice (volviendo al principio si llegamos al final)
+      const nextIndex = (currentIndex + 1) % availableCollections.length;
+      // Actualizar la colección actual
+      currentImageCollection = availableCollections[nextIndex];
+      
+      // Actualizar texto del botón según la colección
+      switch(currentImageCollection) {
+        case 'halfxadrian':
+          buttonText.textContent = 'HalfxAdrian';
+          button.classList.remove('btn-danger', 'btn-info', 'btn-warning');
+          button.classList.add('btn-success');
+          break;
+        case 'vectoradrians':
+          buttonText.textContent = 'VECTORadrians';
+          button.classList.remove('btn-danger', 'btn-success', 'btn-warning');
+          button.classList.add('btn-info');
+          break;
+        case 'adrianvectors':
+          buttonText.textContent = 'ADRIANvectors';
+          button.classList.remove('btn-danger', 'btn-success', 'btn-info');
+          button.classList.add('btn-warning');
+          break;
+        default: // adrianpunks
+          buttonText.textContent = 'AdrianPunks';
+          button.classList.remove('btn-success', 'btn-info', 'btn-warning');
+          button.classList.add('btn-danger');
       }
       
       // Mostrar mensaje de confirmación
-      let toastMessage = `Showing images from ${buttonText.textContent}`;
+      let toastMessage;
+      switch(currentImageCollection) {
+        case 'halfxadrian':
+          toastMessage = 'Showing images from HalfxAdrian';
+          break;
+        case 'vectoradrians':
+          toastMessage = 'Showing images from VECTORadrians';
+          break;
+        case 'adrianvectors':
+          toastMessage = 'Showing images from ADRIANvectors';
+          break;
+        default:
+          toastMessage = 'Showing images from AdrianPunks';
+      }
       showToast(toastMessage);
       
       // Recargar la visualización con las nuevas imágenes
@@ -2139,27 +2144,32 @@
 
     function getImageUrl(nft) {
       const tokenId = nft.name.split('#')[1];
-      
-      // Lista de IDs que tienen formato GIF
       const gifIds = ['1', '13', '221', '369', '420', '555', '69', '690', '777', '807', '911'];
       
-      switch (currentImageCollection) {
+      switch(currentImageCollection) {
         case 'halfxadrian':
           return `./halfxadrianimages/${tokenId}.jpg`;
-        case 'adrianpunks':
-          // Para la colección AdrianPunks, usamos las imágenes locales con extensión correcta
-          const apExtension = gifIds.includes(tokenId) ? 'gif' : 'png';
-          return `./adrianpunksimages/${tokenId}.${apExtension}`;
         case 'vectoradrians':
-          // Para VECTORadrians usamos alpha
-          const vaExtension = gifIds.includes(tokenId) ? 'gif' : 'png';
-          return `/market/alpha/${tokenId}.${vaExtension}`;
+          // Para la colección VECTORadrians, usar ruta /market/alpha/
+          if (gifIds.includes(tokenId)) {
+            return `/market/alpha/${tokenId}.gif`;
+          } else {
+            // Intentar diferentes formatos
+            return `/market/alpha/${tokenId}.png`;
+          }
         case 'adrianvectors':
-          // Para ADRIANvectors usamos omega
-          const avExtension = gifIds.includes(tokenId) ? 'gif' : 'jpg';
-          return `/market/omega/${tokenId}.${avExtension}`;
-        default:
-          return `./halfxadrianimages/${tokenId}.jpg`;
+          // Para la colección ADRIANvectors, usar ruta /market/omega/
+          if (gifIds.includes(tokenId)) {
+            return `/market/omega/${tokenId}.gif`;
+          } else {
+            // Intentar diferentes formatos
+            return `/market/omega/${tokenId}.png`;
+          }
+        default: // adrianpunks
+          // Para la colección AdrianPunks, usamos las imágenes locales con extensión correcta
+          // Actualización de mayo 2024: Soporte para diferentes extensiones (.gif y .png)
+          const extension = gifIds.includes(tokenId) ? 'gif' : 'png';
+          return `./adrianpunksimages/${tokenId}.${extension}`;
       }
     }
   </script>
@@ -2175,38 +2185,6 @@
 
       // Verificar si ya hay una wallet conectada al cargar la página
       checkWalletConnection();
-      
-      // Inicializar el botón de colección según el valor por defecto
-      const collectionButton = document.getElementById('collectionToggleButton');
-      const collectionText = document.getElementById('collectionToggleText');
-      
-      if (collectionButton && collectionText) {
-        // Eliminar cualquier clase existente de botón
-        collectionButton.classList.remove('btn-danger', 'btn-info', 'btn-warning', 'btn-success');
-        
-        // Establecer el texto y estilo según la colección inicial
-        switch (currentImageCollection) {
-          case 'adrianpunks':
-            collectionText.textContent = 'AdrianPunks';
-            collectionButton.classList.add('btn-danger');
-            break;
-          case 'vectoradrians':
-            collectionText.textContent = 'VECTORadrians';
-            collectionButton.classList.add('btn-info');
-            break;
-          case 'adrianvectors':
-            collectionText.textContent = 'ADRIANvectors';
-            collectionButton.classList.add('btn-warning');
-            break;
-          case 'halfxadrian':
-            collectionText.textContent = 'HalfxAdrian';
-            collectionButton.classList.add('btn-success');
-            break;
-          default:
-            collectionText.textContent = 'AdrianPunks';
-            collectionButton.classList.add('btn-danger');
-        }
-      }
     });
 
     let mainWalletProvider;
