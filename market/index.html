@@ -923,8 +923,15 @@
             (parseFloat(ethers.utils.formatUnits(listing.price, 18)) / 1000).toFixed(1) + 'K' :
             parseFloat(ethers.utils.formatUnits(listing.price, 18)).toFixed(1)) : '';
 
+        // Obtener URL de la imagen
+        const imgUrl = getImageUrl(nft);
+        
+        // Añadir atributos de datos para las imágenes de colecciones dinámicas
+        const dataAttrs = (currentImageCollection === 'vectoradrians' || currentImageCollection === 'adrianvectors') ?
+          `data-token-id="${tokenId}" data-collection="${currentImageCollection}"` : '';
+
         card.innerHTML = `
-          <img src="${getImageUrl(nft)}" class="card-img-top" alt="${displayName}">
+          <img src="${imgUrl}" class="card-img-top" alt="${displayName}" ${dataAttrs}>
           <div class="card-body">
             <h5 class="card-title">${displayName}</h5>
             <p class="card-text">Rarity: ${typeof nft.rarity === 'number' ? nft.rarity.toFixed(2) : 'N/A'}</p>
@@ -2148,29 +2155,93 @@
       
       switch(currentImageCollection) {
         case 'halfxadrian':
+          // Mantener intacta la lógica original para halfxadrian
           return `./halfxadrianimages/${tokenId}.jpg`;
+          
         case 'vectoradrians':
-          // Para la colección VECTORadrians, usar ruta /market/alpha/
+          // Carga dinámica para VECTORadrians
+          // Los GIFs conocidos siempre cargan como GIF
           if (gifIds.includes(tokenId)) {
             return `/market/alpha/${tokenId}.gif`;
           } else {
-            // Usar JPG para los que no son GIF en vectoradrians
-            return `/market/alpha/${tokenId}.jpg`;
+            // Crear un elemento imagen fuera del DOM para probar formatos
+            // Retornamos un placeholder que se actualizará dinámicamente
+            loadDynamicImage(tokenId, 'vectoradrians');
+            return `/market/alpha/placeholder.jpg`;
           }
+          
         case 'adrianvectors':
-          // Para la colección ADRIANvectors, usar ruta /market/omega/
+          // Carga dinámica para ADRIANvectors
+          // Los GIFs conocidos siempre cargan como GIF
           if (gifIds.includes(tokenId)) {
             return `/market/omega/${tokenId}.gif`;
           } else {
-            // Intentar diferentes formatos
-            return `/market/omega/${tokenId}.png`;
+            // Crear un elemento imagen fuera del DOM para probar formatos
+            // Retornamos un placeholder que se actualizará dinámicamente
+            loadDynamicImage(tokenId, 'adrianvectors');
+            return `/market/omega/placeholder.jpg`;
           }
+          
         default: // adrianpunks
-          // Para la colección AdrianPunks, usamos las imágenes locales con extensión correcta
-          // Actualización de mayo 2024: Soporte para diferentes extensiones (.gif y .png)
+          // Mantener intacta la lógica original para adrianpunks
           const extension = gifIds.includes(tokenId) ? 'gif' : 'png';
           return `./adrianpunksimages/${tokenId}.${extension}`;
       }
+    }
+    
+    // Función para cargar imágenes dinámicamente e intentar diferentes formatos
+    function loadDynamicImage(tokenId, collection) {
+      // Definir los formatos a probar en orden
+      const formats = ['jpg', 'png', 'jpeg', 'webp'];
+      let basePath = collection === 'vectoradrians' ? '/market/alpha/' : '/market/omega/';
+      
+      // Crear un mapa para identificar qué imagen pertenece a qué token y colección
+      let imageElements = document.querySelectorAll(`img[src="${basePath}placeholder.jpg"], img[src^="${basePath}${tokenId}."]`);
+      
+      // Función para probar secuencialmente cada formato
+      function tryNextFormat(index = 0) {
+        if (index >= formats.length) {
+          console.log(`No se pudo cargar ningún formato para el token ${tokenId} en ${collection}`);
+          return;
+        }
+        
+        const format = formats[index];
+        const imgUrl = `${basePath}${tokenId}.${format}`;
+        
+        // Crear una imagen temporal para probar si existe
+        const testImg = new Image();
+        testImg.onload = function() {
+          // La imagen cargó correctamente, actualizar todas las referencias
+          imageElements.forEach(img => {
+            if (img.getAttribute('data-token-id') === tokenId.toString() &&
+                img.getAttribute('data-collection') === collection) {
+              img.src = imgUrl;
+            }
+          });
+        };
+        
+        testImg.onerror = function() {
+          // Probar el siguiente formato
+          tryNextFormat(index + 1);
+        };
+        
+        // Iniciar la carga
+        testImg.src = imgUrl;
+      }
+      
+      // Iniciar la secuencia de pruebas
+      setTimeout(() => {
+        // Actualizar referencias a imágenes después de que el DOM se ha actualizado
+        imageElements = document.querySelectorAll(`img[src="${basePath}placeholder.jpg"], img[src^="${basePath}${tokenId}."]`);
+        
+        // Añadir atributos de datos para identificar las imágenes
+        imageElements.forEach(img => {
+          img.setAttribute('data-token-id', tokenId);
+          img.setAttribute('data-collection', collection);
+        });
+        
+        tryNextFormat();
+      }, 100);
     }
   </script>
 
