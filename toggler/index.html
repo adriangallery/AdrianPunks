@@ -1046,108 +1046,64 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
   // Change version for selected tokens
     async function changeTokenVersions() {
       setLoading(true);
-    
-    try {
-      if (selectedTokens.length === 0) {
-        throw new Error("Please select at least one token to update");
-      }
-      
-      const versionId = parseInt(versionSelector.value);
-      
-      // Mostrar cuántos tokens se van a actualizar
-      showSuccess(`Preparando actualización de ${selectedTokens.length} tokens a la versión ${versionId}...`);
-      
-      // Opciones para la transacción
-      let txOptions = {};
-      
-      // Comprobar si estamos en móvil (heurística simple)
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      
-      // Si son muchos tokens o estamos en móvil, podríamos tener problemas de estimación
-      const needsExplicitGas = selectedTokens.length > 5 || isMobile;
-      
-      // Valores de gas más adecuados para la red Base
-      if (needsExplicitGas) {
-        // Enfoque 1: Configuración explícita con valores adaptados a la cantidad de tokens y la red Base
-        const baseGasLimit = 100000 + (selectedTokens.length * 20000); // Aumentamos la base y el multiplicador por token
-        
-        txOptions = {
-          gasLimit: baseGasLimit,
-          maxFeePerGas: ethers.utils.parseUnits("1.1", "gwei"), // Valor más adecuado para Base
-          maxPriorityFeePerGas: ethers.utils.parseUnits("0.1", "gwei") // Necesario para EIP-1559 en Base
-        };
-        
-        showSuccess(`Usando configuración de gas personalizada: ${baseGasLimit} gas units`);
-      } else {
-        // Enfoque 2: Dejar que MetaMask maneje la estimación completamente
-        // No especificamos gasLimit, maxFeePerGas ni maxPriorityFeePerGas
-        showSuccess("Dejando que MetaMask estime el gas necesario...");
-      }
-      
-      let tx;
-      
-      // Intenta estimar el gas primero
+  
       try {
-        // Estimar gas explícitamente
-        const gasEstimate = await pocketAdriansContract.estimateGas.setTokensVersion(selectedTokens, versionId);
-        
-        // Para dispositivos móviles, es mejor usar un margen más grande
-        const safetyFactor = isMobile ? 150 : 130; // 50% extra en móviles, 30% en desktop
-        const safeGasLimit = gasEstimate.mul(safetyFactor).div(100);
-        
-        // Actualizar el gasLimit en las opciones
-        txOptions.gasLimit = safeGasLimit;
-        
-        showSuccess(`Gas estimado: ${gasEstimate.toString()}. Usando ${safeGasLimit.toString()} (${safetyFactor-100}% extra)`);
-      } catch (gasEstimateError) {
-        console.warn("Error estimando gas:", gasEstimateError);
-        showSuccess("No se pudo estimar el gas automáticamente, usando valores predeterminados seguros...");
-        
-        // Si falla la estimación, usamos un valor más seguro
-        if (!txOptions.gasLimit) {
-          // Valor más seguro especialmente para móviles
-          txOptions.gasLimit = 150000 + (selectedTokens.length * 25000);
-          
-          // En móviles, agregar valores explícitos si no existen
-          if (isMobile && !txOptions.maxFeePerGas) {
-            txOptions.maxFeePerGas = ethers.utils.parseUnits("1.1", "gwei");
-            txOptions.maxPriorityFeePerGas = ethers.utils.parseUnits("0.1", "gwei");
-          }
+        if (selectedTokens.length === 0) {
+          throw new Error("Please select at least one token to update");
         }
+        
+        const versionId = parseInt(versionSelector.value);
+        showSuccess(`Preparing to update ${selectedTokens.length} tokens to version ${versionId}...`);
+        
+        // IMPORTANT CHANGES: Simplified gas handling for mobile
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        // Mobile-friendly approach: don't specify gas parameters at all for small batches
+        let txOptions = {};
+        
+        // For large batches or mobile, use a simpler approach
+        if (selectedTokens.length > 10 || isMobile) {
+          // For mobile, a simpler approach with high gas limit but no other params
+          // This lets MetaMask handle fee calculation which works better on mobile
+          txOptions = {
+            gasLimit: 500000 + (selectedTokens.length * 50000)
+          };
+          
+          showSuccess(`Using simplified gas configuration for mobile`);
+        }
+        
+        showSuccess("Sending transaction... Please confirm in MetaMask");
+        
+        // Execute transaction with configured options
+        const tx = await pocketAdriansContract.setTokensVersion(selectedTokens, versionId, txOptions);
+        
+        showSuccess("Transaction submitted. Waiting for confirmation...");
+        
+        // Wait for only 1 confirmation on mobile for speed
+        await tx.wait(1);
+        
+        showSuccess(`Success! ${selectedTokens.length} tokens updated to version ${versionId}.`);
+        
+        // Reload tokens to get updated versions
+        await loadOwnedTokens(account);
+        
+      } catch (error) {
+        console.error("Error changing versions:", error);
+        
+        // User-friendly error messages
+        if (error.message && error.message.includes("gas")) {
+          showError("Gas error: try selecting fewer tokens at once or retry in a few minutes");
+        } else if (error.message && error.message.includes("user rejected")) {
+          showError("Transaction cancelled by user");
+        } else if (error.message && error.message.includes("insufficient funds")) {
+          showError("Insufficient funds to complete the transaction");
+        } else {
+          showError(error.message || "Error updating versions. Please try again.");
+        }
+      } finally {
+        setLoading(false);
       }
-      
-      showSuccess("Enviando transacción... Por favor, confirma en MetaMask");
-      
-      // Ejecutar la transacción con las opciones configuradas
-      tx = await pocketAdriansContract.setTokensVersion(selectedTokens, versionId, txOptions);
-      
-      showSuccess("Transacción enviada. Esperando confirmación...");
-      
-      // Esperar solo 1 confirmación para acelerar en móviles
-      await tx.wait(1);
-      
-      showSuccess(`¡Éxito! ${selectedTokens.length} tokens actualizados a versión ${versionId}.`);
-      
-      // Reload tokens to get updated versions
-      await loadOwnedTokens(account);
-      
-    } catch (error) {
-      console.error("Error changing versions:", error);
-      
-      // Capturar errores específicos y mostrar mensajes útiles
-      if (error.message && error.message.includes("gas")) {
-        showError("Error de gas: intenta seleccionar menos tokens a la vez o reintentar en unos minutos");
-      } else if (error.message && error.message.includes("user rejected")) {
-        showError("Transacción cancelada por el usuario");
-      } else if (error.message && error.message.includes("insufficient funds")) {
-        showError("Fondos insuficientes para completar la transacción");
-      } else {
-        showError(error.message || "Error al actualizar versiones. Por favor, inténtalo de nuevo.");
-      }
-    } finally {
-      setLoading(false);
     }
-  }
 
     // Función para previsualizar la siguiente versión
     async function previewNextVersion(tokenId, imgElement) {
