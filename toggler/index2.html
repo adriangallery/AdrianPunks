@@ -29,6 +29,21 @@
       --success-text: #155724;
     }
     
+    /* Dark mode variables */
+    [data-theme="dark"] {
+      --bg-color: #1a1a1a;
+      --primary-text: #ffffff;
+      --card-bg: #2d2d2d;
+      --card-border: #404040;
+      --screen-bg: #2d2d2d;
+      --error-bg: #3f1e22;
+      --error-border: #842029;
+      --error-text: #ea868f;
+      --success-bg: #051b11;
+      --success-border: #0f5132;
+      --success-text: #75b798;
+    }
+    
     body {
       background-color: var(--bg-color);
       color: var(--primary-text);
@@ -37,6 +52,7 @@
       padding: 20px;
       line-height: 1.6;
       padding-top: calc(var(--navbar-height) + 20px);
+      transition: background-color 0.3s ease, color 0.3s ease;
     }
     
     .container {
@@ -46,6 +62,7 @@
       background: var(--screen-bg);
       border-radius: 8px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      transition: background-color 0.3s ease;
     }
     
     header {
@@ -269,16 +286,133 @@
       font-size: 0.875rem;
     }
     
-    .terminal {
-      background-color: #1e1e1e;
-      color: #00ff00;
-      padding: 15px;
-      border-radius: 5px;
-      font-family: monospace;
-      margin-top: 15px;
-      min-height: 100px;
-      white-space: pre-wrap;
-      word-wrap: break-word;
+    .token-image-container {
+      width: 100%;
+      aspect-ratio: 1/1;
+      overflow: hidden;
+      border-radius: 4px;
+      background-color: #f0f0f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    
+    .token-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .preview-button {
+      position: absolute;
+      bottom: 5px;
+      right: 5px;
+      background-color: rgba(138, 43, 226, 0.8);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .preview-button:hover {
+      background-color: rgba(138, 43, 226, 1);
+      transform: scale(1.1);
+    }
+
+    /* Estilos para la botonera */
+    .info-section {
+      margin-bottom: 1.5rem;
+    }
+    
+    .main-actions {
+      margin-bottom: 1.5rem;
+    }
+    
+    .action-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    
+    .action-btn {
+      padding: 0.5rem 1rem;
+      border-radius: 0.25rem;
+      border: none;
+      font-size: 0.875rem;
+      cursor: pointer;
+      color: white;
+      transition: all 0.2s ease;
+    }
+    
+    .action-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .action-btn.primary {
+      background-color: #007bff;
+    }
+    
+    .action-btn.secondary {
+      background-color: #6c757d;
+    }
+    
+    .action-btn.success {
+      background-color: #28a745;
+    }
+    
+    .action-btn.info {
+      background-color: #17a2b8;
+    }
+    
+    .action-btn.warning {
+      background-color: #ffc107;
+      color: #212529;
+    }
+    
+    .action-btn.danger {
+      background-color: #dc3545;
+    }
+    
+    .action-btn.dark {
+      background-color: #343a40;
+    }
+    
+    .action-btn.outline {
+      background-color: transparent;
+      border: 1px solid #dee2e6;
+      color: var(--primary-text);
+    }
+    
+    .action-btn.outline:hover {
+      background-color: #f8f9fa;
+    }
+    
+    @media (max-width: 768px) {
+      .action-buttons {
+        flex-direction: column;
+        width: 100%;
+      }
+      
+      .action-btn {
+        width: 100%;
+        text-align: center;
+      }
+      
+      .d-md-inline {
+        display: none;
+      }
     }
   </style>
 </head>
@@ -323,6 +457,45 @@
       <p>Manage your AdrianPunks and their versions in PocketAdrians</p>
     </header>
     
+    <!-- Balance y Floor Offer Info -->
+    <div class="info-section mb-4">
+      <h2 id="tokenBalance" class="mb-2">Balance: Loading...</h2>
+      <div id="floorOfferSection" class="text-secondary">
+        <span id="floorOfferText">Highest floor offer: -- $ADRIAN</span>
+      </div>
+    </div>
+
+    <!-- Botonera Principal Unificada -->
+    <div class="main-actions mb-4">
+      <div class="action-buttons">
+        <button class="action-btn warning" onclick="openFloorOfferPopup()">
+          <span class="d-none d-md-inline">Make Floor</span> Offer
+        </button>
+        <button class="action-btn info" onclick="openMyOffersModal()">
+          <span class="d-none d-md-inline">My</span> Offers
+        </button>
+        <button class="action-btn secondary" onclick="openMyListingsModal()">
+          <span class="d-none d-md-inline">My</span> Listings
+        </button>
+        <button class="action-btn dark" onclick="openRecentActivityModal()">
+          <span class="d-none d-md-inline">Recent</span> Activity
+        </button>
+        <button class="action-btn outline" onclick="window.location.href='/market/'">
+          <span class="d-none d-md-inline">Go to</span> Market
+        </button>
+        <button class="action-btn outline" onclick="window.location.href='/toggler/'">
+          <span class="d-none d-md-inline">Go to</span> Toggler
+        </button>
+        <button class="action-btn" id="themeButton" onclick="toggleTheme()">
+          <span id="themeButtonText">DarkMode</span>
+        </button>
+        <!-- Nuevo botón de wallet para la botonera principal -->
+        <button class="action-btn outline" id="mainConnectWalletButton">
+          Connect Wallet
+        </button>
+      </div>
+    </div>
+    
     <!-- Connect Wallet Section -->
     <div id="connect-section" class="text-center mb-4">
       <button id="connectWalletBtn" class="btn-connect">Connect Wallet</button>
@@ -332,7 +505,6 @@
     <div id="account-section" class="text-center mb-4" style="display: none;">
       <p>Connected Wallet:</p>
       <div id="accountDisplay" class="account-display"></div>
-      <div id="tokenBalance" class="mt-2">ADRIAN Balance: <span id="adrianBalance">0</span></div>
     </div>
     
     <!-- Alert Messages -->
@@ -384,27 +556,6 @@
       
       <button id="updateVersionBtn" class="btn-action w-100" disabled>Update Version</button>
     </div>
-
-    <!-- Admin Actions Section -->
-    <div id="admin-actions" class="card">
-      <h2 class="section-title">Admin Actions</h2>
-      <div class="row mb-3">
-        <div class="col-md-6">
-          <div class="form-group">
-            <label for="fromId" class="form-label">From ID:</label>
-            <input type="number" id="fromId" class="form-control" min="0" placeholder="Enter starting ID">
-          </div>
-        </div>
-        <div class="col-md-6">
-          <div class="form-group">
-            <label for="toId" class="form-label">To ID:</label>
-            <input type="number" id="toId" class="form-control" min="0" placeholder="Enter ending ID">
-          </div>
-        </div>
-      </div>
-      <button id="mirrorAdminRangeBtn" class="btn-action">Mirror Admin Range</button>
-      <div id="admin-output" class="terminal mt-3"></div>
-    </div>
     
     <!-- Footer -->
     <div class="footer">
@@ -419,8 +570,7 @@ const ADRIAN_PUNKS_ABI = [
   "function ownerOf(uint256 id) external view returns (address)",
   "function currentTokenId() external view returns (uint256)",
   "function balanceOf(address owner) external view returns (uint256)",
-  "function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256)",
-  "function mirrorAdminRange(uint256 fromId, uint256 toId) external"
+  "function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256)"
 ];
 
 const POCKET_ADRIANS_ABI = [
@@ -433,21 +583,9 @@ const POCKET_ADRIANS_ABI = [
   "function setTokensVersion(uint256[] calldata tokenIds, uint256 versionId) external"
 ];
 
-// ERC20 Token ABI (para el token ADRIAN)
-const ERC20_ABI = [
-  "function balanceOf(address owner) external view returns (uint256)",
-  "function transfer(address to, uint256 amount) external returns (bool)",
-  "function allowance(address owner, address spender) external view returns (uint256)",
-  "function approve(address spender, uint256 amount) external returns (bool)",
-  "function decimals() external view returns (uint8)",
-  "function symbol() external view returns (string)"
-];
-
 // Contract addresses
 const ADRIAN_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
 const POCKET_ADRIANS_ADDRESS = "0x6bA5A93878a0aC34B63Fd9994a874a9B0111d587";
-const ADRIAN_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
-const DESTINATION_WALLET = "0x83Aa2CE87E4D037FaA3EbC9b2df64c2a88e222d0";
 
 // Base network configuration
 const BASE_NETWORK = {
@@ -475,7 +613,6 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
     const connectSection = document.getElementById('connect-section');
     const accountSection = document.getElementById('account-section');
     const accountDisplay = document.getElementById('accountDisplay');
-    const adrianBalance = document.getElementById('adrianBalance');
     const errorAlert = document.getElementById('errorAlert');
     const successAlert = document.getElementById('successAlert');
     const tokenManagement = document.getElementById('token-management');
@@ -500,8 +637,6 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
     let signer = null;
     let adrianPunksContract = null;
     let pocketAdriansContract = null;
-    let adrianTokenContract = null;
-    let tokenDecimals = 18;
     let ownedTokens = [];
     let selectedTokens = [];
     let isLoading = false;
@@ -511,8 +646,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
     // Set contract address info
     contractAddressInfo.innerHTML = `
       AdrianPunks: ${ADRIAN_PUNKS_ADDRESS.substring(0, 6)}...${ADRIAN_PUNKS_ADDRESS.substring(38)} | 
-      PocketAdrians: ${POCKET_ADRIANS_ADDRESS.substring(0, 6)}...${POCKET_ADRIANS_ADDRESS.substring(38)} |
-      Token ADRIAN: ${ADRIAN_TOKEN_ADDRESS.substring(0, 6)}...${ADRIAN_TOKEN_ADDRESS.substring(38)}
+      PocketAdrians: ${POCKET_ADRIANS_ADDRESS.substring(0, 6)}...${POCKET_ADRIANS_ADDRESS.substring(38)}
     `;
 
     // Show error message
@@ -541,6 +675,9 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       loadingTokens.style.display = 'block';
 
       try {
+        // Actualizar el balance al cargar los tokens
+        updateTokenBalance();
+        
         // Configure Multicall
         const multicall = new ethers.Contract(
           "0xcA11bde05977b3631167028862bE2a173976CA11",
@@ -637,115 +774,23 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       }
     }
 
-    // Update ADRIAN balance
-    async function updateADRIANBalance() {
-      try {
-        if (!adrianTokenContract || !account) return;
-        
-        const balance = await adrianTokenContract.balanceOf(account);
-        adrianBalance.textContent = ethers.utils.formatUnits(balance, tokenDecimals);
-      } catch (error) {
-        console.error("Error updating ADRIAN balance:", error);
-        adrianBalance.textContent = "Error";
-      }
-    }
-
     // Connect wallet
-    async function connectWallet() {
-      try {
-        if (!window.ethereum) {
-          showError("Please install MetaMask.");
-          return;
-        }
-
-        // Request account access
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-        account = accounts[0];
-        accountDisplay.textContent = `${account.substring(0, 6)}...${account.substring(38)}`;
-
-        // Check if the user is on the Base network
-        const chainId = await window.ethereum.request({ method: "eth_chainId" });
-        
-        if (chainId !== BASE_NETWORK.chainId) {
-          try {
-            await window.ethereum.request({
-              method: "wallet_switchEthereumChain",
-              params: [{ chainId: BASE_NETWORK.chainId }],
-            });
-          } catch (switchError) {
-            if (switchError.code === 4902) {
-              await window.ethereum.request({
-                method: "wallet_addEthereumChain",
-                params: [BASE_NETWORK],
-              });
-            } else {
-              throw switchError;
-            }
-          }
-        }
-
-        // Set up provider and signer
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-
-        // Initialize read-only contracts with infuraProvider (for faster queries)
-        const adrianPunksContractReadOnly = new ethers.Contract(
-          ADRIAN_PUNKS_ADDRESS,
-          ADRIAN_PUNKS_ABI,
-          infuraProvider
-        );
-        const pocketAdriansContractReadOnly = new ethers.Contract(
-          POCKET_ADRIANS_ADDRESS,
-          POCKET_ADRIANS_ABI,
-          infuraProvider
-        );
-        const adrianTokenContractReadOnly = new ethers.Contract(
-          ADRIAN_TOKEN_ADDRESS,
-          ERC20_ABI,
-          infuraProvider
-        );
-
-        // Initialize separate contract instances with signer for transactions
-        adrianPunksContract = adrianPunksContractReadOnly.connect(signer);
-        pocketAdriansContract = pocketAdriansContractReadOnly.connect(signer);
-        adrianTokenContract = adrianTokenContractReadOnly.connect(signer);
-
-        // Get token decimals
-        try {
-          tokenDecimals = await adrianTokenContractReadOnly.decimals();
-        } catch (error) {
-          console.warn("Error getting token decimals, using default:", error);
-          tokenDecimals = 18; // Default to 18 decimals
-        }
-
-        // Add event listeners for account and chain changes
-        window.ethereum.on("accountsChanged", (accounts) => {
-          window.location.reload();
-        });
-        window.ethereum.on("chainChanged", () => {
-          window.location.reload();
-        });
-
-        // Update UI
-        connectSection.style.display = 'none';
-        accountSection.style.display = 'block';
-        tokenManagement.style.display = 'block';
-        versionManagement.style.display = 'block';
-
-        // Update token balance
-        await updateADRIANBalance();
-
-        showSuccess("Wallet connected successfully!");
+    const originalConnectWallet = connectWallet;
+    connectWallet = async function() {
+      await originalConnectWallet.apply(this, arguments);
       
-        // Load owned tokens and available versions
-        await loadOwnedTokens(account);
-        await loadVersions();
-
-      } catch (error) {
-        console.error("Connection error:", error);
-        showError(error.message);
+      // Después de conectar la wallet, actualiza el botón principal
+      if (account) {
+        const mainWalletButton = document.getElementById('mainConnectWalletButton');
+        if (mainWalletButton) {
+          mainWalletButton.textContent = `${account.substring(0, 6)}...${account.substring(38)}`;
+          mainWalletButton.classList.add('active');
+        }
+        
+        // Actualizar el balance
+        updateTokenBalance();
       }
-    }
+    };
 
     // Set loading state
     function setLoading(loading) {
@@ -758,54 +803,26 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
   
   // Load available metadata versions
     async function loadVersions() {
-      try {
-        // Configurar Multicall
-        const multicall = new ethers.Contract(
-          "0xcA11bde05977b3631167028862bE2a173976CA11",
-          [
-            "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"
-          ],
-          infuraProvider
-        );
-
-        // Obtener el número total de versiones
-        const versionCount = await pocketAdriansContract.versionCount();
-        const versionCountNumber = versionCount.toNumber();
-        
+    try {
+      const versionCount = await pocketAdriansContract.versionCount();
+      const versionCountNumber = versionCount.toNumber();
+      
         versions = [];
+      
+      for (let i = 1; i <= versionCountNumber; i++) {
+        const versionInfo = await pocketAdriansContract.metadataVersions(i);
+        const [base1, base2, active] = versionInfo;
         
-        // Preparar llamadas para obtener información de todas las versiones
-        const calls = [];
-        for (let i = 1; i <= versionCountNumber; i++) {
-          calls.push({
-            target: POCKET_ADRIANS_ADDRESS,
-            allowFailure: true,
-            callData: pocketAdriansContract.interface.encodeFunctionData('metadataVersions', [i])
+        if (active) {
+            versions.push({
+            id: i,
+            base1,
+            base2,
+            active
           });
         }
-
-        // Ejecutar todas las llamadas en una sola transacción
-        const results = await multicall.aggregate3(calls);
-        
-        // Procesar resultados
-        for (let i = 0; i < results.length; i++) {
-          if (results[i].success) {
-            const [base1, base2, active] = pocketAdriansContract.interface.decodeFunctionResult(
-              'metadataVersions',
-              results[i].returnData
-            );
-            
-            if (active) {
-              versions.push({
-                id: i + 1,
-                base1,
-                base2,
-                active
-              });
-            }
-          }
-        }
-        
+      }
+      
         // Populate version selector
         versionSelector.innerHTML = '';
         versions.forEach(version => {
@@ -814,19 +831,11 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           option.textContent = `Version ${version.id}`;
           versionSelector.appendChild(option);
         });
-
-        if (versions.length === 0) {
-          showError("No active versions found");
-        }
       
-      } catch (error) {
-        console.error("Error loading versions:", error);
-        if (error.code === -32016 || error.message?.includes('rate limit')) {
-          showError("Rate limit exceeded. Please try again in a few seconds.");
-        } else {
-          showError("Error loading versions. Please try again.");
-        }
-      }
+    } catch (error) {
+      console.error("Error loading versions:", error);
+        showError("Error loading versions. Please try again.");
+    }
     }
 
     // Render tokens in the grid
@@ -912,6 +921,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
               img.src = placeholderUrl;
               img.className = "token-image";
               img.alt = `Adrian #${tokenId}`;
+              img.dataset.tokenId = tokenId;
               imageContainer.innerHTML = '';
               imageContainer.appendChild(img);
               return;
@@ -922,15 +932,35 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
             
             const img = new Image();
             const imgSrc = `${basePath}${format.prefix}${tokenId}.${format.extension}`;
+            console.log(`[DEBUG] Intentando cargar: ${imgSrc} (Token ID: ${tokenId}, Versión: ${token.version})`);
             img.src = imgSrc;
             img.className = "token-image";
             img.alt = `Adrian #${tokenId}`;
+            img.dataset.tokenId = tokenId;
+            img.dataset.version = token.version;
             img.onerror = function() {
+              console.log(`[ERROR] Falló la carga: ${imgSrc}`);
               tryNextFormat();
             };
             img.onload = function() {
+              console.log(`[SUCCESS] Imagen cargada correctamente: ${imgSrc}`);
               imageContainer.innerHTML = '';
               imageContainer.appendChild(img);
+              
+              // Añadir el botón de previsualización
+              const previewButton = document.createElement('button');
+              previewButton.className = 'preview-button';
+              previewButton.innerHTML = '♺';
+              previewButton.title = 'Previsualizar otras versiones';
+              previewButton.setAttribute('data-token-id', tokenId);
+              
+              // Detener la propagación para evitar que se seleccione el token al hacer clic en el botón
+              previewButton.addEventListener('click', function(event) {
+                event.stopPropagation();
+                previewNextVersion(tokenId, img);
+              });
+              
+              imageContainer.appendChild(previewButton);
             };
             
             // Iniciar la carga
@@ -949,11 +979,31 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           img.src = src;
           img.className = "token-image";
           img.alt = `Adrian #${token.id}`;
+          img.dataset.tokenId = token.id;
+          img.dataset.version = token.version;
           img.onerror = function() {
             this.src = fallbackSrc;
             console.log("Error loading image:", src, "using placeholder:", fallbackSrc);
           };
+          
           imageContainer.appendChild(img);
+          
+          // Añadir el botón de previsualización
+          img.onload = function() {
+            const previewButton = document.createElement('button');
+            previewButton.className = 'preview-button';
+            previewButton.innerHTML = '♺';
+            previewButton.title = 'Previsualizar otras versiones';
+            previewButton.setAttribute('data-token-id', token.id);
+            
+            // Detener la propagación para evitar que se seleccione el token al hacer clic en el botón
+            previewButton.addEventListener('click', function(event) {
+              event.stopPropagation();
+              previewNextVersion(token.id, img);
+            });
+            
+            imageContainer.appendChild(previewButton);
+          };
         }
         
         // Cargar la imagen con fallbacks
@@ -993,7 +1043,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
                         
     if (selectedTokens.includes(tokenIdNumber)) {
         selectedTokens = selectedTokens.filter(id => id !== tokenIdNumber);
-      } else {
+    } else {
         selectedTokens.push(tokenIdNumber);
       }
       
@@ -1001,35 +1051,47 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       updateSelectedUI();
     }
 
-    // Update UI based on selections
+    // Update UI to reflect selected tokens
     function updateSelectedUI() {
-      syncBtn.textContent = `Sync Ownership (${selectedTokens.length} selected)`;
-      syncBtn.disabled = isLoading || selectedTokens.length === 0;
-      updateVersionBtn.disabled = isLoading || selectedTokens.length === 0;
+      const count = selectedTokens.length;
+      const syncBtn = document.getElementById('syncBtn');
+      const updateVersionBtn = document.getElementById('updateVersionBtn');
+      const selectionInfo = document.getElementById('selection-info');
+      const noSelectionMessage = document.getElementById('no-selection-message');
+      const selectedCount = document.getElementById('selectedCount');
+      const selectedTokensList = document.getElementById('selectedTokensList');
       
-      selectedCount.textContent = selectedTokens.length;
-      
-      if (selectedTokens.length === 0) {
-        noSelectionMessage.style.display = 'block';
-        selectionInfo.style.display = 'none';
-      } else {
-        noSelectionMessage.style.display = 'none';
-        selectionInfo.style.display = 'block';
-        
-        // Update selected tokens list
-        selectedTokensList.innerHTML = '';
-        selectedTokens.forEach(id => {
-          const badge = document.createElement('span');
-          badge.className = 'token-badge';
-          badge.textContent = `#${id}`;
-          selectedTokensList.appendChild(badge);
-        });
+      // Update the sync button
+      if (syncBtn) {
+        syncBtn.textContent = `Sync Ownership (${count} selected)`;
+        syncBtn.disabled = count === 0;
       }
       
-      // Update select all button text
-      if (ownedTokens.length > 0) {
-        selectAllBtn.textContent = selectedTokens.length === ownedTokens.length ? 'Deselect All' : 'Select All';
-    }
+      // Update the change version button
+      if (updateVersionBtn) {
+        updateVersionBtn.disabled = count === 0;
+      }
+      
+      // Update the selection display
+      if (selectionInfo && noSelectionMessage && selectedCount && selectedTokensList) {
+        if (count > 0) {
+          selectionInfo.style.display = 'block';
+          noSelectionMessage.style.display = 'none';
+          selectedCount.textContent = count;
+          
+          // Generate badges for selected tokens
+          selectedTokensList.innerHTML = '';
+          selectedTokens.forEach(tokenId => {
+            const badge = document.createElement('span');
+            badge.className = 'token-badge';
+            badge.textContent = `#${tokenId}`;
+            selectedTokensList.appendChild(badge);
+          });
+        } else {
+          selectionInfo.style.display = 'none';
+          noSelectionMessage.style.display = 'block';
+        }
+      }
     }
 
     // Select/deselect all tokens
@@ -1069,7 +1131,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         showError(error.message || "Failed to sync token ownership. Please try again.");
     } finally {
         setLoading(false);
-      }
+    }
     }
 
   // Change version for selected tokens
@@ -1083,130 +1145,215 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       
         const versionId = parseInt(versionSelector.value);
         
-        // Calcular el pago total (500 ADRIAN por token)
-        const paymentPerToken = ethers.utils.parseUnits("500", tokenDecimals);
-        const totalPayment = paymentPerToken.mul(selectedTokens.length);
+        // Make sure we're using a contract connected to a signer
+        // Usar opciones explícitas para evitar problemas de estimación de gas en móviles
+        const options = {
+          gasLimit: 50000 + (selectedTokens.length * 5000), // Base muy reducida basada en tx exitosa (~40k)
+          maxPriorityFeePerGas: ethers.utils.parseUnits("0.01", "gwei"), // Valor similar a la tx exitosa
+          maxFeePerGas: ethers.utils.parseUnits("0.02", "gwei") // Ligeramente mayor que la tx exitosa
+        };
         
-        // Verificar el balance
-        const balance = await adrianTokenContract.balanceOf(account);
-        const hasEnoughBalance = balance.gte(totalPayment);
+        showSuccess("Preparando transacción...");
         
-        // Crear y mostrar el diálogo personalizado
-        const dialog = document.createElement('div');
-        dialog.id = 'supportModal';
-        dialog.className = 'modal fade';
-        dialog.setAttribute('tabindex', '-1');
-        dialog.setAttribute('aria-labelledby', 'supportModalLabel');
-        dialog.setAttribute('aria-hidden', 'true');
-        dialog.innerHTML = `          <div class="modal-dialog">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title" id="supportModalLabel">Support Development</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-              </div>
-              <div class="modal-body">
-                <p>Would you like to support development with ${ethers.utils.formatUnits(totalPayment, tokenDecimals)} ADRIAN tokens?</p>
-                ${!hasEnoughBalance ? '<p class="text-danger">Note: You don\'t have enough ADRIAN tokens for this option.</p>' : ''}
-              </div>
-              <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Continue without support</button>
-                <button type="button" class="btn btn-primary" id="supportBtn" ${!hasEnoughBalance ? 'disabled' : ''}>Support with ADRIAN</button>
-              </div>
-            </div>
-          </div>
-        `;
+        // Usar las opciones explícitas de gas
+        const tx = await pocketAdriansContract.setTokensVersion(selectedTokens, versionId, options);
         
-        document.body.appendChild(dialog);
+        showSuccess("Transacción enviada. Esperando confirmación...");
         
-        // Inicializar el modal de Bootstrap
-        const modalElement = document.getElementById('supportModal');
-        const modal = new bootstrap.Modal(modalElement);
-        
-        // Esperar la respuesta del usuario
-        const userResponse = await new Promise((resolve) => {
-          modalElement.addEventListener('hidden.bs.modal', () => resolve(false), { once: true });
-          document.getElementById('supportBtn').addEventListener('click', () => {
-            modal.hide();
-            resolve(true);
-          }, { once: true });
-        });
-        
-        // Remover el modal
-        modalElement.remove();
-        
-        // Si el usuario eligió apoyar y tiene suficiente balance
-        if (userResponse && hasEnoughBalance) {
-          showSuccess(`Transferring ${ethers.utils.formatUnits(totalPayment, tokenDecimals)} ADRIAN tokens...`);
-          const transferTx = await adrianTokenContract.transfer(DESTINATION_WALLET, totalPayment);
-          await transferTx.wait();
-          
-          // Actualizar el balance después de la transferencia
-          await updateADRIANBalance();
-          
-          showSuccess("ADRIAN tokens transferred successfully!");
-        }
-        
-        // Proceder con la actualización de versión
-        showSuccess("Updating versions...");
-        const updateTx = await pocketAdriansContract.setTokensVersion(selectedTokens, versionId);
-        await updateTx.wait();
-        
+        // Aumentar el timeout para móviles
+        await tx.wait(1); // Esperar solo 1 confirmación para acelerar en móviles
+      
         showSuccess(`Successfully updated ${selectedTokens.length} tokens to version ${versionId}!`);
-        
-        // Reload tokens to get updated versions
+      
+      // Reload tokens to get updated versions
         await loadOwnedTokens(account);
-        
+      
     } catch (error) {
         console.error("Error changing versions:", error);
-        showError(error.message || "Failed to update token versions. Please try again.");
+        if (error.message && error.message.includes("gas")) {
+          showError("Error de gas: intenta seleccionar menos tokens a la vez o inténtalo de nuevo más tarde");
+        } else {
+          showError(error.message || "Failed to update token versions. Please try again.");
+        }
     } finally {
         setLoading(false);
       }
     }
 
-    // Función para mirrorAdminRange
-    async function mirrorAdminRange() {
-      const fromId = document.getElementById('fromId').value;
-      const toId = document.getElementById('toId').value;
-      const output = document.getElementById('admin-output');
-
-      if (!fromId || !toId) {
-        output.textContent = 'Por favor, ingresa los IDs de inicio y fin.';
+    // Función para previsualizar la siguiente versión
+    async function previewNextVersion(tokenId, imgElement) {
+      tokenId = Number(tokenId);
+      if (!versions || versions.length === 0) {
+        showError("No hay versiones disponibles para previsualizar");
         return;
       }
-
-      try {
-        // Verificar si el usuario es admin
-        const owner = await adrianPunksContract.owner();
-        if (owner.toLowerCase() !== account.toLowerCase()) {
-          output.textContent = 'Error: Solo el admin puede ejecutar esta función.';
+      
+      const currentVersion = Number(imgElement.dataset.version) || 0;
+      
+      // Encontrar el índice de la versión actual en el array de versiones disponibles
+      let currentIndex = versions.findIndex(v => v.id === currentVersion);
+      
+      // Si no se encuentra o es la última, volver a la primera
+      if (currentIndex === -1 || currentIndex === versions.length - 1) {
+        currentIndex = 0;
+    } else {
+        currentIndex++;
+      }
+      
+      // Obtener la siguiente versión
+      const nextVersion = versions[currentIndex].id;
+      
+      // Determinar la ruta base según la versión
+      let basePath;
+      if (nextVersion === 1) {
+        basePath = '/market/halfxadrianimages/';
+      } else if (nextVersion === 2) {
+        basePath = '/market/alpha/';
+      } else if (nextVersion === 3) {
+        basePath = '/market/omega/';
+      } else {
+        basePath = '/market/halfxadrianimages/';
+      }
+      
+      // Intentar cargar la nueva imagen
+      const placeholderUrl = '/market/halfxadrianimages/placeholder.jpg';
+      
+      // Mostrar un indicador de carga
+      const parentContainer = imgElement.parentElement;
+      const loadingIndicator = document.createElement('div');
+      loadingIndicator.style.position = 'absolute';
+      loadingIndicator.style.top = '50%';
+      loadingIndicator.style.left = '50%';
+      loadingIndicator.style.transform = 'translate(-50%, -50%)';
+      loadingIndicator.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>';
+      parentContainer.appendChild(loadingIndicator);
+      
+      const knownGifs = [1, 13, 69, 221, 369, 420, 555, 690, 777, 807, 1000];
+      let formats = [];
+      
+      if (knownGifs.includes(tokenId)) {
+        formats = [
+          { extension: 'gif', prefix: '' },
+          { extension: 'png', prefix: '' },
+          { extension: 'jpg', prefix: '' },
+          { extension: 'gif', prefix: 'adrianpunks#' },
+          { extension: 'png', prefix: 'adrianpunks#' },
+          { extension: 'jpg', prefix: 'adrianpunks#' },
+          { extension: 'gif', prefix: 'AdrianPunks#' },
+          { extension: 'png', prefix: 'AdrianPunks#' },
+          { extension: 'jpg', prefix: 'AdrianPunks#' }
+        ];
+      } else {
+        formats = [
+          { extension: 'jpg', prefix: '' },
+          { extension: 'png', prefix: '' },
+          { extension: 'gif', prefix: '' },
+          { extension: 'jpg', prefix: 'adrianpunks#' },
+          { extension: 'png', prefix: 'adrianpunks#' },
+          { extension: 'gif', prefix: 'adrianpunks#' },
+          { extension: 'jpg', prefix: 'AdrianPunks#' },
+          { extension: 'png', prefix: 'AdrianPunks#' },
+          { extension: 'gif', prefix: 'AdrianPunks#' }
+        ];
+      }
+      
+      // Si estamos en la versión 1 (halfxadrianimages), solo intentamos jpg
+      if (basePath.includes('halfxadrianimages')) {
+        const newImage = new Image();
+        newImage.src = `${basePath}${tokenId}.jpg`;
+        newImage.onload = function() {
+          // Actualizar la imagen existente
+          imgElement.src = newImage.src;
+          imgElement.dataset.version = nextVersion;
+          // Mostrar notificación
+          showSuccess(`Previsualizando versión ${nextVersion}`);
+          // Eliminar indicador de carga
+          parentContainer.removeChild(loadingIndicator);
+        };
+        newImage.onerror = function() {
+          showError(`No se pudo cargar la previsualización de la versión ${nextVersion}`);
+          parentContainer.removeChild(loadingIndicator);
+        };
+        return;
+      }
+      
+      // Función para intentar cargar formatos consecutivamente
+      let currentFormatIndex = 0;
+      
+      function tryNextImageFormat() {
+        if (currentFormatIndex >= formats.length) {
+          // Si hemos agotado todos los formatos, mostrar error
+          showError(`No se pudo cargar la previsualización de la versión ${nextVersion}`);
+          parentContainer.removeChild(loadingIndicator);
           return;
         }
-
-        output.textContent = 'Iniciando mirrorAdminRange...';
-        const tx = await adrianPunksContract.mirrorAdminRange(fromId, toId);
-        output.textContent = 'Transacción enviada. Esperando confirmación...';
-        await tx.wait();
-        output.textContent = '¡MirrorAdminRange completado con éxito!';
-        await loadOwnedTokens(account);
-      } catch (error) {
-        console.error('Error en mirrorAdminRange:', error);
-        output.textContent = 'Error: ' + error.message;
+        
+        const format = formats[currentFormatIndex];
+        currentFormatIndex++;
+        
+        const newImage = new Image();
+        const imgSrc = `${basePath}${format.prefix}${tokenId}.${format.extension}`;
+        newImage.src = imgSrc;
+        
+        newImage.onload = function() {
+          // Actualizar la imagen existente
+          imgElement.src = newImage.src;
+          imgElement.dataset.version = nextVersion;
+          // Mostrar notificación
+          showSuccess(`Previsualizando versión ${nextVersion}`);
+          // Eliminar indicador de carga
+          parentContainer.removeChild(loadingIndicator);
+        };
+        
+        newImage.onerror = function() {
+          tryNextImageFormat();
+        };
       }
+      
+      // Iniciar el intento de carga
+      tryNextImageFormat();
     }
 
     // Event Listeners
-    connectWalletBtn.addEventListener('click', connectWallet);
-    syncBtn.addEventListener('click', syncSelectedTokens);
-    updateVersionBtn.addEventListener('click', changeTokenVersions);
-    selectAllBtn.addEventListener('click', selectAllTokens);
-    versionSelector.addEventListener('change', (e) => {
-      selectedVersion = parseInt(e.target.value);
+    document.addEventListener('DOMContentLoaded', function() {
+      loadSavedTheme();
+      setupMainConnectButton();
+      
+      // Connect wallet button
+      const connectBtn = document.getElementById('connectWalletBtn');
+      if (connectBtn) {
+        connectBtn.addEventListener('click', connectWallet);
+      }
+      
+      // Select all button
+      const selectAllBtn = document.getElementById('selectAllBtn');
+      if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', selectAllTokens);
+      }
+      
+      // Sync button
+      const syncBtn = document.getElementById('syncBtn');
+      if (syncBtn) {
+        syncBtn.addEventListener('click', syncSelectedTokens);
+      }
+      
+      // Update Version button
+      const updateVersionBtn = document.getElementById('updateVersionBtn');
+      if (updateVersionBtn) {
+        updateVersionBtn.addEventListener('click', changeTokenVersions);
+      }
+      
+      // Version selector
+      const versionSelector = document.getElementById('versionSelector');
+      if (versionSelector) {
+        versionSelector.addEventListener('change', function() {
+          selectedVersion = parseInt(this.value);
+        });
+      }
+      
+      // Initialize
+      updateSelectedUI();
     });
-    document.getElementById('mirrorAdminRangeBtn').addEventListener('click', mirrorAdminRange);
-
-    // Initialize
-    updateSelectedUI();
 
     // Add styles for images
     const styleSheet = document.createElement("style");
@@ -1258,6 +1405,146 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         console.error("Error checking wallet:", error);
       }
     });
+
+    // Actualizar el balance de tokens
+    async function updateTokenBalance() {
+      try {
+        if (!signer || !account) return;
+        
+        // Initialize token contract
+        const TOKEN_ABI = ["function balanceOf(address account) view returns (uint256)"];
+        const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+        const tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+        
+        const balanceRaw = await tokenContract.balanceOf(account);
+        const balance = parseFloat(ethers.utils.formatUnits(balanceRaw, 18));
+        let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
+                              balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
+                              balance.toFixed(1);
+        
+        document.getElementById("tokenBalance").innerText = `Balance: ${formattedBalance} $ADRIAN`;
+      } catch (error) {
+        console.error("Error fetching token balance:", error);
+        document.getElementById("tokenBalance").innerText = "Balance: Error";
+      }
+    }
+    
+    // Función para cambiar el tema
+    function toggleTheme() {
+      const html = document.documentElement;
+      const themeButton = document.getElementById('themeButton');
+      const themeButtonText = document.getElementById('themeButtonText');
+      const isDark = html.getAttribute('data-theme') === 'dark';
+      
+      if (!isDark) {
+        html.setAttribute('data-theme', 'dark');
+        localStorage.setItem('theme', 'dark');
+        themeButtonText.textContent = 'LightMode';
+        themeButton.classList.remove('btn-outline-dark');
+        themeButton.classList.add('btn-dark');
+      } else {
+        html.removeAttribute('data-theme');
+        localStorage.setItem('theme', 'light');
+        themeButtonText.textContent = 'DarkMode';
+        themeButton.classList.remove('btn-dark');
+        themeButton.classList.add('btn-secondary');
+      }
+    }
+    
+    // Cargar el tema guardado
+    function loadSavedTheme() {
+      const savedTheme = localStorage.getItem('theme');
+      const html = document.documentElement;
+      const themeButton = document.getElementById('themeButton');
+      const themeButtonText = document.getElementById('themeButtonText');
+      
+      if (savedTheme === 'dark') {
+        html.setAttribute('data-theme', 'dark');
+        themeButtonText.textContent = 'LightMode';
+        themeButton.classList.remove('btn-outline-dark');
+        themeButton.classList.add('btn-dark');
+      } else {
+        themeButtonText.textContent = 'DarkMode';
+        themeButton.classList.remove('btn-dark');
+        themeButton.classList.add('btn-secondary');
+      }
+    }
+    
+    // Configurar el botón principal de wallet
+    function setupMainConnectButton() {
+      const mainWalletButton = document.getElementById('mainConnectWalletButton');
+      if (mainWalletButton) {
+        // Si ya existe un método de conexión, usemos ese
+        mainWalletButton.addEventListener('click', function() {
+          connectWallet();
+        });
+      }
+    }
+    
+    // Función para mostrar notificaciones
+    function showToast(message, type = 'info') {
+      // Eliminar cualquier toast anterior
+      const oldToast = document.getElementById('customToast');
+      if (oldToast) {
+        oldToast.remove();
+      }
+      
+      // Crear el nuevo toast
+      const toast = document.createElement('div');
+      toast.id = 'customToast';
+      toast.className = `toast-notification ${type}`;
+      toast.textContent = message;
+      
+      // Agregar estilos al toast
+      toast.style.position = 'fixed';
+      toast.style.bottom = '20px';
+      toast.style.left = '50%';
+      toast.style.transform = 'translateX(-50%)';
+      toast.style.padding = '10px 20px';
+      toast.style.borderRadius = '4px';
+      toast.style.backgroundColor = type === 'error' ? '#f44336' : '#4CAF50';
+      toast.style.color = 'white';
+      toast.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+      toast.style.zIndex = '9999';
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s ease-in-out';
+      
+      // Añadir al DOM
+      document.body.appendChild(toast);
+      
+      // Mostrar y ocultar automáticamente
+      setTimeout(() => {
+        toast.style.opacity = '1';
+      }, 100);
+      
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => {
+          toast.remove();
+        }, 300);
+      }, 3000);
+    }
+    
+    // Funciones para redireccionamiento
+    function openFloorOfferPopup() {
+      window.location.href = '/market/?action=floorOffer';
+    }
+    
+    function openMyOffersModal() {
+      window.location.href = '/market/?action=myOffers';
+    }
+    
+    function openMyListingsModal() {
+      window.location.href = '/market/?action=myListings';
+    }
+    
+    function openRecentActivityModal() {
+      window.location.href = '/market/?action=recentActivity';
+    }
+    
+    function openMyTokensModal() {
+      window.location.href = '/market/?action=myTokens';
+    }
   </script>
 </body>
 </html>
