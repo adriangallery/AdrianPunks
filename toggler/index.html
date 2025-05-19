@@ -1055,8 +1055,22 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         const versionId = parseInt(versionSelector.value);
         
         // Make sure we're using a contract connected to a signer
-        const tx = await pocketAdriansContract.setTokensVersion(selectedTokens, versionId);
-      await tx.wait();
+        // Usar opciones explícitas para evitar problemas de estimación de gas en móviles
+        const options = {
+          gasLimit: 500000 + (selectedTokens.length * 50000), // Base gas + adicional por token
+          maxPriorityFeePerGas: ethers.utils.parseUnits("1.5", "gwei"), // Dar prioridad más alta en móviles
+          maxFeePerGas: ethers.utils.parseUnits("50", "gwei")
+        };
+        
+        showSuccess("Preparando transacción...");
+        
+        // Usar las opciones explícitas de gas
+        const tx = await pocketAdriansContract.setTokensVersion(selectedTokens, versionId, options);
+        
+        showSuccess("Transacción enviada. Esperando confirmación...");
+        
+        // Aumentar el timeout para móviles
+        await tx.wait(1); // Esperar solo 1 confirmación para acelerar en móviles
       
         showSuccess(`Successfully updated ${selectedTokens.length} tokens to version ${versionId}!`);
       
@@ -1065,7 +1079,11 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       
     } catch (error) {
         console.error("Error changing versions:", error);
-        showError(error.message || "Failed to update token versions. Please try again.");
+        if (error.message && error.message.includes("gas")) {
+          showError("Error de gas: intenta seleccionar menos tokens a la vez o inténtalo de nuevo más tarde");
+        } else {
+          showError(error.message || "Failed to update token versions. Please try again.");
+        }
     } finally {
         setLoading(false);
       }
