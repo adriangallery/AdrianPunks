@@ -29,21 +29,6 @@
       --success-text: #155724;
     }
     
-    /* Dark mode variables */
-    [data-theme="dark"] {
-      --bg-color: #1a1a1a;
-      --primary-text: #ffffff;
-      --card-bg: #2d2d2d;
-      --card-border: #404040;
-      --screen-bg: #2d2d2d;
-      --error-bg: #3f1e22;
-      --error-border: #842029;
-      --error-text: #ea868f;
-      --success-bg: #051b11;
-      --success-border: #0f5132;
-      --success-text: #75b798;
-    }
-    
     body {
       background-color: var(--bg-color);
       color: var(--primary-text);
@@ -52,7 +37,6 @@
       padding: 20px;
       line-height: 1.6;
       padding-top: calc(var(--navbar-height) + 20px);
-      transition: background-color 0.3s ease, color 0.3s ease;
     }
     
     .container {
@@ -62,7 +46,6 @@
       background: var(--screen-bg);
       border-radius: 8px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-      transition: background-color 0.3s ease;
     }
     
     header {
@@ -330,94 +313,97 @@
       transform: scale(1.1);
     }
 
-    /* Estilos para la botonera */
+    /* Estilos para la botonera principal y display de balance */
     .info-section {
-      margin-bottom: 1.5rem;
+      margin-bottom: 1rem;
+      padding: 0 1rem;
     }
-    
+
     .main-actions {
       margin-bottom: 1.5rem;
+      padding: 0 1rem;
     }
-    
+
     .action-buttons {
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem;
     }
-    
+
     .action-btn {
       padding: 0.5rem 1rem;
-      border-radius: 0.25rem;
+      border-radius: 4px;
       border: none;
-      font-size: 0.875rem;
       cursor: pointer;
-      color: white;
-      transition: all 0.2s ease;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
     }
-    
+
     .action-btn:hover {
       transform: translateY(-2px);
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    
-    .action-btn.primary {
-      background-color: #007bff;
-    }
-    
-    .action-btn.secondary {
-      background-color: #6c757d;
-    }
-    
-    .action-btn.success {
-      background-color: #28a745;
-    }
-    
-    .action-btn.info {
-      background-color: #17a2b8;
-    }
-    
+
     .action-btn.warning {
       background-color: #ffc107;
       color: #212529;
     }
-    
-    .action-btn.danger {
-      background-color: #dc3545;
-    }
-    
-    .action-btn.dark {
-      background-color: #343a40;
-    }
-    
-    .action-btn.purple {
-      background-color: #8a2be2;
+
+    .action-btn.info {
+      background-color: #17a2b8;
       color: white;
     }
-    
+
+    .action-btn.secondary {
+      background-color: #6c757d;
+      color: white;
+    }
+
+    .action-btn.dark {
+      background-color: #343a40;
+      color: white;
+    }
+
+    .action-btn.primary {
+      background-color: #007bff;
+      color: white;
+    }
+
     .action-btn.outline {
       background-color: transparent;
       border: 1px solid #dee2e6;
-      color: var(--primary-text);
+      color: #212529;
     }
-    
-    .action-btn.outline:hover {
-      background-color: #f8f9fa;
+
+    .action-btn.active {
+      background-color: #28a745;
+      color: white;
     }
-    
+
     @media (max-width: 768px) {
       .action-buttons {
-        flex-direction: column;
-        width: 100%;
+        gap: 0.3rem;
       }
       
       .action-btn {
-        width: 100%;
-        text-align: center;
+        padding: 0.4rem 0.6rem;
+        font-size: 0.8rem;
       }
-      
-      .d-md-inline {
-        display: none;
-      }
+    }
+
+    /* Estilos para los toasts de notificación */
+    .toast-notification {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      border-radius: 4px;
+      color: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity 0.3s ease-in-out;
     }
   </style>
 </head>
@@ -485,24 +471,24 @@
         <button class="action-btn dark" onclick="openRecentActivityModal()">
           <span class="d-none d-md-inline">Recent</span> Activity
         </button>
-        <button class="action-btn outline" onclick="window.location.href='/market/'">
-          <span class="d-none d-md-inline">Go to</span> Market
-        </button>
-        <button class="action-btn purple" onclick="window.location.href='/toggler/'">
-          <span class="d-none d-md-inline">Go to</span> Toggler
-        </button>
         <button class="action-btn" id="themeButton" onclick="toggleTheme()">
           <span id="themeButtonText">DarkMode</span>
         </button>
-        <!-- Nuevo botón de wallet para la botonera principal -->
-        <button class="action-btn outline" id="mainConnectWalletButton" onclick="connectWallet()">
+        <!-- Botón principal de wallet -->
+        <button class="action-btn outline" id="mainConnectWalletButton">
           Connect Wallet
         </button>
       </div>
     </div>
     
+    <!-- Connect Wallet Section -->
+    <div id="connect-section" class="text-center mb-4">
+      <button id="connectWalletBtn" class="btn-connect">Connect Wallet</button>
+    </div>
+    
     <!-- Account Info Section (hidden by default) -->
     <div id="account-section" class="text-center mb-4" style="display: none;">
+      <p>Connected Wallet:</p>
       <div id="accountDisplay" class="account-display"></div>
     </div>
     
@@ -581,6 +567,10 @@ const POCKET_ADRIANS_ABI = [
   "function syncMultipleTokens(uint256[] calldata ids) external",
   "function setTokensVersion(uint256[] calldata tokenIds, uint256 versionId) external"
 ];
+
+// Token Contract (ADRIAN token)
+const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+const TOKEN_ABI = ["function balanceOf(address account) view returns (uint256)"];
 
 // Contract addresses
 const ADRIAN_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
@@ -674,9 +664,6 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       loadingTokens.style.display = 'block';
 
       try {
-        // Actualizar el balance al cargar los tokens
-        updateTokenBalance();
-        
         // Configure Multicall
         const multicall = new ethers.Contract(
           "0xcA11bde05977b3631167028862bE2a173976CA11",
@@ -779,24 +766,13 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
     
       try {
       if (!window.ethereum) {
-          throw new Error("Por favor instala MetaMask para usar esta aplicación");
+          throw new Error("Please install MetaMask to use this application");
       }
 
       // Request account access
       const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         account = accounts[0];
-        
-        // Actualizar ambos displays
-        if (accountDisplay) {
         accountDisplay.textContent = `${account.substring(0, 6)}...${account.substring(38)}`;
-        }
-        
-        // Actualizar el botón principal de wallet
-        const mainWalletButton = document.getElementById('mainConnectWalletButton');
-        if (mainWalletButton) {
-          mainWalletButton.textContent = `${account.substring(0, 6)}...${account.substring(38)}`;
-          mainWalletButton.classList.add('active');
-        }
 
       // Check if the user is on the Base network
       const chainId = await window.ethereum.request({ method: "eth_chainId" });
@@ -848,27 +824,22 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       });
 
         // Update UI
-        if (accountSection) {
+        connectSection.style.display = 'none';
         accountSection.style.display = 'block';
-        }
-        if (tokenManagement) {
         tokenManagement.style.display = 'block';
-        }
-        if (versionManagement) {
         versionManagement.style.display = 'block';
-        }
 
-        showSuccess("Wallet conectada correctamente!");
-        
-        // Actualizar el balance de tokens
-        updateTokenBalance();
+        showSuccess("Wallet connected successfully!");
       
       // Load owned tokens and available versions
         await loadOwnedTokens(account);
         await loadVersions();
       
+      // Update token balance
+        await updateTokenBalance();
+      
     } catch (error) {
-        console.error("Error de conexión:", error);
+      console.error("Connection error:", error);
         showError(error.message);
     } finally {
         setLoading(false);
@@ -882,6 +853,27 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       connectWalletBtn.disabled = loading;
       syncBtn.disabled = loading || selectedTokens.length === 0;
       updateVersionBtn.disabled = loading || selectedTokens.length === 0;
+    }
+  
+    // Update token balance
+    async function updateTokenBalance() {
+      try {
+        const tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+        const balanceRaw = await tokenContract.balanceOf(account);
+        const balance = parseFloat(ethers.utils.formatUnits(balanceRaw, 18));
+        let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
+                              balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
+                              balance.toFixed(1);
+        
+        // Actualizar ambos displays de balance
+        document.getElementById("tokenBalance").innerText = `Balance: ${formattedBalance} $ADRIAN`;
+        
+        // Actualizar el display de floor offer
+        loadFloorOffer();
+      } catch (error) {
+        console.error("Error fetching token balance:", error);
+        document.getElementById("tokenBalance").innerText = "Balance: Error";
+      }
     }
   
   // Load available metadata versions
@@ -1000,7 +992,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
             if (currentIndex >= formats.length) {
               // Si hemos agotado todos los formatos, usar placeholder
               console.log(`No se pudo cargar ninguna imagen para ID ${tokenId}`);
-        const img = new Image();
+              const img = new Image();
               img.src = placeholderUrl;
               img.className = "token-image";
               img.alt = `Adrian #${tokenId}`;
@@ -1060,11 +1052,11 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         function loadImage(src, fallbackSrc) {
           const img = new Image();
           img.src = src;
-        img.className = "token-image";
-        img.alt = `Adrian #${token.id}`;
+          img.className = "token-image";
+          img.alt = `Adrian #${token.id}`;
           img.dataset.tokenId = token.id;
           img.dataset.version = token.version;
-        img.onerror = function() {
+          img.onerror = function() {
             this.src = fallbackSrc;
             console.log("Error loading image:", src, "using placeholder:", fallbackSrc);
           };
@@ -1126,7 +1118,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
                         
     if (selectedTokens.includes(tokenIdNumber)) {
         selectedTokens = selectedTokens.filter(id => id !== tokenIdNumber);
-      } else {
+    } else {
         selectedTokens.push(tokenIdNumber);
       }
       
@@ -1134,46 +1126,34 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       updateSelectedUI();
     }
 
-    // Update UI to reflect selected tokens
+    // Update UI based on selections
     function updateSelectedUI() {
-      const count = selectedTokens.length;
-      const syncBtn = document.getElementById('syncBtn');
-      const updateVersionBtn = document.getElementById('updateVersionBtn');
-      const selectionInfo = document.getElementById('selection-info');
-      const noSelectionMessage = document.getElementById('no-selection-message');
-      const selectedCount = document.getElementById('selectedCount');
-      const selectedTokensList = document.getElementById('selectedTokensList');
+      syncBtn.textContent = `Sync Ownership (${selectedTokens.length} selected)`;
+      syncBtn.disabled = isLoading || selectedTokens.length === 0;
+      updateVersionBtn.disabled = isLoading || selectedTokens.length === 0;
       
-      // Update the sync button
-      if (syncBtn) {
-        syncBtn.textContent = `Sync Ownership (${count} selected)`;
-        syncBtn.disabled = count === 0;
-      }
+      selectedCount.textContent = selectedTokens.length;
       
-      // Update the change version button
-      if (updateVersionBtn) {
-        updateVersionBtn.disabled = count === 0;
-      }
-      
-      // Update the selection display
-      if (selectionInfo && noSelectionMessage && selectedCount && selectedTokensList) {
-        if (count > 0) {
+      if (selectedTokens.length === 0) {
+        noSelectionMessage.style.display = 'block';
+        selectionInfo.style.display = 'none';
+      } else {
+        noSelectionMessage.style.display = 'none';
         selectionInfo.style.display = 'block';
-          noSelectionMessage.style.display = 'none';
-          selectedCount.textContent = count;
         
-          // Generate badges for selected tokens
+        // Update selected tokens list
         selectedTokensList.innerHTML = '';
-          selectedTokens.forEach(tokenId => {
+        selectedTokens.forEach(id => {
           const badge = document.createElement('span');
           badge.className = 'token-badge';
-            badge.textContent = `#${tokenId}`;
+          badge.textContent = `#${id}`;
           selectedTokensList.appendChild(badge);
         });
-        } else {
-          selectionInfo.style.display = 'none';
-          noSelectionMessage.style.display = 'block';
       }
+      
+      // Update select all button text
+      if (ownedTokens.length > 0) {
+        selectAllBtn.textContent = selectedTokens.length === ownedTokens.length ? 'Deselect All' : 'Select All';
     }
     }
 
@@ -1214,51 +1194,67 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         showError(error.message || "Failed to sync token ownership. Please try again.");
     } finally {
         setLoading(false);
-      }
+    }
     }
 
   // Change version for selected tokens
     async function changeTokenVersions() {
       setLoading(true);
-    
-    try {
-      if (selectedTokens.length === 0) {
-        throw new Error("Please select at least one token to update");
-      }
-      
-        const versionId = parseInt(versionSelector.value);
-        
-        // Make sure we're using a contract connected to a signer
-        // Usar opciones explícitas para evitar problemas de estimación de gas en móviles
-        const options = {
-          gasLimit: 50000 + (selectedTokens.length * 5000), // Base muy reducida basada en tx exitosa (~40k)
-          maxPriorityFeePerGas: ethers.utils.parseUnits("0.01", "gwei"), // Valor similar a la tx exitosa
-          maxFeePerGas: ethers.utils.parseUnits("0.02", "gwei") // Ligeramente mayor que la tx exitosa
-        };
-        
-        showSuccess("Preparando transacción...");
-        
-        // Usar las opciones explícitas de gas
-        const tx = await pocketAdriansContract.setTokensVersion(selectedTokens, versionId, options);
-        
-        showSuccess("Transacción enviada. Esperando confirmación...");
-        
-        // Aumentar el timeout para móviles
-        await tx.wait(1); // Esperar solo 1 confirmación para acelerar en móviles
-      
-        showSuccess(`Successfully updated ${selectedTokens.length} tokens to version ${versionId}!`);
-      
-      // Reload tokens to get updated versions
-        await loadOwnedTokens(account);
-      
-    } catch (error) {
-        console.error("Error changing versions:", error);
-        if (error.message && error.message.includes("gas")) {
-          showError("Error de gas: intenta seleccionar menos tokens a la vez o inténtalo de nuevo más tarde");
-        } else {
-        showError(error.message || "Failed to update token versions. Please try again.");
+  
+      try {
+        if (selectedTokens.length === 0) {
+          throw new Error("Please select at least one token to update");
         }
-    } finally {
+        
+        const versionId = parseInt(versionSelector.value);
+        showSuccess(`Preparing to update ${selectedTokens.length} tokens to version ${versionId}...`);
+        
+        // IMPORTANT CHANGES: Simplified gas handling for mobile
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        // Mobile-friendly approach: don't specify gas parameters at all for small batches
+        let txOptions = {};
+        
+        // For large batches or mobile, use a simpler approach
+        if (selectedTokens.length > 10 || isMobile) {
+          // For mobile, a simpler approach with high gas limit but no other params
+          // This lets MetaMask handle fee calculation which works better on mobile
+          txOptions = {
+            gasLimit: 500000 + (selectedTokens.length * 50000)
+          };
+          
+          showSuccess(`Using simplified gas configuration for mobile`);
+        }
+        
+        showSuccess("Sending transaction... Please confirm in MetaMask");
+        
+        // Execute transaction with configured options
+        const tx = await pocketAdriansContract.setTokensVersion(selectedTokens, versionId, txOptions);
+        
+        showSuccess("Transaction submitted. Waiting for confirmation...");
+        
+        // Wait for only 1 confirmation on mobile for speed
+        await tx.wait(1);
+        
+        showSuccess(`Success! ${selectedTokens.length} tokens updated to version ${versionId}.`);
+        
+        // Reload tokens to get updated versions
+        await loadOwnedTokens(account);
+        
+      } catch (error) {
+        console.error("Error changing versions:", error);
+        
+        // User-friendly error messages
+        if (error.message && error.message.includes("gas")) {
+          showError("Gas error: try selecting fewer tokens at once or retry in a few minutes");
+        } else if (error.message && error.message.includes("user rejected")) {
+          showError("Transaction cancelled by user");
+        } else if (error.message && error.message.includes("insufficient funds")) {
+          showError("Insufficient funds to complete the transaction");
+        } else {
+          showError(error.message || "Error updating versions. Please try again.");
+        }
+      } finally {
         setLoading(false);
       }
     }
@@ -1398,51 +1394,16 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
     }
 
     // Event Listeners
-    document.addEventListener('DOMContentLoaded', function() {
-      loadSavedTheme();
-      setupMainConnectButton();
-      
-      // Select all button
-      const selectAllBtn = document.getElementById('selectAllBtn');
-      if (selectAllBtn) {
-        selectAllBtn.addEventListener('click', selectAllTokens);
-      }
-      
-      // Sync button
-      const syncBtn = document.getElementById('syncBtn');
-      if (syncBtn) {
+    connectWalletBtn.addEventListener('click', connectWallet);
     syncBtn.addEventListener('click', syncSelectedTokens);
-      }
-      
-      // Update Version button
-      const updateVersionBtn = document.getElementById('updateVersionBtn');
-      if (updateVersionBtn) {
     updateVersionBtn.addEventListener('click', changeTokenVersions);
-      }
-      
-      // Version selector
-      const versionSelector = document.getElementById('versionSelector');
-      if (versionSelector) {
-        versionSelector.addEventListener('change', function() {
-          selectedVersion = parseInt(this.value);
-        });
-      }
+    selectAllBtn.addEventListener('click', selectAllTokens);
+    versionSelector.addEventListener('change', (e) => {
+      selectedVersion = parseInt(e.target.value);
+    });
 
     // Initialize
     updateSelectedUI();
-      
-      // Check if wallet is already connected when page loads
-      if (window.ethereum) {
-        window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
-          if (accounts.length > 0) {
-            console.log("Wallet encontrada, conectando automáticamente...");
-            connectWallet();
-          }
-        }).catch(err => {
-          console.error("Error verificando wallet:", err);
-        });
-      }
-    });
 
     // Add styles for images
     const styleSheet = document.createElement("style");
@@ -1480,58 +1441,83 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
     `;
     document.head.appendChild(styleSheet);
 
+    // Check if wallet is already connected when page loads
+    window.addEventListener('load', async () => {
+      try {
+        if (window.ethereum) {
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          if (accounts.length > 0) {
+            console.log("Wallet found, connecting automatically...");
+            await connectWallet();
+            
+            // Actualizar el botón principal de wallet
+            updateMainWalletButtonState();
+          }
+        }
+      } catch (error) {
+        console.error("Error checking wallet:", error);
+      }
+      
+      // Cargar el tema guardado
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'dark') {
+        document.body.classList.add('dark-theme');
+        if (document.getElementById('themeButtonText')) {
+          document.getElementById('themeButtonText').textContent = 'LightMode';
+        }
+      }
+    });
+
+    // Funciones para la botonera principal
+    function openFloorOfferPopup() {
+      console.log("Floor offer popup not implemented yet");
+      alert("Feature not implemented in this version");
+    }
+
+    function openMyOffersModal() {
+      console.log("My offers modal not implemented yet");
+      alert("Feature not implemented in this version");
+    }
+
+    function openMyListingsModal() {
+      console.log("My listings modal not implemented yet");
+      alert("Feature not implemented in this version");
+    }
+
+    function openRecentActivityModal() {
+      console.log("Recent activity modal not implemented yet");
+      alert("Feature not implemented in this version");
+    }
+
+    // Función para cargar el floor offer
+    async function loadFloorOffer() {
+      try {
+        document.getElementById("floorOfferText").innerText = "Highest floor offer: -- $ADRIAN";
+        document.getElementById("floorOfferSection").classList.add("no-offer");
+      } catch (error) {
+        console.error("Error loading floor offer:", error);
+        document.getElementById("floorOfferText").innerText = "Highest floor offer: -- $ADRIAN";
+      }
+    }
+
     // Función para cambiar el tema
     function toggleTheme() {
-      const html = document.documentElement;
+      const body = document.body;
       const themeButton = document.getElementById('themeButton');
       const themeButtonText = document.getElementById('themeButtonText');
-      const isDark = html.getAttribute('data-theme') === 'dark';
       
-      if (!isDark) {
-        html.setAttribute('data-theme', 'dark');
-        localStorage.setItem('theme', 'dark');
-        themeButtonText.textContent = 'LightMode';
-        themeButton.classList.remove('btn-outline-dark');
-        themeButton.classList.add('btn-dark');
-      } else {
-        html.removeAttribute('data-theme');
+      if (body.classList.contains('dark-theme')) {
+        body.classList.remove('dark-theme');
         localStorage.setItem('theme', 'light');
         themeButtonText.textContent = 'DarkMode';
-        themeButton.classList.remove('btn-dark');
-        themeButton.classList.add('btn-secondary');
-      }
-    }
-    
-    // Cargar el tema guardado
-    function loadSavedTheme() {
-      const savedTheme = localStorage.getItem('theme');
-      const html = document.documentElement;
-      const themeButton = document.getElementById('themeButton');
-      const themeButtonText = document.getElementById('themeButtonText');
-      
-      if (savedTheme === 'dark') {
-        html.setAttribute('data-theme', 'dark');
-        themeButtonText.textContent = 'LightMode';
-        themeButton.classList.remove('btn-outline-dark');
-        themeButton.classList.add('btn-dark');
       } else {
-        themeButtonText.textContent = 'DarkMode';
-        themeButton.classList.remove('btn-dark');
-        themeButton.classList.add('btn-secondary');
+        body.classList.add('dark-theme');
+        localStorage.setItem('theme', 'dark');
+        themeButtonText.textContent = 'LightMode';
       }
     }
-    
-    // Configurar el botón principal de wallet
-    function setupMainConnectButton() {
-      const mainWalletButton = document.getElementById('mainConnectWalletButton');
-      if (mainWalletButton) {
-        mainWalletButton.addEventListener('click', function() {
-          connectWallet();
-        });
-      }
-    }
-    
-    // Función para mostrar notificaciones
+
+    // Función para mostrar toast notifications
     function showToast(message, type = 'info') {
       // Eliminar cualquier toast anterior
       const oldToast = document.getElementById('customToast');
@@ -1546,18 +1532,9 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       toast.textContent = message;
       
       // Agregar estilos al toast
-      toast.style.position = 'fixed';
-      toast.style.bottom = '20px';
-      toast.style.left = '50%';
-      toast.style.transform = 'translateX(-50%)';
-      toast.style.padding = '10px 20px';
-      toast.style.borderRadius = '4px';
       toast.style.backgroundColor = type === 'error' ? '#f44336' : '#4CAF50';
       toast.style.color = 'white';
-      toast.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
-      toast.style.zIndex = '9999';
       toast.style.opacity = '0';
-      toast.style.transition = 'opacity 0.3s ease-in-out';
       
       // Añadir al DOM
       document.body.appendChild(toast);
@@ -1574,49 +1551,97 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         }, 300);
       }, 3000);
     }
-    
-    // Actualizar el balance de tokens
-    async function updateTokenBalance() {
-      try {
-        if (!signer || !account) return;
+
+    // Conectar el botón principal de wallet con la función existente
+    document.addEventListener('DOMContentLoaded', function() {
+      const mainWalletButton = document.getElementById('mainConnectWalletButton');
+      if (mainWalletButton) {
+        mainWalletButton.addEventListener('click', function() {
+          // Llamar a la función existente de conexión
+          connectWallet();
+          
+          // Actualizar el estado del botón principal
+          updateMainWalletButtonState();
+        });
+      }
+      
+      // Verificar el tema guardado
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'dark') {
+        document.body.classList.add('dark-theme');
+        if (document.getElementById('themeButtonText')) {
+          document.getElementById('themeButtonText').textContent = 'LightMode';
+        }
+      }
+      
+      // Verificar si ya hay una wallet conectada
+      checkMainWalletConnection();
+    });
+
+    // Función para actualizar el estado del botón principal de wallet
+    function updateMainWalletButtonState() {
+      const mainWalletButton = document.getElementById('mainConnectWalletButton');
+      if (!mainWalletButton) return;
+      
+      if (account) {
+        const shortAddress = `${account.substring(0, 4)}..${account.substring(38)}`;
+        mainWalletButton.innerHTML = shortAddress;
+        mainWalletButton.classList.add('active');
         
-        // Initialize token contract
-        const TOKEN_ABI = ["function balanceOf(address account) view returns (uint256)"];
-        const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
-        const tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+        // Ocultar el botón tradicional de conectar wallet
+        const connectSection = document.getElementById('connect-section');
+        if (connectSection) {
+          connectSection.style.display = 'none';
+        }
+      } else {
+        mainWalletButton.innerHTML = "Connect Wallet";
+        mainWalletButton.classList.remove('active');
         
-        const balanceRaw = await tokenContract.balanceOf(account);
-        const balance = parseFloat(ethers.utils.formatUnits(balanceRaw, 18));
-        let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
-                              balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
-                              balance.toFixed(1);
-        
-        document.getElementById("tokenBalance").innerText = `Balance: ${formattedBalance} $ADRIAN`;
-      } catch (error) {
-        console.error("Error fetching token balance:", error);
-        document.getElementById("tokenBalance").innerText = "Balance: Error";
+        // Mostrar el botón tradicional de conectar wallet
+        const connectSection = document.getElementById('connect-section');
+        if (connectSection) {
+          connectSection.style.display = 'block';
+        }
       }
     }
-    
-    // Funciones para redireccionamiento
-    function openFloorOfferPopup() {
-      window.location.href = '/market/?action=floorOffer';
+
+    // Función para verificar si ya hay una wallet conectada al cargar
+    function checkMainWalletConnection() {
+      if (window.ethereum) {
+        window.ethereum.request({ method: 'eth_accounts' })
+          .then(accounts => {
+            if (accounts.length > 0) {
+              // Si ya hay una cuenta conectada, actualizar el botón
+              updateMainWalletButtonState();
+            }
+          })
+          .catch(error => {
+            console.error("Error checking wallet connection:", error);
+          });
+      }
     }
-    
-    function openMyOffersModal() {
-      window.location.href = '/market/?action=myOffers';
-    }
-    
-    function openMyListingsModal() {
-      window.location.href = '/market/?action=myListings';
-    }
-    
-    function openRecentActivityModal() {
-      window.location.href = '/market/?action=recentActivity';
-    }
-    
-    function openMyTokensModal() {
-      window.location.href = '/market/?action=myTokens';
+
+    // Modificar la función existente conectWallet para actualizar el botón principal
+    const originalConnectWallet = connectWallet;
+    connectWallet = async function() {
+      try {
+        await originalConnectWallet.apply(this, arguments);
+        
+        // Después de conectar, actualizar el botón principal
+        updateMainWalletButtonState();
+        
+      } catch (error) {
+        console.error("Error in modified connectWallet:", error);
+      }
+    };
+
+    // Añadir listener para cambios de cuenta
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', function(accounts) {
+        // Este evento ya está siendo manejado por el código existente
+        // Pero asegurémonos de que también actualice nuestro nuevo botón
+        setTimeout(updateMainWalletButtonState, 100);
+      });
     }
   </script>
 </body>
