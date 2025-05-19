@@ -964,7 +964,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
                         
     if (selectedTokens.includes(tokenIdNumber)) {
         selectedTokens = selectedTokens.filter(id => id !== tokenIdNumber);
-      } else {
+    } else {
         selectedTokens.push(tokenIdNumber);
       }
       
@@ -1040,7 +1040,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         showError(error.message || "Failed to sync token ownership. Please try again.");
     } finally {
         setLoading(false);
-      }
+    }
     }
 
   // Change version for selected tokens
@@ -1052,42 +1052,89 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         throw new Error("Please select at least one token to update");
       }
       
-        const versionId = parseInt(versionSelector.value);
-        
-        // Make sure we're using a contract connected to a signer
-        // Usar opciones explícitas para evitar problemas de estimación de gas en móviles
-        const options = {
-          gasLimit: 50000 + (selectedTokens.length * 5000), // Base muy reducida basada en tx exitosa (~40k)
-          maxPriorityFeePerGas: ethers.utils.parseUnits("0.01", "gwei"), // Valor similar a la tx exitosa
-          maxFeePerGas: ethers.utils.parseUnits("0.02", "gwei") // Ligeramente mayor que la tx exitosa
+      const versionId = parseInt(versionSelector.value);
+      
+      // Mostrar cuántos tokens se van a actualizar
+      showSuccess(`Preparando actualización de ${selectedTokens.length} tokens a la versión ${versionId}...`);
+      
+      // Opciones para la transacción
+      let txOptions = {};
+      
+      // Comprobar si estamos en móvil (heurística simple)
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      // Si son muchos tokens o estamos en móvil, podríamos tener problemas de estimación
+      const needsExplicitGas = selectedTokens.length > 5 || isMobile;
+      
+      if (needsExplicitGas) {
+        // Enfoque 1: Configuración explícita con valores adaptados a la cantidad de tokens
+        txOptions = {
+          gasLimit: Math.max(100000, 50000 + (selectedTokens.length * 10000)), // Base mayor y más tokens por item
+          maxFeePerGas: ethers.utils.parseUnits("0.5", "gwei") // Valor moderado
         };
         
-        showSuccess("Preparando transacción...");
-        
-        // Usar las opciones explícitas de gas
-        const tx = await pocketAdriansContract.setTokensVersion(selectedTokens, versionId, options);
-        
-        showSuccess("Transacción enviada. Esperando confirmación...");
-        
-        // Aumentar el timeout para móviles
-        await tx.wait(1); // Esperar solo 1 confirmación para acelerar en móviles
+        showSuccess("Usando configuración de gas personalizada debido al número de tokens...");
+      } else {
+        // Enfoque 2: Dejar que MetaMask maneje la estimación completamente
+        // No especificamos gasLimit, solo damos un pequeño tiempo extra
+        showSuccess("Dejando que MetaMask estime el gas necesario...");
+      }
       
-        showSuccess(`Successfully updated ${selectedTokens.length} tokens to version ${versionId}!`);
+      // Crear opciones que serán diferentes para transacciones tipo 1 y tipo 2
+      let tx;
+      
+      // Intenta estimar el gas primero
+      try {
+        // Estimar gas explícitamente primero
+        const gasEstimate = await pocketAdriansContract.estimateGas.setTokensVersion(selectedTokens, versionId);
+        
+        // Añadir un margen del 30% al estimado para seguridad
+        const safeGasLimit = gasEstimate.mul(130).div(100);
+        txOptions.gasLimit = safeGasLimit;
+        
+        showSuccess(`Gas estimado: ${gasEstimate.toString()}. Usando ${safeGasLimit.toString()} (30% extra)`);
+      } catch (gasEstimateError) {
+        console.warn("Error estimando gas:", gasEstimateError);
+        showSuccess("No se pudo estimar el gas automáticamente, usando valores predeterminados seguros...");
+        
+        // Si falla la estimación, usamos un valor seguro basado en la cantidad de tokens
+        if (!txOptions.gasLimit) {
+          txOptions.gasLimit = 100000 + (selectedTokens.length * 15000);
+        }
+      }
+      
+      showSuccess("Enviando transacción... Por favor, confirma en MetaMask");
+      
+      // Ejecutar la transacción con las opciones configuradas
+      tx = await pocketAdriansContract.setTokensVersion(selectedTokens, versionId, txOptions);
+      
+      showSuccess("Transacción enviada. Esperando confirmación...");
+      
+      // Esperar solo 1 confirmación para acelerar en móviles
+      await tx.wait(1);
+      
+      showSuccess(`¡Éxito! ${selectedTokens.length} tokens actualizados a versión ${versionId}.`);
       
       // Reload tokens to get updated versions
-        await loadOwnedTokens(account);
+      await loadOwnedTokens(account);
       
     } catch (error) {
-        console.error("Error changing versions:", error);
-        if (error.message && error.message.includes("gas")) {
-          showError("Error de gas: intenta seleccionar menos tokens a la vez o inténtalo de nuevo más tarde");
-        } else {
-          showError(error.message || "Failed to update token versions. Please try again.");
-        }
-    } finally {
-        setLoading(false);
+      console.error("Error changing versions:", error);
+      
+      // Capturar errores específicos y mostrar mensajes útiles
+      if (error.message && error.message.includes("gas")) {
+        showError("Error de gas: intenta seleccionar menos tokens a la vez o reintentar en unos minutos");
+      } else if (error.message && error.message.includes("user rejected")) {
+        showError("Transacción cancelada por el usuario");
+      } else if (error.message && error.message.includes("insufficient funds")) {
+        showError("Fondos insuficientes para completar la transacción");
+      } else {
+        showError(error.message || "Error al actualizar versiones. Por favor, inténtalo de nuevo.");
       }
+    } finally {
+      setLoading(false);
     }
+  }
 
     // Función para previsualizar la siguiente versión
     async function previewNextVersion(tokenId, imgElement) {
@@ -1105,7 +1152,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       // Si no se encuentra o es la última, volver a la primera
       if (currentIndex === -1 || currentIndex === versions.length - 1) {
         currentIndex = 0;
-      } else {
+    } else {
         currentIndex++;
       }
       

@@ -778,17 +778,17 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       setLoading(true);
     
       try {
-        if (!window.ethereum) {
+      if (!window.ethereum) {
           throw new Error("Por favor instala MetaMask para usar esta aplicación");
-        }
+      }
 
-        // Request account access
-        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+      // Request account access
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
         account = accounts[0];
         
         // Actualizar ambos displays
         if (accountDisplay) {
-          accountDisplay.textContent = `${account.substring(0, 6)}...${account.substring(38)}`;
+        accountDisplay.textContent = `${account.substring(0, 6)}...${account.substring(38)}`;
         }
         
         // Actualizar el botón principal de wallet
@@ -798,79 +798,79 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           mainWalletButton.classList.add('active');
         }
 
-        // Check if the user is on the Base network
-        const chainId = await window.ethereum.request({ method: "eth_chainId" });
-        
-        if (chainId !== BASE_NETWORK.chainId) {
-          try {
+      // Check if the user is on the Base network
+      const chainId = await window.ethereum.request({ method: "eth_chainId" });
+      
+      if (chainId !== BASE_NETWORK.chainId) {
+        try {
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: BASE_NETWORK.chainId }],
+          });
+        } catch (switchError) {
+          if (switchError.code === 4902) {
             await window.ethereum.request({
-              method: "wallet_switchEthereumChain",
-              params: [{ chainId: BASE_NETWORK.chainId }],
+              method: "wallet_addEthereumChain",
+              params: [BASE_NETWORK],
             });
-          } catch (switchError) {
-            if (switchError.code === 4902) {
-              await window.ethereum.request({
-                method: "wallet_addEthereumChain",
-                params: [BASE_NETWORK],
-              });
-            } else {
-              throw switchError;
-            }
+          } else {
+            throw switchError;
           }
         }
+      }
 
-        // Set up provider and signer
+      // Set up provider and signer
         provider = new ethers.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
 
-        // Initialize read-only contracts with infuraProvider (for faster queries)
+      // Initialize read-only contracts with infuraProvider (for faster queries)
         const adrianPunksContractReadOnly = new ethers.Contract(
-          ADRIAN_PUNKS_ADDRESS,
-          ADRIAN_PUNKS_ABI,
+        ADRIAN_PUNKS_ADDRESS,
+        ADRIAN_PUNKS_ABI,
           infuraProvider
-        );
+      );
         const pocketAdriansContractReadOnly = new ethers.Contract(
-          POCKET_ADRIANS_ADDRESS,
-          POCKET_ADRIANS_ABI,
+        POCKET_ADRIANS_ADDRESS,
+        POCKET_ADRIANS_ABI,
           infuraProvider
-        );
+      );
 
-        // Initialize separate contract instances with signer for transactions
+      // Initialize separate contract instances with signer for transactions
         adrianPunksContract = adrianPunksContractReadOnly.connect(signer);
         pocketAdriansContract = pocketAdriansContractReadOnly.connect(signer);
 
-        // Add event listeners for account and chain changes
-        window.ethereum.on("accountsChanged", (accounts) => {
-          window.location.reload();
-        });
-        window.ethereum.on("chainChanged", () => {
-          window.location.reload();
-        });
+      // Add event listeners for account and chain changes
+      window.ethereum.on("accountsChanged", (accounts) => {
+        window.location.reload();
+      });
+      window.ethereum.on("chainChanged", () => {
+        window.location.reload();
+      });
 
         // Update UI
         if (accountSection) {
-          accountSection.style.display = 'block';
+        accountSection.style.display = 'block';
         }
         if (tokenManagement) {
-          tokenManagement.style.display = 'block';
+        tokenManagement.style.display = 'block';
         }
         if (versionManagement) {
-          versionManagement.style.display = 'block';
+        versionManagement.style.display = 'block';
         }
 
         showSuccess("Wallet conectada correctamente!");
         
         // Actualizar el balance de tokens
         updateTokenBalance();
-        
-        // Load owned tokens and available versions
+      
+      // Load owned tokens and available versions
         await loadOwnedTokens(account);
         await loadVersions();
-        
-      } catch (error) {
+      
+    } catch (error) {
         console.error("Error de conexión:", error);
         showError(error.message);
-      } finally {
+    } finally {
         setLoading(false);
       }
     }
@@ -1000,7 +1000,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
             if (currentIndex >= formats.length) {
               // Si hemos agotado todos los formatos, usar placeholder
               console.log(`No se pudo cargar ninguna imagen para ID ${tokenId}`);
-              const img = new Image();
+        const img = new Image();
               img.src = placeholderUrl;
               img.className = "token-image";
               img.alt = `Adrian #${tokenId}`;
@@ -1060,11 +1060,11 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         function loadImage(src, fallbackSrc) {
           const img = new Image();
           img.src = src;
-          img.className = "token-image";
-          img.alt = `Adrian #${token.id}`;
+        img.className = "token-image";
+        img.alt = `Adrian #${token.id}`;
           img.dataset.tokenId = token.id;
           img.dataset.version = token.version;
-          img.onerror = function() {
+        img.onerror = function() {
             this.src = fallbackSrc;
             console.log("Error loading image:", src, "using placeholder:", fallbackSrc);
           };
@@ -1126,7 +1126,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
                         
     if (selectedTokens.includes(tokenIdNumber)) {
         selectedTokens = selectedTokens.filter(id => id !== tokenIdNumber);
-    } else {
+      } else {
         selectedTokens.push(tokenIdNumber);
       }
       
@@ -1158,23 +1158,23 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       // Update the selection display
       if (selectionInfo && noSelectionMessage && selectedCount && selectedTokensList) {
         if (count > 0) {
-          selectionInfo.style.display = 'block';
+        selectionInfo.style.display = 'block';
           noSelectionMessage.style.display = 'none';
           selectedCount.textContent = count;
-          
+        
           // Generate badges for selected tokens
-          selectedTokensList.innerHTML = '';
+        selectedTokensList.innerHTML = '';
           selectedTokens.forEach(tokenId => {
-            const badge = document.createElement('span');
-            badge.className = 'token-badge';
+          const badge = document.createElement('span');
+          badge.className = 'token-badge';
             badge.textContent = `#${tokenId}`;
-            selectedTokensList.appendChild(badge);
-          });
+          selectedTokensList.appendChild(badge);
+        });
         } else {
           selectionInfo.style.display = 'none';
           noSelectionMessage.style.display = 'block';
-        }
       }
+    }
     }
 
     // Select/deselect all tokens
@@ -1214,7 +1214,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         showError(error.message || "Failed to sync token ownership. Please try again.");
     } finally {
         setLoading(false);
-    }
+      }
     }
 
   // Change version for selected tokens
@@ -1256,7 +1256,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         if (error.message && error.message.includes("gas")) {
           showError("Error de gas: intenta seleccionar menos tokens a la vez o inténtalo de nuevo más tarde");
         } else {
-          showError(error.message || "Failed to update token versions. Please try again.");
+        showError(error.message || "Failed to update token versions. Please try again.");
         }
     } finally {
         setLoading(false);
@@ -1411,13 +1411,13 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       // Sync button
       const syncBtn = document.getElementById('syncBtn');
       if (syncBtn) {
-        syncBtn.addEventListener('click', syncSelectedTokens);
+    syncBtn.addEventListener('click', syncSelectedTokens);
       }
       
       // Update Version button
       const updateVersionBtn = document.getElementById('updateVersionBtn');
       if (updateVersionBtn) {
-        updateVersionBtn.addEventListener('click', changeTokenVersions);
+    updateVersionBtn.addEventListener('click', changeTokenVersions);
       }
       
       // Version selector
@@ -1427,9 +1427,9 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           selectedVersion = parseInt(this.value);
         });
       }
-      
-      // Initialize
-      updateSelectedUI();
+
+    // Initialize
+    updateSelectedUI();
       
       // Check if wallet is already connected when page loads
       if (window.ethereum) {
