@@ -268,6 +268,50 @@
       color: #9ca3af;
       font-size: 0.875rem;
     }
+    
+    .token-image-container {
+      width: 100%;
+      aspect-ratio: 1/1;
+      overflow: hidden;
+      border-radius: 4px;
+      background-color: #f0f0f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    
+    .token-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .preview-button {
+      position: absolute;
+      bottom: 5px;
+      right: 5px;
+      background-color: rgba(138, 43, 226, 0.8);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .preview-button:hover {
+      background-color: rgba(138, 43, 226, 1);
+      transform: scale(1.1);
+    }
   </style>
 </head>
 <body>
@@ -798,6 +842,7 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
               img.src = placeholderUrl;
               img.className = "token-image";
               img.alt = `Adrian #${tokenId}`;
+              img.dataset.tokenId = tokenId;
               imageContainer.innerHTML = '';
               imageContainer.appendChild(img);
               return;
@@ -812,6 +857,8 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
             img.src = imgSrc;
             img.className = "token-image";
             img.alt = `Adrian #${tokenId}`;
+            img.dataset.tokenId = tokenId;
+            img.dataset.version = token.version;
             img.onerror = function() {
               console.log(`[ERROR] Falló la carga: ${imgSrc}`);
               tryNextFormat();
@@ -820,6 +867,21 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
               console.log(`[SUCCESS] Imagen cargada correctamente: ${imgSrc}`);
               imageContainer.innerHTML = '';
               imageContainer.appendChild(img);
+              
+              // Añadir el botón de previsualización
+              const previewButton = document.createElement('button');
+              previewButton.className = 'preview-button';
+              previewButton.innerHTML = '👁️';
+              previewButton.title = 'Previsualizar otras versiones';
+              previewButton.setAttribute('data-token-id', tokenId);
+              
+              // Detener la propagación para evitar que se seleccione el token al hacer clic en el botón
+              previewButton.addEventListener('click', function(event) {
+                event.stopPropagation();
+                previewNextVersion(tokenId, img);
+              });
+              
+              imageContainer.appendChild(previewButton);
             };
             
             // Iniciar la carga
@@ -838,11 +900,31 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           img.src = src;
           img.className = "token-image";
           img.alt = `Adrian #${token.id}`;
+          img.dataset.tokenId = token.id;
+          img.dataset.version = token.version;
           img.onerror = function() {
             this.src = fallbackSrc;
             console.log("Error loading image:", src, "using placeholder:", fallbackSrc);
           };
+          
           imageContainer.appendChild(img);
+          
+          // Añadir el botón de previsualización
+          img.onload = function() {
+            const previewButton = document.createElement('button');
+            previewButton.className = 'preview-button';
+            previewButton.innerHTML = '👁️';
+            previewButton.title = 'Previsualizar otras versiones';
+            previewButton.setAttribute('data-token-id', token.id);
+            
+            // Detener la propagación para evitar que se seleccione el token al hacer clic en el botón
+            previewButton.addEventListener('click', function(event) {
+              event.stopPropagation();
+              previewNextVersion(token.id, img);
+            });
+            
+            imageContainer.appendChild(previewButton);
+          };
         }
         
         // Cargar la imagen con fallbacks
@@ -987,6 +1069,140 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
     } finally {
         setLoading(false);
       }
+    }
+
+    // Función para previsualizar la siguiente versión
+    async function previewNextVersion(tokenId, imgElement) {
+      tokenId = Number(tokenId);
+      if (!versions || versions.length === 0) {
+        showError("No hay versiones disponibles para previsualizar");
+        return;
+      }
+      
+      const currentVersion = Number(imgElement.dataset.version) || 0;
+      
+      // Encontrar el índice de la versión actual en el array de versiones disponibles
+      let currentIndex = versions.findIndex(v => v.id === currentVersion);
+      
+      // Si no se encuentra o es la última, volver a la primera
+      if (currentIndex === -1 || currentIndex === versions.length - 1) {
+        currentIndex = 0;
+      } else {
+        currentIndex++;
+      }
+      
+      // Obtener la siguiente versión
+      const nextVersion = versions[currentIndex].id;
+      
+      // Determinar la ruta base según la versión
+      let basePath;
+      if (nextVersion === 1) {
+        basePath = '/market/halfxadrianimages/';
+      } else if (nextVersion === 2) {
+        basePath = '/market/alpha/';
+      } else if (nextVersion === 3) {
+        basePath = '/market/omega/';
+      } else {
+        basePath = '/market/halfxadrianimages/';
+      }
+      
+      // Intentar cargar la nueva imagen
+      const placeholderUrl = '/market/halfxadrianimages/placeholder.jpg';
+      
+      // Mostrar un indicador de carga
+      const parentContainer = imgElement.parentElement;
+      const loadingIndicator = document.createElement('div');
+      loadingIndicator.style.position = 'absolute';
+      loadingIndicator.style.top = '50%';
+      loadingIndicator.style.left = '50%';
+      loadingIndicator.style.transform = 'translate(-50%, -50%)';
+      loadingIndicator.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Cargando...</span></div>';
+      parentContainer.appendChild(loadingIndicator);
+      
+      const knownGifs = [1, 13, 69, 221, 369, 420, 555, 690, 777, 807, 1000];
+      let formats = [];
+      
+      if (knownGifs.includes(tokenId)) {
+        formats = [
+          { extension: 'gif', prefix: '' },
+          { extension: 'png', prefix: '' },
+          { extension: 'jpg', prefix: '' },
+          { extension: 'gif', prefix: 'adrianpunks#' },
+          { extension: 'png', prefix: 'adrianpunks#' },
+          { extension: 'jpg', prefix: 'adrianpunks#' },
+          { extension: 'gif', prefix: 'AdrianPunks#' },
+          { extension: 'png', prefix: 'AdrianPunks#' },
+          { extension: 'jpg', prefix: 'AdrianPunks#' }
+        ];
+      } else {
+        formats = [
+          { extension: 'jpg', prefix: '' },
+          { extension: 'png', prefix: '' },
+          { extension: 'gif', prefix: '' },
+          { extension: 'jpg', prefix: 'adrianpunks#' },
+          { extension: 'png', prefix: 'adrianpunks#' },
+          { extension: 'gif', prefix: 'adrianpunks#' },
+          { extension: 'jpg', prefix: 'AdrianPunks#' },
+          { extension: 'png', prefix: 'AdrianPunks#' },
+          { extension: 'gif', prefix: 'AdrianPunks#' }
+        ];
+      }
+      
+      // Si estamos en la versión 1 (halfxadrianimages), solo intentamos jpg
+      if (basePath.includes('halfxadrianimages')) {
+        const newImage = new Image();
+        newImage.src = `${basePath}${tokenId}.jpg`;
+        newImage.onload = function() {
+          // Actualizar la imagen existente
+          imgElement.src = newImage.src;
+          imgElement.dataset.version = nextVersion;
+          // Mostrar notificación
+          showSuccess(`Previsualizando versión ${nextVersion}`);
+          // Eliminar indicador de carga
+          parentContainer.removeChild(loadingIndicator);
+        };
+        newImage.onerror = function() {
+          showError(`No se pudo cargar la previsualización de la versión ${nextVersion}`);
+          parentContainer.removeChild(loadingIndicator);
+        };
+        return;
+      }
+      
+      // Función para intentar cargar formatos consecutivamente
+      let currentFormatIndex = 0;
+      
+      function tryNextImageFormat() {
+        if (currentFormatIndex >= formats.length) {
+          // Si hemos agotado todos los formatos, mostrar error
+          showError(`No se pudo cargar la previsualización de la versión ${nextVersion}`);
+          parentContainer.removeChild(loadingIndicator);
+          return;
+        }
+        
+        const format = formats[currentFormatIndex];
+        currentFormatIndex++;
+        
+        const newImage = new Image();
+        const imgSrc = `${basePath}${format.prefix}${tokenId}.${format.extension}`;
+        newImage.src = imgSrc;
+        
+        newImage.onload = function() {
+          // Actualizar la imagen existente
+          imgElement.src = newImage.src;
+          imgElement.dataset.version = nextVersion;
+          // Mostrar notificación
+          showSuccess(`Previsualizando versión ${nextVersion}`);
+          // Eliminar indicador de carga
+          parentContainer.removeChild(loadingIndicator);
+        };
+        
+        newImage.onerror = function() {
+          tryNextImageFormat();
+        };
+      }
+      
+      // Iniciar el intento de carga
+      tryNextImageFormat();
     }
 
     // Event Listeners
