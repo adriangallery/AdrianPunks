@@ -1066,40 +1066,53 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       // Si son muchos tokens o estamos en móvil, podríamos tener problemas de estimación
       const needsExplicitGas = selectedTokens.length > 5 || isMobile;
       
+      // Valores de gas más adecuados para la red Base
       if (needsExplicitGas) {
-        // Enfoque 1: Configuración explícita con valores adaptados a la cantidad de tokens
+        // Enfoque 1: Configuración explícita con valores adaptados a la cantidad de tokens y la red Base
+        const baseGasLimit = 100000 + (selectedTokens.length * 20000); // Aumentamos la base y el multiplicador por token
+        
         txOptions = {
-          gasLimit: Math.max(100000, 50000 + (selectedTokens.length * 10000)), // Base mayor y más tokens por item
-          maxFeePerGas: ethers.utils.parseUnits("0.5", "gwei") // Valor moderado
+          gasLimit: baseGasLimit,
+          maxFeePerGas: ethers.utils.parseUnits("1.1", "gwei"), // Valor más adecuado para Base
+          maxPriorityFeePerGas: ethers.utils.parseUnits("0.1", "gwei") // Necesario para EIP-1559 en Base
         };
         
-        showSuccess("Usando configuración de gas personalizada debido al número de tokens...");
+        showSuccess(`Usando configuración de gas personalizada: ${baseGasLimit} gas units`);
       } else {
         // Enfoque 2: Dejar que MetaMask maneje la estimación completamente
-        // No especificamos gasLimit, solo damos un pequeño tiempo extra
+        // No especificamos gasLimit, maxFeePerGas ni maxPriorityFeePerGas
         showSuccess("Dejando que MetaMask estime el gas necesario...");
       }
       
-      // Crear opciones que serán diferentes para transacciones tipo 1 y tipo 2
       let tx;
       
       // Intenta estimar el gas primero
       try {
-        // Estimar gas explícitamente primero
+        // Estimar gas explícitamente
         const gasEstimate = await pocketAdriansContract.estimateGas.setTokensVersion(selectedTokens, versionId);
         
-        // Añadir un margen del 30% al estimado para seguridad
-        const safeGasLimit = gasEstimate.mul(130).div(100);
+        // Para dispositivos móviles, es mejor usar un margen más grande
+        const safetyFactor = isMobile ? 150 : 130; // 50% extra en móviles, 30% en desktop
+        const safeGasLimit = gasEstimate.mul(safetyFactor).div(100);
+        
+        // Actualizar el gasLimit en las opciones
         txOptions.gasLimit = safeGasLimit;
         
-        showSuccess(`Gas estimado: ${gasEstimate.toString()}. Usando ${safeGasLimit.toString()} (30% extra)`);
+        showSuccess(`Gas estimado: ${gasEstimate.toString()}. Usando ${safeGasLimit.toString()} (${safetyFactor-100}% extra)`);
       } catch (gasEstimateError) {
         console.warn("Error estimando gas:", gasEstimateError);
         showSuccess("No se pudo estimar el gas automáticamente, usando valores predeterminados seguros...");
         
-        // Si falla la estimación, usamos un valor seguro basado en la cantidad de tokens
+        // Si falla la estimación, usamos un valor más seguro
         if (!txOptions.gasLimit) {
-          txOptions.gasLimit = 100000 + (selectedTokens.length * 15000);
+          // Valor más seguro especialmente para móviles
+          txOptions.gasLimit = 150000 + (selectedTokens.length * 25000);
+          
+          // En móviles, agregar valores explícitos si no existen
+          if (isMobile && !txOptions.maxFeePerGas) {
+            txOptions.maxFeePerGas = ethers.utils.parseUnits("1.1", "gwei");
+            txOptions.maxPriorityFeePerGas = ethers.utils.parseUnits("0.1", "gwei");
+          }
         }
       }
       
