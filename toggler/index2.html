@@ -321,22 +321,28 @@
 
     .main-actions {
       margin-bottom: 1.5rem;
-      padding: 0 1rem;
+      width: 100%;
+      overflow-x: auto; /* Permite scroll horizontal en pantallas pequeñas */
     }
 
     .action-buttons {
       display: flex;
       flex-wrap: wrap;
       gap: 0.5rem;
+      width: 100%;
+      justify-content: flex-start;
     }
 
     .action-btn {
-      padding: 0.5rem 1rem;
+      padding: 0.5rem 0.8rem;
       border-radius: 4px;
       border: none;
       cursor: pointer;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       transition: all 0.3s ease;
+      white-space: nowrap;
+      flex: 0 0 auto;
+      margin-bottom: 0.3rem;
     }
 
     .action-btn:hover {
@@ -383,11 +389,28 @@
     @media (max-width: 768px) {
       .action-buttons {
         gap: 0.3rem;
+        justify-content: center;
       }
       
       .action-btn {
         padding: 0.4rem 0.6rem;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
+        margin-bottom: 0.3rem;
+      }
+    }
+
+    @media (max-width: 576px) {
+      .action-btn {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.7rem;
+      }
+      
+      .main-actions {
+        padding: 0 0.5rem;
+      }
+      
+      .action-buttons {
+        justify-content: space-between;
       }
     }
 
@@ -404,6 +427,11 @@
       z-index: 9999;
       opacity: 0;
       transition: opacity 0.3s ease-in-out;
+    }
+
+    /* Para evitar que el contenido se vea demasiado apretado */
+    .container {
+      padding: 15px 10px !important; /* !important para sobreescribir otros estilos */
     }
   </style>
 </head>
@@ -460,23 +488,22 @@
     <div class="main-actions mb-4">
       <div class="action-buttons">
         <button class="action-btn warning" onclick="openFloorOfferPopup()">
-          <span class="d-none d-md-inline">Make Floor</span> Offer
+          Floor Offer
         </button>
         <button class="action-btn info" onclick="openMyOffersModal()">
-          <span class="d-none d-md-inline">My</span> Offers
+          My Offers
         </button>
         <button class="action-btn secondary" onclick="openMyListingsModal()">
-          <span class="d-none d-md-inline">My</span> Listings
+          My Listings
         </button>
         <button class="action-btn dark" onclick="openRecentActivityModal()">
-          <span class="d-none d-md-inline">Recent</span> Activity
+          Activity
         </button>
-        <button class="action-btn" id="themeButton" onclick="toggleTheme()">
-          <span id="themeButtonText">DarkMode</span>
+        <button class="action-btn outline" id="themeButton" onclick="toggleTheme()">
+          Theme
         </button>
-        <!-- Botón principal de wallet -->
         <button class="action-btn outline" id="mainConnectWalletButton">
-          Connect Wallet
+          Connect
         </button>
       </div>
     </div>
@@ -1462,9 +1489,6 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       const savedTheme = localStorage.getItem('theme');
       if (savedTheme === 'dark') {
         document.body.classList.add('dark-theme');
-        if (document.getElementById('themeButtonText')) {
-          document.getElementById('themeButtonText').textContent = 'LightMode';
-        }
       }
     });
 
@@ -1504,16 +1528,13 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
     function toggleTheme() {
       const body = document.body;
       const themeButton = document.getElementById('themeButton');
-      const themeButtonText = document.getElementById('themeButtonText');
       
       if (body.classList.contains('dark-theme')) {
         body.classList.remove('dark-theme');
         localStorage.setItem('theme', 'light');
-        themeButtonText.textContent = 'DarkMode';
       } else {
         body.classList.add('dark-theme');
         localStorage.setItem('theme', 'dark');
-        themeButtonText.textContent = 'LightMode';
       }
     }
 
@@ -1565,13 +1586,10 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         });
       }
       
-      // Verificar el tema guardado
+      // Cargar el tema guardado
       const savedTheme = localStorage.getItem('theme');
       if (savedTheme === 'dark') {
         document.body.classList.add('dark-theme');
-        if (document.getElementById('themeButtonText')) {
-          document.getElementById('themeButtonText').textContent = 'LightMode';
-        }
       }
       
       // Verificar si ya hay una wallet conectada
