@@ -2196,7 +2196,11 @@
       let basePath = collection === 'vectoradrians' ? '/market/alpha/' : '/market/omega/';
       
       // Crear un mapa para identificar qué imagen pertenece a qué token y colección
-      let imageElements = document.querySelectorAll(`img[src="${basePath}placeholder.jpg"], img[src^="${basePath}${tokenId}."]`);
+      let imageElements = document.querySelectorAll(`img[data-token-id="${tokenId}"][data-collection="${collection}"]`);
+      if (imageElements.length === 0) {
+        // Si no encontramos elementos con los atributos de datos, buscar por src
+        imageElements = document.querySelectorAll(`img[src="${basePath}placeholder.jpg"], img[src^="${basePath}${tokenId}."]`);
+      }
       
       // Función para probar secuencialmente cada formato
       function tryNextFormat(index = 0) {
@@ -2213,9 +2217,17 @@
         testImg.onload = function() {
           // La imagen cargó correctamente, actualizar todas las referencias
           imageElements.forEach(img => {
-            if (img.getAttribute('data-token-id') === tokenId.toString() &&
-                img.getAttribute('data-collection') === collection) {
+            // Verificar si el elemento tiene los atributos de datos correctos
+            const imgTokenId = img.getAttribute('data-token-id');
+            const imgCollection = img.getAttribute('data-collection');
+            
+            if ((imgTokenId === tokenId.toString() && imgCollection === collection) || 
+                img.src.includes(`${basePath}placeholder.jpg`) || 
+                img.src.includes(`${basePath}${tokenId}.`)) {
               img.src = imgUrl;
+              // Asegurarnos de que tenga los atributos correctos
+              img.setAttribute('data-token-id', tokenId);
+              img.setAttribute('data-collection', collection);
             }
           });
         };
@@ -2225,19 +2237,27 @@
           tryNextFormat(index + 1);
         };
         
-        // Iniciar la carga
-        testImg.src = imgUrl;
+        // Iniciar la carga con un pequeño timeout para asegurar que la red tenga tiempo de responder
+        setTimeout(() => {
+          testImg.src = imgUrl;
+        }, 50);
       }
       
       // Iniciar la secuencia de pruebas
       setTimeout(() => {
         // Actualizar referencias a imágenes después de que el DOM se ha actualizado
-        imageElements = document.querySelectorAll(`img[src="${basePath}placeholder.jpg"], img[src^="${basePath}${tokenId}."]`);
+        if (imageElements.length === 0) {
+          imageElements = document.querySelectorAll(`img[src="${basePath}placeholder.jpg"], img[src^="${basePath}${tokenId}."]`);
+        }
         
-        // Añadir atributos de datos para identificar las imágenes
+        // Añadir atributos de datos para identificar las imágenes si no los tienen
         imageElements.forEach(img => {
-          img.setAttribute('data-token-id', tokenId);
-          img.setAttribute('data-collection', collection);
+          if (!img.hasAttribute('data-token-id')) {
+            img.setAttribute('data-token-id', tokenId);
+          }
+          if (!img.hasAttribute('data-collection')) {
+            img.setAttribute('data-collection', collection);
+          }
         });
         
         tryNextFormat();
