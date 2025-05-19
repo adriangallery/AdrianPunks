@@ -900,13 +900,17 @@
       nfts.forEach(nft => {
         const tokenId = nft.name.split('#')[1];
         
-        // Si es halfxadrian y tenemos los datos, buscar el nombre en ese JSON
+        // Determinar el nombre a mostrar según la colección
         let displayName = nft.name;
         if (currentImageCollection === 'halfxadrian' && halfxadrianData) {
           const halfNft = halfxadrianData.find(n => parseInt(n.name.split('#')[1]) === parseInt(tokenId));
           if (halfNft) {
             displayName = halfNft.name;
           }
+        } else if (currentImageCollection === 'vectoradrians') {
+          displayName = `VECTORAdrian#${tokenId}`;
+        } else if (currentImageCollection === 'adrianvectors') {
+          displayName = `ADRIANvector#${tokenId}`;
         }
         
         const listing = activeListingsData.find(l => l.tokenId.toString() === tokenId && l.expirationTime > Math.floor(Date.now() / 1000));
@@ -965,6 +969,14 @@
         
         if (!nft) throw new Error("NFT not found");
         
+        // Determinar el nombre a mostrar según la colección
+        let displayName = nft.name;
+        if (currentImageCollection === 'vectoradrians') {
+          displayName = `VECTORAdrian#${tokenId}`;
+        } else if (currentImageCollection === 'adrianvectors') {
+          displayName = `ADRIANvector#${tokenId}`;
+        }
+        
         let ownershipStatus = '';
         let isOwner = false;
         try {
@@ -989,11 +1001,11 @@
         const modalContent = document.getElementById('nftModalContent');
         modalContent.innerHTML = `
           <div class="modal-header">
-            <h5 class="modal-title">${nft.name}</h5>
+            <h5 class="modal-title">${displayName}</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body text-center">
-            <img src="${getImageUrl(nft)}" class="img-fluid rounded mb-3" alt="${nft.name}">
+            <img src="${getImageUrl(nft)}" class="img-fluid rounded mb-3" alt="${displayName}">
             <div class="nft-details text-start">
               ${ownershipStatus}
               <p><strong>Description:</strong> ${nft.description || 'N/A'}</p>
