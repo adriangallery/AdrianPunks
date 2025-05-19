@@ -859,97 +859,105 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         const imageContainer = document.createElement('div');
         imageContainer.className = "token-image-container";
         
-        // Cargar imagen según la versión
-        if (token.version === 1) {
-          // Para versión 1, usar JPG de la ruta original
+        // Función para cargar imágenes con diferentes formatos
+        function loadImageWithFallbacks(tokenId, basePath) {
+          // Casos especiales conocidos que son GIF
+          const knownGifs = [1, 13, 69, 221, 369, 420, 555, 690, 777, 807, 1000];
+          
+          // Lista de posibles formatos a intentar, en orden de prioridad
+          let formats = [];
+          
+          // Si es un ID conocido que suele ser GIF, priorizar ese formato
+          if (knownGifs.includes(tokenId)) {
+            formats = [
+              // Primero intentamos con .gif
+              { extension: 'gif', prefix: '' },
+              // Luego otros formatos
+              { extension: 'png', prefix: '' },
+              { extension: 'jpg', prefix: '' },
+              { extension: 'gif', prefix: 'adrianpunks#' },
+              { extension: 'png', prefix: 'adrianpunks#' },
+              { extension: 'jpg', prefix: 'adrianpunks#' },
+              { extension: 'gif', prefix: 'AdrianPunks#' },
+              { extension: 'png', prefix: 'AdrianPunks#' },
+              { extension: 'jpg', prefix: 'AdrianPunks#' }
+            ];
+          } else {
+            formats = [
+              // Para el resto de tokens, probar en este orden
+              { extension: 'jpg', prefix: '' },
+              { extension: 'png', prefix: '' },
+              { extension: 'gif', prefix: '' },
+              { extension: 'jpg', prefix: 'adrianpunks#' },
+              { extension: 'png', prefix: 'adrianpunks#' },
+              { extension: 'gif', prefix: 'adrianpunks#' },
+              { extension: 'jpg', prefix: 'AdrianPunks#' },
+              { extension: 'png', prefix: 'AdrianPunks#' },
+              { extension: 'gif', prefix: 'AdrianPunks#' }
+            ];
+          }
+          
+          // Si estamos en la versión 1 (halfxadrianimages), solo intentamos jpg
+          if (basePath.includes('halfxadrianimages')) {
+            return loadImage(`${basePath}${tokenId}.jpg`, placeholderUrl);
+          }
+          
+          let currentIndex = 0;
+          
+          function tryNextFormat() {
+            if (currentIndex >= formats.length) {
+              // Si hemos agotado todos los formatos, usar placeholder
+              console.log(`No se pudo cargar ninguna imagen para ID ${tokenId}`);
+              const img = new Image();
+              img.src = placeholderUrl;
+              img.className = "token-image";
+              img.alt = `Adrian #${tokenId}`;
+              imageContainer.innerHTML = '';
+              imageContainer.appendChild(img);
+              return;
+            }
+            
+            const format = formats[currentIndex];
+            currentIndex++;
+            
+            const img = new Image();
+            const imgSrc = `${basePath}${format.prefix}${tokenId}.${format.extension}`;
+            img.src = imgSrc;
+            img.className = "token-image";
+            img.alt = `Adrian #${tokenId}`;
+            img.onerror = function() {
+              tryNextFormat();
+            };
+            img.onload = function() {
+              imageContainer.innerHTML = '';
+              imageContainer.appendChild(img);
+            };
+            
+            // Iniciar la carga
+            if (currentIndex === 1) {
+              imageContainer.appendChild(img);
+            }
+          }
+          
+          // Iniciar el intento de carga de formatos
+          tryNextFormat();
+        }
+        
+        // Función simplificada para cargar una sola imagen con fallback
+        function loadImage(src, fallbackSrc) {
           const img = new Image();
-          img.src = `${basePath}${token.id}.jpg`;
+          img.src = src;
           img.className = "token-image";
           img.alt = `Adrian #${token.id}`;
           img.onerror = function() {
-            this.src = placeholderUrl;
-            console.log("Error loading image:", img.src, "using placeholder:", placeholderUrl);
+            this.src = fallbackSrc;
+            console.log("Error loading image:", src, "using placeholder:", fallbackSrc);
           };
           imageContainer.appendChild(img);
-        } else {
-          // Para versiones 2 y 3
-          // Casos especiales conocidos que son GIF
-          if (token.id === 1 || token.id === 13 || token.id === 69 || token.id === 221 || 
-              token.id === 369 || token.id === 420 || token.id === 555 || token.id === 690 || 
-              token.id === 777 || token.id === 807 || token.id === 1000) {
-            // Cargar directamente como GIF para estos tokens
-            const gifImg = new Image();
-            gifImg.src = `${basePath}adrianpunks#${token.id}.gif`;
-            gifImg.className = "token-image";
-            gifImg.alt = `Adrian #${token.id}`;
-            
-            gifImg.onerror = function() {
-              // Si GIF falla, intentar con formatos alternativos
-              const pngImg = new Image();
-              pngImg.src = `${basePath}${token.id}.png`;
-              pngImg.className = "token-image";
-              pngImg.alt = `Adrian #${token.id}`;
-              
-              pngImg.onerror = function() {
-                // Si PNG falla, intentar JPG
-                const jpgImg = new Image();
-                jpgImg.src = `${basePath}${token.id}.jpg`;
-                jpgImg.className = "token-image";
-                jpgImg.alt = `Adrian #${token.id}`;
-                
-                jpgImg.onerror = function() {
-                  // Si todo falla, usar placeholder
-                  this.src = placeholderUrl;
-                  console.log("Error loading all formats for:", token.id, "using placeholder:", placeholderUrl);
-                };
-                
-                imageContainer.innerHTML = '';
-                imageContainer.appendChild(jpgImg);
-              };
-              
-              imageContainer.innerHTML = '';
-              imageContainer.appendChild(pngImg);
-            };
-            
-            imageContainer.appendChild(gifImg);
-          } else {
-            // Para otros tokens, intentar PNG primero
-            const pngImg = new Image();
-            pngImg.src = `${basePath}${token.id}.png`;
-            pngImg.className = "token-image";
-            pngImg.alt = `Adrian #${token.id}`;
-            
-            pngImg.onerror = function() {
-              // Si PNG falla, intentar GIF
-              const gifImg = new Image();
-              gifImg.src = `${basePath}adrianpunks#${token.id}.gif`;
-              gifImg.className = "token-image";
-              gifImg.alt = `Adrian #${token.id}`;
-              
-              gifImg.onerror = function() {
-                // Si GIF falla, intentar JPG
-                const jpgImg = new Image();
-                jpgImg.src = `${basePath}AdrianPunks#${token.id}.jpg`;
-                jpgImg.className = "token-image";
-                jpgImg.alt = `Adrian #${token.id}`;
-                
-                jpgImg.onerror = function() {
-                  // Si todo falla, usar placeholder
-                  this.src = placeholderUrl;
-                  console.log("Error loading all formats for:", token.id, "using placeholder:", placeholderUrl);
-                };
-                
-                imageContainer.innerHTML = '';
-                imageContainer.appendChild(jpgImg);
-              };
-              
-              imageContainer.innerHTML = '';
-              imageContainer.appendChild(gifImg);
-            };
-            
-            imageContainer.appendChild(pngImg);
-          }
         }
+        
+        // Cargar la imagen con fallbacks
+        loadImageWithFallbacks(token.id, basePath);
         
         tokenCard.innerHTML = `
           <div class="token-info">

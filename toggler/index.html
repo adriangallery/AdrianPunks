@@ -747,20 +747,41 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
         
         // Función para cargar imágenes con diferentes formatos
         function loadImageWithFallbacks(tokenId, basePath) {
+          // Casos especiales conocidos que son GIF
+          const knownGifs = [1, 13, 69, 221, 369, 420, 555, 690, 777, 807, 1000];
+          
           // Lista de posibles formatos a intentar, en orden de prioridad
-          const formats = [
-            // Primero intentamos con formatos directos
-            { extension: 'gif', prefix: '' },
-            { extension: 'png', prefix: '' },
-            { extension: 'jpg', prefix: '' },
-            // Luego formatos con prefijos
-            { extension: 'gif', prefix: 'adrianpunks#' },
-            { extension: 'png', prefix: 'adrianpunks#' },
-            { extension: 'jpg', prefix: 'adrianpunks#' },
-            { extension: 'gif', prefix: 'AdrianPunks#' },
-            { extension: 'png', prefix: 'AdrianPunks#' },
-            { extension: 'jpg', prefix: 'AdrianPunks#' }
-          ];
+          let formats = [];
+          
+          // Si es un ID conocido que suele ser GIF, priorizar ese formato
+          if (knownGifs.includes(tokenId)) {
+            formats = [
+              // Primero intentamos con .gif
+              { extension: 'gif', prefix: '' },
+              // Luego otros formatos
+              { extension: 'png', prefix: '' },
+              { extension: 'jpg', prefix: '' },
+              { extension: 'gif', prefix: 'adrianpunks#' },
+              { extension: 'png', prefix: 'adrianpunks#' },
+              { extension: 'jpg', prefix: 'adrianpunks#' },
+              { extension: 'gif', prefix: 'AdrianPunks#' },
+              { extension: 'png', prefix: 'AdrianPunks#' },
+              { extension: 'jpg', prefix: 'AdrianPunks#' }
+            ];
+          } else {
+            formats = [
+              // Para el resto de tokens, probar en este orden
+              { extension: 'jpg', prefix: '' },
+              { extension: 'png', prefix: '' },
+              { extension: 'gif', prefix: '' },
+              { extension: 'jpg', prefix: 'adrianpunks#' },
+              { extension: 'png', prefix: 'adrianpunks#' },
+              { extension: 'gif', prefix: 'adrianpunks#' },
+              { extension: 'jpg', prefix: 'AdrianPunks#' },
+              { extension: 'png', prefix: 'AdrianPunks#' },
+              { extension: 'gif', prefix: 'AdrianPunks#' }
+            ];
+          }
           
           // Si estamos en la versión 1 (halfxadrianimages), solo intentamos jpg
           if (basePath.includes('halfxadrianimages')) {
@@ -786,11 +807,17 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
             currentIndex++;
             
             const img = new Image();
-            img.src = `${basePath}${format.prefix}${tokenId}.${format.extension}`;
+            const imgSrc = `${basePath}${format.prefix}${tokenId}.${format.extension}`;
+            console.log(`[DEBUG] Intentando cargar: ${imgSrc} (Token ID: ${tokenId}, Versión: ${token.version})`);
+            img.src = imgSrc;
             img.className = "token-image";
             img.alt = `Adrian #${tokenId}`;
-            img.onerror = tryNextFormat;
+            img.onerror = function() {
+              console.log(`[ERROR] Falló la carga: ${imgSrc}`);
+              tryNextFormat();
+            };
             img.onload = function() {
+              console.log(`[SUCCESS] Imagen cargada correctamente: ${imgSrc}`);
               imageContainer.innerHTML = '';
               imageContainer.appendChild(img);
             };
