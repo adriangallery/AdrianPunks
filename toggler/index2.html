@@ -389,6 +389,11 @@
       background-color: #343a40;
     }
     
+    .action-btn.purple {
+      background-color: #8a2be2;
+      color: white;
+    }
+    
     .action-btn.outline {
       background-color: transparent;
       border: 1px solid #dee2e6;
@@ -483,27 +488,21 @@
         <button class="action-btn outline" onclick="window.location.href='/market/'">
           <span class="d-none d-md-inline">Go to</span> Market
         </button>
-        <button class="action-btn outline" onclick="window.location.href='/toggler/'">
+        <button class="action-btn purple" onclick="window.location.href='/toggler/'">
           <span class="d-none d-md-inline">Go to</span> Toggler
         </button>
         <button class="action-btn" id="themeButton" onclick="toggleTheme()">
           <span id="themeButtonText">DarkMode</span>
         </button>
         <!-- Nuevo botón de wallet para la botonera principal -->
-        <button class="action-btn outline" id="mainConnectWalletButton">
+        <button class="action-btn outline" id="mainConnectWalletButton" onclick="connectWallet()">
           Connect Wallet
         </button>
       </div>
     </div>
     
-    <!-- Connect Wallet Section -->
-    <div id="connect-section" class="text-center mb-4">
-      <button id="connectWalletBtn" class="btn-connect">Connect Wallet</button>
-    </div>
-    
     <!-- Account Info Section (hidden by default) -->
     <div id="account-section" class="text-center mb-4" style="display: none;">
-      <p>Connected Wallet:</p>
       <div id="accountDisplay" class="account-display"></div>
     </div>
     
@@ -775,22 +774,106 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
     }
 
     // Connect wallet
-    const originalConnectWallet = connectWallet;
-    connectWallet = async function() {
-      await originalConnectWallet.apply(this, arguments);
-      
-      // Después de conectar la wallet, actualiza el botón principal
-      if (account) {
+    async function connectWallet() {
+      setLoading(true);
+    
+      try {
+        if (!window.ethereum) {
+          throw new Error("Por favor instala MetaMask para usar esta aplicación");
+        }
+
+        // Request account access
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        account = accounts[0];
+        
+        // Actualizar ambos displays
+        if (accountDisplay) {
+          accountDisplay.textContent = `${account.substring(0, 6)}...${account.substring(38)}`;
+        }
+        
+        // Actualizar el botón principal de wallet
         const mainWalletButton = document.getElementById('mainConnectWalletButton');
         if (mainWalletButton) {
           mainWalletButton.textContent = `${account.substring(0, 6)}...${account.substring(38)}`;
           mainWalletButton.classList.add('active');
         }
+
+        // Check if the user is on the Base network
+        const chainId = await window.ethereum.request({ method: "eth_chainId" });
         
-        // Actualizar el balance
+        if (chainId !== BASE_NETWORK.chainId) {
+          try {
+            await window.ethereum.request({
+              method: "wallet_switchEthereumChain",
+              params: [{ chainId: BASE_NETWORK.chainId }],
+            });
+          } catch (switchError) {
+            if (switchError.code === 4902) {
+              await window.ethereum.request({
+                method: "wallet_addEthereumChain",
+                params: [BASE_NETWORK],
+              });
+            } else {
+              throw switchError;
+            }
+          }
+        }
+
+        // Set up provider and signer
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+
+        // Initialize read-only contracts with infuraProvider (for faster queries)
+        const adrianPunksContractReadOnly = new ethers.Contract(
+          ADRIAN_PUNKS_ADDRESS,
+          ADRIAN_PUNKS_ABI,
+          infuraProvider
+        );
+        const pocketAdriansContractReadOnly = new ethers.Contract(
+          POCKET_ADRIANS_ADDRESS,
+          POCKET_ADRIANS_ABI,
+          infuraProvider
+        );
+
+        // Initialize separate contract instances with signer for transactions
+        adrianPunksContract = adrianPunksContractReadOnly.connect(signer);
+        pocketAdriansContract = pocketAdriansContractReadOnly.connect(signer);
+
+        // Add event listeners for account and chain changes
+        window.ethereum.on("accountsChanged", (accounts) => {
+          window.location.reload();
+        });
+        window.ethereum.on("chainChanged", () => {
+          window.location.reload();
+        });
+
+        // Update UI
+        if (accountSection) {
+          accountSection.style.display = 'block';
+        }
+        if (tokenManagement) {
+          tokenManagement.style.display = 'block';
+        }
+        if (versionManagement) {
+          versionManagement.style.display = 'block';
+        }
+
+        showSuccess("Wallet conectada correctamente!");
+        
+        // Actualizar el balance de tokens
         updateTokenBalance();
+        
+        // Load owned tokens and available versions
+        await loadOwnedTokens(account);
+        await loadVersions();
+        
+      } catch (error) {
+        console.error("Error de conexión:", error);
+        showError(error.message);
+      } finally {
+        setLoading(false);
       }
-    };
+    }
 
     // Set loading state
     function setLoading(loading) {
@@ -1319,12 +1402,6 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       loadSavedTheme();
       setupMainConnectButton();
       
-      // Connect wallet button
-      const connectBtn = document.getElementById('connectWalletBtn');
-      if (connectBtn) {
-        connectBtn.addEventListener('click', connectWallet);
-      }
-      
       // Select all button
       const selectAllBtn = document.getElementById('selectAllBtn');
       if (selectAllBtn) {
@@ -1353,6 +1430,18 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
       
       // Initialize
       updateSelectedUI();
+      
+      // Check if wallet is already connected when page loads
+      if (window.ethereum) {
+        window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
+          if (accounts.length > 0) {
+            console.log("Wallet encontrada, conectando automáticamente...");
+            connectWallet();
+          }
+        }).catch(err => {
+          console.error("Error verificando wallet:", err);
+        });
+      }
     });
 
     // Add styles for images
@@ -1391,44 +1480,6 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
     `;
     document.head.appendChild(styleSheet);
 
-    // Check if wallet is already connected when page loads
-    window.addEventListener('load', async () => {
-      try {
-        if (window.ethereum) {
-          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-          if (accounts.length > 0) {
-            console.log("Wallet found, connecting automatically...");
-            await connectWallet();
-          }
-        }
-      } catch (error) {
-        console.error("Error checking wallet:", error);
-      }
-    });
-
-    // Actualizar el balance de tokens
-    async function updateTokenBalance() {
-      try {
-        if (!signer || !account) return;
-        
-        // Initialize token contract
-        const TOKEN_ABI = ["function balanceOf(address account) view returns (uint256)"];
-        const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
-        const tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
-        
-        const balanceRaw = await tokenContract.balanceOf(account);
-        const balance = parseFloat(ethers.utils.formatUnits(balanceRaw, 18));
-        let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
-                              balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
-                              balance.toFixed(1);
-        
-        document.getElementById("tokenBalance").innerText = `Balance: ${formattedBalance} $ADRIAN`;
-      } catch (error) {
-        console.error("Error fetching token balance:", error);
-        document.getElementById("tokenBalance").innerText = "Balance: Error";
-      }
-    }
-    
     // Función para cambiar el tema
     function toggleTheme() {
       const html = document.documentElement;
@@ -1474,7 +1525,6 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
     function setupMainConnectButton() {
       const mainWalletButton = document.getElementById('mainConnectWalletButton');
       if (mainWalletButton) {
-        // Si ya existe un método de conexión, usemos ese
         mainWalletButton.addEventListener('click', function() {
           connectWallet();
         });
@@ -1523,6 +1573,29 @@ const infuraProvider = new ethers.providers.JsonRpcProvider(
           toast.remove();
         }, 300);
       }, 3000);
+    }
+    
+    // Actualizar el balance de tokens
+    async function updateTokenBalance() {
+      try {
+        if (!signer || !account) return;
+        
+        // Initialize token contract
+        const TOKEN_ABI = ["function balanceOf(address account) view returns (uint256)"];
+        const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+        const tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+        
+        const balanceRaw = await tokenContract.balanceOf(account);
+        const balance = parseFloat(ethers.utils.formatUnits(balanceRaw, 18));
+        let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
+                              balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
+                              balance.toFixed(1);
+        
+        document.getElementById("tokenBalance").innerText = `Balance: ${formattedBalance} $ADRIAN`;
+      } catch (error) {
+        console.error("Error fetching token balance:", error);
+        document.getElementById("tokenBalance").innerText = "Balance: Error";
+      }
     }
     
     // Funciones para redireccionamiento
