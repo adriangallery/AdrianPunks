@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OG Floppy Mint - AdrianLab</title>
+    <title>OG Floppy Mint - AdrianLAB</title>
     <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <style>
         * {
@@ -423,7 +423,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>AdrianLab</h1>
+            <h1>AdrianLAB</h1>
             <p class="subtitle">OG Floppy Mint</p>
         </div>
 
@@ -550,7 +550,8 @@
             "function packConfigs(uint256 packId) external view returns (uint256 id, uint256 publicPrice, uint256 maxSupply, uint256 minted, uint256 itemsPerPack, uint256 maxPerWallet, uint256 startTime, uint256 endTime, bool active, uint256 allowlistFreeAmount, uint256 allowlistPrice)",
             "function simpleAllowlist(uint256 packId, address wallet) external view returns (bool)",
             "function allowlistFreeClaimed(uint256 packId, address wallet) external view returns (uint256)",
-            "function allowlistPaidClaimed(uint256 packId, address wallet) external view returns (uint256)"
+            "function allowlistPaidClaimed(uint256 packId, address wallet) external view returns (uint256)",
+            "function getUserAllowlistStatus(address user, uint256 packId) external view returns (uint256 freeClaimed, uint256 paidClaimed, uint256 totalClaimed, uint256 maxAllowed, bool isAllowlisted)"
         ];
 
         // Global variables
@@ -625,6 +626,8 @@
                 await action();
             } catch (error) {
                 console.error('Action failed:', error);
+                // Mostrar el error al usuario
+                showStatus(parseError(error), 'error');
                 throw error;
             } finally {
                 button.disabled = false;
@@ -701,21 +704,33 @@
                 const formatted = ethers.utils.formatUnits(balance, tokenDecimals);
                 document.getElementById('adrian-balance').textContent = parseFloat(formatted).toLocaleString();
 
-                // Get user minted count - using toString() to avoid BigNumber overflow
-                const freeClaimed = await packMinter.allowlistFreeClaimed(PACK_ID, userAddress);
-                const paidClaimed = await packMinter.allowlistPaidClaimed(PACK_ID, userAddress);
-                const totalMinted = parseInt(freeClaimed.toString()) + parseInt(paidClaimed.toString());
-                document.getElementById('user-minted').textContent = totalMinted;
+                // Get user allowlist status and minted counts using the new method
+                const allowlistStatus = await packMinter.getUserAllowlistStatus(userAddress, PACK_ID);
+                const freeClaimed = parseInt(allowlistStatus.freeClaimed.toString());
+                const paidClaimed = parseInt(allowlistStatus.paidClaimed.toString());
+                const totalClaimed = parseInt(allowlistStatus.totalClaimed.toString());
+                const maxAllowed = parseInt(allowlistStatus.maxAllowed.toString());
+                isOnAllowlist = allowlistStatus.isAllowlisted;
                 
-                hasClaimedFree = parseInt(freeClaimed.toString()) > 0;
+                document.getElementById('user-minted').textContent = totalClaimed;
+                hasClaimedFree = freeClaimed > 0;
                 
                 // Update quantity limits based on minted amount
-                const remainingPaid = Math.max(0, 14 - parseInt(paidClaimed.toString()));
+                const remainingPaid = Math.max(0, 14 - paidClaimed);
                 const maxQuantity = Math.min(14, remainingPaid);
                 
+                // Update UI based on allowlist status
+                updateAllowlistUI();
+                
+                // Update quantity controls
                 if (remainingPaid === 0) {
                     document.getElementById('decrease-btn').disabled = true;
                     document.getElementById('increase-btn').disabled = true;
+                    document.getElementById('btn-mint-paid').disabled = true;
+                } else {
+                    document.getElementById('decrease-btn').disabled = false;
+                    document.getElementById('increase-btn').disabled = false;
+                    document.getElementById('btn-mint-paid').disabled = false;
                 }
                 
                 // Update bundle quantity limits
@@ -723,19 +738,47 @@
                     bundleQuantity = Math.min(bundleQuantity, remainingPaid);
                 }
                 
+                console.log('User status:', {
+                    freeClaimed,
+                    paidClaimed,
+                    totalClaimed,
+                    maxAllowed,
+                    isOnAllowlist,
+                    hasClaimedFree,
+                    remainingPaid
+                });
+                
             } catch (error) {
                 console.error('Error updating balances:', error);
                 showStatus('Error updating balances: ' + parseError(error), 'error');
             }
         }
 
-        async function checkAllowlistStatus() {
-            try {
-                isOnAllowlist = await packMinter.simpleAllowlist(PACK_ID, userAddress);
-                console.log('Allowlist status:', isOnAllowlist);
-            } catch (error) {
-                console.error('Error checking allowlist:', error);
+        function updateAllowlistUI() {
+            const freeBtn = document.getElementById('btn-mint-free');
+            const bundleBtn = document.getElementById('btn-mint-bundle');
+            
+            if (!isOnAllowlist) {
+                freeBtn.disabled = true;
+                freeBtn.textContent = 'Not on Allowlist';
+                bundleBtn.disabled = true;
+                bundleBtn.textContent = 'Not on Allowlist';
+            } else if (hasClaimedFree) {
+                freeBtn.disabled = true;
+                freeBtn.textContent = 'Already Claimed';
+                // Bundle still available for paid mints only
+            } else {
+                freeBtn.disabled = false;
+                freeBtn.textContent = 'Claim Free';
+                bundleBtn.disabled = false;
+                bundleBtn.textContent = 'Mint Bundle';
             }
+        }
+
+        async function checkAllowlistStatus() {
+            // This is now handled in updateBalances() with getUserAllowlistStatus
+            // Keeping for backward compatibility but it's no longer needed
+            console.log('Allowlist status check moved to updateBalances');
         }
 
         function increaseQuantity() {
@@ -820,7 +863,7 @@
                 await ensureCorrectNetwork();
                 
                 if (!isOnAllowlist) {
-                    throw new Error('You are not on the allowlist!');
+                    throw new Error('You are not on the allowlist for free mint!');
                 }
 
                 if (hasClaimedFree) {
@@ -830,10 +873,10 @@
                 showStatus('Processing free claim...', 'info');
                 
                 const tx = await packMinter.purchasePack(PACK_ID, 1, true);
-                showStatus(`Minting... <a href="https://basescan.org/tx/${tx.hash}" target="_blank" class="tx-link">View TX</a>`, 'info');
+                showStatus(`Minting free... <a href="https://basescan.org/tx/${tx.hash}" target="_blank" class="tx-link">View TX</a>`, 'info');
                 
                 await tx.wait();
-                showStatus('Free mint successful!', 'success');
+                showStatus('Free mint successful! 🎉', 'success');
                 
                 await updateBalances();
             });
@@ -844,13 +887,21 @@
             await withPending(btn, async () => {
                 await ensureCorrectNetwork();
                 
+                // Check if user has enough balance
+                const balance = await adrianToken.balanceOf(userAddress);
+                const requiredAmount = PACK_PRICE.mul(quantity);
+                
+                if (balance.lt(requiredAmount)) {
+                    throw new Error(`Insufficient $ADRIAN balance. You need ${ethers.utils.formatUnits(requiredAmount, tokenDecimals)} $ADRIAN but have ${ethers.utils.formatUnits(balance, tokenDecimals)}`);
+                }
+                
                 showStatus('Processing paid mint...', 'info');
                 
                 const tx = await packMinter.purchasePack(PACK_ID, quantity, false);
-                showStatus(`Minting... <a href="https://basescan.org/tx/${tx.hash}" target="_blank" class="tx-link">View TX</a>`, 'info');
+                showStatus(`Minting ${quantity} paid... <a href="https://basescan.org/tx/${tx.hash}" target="_blank" class="tx-link">View TX</a>`, 'info');
                 
                 await tx.wait();
-                showStatus(`Successfully minted ${quantity} OG Floppy!`, 'success');
+                showStatus(`Successfully minted ${quantity} OG Floppy! 🎉`, 'success');
                 
                 await updateBalances();
             });
@@ -865,16 +916,24 @@
                     throw new Error('You are not on the allowlist for free claim!');
                 }
 
+                // Check if user has enough balance for paid portion
+                const balance = await adrianToken.balanceOf(userAddress);
+                const requiredAmount = PACK_PRICE.mul(bundleQuantity);
+                
+                if (balance.lt(requiredAmount)) {
+                    throw new Error(`Insufficient $ADRIAN balance. You need ${ethers.utils.formatUnits(requiredAmount, tokenDecimals)} $ADRIAN but have ${ethers.utils.formatUnits(balance, tokenDecimals)}`);
+                }
+
                 showStatus('Processing bundle mint...', 'info');
                 
                 // Total quantity is 1 free + bundleQuantity paid
                 const totalQuantity = hasClaimedFree ? bundleQuantity : bundleQuantity + 1;
                 
                 const tx = await packMinter.purchasePack(PACK_ID, totalQuantity, true);
-                showStatus(`Minting bundle... <a href="https://basescan.org/tx/${tx.hash}" target="_blank" class="tx-link">View TX</a>`, 'info');
+                showStatus(`Minting bundle (${totalQuantity} total)... <a href="https://basescan.org/tx/${tx.hash}" target="_blank" class="tx-link">View TX</a>`, 'info');
                 
                 await tx.wait();
-                showStatus(`Successfully minted ${totalQuantity} OG Floppy!`, 'success');
+                showStatus(`Successfully minted ${totalQuantity} OG Floppy! 🎉`, 'success');
                 
                 await updateBalances();
             });
