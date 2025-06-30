@@ -706,11 +706,13 @@
 
                 // Get user allowlist status and minted counts using the new method
                 const allowlistStatus = await packMinter.getUserAllowlistStatus(userAddress, PACK_ID);
-                const freeClaimed = parseInt(allowlistStatus.freeClaimed.toString());
-                const paidClaimed = parseInt(allowlistStatus.paidClaimed.toString());
-                const totalClaimed = parseInt(allowlistStatus.totalClaimed.toString());
-                const maxAllowed = parseInt(allowlistStatus.maxAllowed.toString());
-                isOnAllowlist = allowlistStatus.isAllowlisted;
+                
+                // allowlistStatus is an array: [freeClaimed, paidClaimed, totalClaimed, maxAllowed, isAllowlisted]
+                const freeClaimed = parseInt(allowlistStatus[0].toString());
+                const paidClaimed = parseInt(allowlistStatus[1].toString());
+                const totalClaimed = parseInt(allowlistStatus[2].toString());
+                const maxAllowed = parseInt(allowlistStatus[3].toString());
+                isOnAllowlist = allowlistStatus[4]; // This is already a boolean
                 
                 document.getElementById('user-minted').textContent = totalClaimed;
                 hasClaimedFree = freeClaimed > 0;
@@ -745,7 +747,8 @@
                     maxAllowed,
                     isOnAllowlist,
                     hasClaimedFree,
-                    remainingPaid
+                    remainingPaid,
+                    rawResponse: allowlistStatus
                 });
                 
             } catch (error) {
