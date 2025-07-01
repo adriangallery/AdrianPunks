@@ -475,7 +475,10 @@
                                 <div class="balance-value" id="user-minted">0</div>
                             </div>
                         </div>
-                        <button onclick="debugAllowlist()" style="margin-top: 10px; padding: 5px 10px; font-size: 12px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Debug Allowlist</button>
+                        <div style="margin-top: 10px; display: flex; gap: 10px; justify-content: center;">
+                            <button onclick="debugAllowlist()" style="padding: 5px 10px; font-size: 12px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Debug Allowlist</button>
+                            <button onclick="updateBalances()" style="padding: 5px 10px; font-size: 12px; background: #00aaff; color: #fff; border: 1px solid #00aaff; border-radius: 4px; cursor: pointer;">Refresh Balances</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -643,6 +646,19 @@
         }
 
         function parseError(error) {
+            // Handle rate limiting specifically
+            if (error.code === -32005 || error.message?.includes('rate limited')) {
+                return 'Network is busy, please try again in a few seconds';
+            }
+            
+            // Handle CALL_EXCEPTION
+            if (error.code === 'CALL_EXCEPTION') {
+                if (error.message?.includes('missing revert data')) {
+                    return 'Transaction failed - please try again';
+                }
+                return 'Contract call failed - please try again';
+            }
+            
             // Try to extract meaningful error message
             if (error.data && error.data.message) {
                 return error.data.message;
@@ -652,6 +668,26 @@
                 return error.message;
             } else {
                 return 'Unknown error occurred';
+            }
+        }
+
+        // Retry function with exponential backoff
+        async function retryWithBackoff(fn, maxRetries = 3, baseDelay = 1000) {
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    return await fn();
+                } catch (error) {
+                    const isRateLimit = error.code === -32005 || error.message?.includes('rate limited');
+                    const isCallException = error.code === 'CALL_EXCEPTION';
+                    
+                    if ((isRateLimit || isCallException) && attempt < maxRetries) {
+                        const delay = baseDelay * Math.pow(2, attempt - 1);
+                        console.log(`Attempt ${attempt} failed, retrying in ${delay}ms...`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue;
+                    }
+                    throw error;
+                }
             }
         }
 
@@ -706,13 +742,17 @@
 
         async function updateBalances() {
             try {
-                // Get ADRIAN balance
-                const balance = await adrianToken.balanceOf(userAddress);
+                // Get ADRIAN balance with retry
+                const balance = await retryWithBackoff(async () => {
+                    return await adrianToken.balanceOf(userAddress);
+                });
                 const formatted = ethers.utils.formatUnits(balance, tokenDecimals);
                 document.getElementById('adrian-balance').textContent = parseFloat(formatted).toLocaleString();
 
-                // Get user allowlist status and minted counts using the new method
-                const allowlistStatus = await packMinter.getUserAllowlistStatus(userAddress, PACK_ID);
+                // Get user allowlist status and minted counts using the new method with retry
+                const allowlistStatus = await retryWithBackoff(async () => {
+                    return await packMinter.getUserAllowlistStatus(userAddress, PACK_ID);
+                });
                 
                 // allowlistStatus is an array: [freeClaimed, paidClaimed, totalClaimed, maxAllowed, isAllowlisted]
                 const freeClaimed = parseInt(allowlistStatus[0].toString());
@@ -861,7 +901,10 @@
         // Get pack configuration
         async function getPackConfig() {
             try {
-                const config = await packMinter.packConfigs(PACK_ID);
+                const config = await retryWithBackoff(async () => {
+                    return await packMinter.packConfigs(PACK_ID);
+                });
+                
                 packConfig = {
                     id: config[0],
                     publicPrice: config[1],
@@ -1050,8 +1093,10 @@
                     throw new Error('Public sale is not enabled for this pack!');
                 }
                 
-                // Check if user has enough balance
-                const balance = await adrianToken.balanceOf(userAddress);
+                // Check if user has enough balance with retry
+                const balance = await retryWithBackoff(async () => {
+                    return await adrianToken.balanceOf(userAddress);
+                });
                 const requiredAmount = PACK_PRICE.mul(quantity);
                 
                 if (balance.lt(requiredAmount)) {
@@ -1083,8 +1128,10 @@
                     throw new Error('You are not on the allowlist for free claim!');
                 }
 
-                // Check if user has enough balance for paid portion
-                const balance = await adrianToken.balanceOf(userAddress);
+                // Check if user has enough balance for paid portion with retry
+                const balance = await retryWithBackoff(async () => {
+                    return await adrianToken.balanceOf(userAddress);
+                });
                 const requiredAmount = PACK_PRICE.mul(bundleQuantity);
                 
                 if (balance.lt(requiredAmount)) {
