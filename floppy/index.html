@@ -530,7 +530,7 @@
     <script>
         // Contract addresses
         const ADRIAN_TOKEN = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
-        const PACK_MINTER = "0xf58e0873adb342705318a0d2d1fbaceccf0b7c07";
+        const PACK_MINTER = "0x31167a5328c581fe80160f772632d8ce3a200af8";
         const PACK_ID = 10000; // OG Floppy pack ID
         const PACK_PRICE = ethers.utils.parseEther("1000"); // 1000 $ADRIAN per pack
         const MAX_PER_WALLET = 15; // 1 free + 14 paid
@@ -548,11 +548,13 @@
         const PACK_MINTER_ABI = [
             "function purchasePack(uint256 packId, uint256 quantity, bool useAllowlist) external",
             "function canPurchasePack(address user, uint256 packId, uint256 quantity, bool useAllowlist) external view returns (bool canPurchase, string memory reason)",
-            "function packConfigs(uint256 packId) external view returns (uint256 id, uint256 publicPrice, uint256 maxSupply, uint256 minted, uint256 itemsPerPack, uint256 maxPerWallet, uint256 startTime, uint256 endTime, bool active, uint256 allowlistFreeAmount, uint256 allowlistPrice)",
+            "function packConfigs(uint256 packId) external view returns (uint256 id, uint256 publicPrice, uint256 maxSupply, uint256 minted, uint256 itemsPerPack, uint256 maxPerWallet, uint256 startTime, uint256 endTime, bool active, uint256 allowlistFreeAmount, uint256 allowlistPrice, bool hasPublicSale, bool hasAllowlist)",
             "function simpleAllowlist(uint256 packId, address wallet) external view returns (bool)",
             "function allowlistFreeClaimed(uint256 packId, address wallet) external view returns (uint256)",
             "function allowlistPaidClaimed(uint256 packId, address wallet) external view returns (uint256)",
-            "function getUserAllowlistStatus(address user, uint256 packId) external view returns (uint256 freeClaimed, uint256 paidClaimed, uint256 totalClaimed, uint256 maxAllowed, bool isAllowlisted)"
+            "function getUserAllowlistStatus(address user, uint256 packId) external view returns (uint256 freeClaimed, uint256 paidClaimed, uint256 totalClaimed, uint256 maxAllowed, bool isAllowlisted)",
+            "function setPackSaleFlags(uint256 packId, bool hasPublicSale, bool hasAllowlist) external",
+            "event PackSaleFlagsUpdated(uint256 indexed packId, bool hasPublicSale, bool hasAllowlist)"
         ];
 
         // Global variables
@@ -566,6 +568,9 @@
         let hasClaimedFree = false;
         let isOnAllowlist = false;
         let tokenDecimals = 18; // Default, will be updated from contract
+        let packConfig = null; // Store pack configuration
+        let hasPublicSale = false;
+        let hasAllowlist = false;
 
         // Utility functions
         async function ensureCorrectNetwork() {
@@ -686,7 +691,8 @@
                 document.getElementById('wallet-connected').style.display = 'block';
                 document.getElementById('mint-section').style.display = 'block';
                 
-                // Load user data
+                // Load pack configuration and user data
+                await getPackConfig();
                 await updateBalances();
                 await checkAllowlistStatus();
                 
@@ -772,20 +778,47 @@
             const freeBtn = document.getElementById('btn-mint-free');
             const bundleBtn = document.getElementById('btn-mint-bundle');
             
+            // Check if allowlist is enabled for this pack
+            if (!hasAllowlist) {
+                if (freeBtn) {
+                    freeBtn.disabled = true;
+                    freeBtn.textContent = 'Allowlist Disabled';
+                }
+                if (bundleBtn) {
+                    bundleBtn.disabled = true;
+                    bundleBtn.textContent = 'Allowlist Disabled';
+                }
+                return;
+            }
+            
             if (!isOnAllowlist) {
-                freeBtn.disabled = true;
-                freeBtn.textContent = 'Not on Allowlist';
-                bundleBtn.disabled = true;
-                bundleBtn.textContent = 'Not on Allowlist';
+                if (freeBtn) {
+                    freeBtn.disabled = true;
+                    freeBtn.textContent = 'Not on Allowlist';
+                }
+                if (bundleBtn) {
+                    bundleBtn.disabled = true;
+                    bundleBtn.textContent = 'Not on Allowlist';
+                }
             } else if (hasClaimedFree) {
-                freeBtn.disabled = true;
-                freeBtn.textContent = 'Already Claimed';
-                // Bundle still available for paid mints only
+                if (freeBtn) {
+                    freeBtn.disabled = true;
+                    freeBtn.textContent = 'Already Claimed';
+                }
+                // Bundle still available for paid mints only if public sale is enabled
+                if (bundleBtn && hasPublicSale) {
+                    bundleBtn.disabled = false;
+                    bundleBtn.textContent = 'Mint Bundle (Paid Only)';
+                }
             } else {
-                freeBtn.disabled = false;
-                freeBtn.textContent = 'Claim Free';
-                bundleBtn.disabled = false;
-                bundleBtn.textContent = 'Mint Bundle';
+                if (freeBtn) {
+                    freeBtn.disabled = false;
+                    freeBtn.textContent = 'Claim Free';
+                }
+                if (bundleBtn) {
+                    bundleBtn.disabled = false;
+                    bundleBtn.textContent = 'Mint Bundle';
+                }
             }
         }
 
@@ -822,6 +855,84 @@
                 
             } catch (error) {
                 console.error('❌ Error in debugAllowlist:', error);
+            }
+        }
+
+        // Get pack configuration
+        async function getPackConfig() {
+            try {
+                const config = await packMinter.packConfigs(PACK_ID);
+                packConfig = {
+                    id: config[0],
+                    publicPrice: config[1],
+                    maxSupply: config[2],
+                    minted: config[3],
+                    itemsPerPack: config[4],
+                    maxPerWallet: config[5],
+                    startTime: config[6],
+                    endTime: config[7],
+                    active: config[8],
+                    allowlistFreeAmount: config[9],
+                    allowlistPrice: config[10],
+                    hasPublicSale: config[11],
+                    hasAllowlist: config[12]
+                };
+                
+                hasPublicSale = packConfig.hasPublicSale;
+                hasAllowlist = packConfig.hasAllowlist;
+                
+                console.log('📦 Pack Config:', packConfig);
+                
+                // Update UI based on pack configuration
+                updatePackConfigUI();
+                
+            } catch (error) {
+                console.error('❌ Error getting pack config:', error);
+                showStatus('Error loading pack configuration: ' + parseError(error), 'error');
+            }
+        }
+
+        function updatePackConfigUI() {
+            // Show/hide sections based on pack configuration
+            const freeSection = document.querySelector('.option-card:nth-child(1)');
+            const paidSection = document.querySelector('.option-card:nth-child(2)');
+            const bundleSection = document.querySelector('.option-card:nth-child(3)');
+            
+            if (freeSection) {
+                freeSection.style.display = hasAllowlist ? 'block' : 'none';
+            }
+            
+            if (paidSection) {
+                paidSection.style.display = hasPublicSale ? 'block' : 'none';
+            }
+            
+            if (bundleSection) {
+                bundleSection.style.display = (hasAllowlist || hasPublicSale) ? 'block' : 'none';
+            }
+            
+            // Update info display
+            const infoContainer = document.querySelector('.mint-info');
+            if (infoContainer && packConfig) {
+                const publicSaleInfo = hasPublicSale ? 
+                    `<div class="info-row">
+                        <span class="label">Public Sale:</span>
+                        <span class="value">Active</span>
+                    </div>` : '';
+                
+                const allowlistInfo = hasAllowlist ? 
+                    `<div class="info-row">
+                        <span class="label">Allowlist:</span>
+                        <span class="value">Active</span>
+                    </div>` : '';
+                
+                // Add new info rows if they don't exist
+                if (hasPublicSale && !infoContainer.querySelector('.public-sale-info')) {
+                    infoContainer.insertAdjacentHTML('beforeend', publicSaleInfo);
+                }
+                
+                if (hasAllowlist && !infoContainer.querySelector('.allowlist-info')) {
+                    infoContainer.insertAdjacentHTML('beforeend', allowlistInfo);
+                }
             }
         }
 
@@ -906,6 +1017,10 @@
             await withPending(btn, async () => {
                 await ensureCorrectNetwork();
                 
+                if (!hasAllowlist) {
+                    throw new Error('Allowlist is not enabled for this pack!');
+                }
+                
                 if (!isOnAllowlist) {
                     throw new Error('You are not on the allowlist for free mint!');
                 }
@@ -930,6 +1045,10 @@
             const btn = document.getElementById('btn-mint-paid');
             await withPending(btn, async () => {
                 await ensureCorrectNetwork();
+                
+                if (!hasPublicSale) {
+                    throw new Error('Public sale is not enabled for this pack!');
+                }
                 
                 // Check if user has enough balance
                 const balance = await adrianToken.balanceOf(userAddress);
@@ -956,7 +1075,11 @@
             await withPending(btn, async () => {
                 await ensureCorrectNetwork();
                 
-                if (!isOnAllowlist) {
+                if (!hasAllowlist && !hasPublicSale) {
+                    throw new Error('Neither allowlist nor public sale is enabled for this pack!');
+                }
+                
+                if (hasAllowlist && !isOnAllowlist) {
                     throw new Error('You are not on the allowlist for free claim!');
                 }
 
