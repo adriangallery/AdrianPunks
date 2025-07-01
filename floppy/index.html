@@ -475,6 +475,7 @@
                                 <div class="balance-value" id="user-minted">0</div>
                             </div>
                         </div>
+                        <button onclick="debugAllowlist()" style="margin-top: 10px; padding: 5px 10px; font-size: 12px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Debug Allowlist</button>
                     </div>
                 </div>
             </div>
@@ -529,7 +530,7 @@
     <script>
         // Contract addresses
         const ADRIAN_TOKEN = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
-        const PACK_MINTER = "0x19dd7f770b464c00ed0c7a6b349143836f61057f";
+        const PACK_MINTER = "0xf58e0873adb342705318a0d2d1fbaceccf0b7c07";
         const PACK_ID = 10000; // OG Floppy pack ID
         const PACK_PRICE = ethers.utils.parseEther("1000"); // 1000 $ADRIAN per pack
         const MAX_PER_WALLET = 15; // 1 free + 14 paid
@@ -751,6 +752,16 @@
                     rawResponse: allowlistStatus
                 });
                 
+                // Debug allowlist status specifically
+                console.log('🔍 Allowlist Debug:', {
+                    userAddress,
+                    packId: PACK_ID,
+                    isOnAllowlist,
+                    isOnAllowlistType: typeof isOnAllowlist,
+                    allowlistStatusRaw: allowlistStatus,
+                    allowlistStatusLength: allowlistStatus.length
+                });
+                
             } catch (error) {
                 console.error('Error updating balances:', error);
                 showStatus('Error updating balances: ' + parseError(error), 'error');
@@ -782,6 +793,36 @@
             // This is now handled in updateBalances() with getUserAllowlistStatus
             // Keeping for backward compatibility but it's no longer needed
             console.log('Allowlist status check moved to updateBalances');
+        }
+
+        // Debug function to test allowlist status
+        async function debugAllowlist() {
+            if (!userAddress) {
+                console.log('❌ No wallet connected');
+                return;
+            }
+            
+            try {
+                console.log('🔍 Testing allowlist for address:', userAddress);
+                
+                // Test getUserAllowlistStatus
+                const allowlistStatus = await packMinter.getUserAllowlistStatus(userAddress, PACK_ID);
+                console.log('📊 getUserAllowlistStatus result:', allowlistStatus);
+                
+                // Test simpleAllowlist as backup
+                const simpleAllowlist = await packMinter.simpleAllowlist(PACK_ID, userAddress);
+                console.log('📋 simpleAllowlist result:', simpleAllowlist);
+                
+                // Compare results
+                console.log('🔍 Comparison:', {
+                    getUserAllowlistStatus_isAllowlisted: allowlistStatus[4],
+                    simpleAllowlist: simpleAllowlist,
+                    match: allowlistStatus[4] === simpleAllowlist
+                });
+                
+            } catch (error) {
+                console.error('❌ Error in debugAllowlist:', error);
+            }
         }
 
         function increaseQuantity() {
