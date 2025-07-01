@@ -382,10 +382,44 @@ function updateWalletUI() {
         connectWalletBtn.textContent = shortAddress;
         connectWalletBtn.style.background = '#00ff00';
         connectWalletBtn.style.color = '#000';
+        
+        // Notify iframe about wallet connection
+        notifyIframeWalletConnected();
     } else {
         connectWalletBtn.textContent = 'Connect Wallet';
         connectWalletBtn.style.background = '#000';
         connectWalletBtn.style.color = '#00ff00';
+        
+        // Notify iframe about wallet disconnection
+        notifyIframeWalletDisconnected();
+    }
+}
+
+function notifyIframeWalletConnected() {
+    const iframe = document.querySelector('#mint-popup iframe');
+    if (iframe && iframe.contentWindow) {
+        try {
+            iframe.contentWindow.postMessage({
+                type: 'WALLET_CONNECTED',
+                address: window.ethereum.selectedAddress,
+                chainId: window.ethereum.chainId
+            }, '*');
+        } catch (error) {
+            console.log('Could not notify iframe:', error);
+        }
+    }
+}
+
+function notifyIframeWalletDisconnected() {
+    const iframe = document.querySelector('#mint-popup iframe');
+    if (iframe && iframe.contentWindow) {
+        try {
+            iframe.contentWindow.postMessage({
+                type: 'WALLET_DISCONNECTED'
+            }, '*');
+        } catch (error) {
+            console.log('Could not notify iframe:', error);
+        }
     }
 }
 
@@ -397,6 +431,11 @@ function handleBasementClick(event) {
     
     // Show mint popup
     mintPopup.classList.add('active');
+    
+    // Notify iframe about wallet connection when popup opens
+    setTimeout(() => {
+        notifyIframeWalletConnected();
+    }, 100);
 }
 
 function closeMintPopup() {
