@@ -475,8 +475,7 @@
                                 <div class="balance-value" id="user-minted">0</div>
                             </div>
                         </div>
-                        <div style="margin-top: 10px; display: flex; gap: 10px; justify-content: center;">
-                            <button onclick="debugAllowlist()" style="padding: 5px 10px; font-size: 12px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; cursor: pointer;">Debug Allowlist</button>
+                        <div style="margin-top: 10px; display: flex; justify-content: center;">
                             <button onclick="updateBalances()" style="padding: 5px 10px; font-size: 12px; background: #00aaff; color: #fff; border: 1px solid #00aaff; border-radius: 4px; cursor: pointer;">Refresh Balances</button>
                         </div>
                     </div>
@@ -749,23 +748,29 @@
                 const formatted = ethers.utils.formatUnits(balance, tokenDecimals);
                 document.getElementById('adrian-balance').textContent = parseFloat(formatted).toLocaleString();
 
-                // Get user allowlist status and minted counts using the new method with retry
-                const allowlistStatus = await retryWithBackoff(async () => {
-                    return await packMinter.getUserAllowlistStatus(userAddress, PACK_ID);
-                });
+                // Get user allowlist status and minted counts using individual calls with retry
+                const [freeClaimed, paidClaimed, isAllowlisted] = await Promise.all([
+                    retryWithBackoff(async () => {
+                        return await packMinter.allowlistFreeClaimed(PACK_ID, userAddress);
+                    }),
+                    retryWithBackoff(async () => {
+                        return await packMinter.allowlistPaidClaimed(PACK_ID, userAddress);
+                    }),
+                    retryWithBackoff(async () => {
+                        return await packMinter.simpleAllowlist(PACK_ID, userAddress);
+                    })
+                ]);
                 
-                // allowlistStatus is an array: [freeClaimed, paidClaimed, totalClaimed, maxAllowed, isAllowlisted]
-                const freeClaimed = parseInt(allowlistStatus[0].toString());
-                const paidClaimed = parseInt(allowlistStatus[1].toString());
-                const totalClaimed = parseInt(allowlistStatus[2].toString());
-                const maxAllowed = parseInt(allowlistStatus[3].toString());
-                isOnAllowlist = allowlistStatus[4]; // This is already a boolean
+                const freeClaimedNum = parseInt(freeClaimed.toString());
+                const paidClaimedNum = parseInt(paidClaimed.toString());
+                const totalClaimed = freeClaimedNum + paidClaimedNum;
+                isOnAllowlist = isAllowlisted;
                 
                 document.getElementById('user-minted').textContent = totalClaimed;
-                hasClaimedFree = freeClaimed > 0;
+                hasClaimedFree = freeClaimedNum > 0;
                 
                 // Update quantity limits based on minted amount
-                const remainingPaid = Math.max(0, 14 - paidClaimed);
+                const remainingPaid = Math.max(0, 14 - paidClaimedNum);
                 const maxQuantity = Math.min(14, remainingPaid);
                 
                 // Update UI based on allowlist status
@@ -788,24 +793,12 @@
                 }
                 
                 console.log('User status:', {
-                    freeClaimed,
-                    paidClaimed,
+                    freeClaimed: freeClaimedNum,
+                    paidClaimed: paidClaimedNum,
                     totalClaimed,
-                    maxAllowed,
                     isOnAllowlist,
                     hasClaimedFree,
-                    remainingPaid,
-                    rawResponse: allowlistStatus
-                });
-                
-                // Debug allowlist status specifically
-                console.log('🔍 Allowlist Debug:', {
-                    userAddress,
-                    packId: PACK_ID,
-                    isOnAllowlist,
-                    isOnAllowlistType: typeof isOnAllowlist,
-                    allowlistStatusRaw: allowlistStatus,
-                    allowlistStatusLength: allowlistStatus.length
+                    remainingPaid
                 });
                 
             } catch (error) {
@@ -868,35 +861,7 @@
             console.log('Allowlist status check moved to updateBalances');
         }
 
-        // Debug function to test allowlist status
-        async function debugAllowlist() {
-            if (!userAddress) {
-                console.log('❌ No wallet connected');
-                return;
-            }
-            
-            try {
-                console.log('🔍 Testing allowlist for address:', userAddress);
-                
-                // Test getUserAllowlistStatus
-                const allowlistStatus = await packMinter.getUserAllowlistStatus(userAddress, PACK_ID);
-                console.log('📊 getUserAllowlistStatus result:', allowlistStatus);
-                
-                // Test simpleAllowlist as backup
-                const simpleAllowlist = await packMinter.simpleAllowlist(PACK_ID, userAddress);
-                console.log('📋 simpleAllowlist result:', simpleAllowlist);
-                
-                // Compare results
-                console.log('🔍 Comparison:', {
-                    getUserAllowlistStatus_isAllowlisted: allowlistStatus[4],
-                    simpleAllowlist: simpleAllowlist,
-                    match: allowlistStatus[4] === simpleAllowlist
-                });
-                
-            } catch (error) {
-                console.error('❌ Error in debugAllowlist:', error);
-            }
-        }
+
 
         // Get pack configuration
         async function getPackConfig() {
