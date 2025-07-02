@@ -40,19 +40,62 @@ function initializeApp() {
     // Configure music
     backgroundMusic.volume = 0.3;
     
-    // Try to start music immediately without user interaction
-    setTimeout(() => {
-        if (!musicInitialized) {
-            musicInitialized = true;
-            backgroundMusic.load();
-            if (!isMuted) {
-                backgroundMusic.play().catch(e => console.log('Audio autoplay blocked, will start on first click'));
-            }
-        }
-    }, 1000);
+    // Multiple strategies to force music autoplay
+    forceMusicAutoplay();
     
     // Don't initialize ethers here - will load when needed
     console.log('App initialized - ethers will load when needed');
+}
+
+function forceMusicAutoplay() {
+    if (musicInitialized) return;
+    
+    console.log('Attempting to force music autoplay...');
+    
+    // Strategy 1: Immediate autoplay attempt
+    try {
+        backgroundMusic.load();
+        backgroundMusic.play().then(() => {
+            console.log('Music autoplay successful!');
+            musicInitialized = true;
+        }).catch(e => {
+            console.log('Strategy 1 failed:', e.message);
+            // Continue to next strategy
+        });
+    } catch (e) {
+        console.log('Strategy 1 error:', e.message);
+    }
+    
+    // Strategy 2: Delayed retry attempt
+    setTimeout(() => {
+        if (!musicInitialized) {
+            console.log('Trying Strategy 2: Delayed autoplay...');
+            backgroundMusic.play().catch(e => {
+                console.log('Strategy 2 failed:', e.message);
+            });
+        }
+    }, 500);
+    
+    // Strategy 3: User interaction simulation
+    setTimeout(() => {
+        if (!musicInitialized) {
+            console.log('Trying Strategy 3: User interaction simulation...');
+            // Simulate user interaction by dispatching events
+            const events = ['mousedown', 'mouseup', 'click', 'touchstart', 'touchend'];
+            events.forEach(eventType => {
+                document.dispatchEvent(new Event(eventType, { bubbles: true }));
+            });
+            
+            // Try to play after simulated interaction
+            setTimeout(() => {
+                if (!musicInitialized) {
+                    backgroundMusic.play().catch(e => {
+                        console.log('Strategy 3 failed:', e.message);
+                    });
+                }
+            }, 100);
+        }
+    }, 1000);
 }
 
 function setupEventListeners() {
