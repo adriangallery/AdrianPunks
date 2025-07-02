@@ -315,12 +315,24 @@ async function connectWallet() {
     }
     
     try {
+        // Check if already connected first
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        
+        if (accounts.length > 0) {
+            // Already connected
+            await checkAndSwitchNetwork();
+            isWalletConnected = true;
+            updateWalletUI();
+            showNotification('Wallet already connected', 'success');
+            return;
+        }
+        
         // Request account connection
-        const accounts = await window.ethereum.request({
+        const newAccounts = await window.ethereum.request({
             method: 'eth_requestAccounts'
         });
         
-        if (accounts.length > 0) {
+        if (newAccounts.length > 0) {
             await checkAndSwitchNetwork();
             isWalletConnected = true;
             updateWalletUI();
@@ -328,44 +340,64 @@ async function connectWallet() {
         }
     } catch (error) {
         console.error('Error connecting wallet:', error);
-        showNotification('Error connecting wallet', 'error');
+        
+        // Handle specific mobile MetaMask errors
+        if (error.code === 4001) {
+            showNotification('Connection rejected by user', 'warning');
+        } else if (error.code === -32002) {
+            showNotification('Please check MetaMask app', 'info');
+        } else {
+            showNotification('Error connecting wallet: ' + error.message, 'error');
+        }
     }
 }
 
 async function checkAndSwitchNetwork() {
-    const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-    
-    if (chainId !== BASE_CHAIN_ID) {
-        try {
-            await window.ethereum.request({
-                method: 'wallet_switchEthereumChain',
-                params: [{ chainId: BASE_CHAIN_ID }]
-            });
-        } catch (switchError) {
-            // If network doesn't exist, add it
-            if (switchError.code === 4902) {
-                try {
-                    await window.ethereum.request({
-                        method: 'wallet_addEthereumChain',
-                        params: [{
-                            chainId: BASE_CHAIN_ID,
-                            chainName: 'Base',
-                            nativeCurrency: {
-                                name: 'ETH',
-                                symbol: 'ETH',
-                                decimals: 18
-                            },
-                            rpcUrls: [BASE_RPC_URL],
-                            blockExplorerUrls: [BASE_EXPLORER]
-                        }]
-                    });
-                } catch (addError) {
-                    showNotification('Error adding Base network', 'error');
+    try {
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        
+        if (chainId !== BASE_CHAIN_ID) {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: BASE_CHAIN_ID }]
+                });
+                showNotification('Switched to Base network', 'success');
+            } catch (switchError) {
+                console.log('Switch error:', switchError);
+                
+                // If network doesn't exist, add it
+                if (switchError.code === 4902) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: BASE_CHAIN_ID,
+                                chainName: 'Base',
+                                nativeCurrency: {
+                                    name: 'ETH',
+                                    symbol: 'ETH',
+                                    decimals: 18
+                                },
+                                rpcUrls: [BASE_RPC_URL],
+                                blockExplorerUrls: [BASE_EXPLORER]
+                            }]
+                        });
+                        showNotification('Base network added successfully', 'success');
+                    } catch (addError) {
+                        console.error('Add network error:', addError);
+                        showNotification('Error adding Base network. Please add it manually in MetaMask.', 'error');
+                    }
+                } else if (switchError.code === 4001) {
+                    showNotification('Network switch rejected by user', 'warning');
+                } else {
+                    showNotification('Error switching to Base network. Please switch manually in MetaMask.', 'error');
                 }
-            } else {
-                showNotification('Error switching to Base network', 'error');
             }
         }
+    } catch (error) {
+        console.error('Network check error:', error);
+        showNotification('Error checking network connection', 'error');
     }
 }
 
@@ -503,21 +535,26 @@ function showNotification(message, type = 'info') {
     notification.className = `notification ${type}`;
     notification.textContent = message;
     
-    // Notification styles - moved to bottom
+    // Mobile-friendly positioning
+    const isMobile = window.innerWidth <= 768;
+    const position = isMobile ? 'center' : 'bottom-right';
+    
     notification.style.cssText = `
         position: fixed;
-        bottom: 20px;
-        right: 20px;
+        ${position === 'center' ? 'top: 50%; left: 50%; transform: translate(-50%, -50%);' : 'bottom: 20px; right: 20px;'}
         background: #000;
         color: ${type === 'error' ? '#ff0000' : type === 'success' ? '#00ff00' : type === 'warning' ? '#ffff00' : '#00ff00'};
         border: 2px solid ${type === 'error' ? '#ff0000' : type === 'success' ? '#00ff00' : type === 'warning' ? '#ffff00' : '#00ff00'};
-        padding: 1rem;
+        padding: ${isMobile ? '1.5rem' : '1rem'};
         font-family: 'Press Start 2P', monospace;
-        font-size: 0.6rem;
-        z-index: 1000;
-        max-width: 300px;
+        font-size: ${isMobile ? '0.7rem' : '0.6rem'};
+        z-index: 10000;
+        max-width: ${isMobile ? '90vw' : '300px'};
+        min-width: ${isMobile ? '250px' : '200px'};
         word-wrap: break-word;
-        box-shadow: 0 0 10px ${type === 'error' ? '#ff0000' : type === 'success' ? '#00ff00' : type === 'warning' ? '#ffff00' : '#00ff00'};
+        box-shadow: 0 0 20px ${type === 'error' ? '#ff0000' : type === 'success' ? '#00ff00' : type === 'warning' ? '#ffff00' : '#00ff00'};
+        text-align: center;
+        border-radius: 8px;
     `;
     
     document.body.appendChild(notification);
