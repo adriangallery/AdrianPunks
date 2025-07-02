@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OG Floppy Mint - AdrianLAB</title>
+    <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <link rel="stylesheet" href="ogmint-mobile.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 10px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            overflow-y: auto;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 56px;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #00ff88, #00aaff, #ff0088);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-size: 200% 200%;
+            animation: gradient 3s ease infinite;
+        }
+
+        @keyframes gradient {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .subtitle {
+            color: #888;
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+
+        .mint-card {
+            background: rgba(20, 20, 20, 0.9);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .og-floppy-image {
+            width: 100%;
+            height: auto;
+            max-width: 520px;
+            margin: 0 auto 30px;
+            display: block;
+            border-radius: 15px;
+            border: 3px solid rgba(0, 255, 136, 0.3);
+            box-shadow: 0 10px 30px rgba(0, 255, 136, 0.2);
+        }
+
+        .mint-info {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .label {
+            color: #888;
+            font-size: 16px;
+        }
+
+        .value {
+            color: #00ff88;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .wallet-section {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .connect-btn {
+            padding: 16px 32px;
+            font-size: 18px;
+            font-weight: 600;
+            background: linear-gradient(45deg, #ff0088, #ff8800);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .connect-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 0, 136, 0.3);
+        }
+
+        .wallet-info {
+            background: rgba(0, 170, 255, 0.1);
+            border: 1px solid rgba(0, 170, 255, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        .wallet-address {
+            font-family: monospace;
+            font-size: 16px;
+            color: #00aaff;
+            margin-bottom: 10px;
+        }
+
+        .balance-info {
+            display: flex;
+            justify-content: space-around;
+            gap: 20px;
+        }
+
+        .balance-item {
+            text-align: center;
+        }
+
+        .balance-label {
+            color: #888;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .balance-value {
+            color: #00ff88;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .mint-options {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .option-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .option-card:hover {
+            border-color: rgba(0, 255, 136, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .option-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #00ff88;
+        }
+
+        .option-description {
+            color: #aaa;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .quantity-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid rgba(0, 255, 136, 0.3);
+            background: rgba(0, 255, 136, 0.1);
+            color: #00ff88;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .quantity-btn:hover {
+            background: rgba(0, 255, 136, 0.2);
+            border-color: rgba(0, 255, 136, 0.5);
+        }
+
+        .quantity-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .quantity-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ff88;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .total-cost {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 16px;
+            color: #888;
+        }
+
+        .cost-amount {
+            color: #00aaff;
+            font-weight: bold;
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            position: relative;
+        }
+
+        .btn-approve {
+            background: linear-gradient(45deg, #ff8800, #ffaa00);
+            color: #000;
+            margin-bottom: 10px;
+        }
+
+        .btn-approve:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 136, 0, 0.3);
+        }
+
+        .btn-mint {
+            background: linear-gradient(45deg, #00ff88, #00aaff);
+            color: #000;
+        }
+
+        .btn-mint:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 255, 136, 0.3);
+        }
+
+        .btn-free {
+            background: linear-gradient(45deg, #ff0088, #ff00ff);
+            color: #fff;
+        }
+
+        .btn-free:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 0, 136, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-loading {
+            color: transparent !important;
+        }
+
+        .btn-loading::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin-left: -10px;
+            margin-top: -10px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            max-width: 400px;
+            padding: 20px;
+            border-radius: 12px;
+            z-index: 1000;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .status.success {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            color: #00ff88;
+        }
+
+        .status.error {
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            color: #ff4444;
+        }
+
+        .status.info {
+            background: rgba(0, 170, 255, 0.1);
+            border: 1px solid rgba(0, 170, 255, 0.3);
+            color: #00aaff;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #00ff88;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .tx-link {
+            color: #00aaff;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .tx-link:hover {
+            text-decoration: underline;
+        }
+
+        .network-warning {
+            background: rgba(255, 136, 0, 0.1);
+            border: 1px solid rgba(255, 136, 0, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #ff8800;
+            text-align: center;
+        }
+
+        .network-warning button {
+            background: rgba(255, 136, 0, 0.2);
+            border: 1px solid rgba(255, 136, 0, 0.5);
+            color: #ff8800;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-weight: 600;
+        }
+
+        .network-warning button:hover {
+            background: rgba(255, 136, 0, 0.3);
+        }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 5px;
+                align-items: flex-start;
+            }
+            
+            .container {
+                max-width: 100%;
+                margin: 0;
+            }
+            
+            h1 {
+                font-size: 32px;
+                margin-bottom: 5px;
+            }
+            
+            .subtitle {
+                font-size: 16px;
+                margin-bottom: 15px;
+            }
+            
+            .header {
+                margin-bottom: 20px;
+            }
+            
+            .mint-card {
+                padding: 20px 15px;
+                border-radius: 15px;
+            }
+            
+            .og-floppy-image {
+                width: 120px;
+                height: 120px;
+                margin: 0 auto 20px;
+            }
+            
+            .mint-info {
+                padding: 15px;
+                margin-bottom: 20px;
+            }
+            
+            .info-row {
+                margin-bottom: 8px;
+            }
+            
+            .label, .value {
+                font-size: 14px;
+            }
+            
+            .connect-btn {
+                padding: 12px 24px;
+                font-size: 16px;
+            }
+            
+            .wallet-info {
+                padding: 12px;
+            }
+            
+            .wallet-address {
+                font-size: 14px;
+            }
+            
+            .balance-info {
+                gap: 15px;
+            }
+            
+            .balance-label {
+                font-size: 12px;
+            }
+            
+            .balance-value {
+                font-size: 16px;
+            }
+            
+            .option-card {
+                padding: 15px;
+                margin-bottom: 15px;
+            }
+            
+            .option-title {
+                font-size: 18px;
+            }
+            
+            .option-description {
+                font-size: 13px;
+            }
+            
+            .quantity-controls {
+                gap: 10px;
+            }
+            
+            .quantity-btn {
+                width: 35px;
+                height: 35px;
+                font-size: 18px;
+            }
+            
+            .quantity-display {
+                font-size: 20px;
+            }
+            
+            .action-btn {
+                padding: 12px;
+                font-size: 14px;
+            }
+            
+            .network-warning {
+                padding: 12px;
+                font-size: 14px;
+            }
+            
+            .network-warning button {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body {
+                padding: 3px;
+            }
+            
+            h1 {
+                font-size: 28px;
+            }
+            
+            .subtitle {
+                font-size: 14px;
+            }
+            
+            .mint-card {
+                padding: 15px 10px;
+            }
+            
+            .og-floppy-image {
+                width: 100px;
+                height: 100px;
+            }
+            
+            .mint-info {
+                padding: 12px;
+            }
+            
+            .label, .value {
+                font-size: 12px;
+            }
+            
+            .connect-btn {
+                padding: 10px 20px;
+                font-size: 14px;
+            }
+            
+            .option-card {
+                padding: 12px;
+            }
+            
+            .option-title {
+                font-size: 16px;
+            }
+            
+            .option-description {
+                font-size: 12px;
+            }
+            
+            .quantity-btn {
+                width: 30px;
+                height: 30px;
+                font-size: 16px;
+            }
+            
+            .action-btn {
+                padding: 10px;
+                font-size: 13px;
+            }
+            
+            .balance-info {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+        
+        @media (max-width: 768px) and (orientation: landscape) {
+            body {
+                padding: 5px;
+            }
+            
+            .container {
+                max-width: 100%;
+            }
+            
+            h1 {
+                font-size: 24px;
+                margin-bottom: 5px;
+            }
+            
+            .subtitle {
+                font-size: 14px;
+                margin-bottom: 10px;
+            }
+            
+            .header {
+                margin-bottom: 15px;
+            }
+            
+            .mint-card {
+                padding: 15px;
+            }
+            
+            .og-floppy-image {
+                width: 80px;
+                height: 80px;
+                margin: 0 auto 15px;
+            }
+            
+            .mint-info {
+                padding: 10px;
+                margin-bottom: 15px;
+            }
+            
+            .option-card {
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+            
+            .option-title {
+                font-size: 14px;
+            }
+            
+            .option-description {
+                font-size: 11px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>AdrianLAB</h1>
+            <p class="subtitle">OG Floppy Mint</p>
+        </div>
+
+        <div class="mint-card">
+            <img src="https://adrianlab.vercel.app/labimages/10000.gif?v=1751282595734" alt="OG Floppy" class="og-floppy-image">
+            
+            <div class="mint-info">
+                <div class="info-row">
+                    <span class="label">Collection:</span>
+                    <span class="value">OG Floppy</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Total Supply:</span>
+                    <span class="value">100</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Free Mint:</span>
+                    <span class="value">1 per wallet</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Paid Mint:</span>
+                    <span class="value">1,000 $ADRIAN each</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Max per wallet:</span>
+                    <span class="value">15 (1 free + 14 paid)</span>
+                </div>
+            </div>
+
+            <div id="network-warning" class="network-warning" style="display: none;">
+                <span>⚠️ Please switch to Base Network</span>
+                <button onclick="switchToBase()">Switch Network</button>
+            </div>
+
+            <div class="wallet-section">
+                <div id="connect-section">
+                    <button class="connect-btn" onclick="connectWallet()">Connect Wallet</button>
+                </div>
+                <div id="wallet-connected" style="display: none;">
+                    <div class="wallet-info">
+                        <div class="wallet-address" id="wallet-address"></div>
+                        <div class="balance-info">
+                            <div class="balance-item">
+                                <div class="balance-label">$ADRIAN Balance</div>
+                                <div class="balance-value" id="adrian-balance">0</div>
+                            </div>
+                            <div class="balance-item">
+                                <div class="balance-label">Minted</div>
+                                <div class="balance-value" id="user-minted">0</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px; display: flex; justify-content: center;">
+                            <button onclick="updateBalances()" style="padding: 5px 10px; font-size: 12px; background: #00aaff; color: #fff; border: 1px solid #00aaff; border-radius: 4px; cursor: pointer;">Refresh Balances</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="mint-section" style="display: none;">
+                <div class="mint-options">
+                    <!-- Free Claim Option -->
+                    <div class="option-card">
+                        <div class="option-title">Free Claim</div>
+                        <div class="option-description">Claim your 1 free OG Floppy (allowlist only)</div>
+                        <button class="action-btn btn-free" onclick="mintFree()" id="btn-mint-free">Claim Free</button>
+                    </div>
+
+                    <!-- Paid Mint Option -->
+                    <div class="option-card">
+                        <div class="option-title">Paid Mint</div>
+                        <div class="option-description">Purchase additional OG Floppy packs</div>
+                        <div class="quantity-controls">
+                            <button class="quantity-btn" onclick="decreaseQuantity()" id="decrease-btn">-</button>
+                            <div class="quantity-display" id="quantity">1</div>
+                            <button class="quantity-btn" onclick="increaseQuantity()" id="increase-btn">+</button>
+                        </div>
+                        <div class="total-cost">
+                            Total: <span class="cost-amount" id="total-cost">1,000</span> $ADRIAN
+                        </div>
+                        <button class="action-btn btn-approve" onclick="approve()" id="btn-approve">Approve $ADRIAN</button>
+                        <button class="action-btn btn-mint" onclick="mintPaid()" id="btn-mint-paid">Mint Paid</button>
+                    </div>
+
+                    <!-- Combined Option -->
+                    <div class="option-card">
+                        <div class="option-title">Free + Paid Bundle</div>
+                        <div class="option-description">Claim 1 free + purchase up to 14 more in one transaction</div>
+                        <div class="quantity-controls">
+                            <button class="quantity-btn" onclick="decreaseBundleQuantity()" id="bundle-decrease-btn">-</button>
+                            <div class="quantity-display" id="bundle-quantity">14</div>
+                            <button class="quantity-btn" onclick="increaseBundleQuantity()" id="bundle-increase-btn">+</button>
+                        </div>
+                        <div class="total-cost">
+                            Free: 1 + Paid: <span id="bundle-paid-count">14</span> = Total: <span class="cost-amount" id="bundle-total-cost">14,000</span> $ADRIAN
+                        </div>
+                        <button class="action-btn btn-approve" onclick="approveBundle()" id="btn-approve-bundle">Approve $ADRIAN</button>
+                        <button class="action-btn btn-mint" onclick="mintBundle()" id="btn-mint-bundle">Mint Bundle</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="status" class="status" aria-live="assertive"></div>
+
+    <script>
+        // Contract addresses
+        const ADRIAN_TOKEN = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+        const PACK_MINTER = "0xF0f5073564c97e39Cbc3f1387e3bEF6bEF79A10d";
+        const PACK_ID = 10000; // OG Floppy pack ID
+        const PACK_PRICE = ethers.utils.parseEther("1000"); // 1000 $ADRIAN per pack
+        const MAX_PER_WALLET = 15; // 1 free + 14 paid
+        const BASE_CHAIN_ID = 8453; // Base Mainnet
+        const BASE_CHAIN_ID_HEX = "0x2105";
+
+        // ABIs
+        const ERC20_ABI = [
+            "function approve(address spender, uint256 amount) returns (bool)",
+            "function balanceOf(address owner) view returns (uint256)",
+            "function allowance(address owner, address spender) view returns (uint256)",
+            "function decimals() view returns (uint8)"
+        ];
+
+        const PACK_MINTER_ABI = [
+            "function purchasePack(uint256 packId, uint256 quantity, bool useAllowlist) external",
+            "function canPurchasePack(address user, uint256 packId, uint256 quantity, bool useAllowlist) external view returns (bool canPurchase, string memory reason)",
+            "function packConfigs(uint256 packId) external view returns (uint256 id, uint256 publicPrice, uint256 maxSupply, uint256 minted, uint256 itemsPerPack, uint256 maxPerWallet, uint256 startTime, uint256 endTime, bool active, uint256 allowlistFreeAmount, uint256 allowlistPrice, bool hasPublicSale, bool hasAllowlist)",
+            "function simpleAllowlist(uint256 packId, address wallet) external view returns (bool)",
+            "function allowlistFreeClaimed(uint256 packId, address wallet) external view returns (uint256)",
+            "function allowlistPaidClaimed(uint256 packId, address wallet) external view returns (uint256)",
+            "function getUserAllowlistStatus(address user, uint256 packId) external view returns (uint256 freeClaimed, uint256 paidClaimed, uint256 totalClaimed, uint256 maxAllowed, bool isAllowlisted)",
+            "function setPackSaleFlags(uint256 packId, bool hasPublicSale, bool hasAllowlist) external",
+            "event PackSaleFlagsUpdated(uint256 indexed packId, bool hasPublicSale, bool hasAllowlist)"
+        ];
+
+        // Global variables
+        let provider;
+        let signer;
+        let adrianToken;
+        let packMinter;
+        let userAddress;
+        let quantity = 1;
+        let bundleQuantity = 14;
+        let hasClaimedFree = false;
+        let isOnAllowlist = false;
+        let tokenDecimals = 18; // Default, will be updated from contract
+        let packConfig = null; // Store pack configuration
+        let hasPublicSale = false;
+        let hasAllowlist = false;
+
+        // Utility functions
+        async function ensureCorrectNetwork() {
+            try {
+                const { chainId } = await provider.getNetwork();
+                if (chainId !== BASE_CHAIN_ID) {
+                    document.getElementById('network-warning').style.display = 'block';
+                    showStatus('Please switch to Base network', 'warning');
+                    throw new Error('Wrong network. Please switch to Base.');
+                } else {
+                    document.getElementById('network-warning').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Network check failed:', error);
+                showStatus('Error checking network connection', 'error');
+                throw error;
+            }
+        }
+
+        async function switchToBase() {
+            try {
+                showStatus('Switching to Base network...', 'info');
+                
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: BASE_CHAIN_ID_HEX }]
+                });
+                
+                showStatus('Switched to Base network successfully!', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+                
+            } catch (switchError) {
+                console.log('Switch error:', switchError);
+                
+                if (switchError.code === 4902) {
+                    // Chain not added, try to add it
+                    try {
+                        showStatus('Adding Base network...', 'info');
+                        
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: BASE_CHAIN_ID_HEX,
+                                chainName: 'Base',
+                                nativeCurrency: {
+                                    name: 'ETH',
+                                    symbol: 'ETH',
+                                    decimals: 18
+                                },
+                                rpcUrls: ['https://mainnet.base.org'],
+                                blockExplorerUrls: ['https://basescan.org']
+                            }]
+                        });
+                        
+                        showStatus('Base network added successfully!', 'success');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                        
+                    } catch (addError) {
+                        console.error('Add network error:', addError);
+                        showStatus('Failed to add Base network. Please add it manually in MetaMask.', 'error');
+                    }
+                } else if (switchError.code === 4001) {
+                    showStatus('Network switch rejected by user', 'warning');
+                } else {
+                    showStatus('Failed to switch network. Please switch manually in MetaMask.', 'error');
+                }
+            }
+        }
+
+        async function withPending(button, action) {
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.classList.add('btn-loading');
+            
+            try {
+                await action();
+            } catch (error) {
+                console.error('Action failed:', error);
+                // Mostrar el error al usuario
+                showStatus(parseError(error), 'error');
+                throw error;
+            } finally {
+                button.disabled = false;
+                button.classList.remove('btn-loading');
+                button.textContent = originalText;
+            }
+        }
+
+        function parseError(error) {
+            // Handle rate limiting specifically
+            if (error.code === -32005 || error.message?.includes('rate limited')) {
+                return 'Network is busy, please try again in a few seconds';
+            }
+            
+            // Handle CALL_EXCEPTION
+            if (error.code === 'CALL_EXCEPTION') {
+                if (error.message?.includes('missing revert data')) {
+                    return 'Transaction failed - please try again';
+                }
+                return 'Contract call failed - please try again';
+            }
+            
+            // Try to extract meaningful error message
+            if (error.data && error.data.message) {
+                return error.data.message;
+            } else if (error.reason) {
+                return error.reason;
+            } else if (error.message) {
+                return error.message;
+            } else {
+                return 'Unknown error occurred';
+            }
+        }
+
+        // Retry function with exponential backoff
+        async function retryWithBackoff(fn, maxRetries = 3, baseDelay = 1000) {
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    return await fn();
+                } catch (error) {
+                    const isRateLimit = error.code === -32005 || error.message?.includes('rate limited');
+                    const isCallException = error.code === 'CALL_EXCEPTION';
+                    
+                    if ((isRateLimit || isCallException) && attempt < maxRetries) {
+                        const delay = baseDelay * Math.pow(2, attempt - 1);
+                        console.log(`Attempt ${attempt} failed, retrying in ${delay}ms...`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue;
+                    }
+                    throw error;
+                }
+            }
+        }
+
+        async function connectWallet() {
+            try {
+                // First try to use parent's wallet if we're in an iframe
+                if (window.parent && window.parent !== window) {
+                    try {
+                        const parentAccounts = await window.parent.ethereum?.request({ method: 'eth_accounts' });
+                        if (parentAccounts && parentAccounts.length > 0) {
+                            console.log('Using wallet from parent window');
+                            userAddress = parentAccounts[0];
+                            provider = new ethers.providers.Web3Provider(window.parent.ethereum);
+                            signer = provider.getSigner();
+                            
+                            // Check network
+                            await ensureCorrectNetwork();
+                            
+                            // Initialize contracts
+                            adrianToken = new ethers.Contract(ADRIAN_TOKEN, ERC20_ABI, signer);
+                            packMinter = new ethers.Contract(PACK_MINTER, PACK_MINTER_ABI, signer);
+                            
+                            // Get token decimals
+                            try {
+                                tokenDecimals = await adrianToken.decimals();
+                            } catch (error) {
+                                console.warn('Could not get token decimals, using default 18');
+                            }
+                            
+                            // Update UI
+                            const shortAddress = userAddress.slice(0, 6) + '...' + userAddress.slice(-4);
+                            document.getElementById('wallet-address').textContent = shortAddress;
+                            document.getElementById('connect-section').style.display = 'none';
+                            document.getElementById('wallet-connected').style.display = 'block';
+                            document.getElementById('mint-section').style.display = 'block';
+                            
+                            // Load pack configuration and user data
+                            await getPackConfig();
+                            await updateBalances();
+                            await checkAllowlistStatus();
+                            
+                            showStatus('Wallet connected from parent!', 'success');
+                            return;
+                        }
+                    } catch (parentError) {
+                        console.log('Could not get wallet from parent, trying local connection');
+                    }
+                }
+                
+                // Fallback to local wallet connection
+                if (!window.ethereum) {
+                    showStatus('Please install MetaMask!', 'error');
+                    return;
+                }
+
+                showStatus('Connecting wallet...', 'info');
+                
+                // Check if already connected first
+                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                
+                if (accounts.length > 0) {
+                    // Already connected
+                    userAddress = accounts[0];
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                    signer = provider.getSigner();
+                } else {
+                    // Request connection
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                    await provider.send("eth_requestAccounts", []);
+                    signer = provider.getSigner();
+                    userAddress = await signer.getAddress();
+                }
+                
+                const shortAddress = userAddress.slice(0, 6) + '...' + userAddress.slice(-4);
+                
+                // Check network
+                await ensureCorrectNetwork();
+                
+                // Initialize contracts
+                adrianToken = new ethers.Contract(ADRIAN_TOKEN, ERC20_ABI, signer);
+                packMinter = new ethers.Contract(PACK_MINTER, PACK_MINTER_ABI, signer);
+                
+                // Get token decimals
+                try {
+                    tokenDecimals = await adrianToken.decimals();
+                } catch (error) {
+                    console.warn('Could not get token decimals, using default 18');
+                }
+                
+                // Update UI
+                document.getElementById('wallet-address').textContent = shortAddress;
+                document.getElementById('connect-section').style.display = 'none';
+                document.getElementById('wallet-connected').style.display = 'block';
+                document.getElementById('mint-section').style.display = 'block';
+                
+                // Load pack configuration and user data
+                await getPackConfig();
+                await updateBalances();
+                await checkAllowlistStatus();
+                
+                showStatus('Wallet connected!', 'success');
+                
+            } catch (error) {
+                console.error('Connect wallet error:', error);
+                
+                // Handle specific mobile MetaMask errors
+                if (error.code === 4001) {
+                    showStatus('Connection rejected by user', 'warning');
+                } else if (error.code === -32002) {
+                    showStatus('Please check MetaMask app', 'info');
+                } else {
+                    showStatus('Failed to connect wallet: ' + parseError(error), 'error');
+                }
+            }
+        }
+
+        async function updateBalances() {
+            try {
+                // Get ADRIAN balance with retry
+                const balance = await retryWithBackoff(async () => {
+                    return await adrianToken.balanceOf(userAddress);
+                });
+                const formatted = ethers.utils.formatUnits(balance, tokenDecimals);
+                document.getElementById('adrian-balance').textContent = parseFloat(formatted).toLocaleString();
+
+                // Get user allowlist status and minted counts using individual calls with retry
+                const [freeClaimed, paidClaimed, isAllowlisted] = await Promise.all([
+                    retryWithBackoff(async () => {
+                        return await packMinter.allowlistFreeClaimed(PACK_ID, userAddress);
+                    }),
+                    retryWithBackoff(async () => {
+                        return await packMinter.allowlistPaidClaimed(PACK_ID, userAddress);
+                    }),
+                    retryWithBackoff(async () => {
+                        return await packMinter.simpleAllowlist(PACK_ID, userAddress);
+                    })
+                ]);
+                
+                const freeClaimedNum = parseInt(freeClaimed.toString());
+                const paidClaimedNum = parseInt(paidClaimed.toString());
+                const totalClaimed = freeClaimedNum + paidClaimedNum;
+                isOnAllowlist = isAllowlisted;
+                
+                document.getElementById('user-minted').textContent = totalClaimed;
+                hasClaimedFree = freeClaimedNum > 0;
+                
+                // Update quantity limits based on minted amount
+                const remainingPaid = Math.max(0, 14 - paidClaimedNum);
+                const maxQuantity = Math.min(14, remainingPaid);
+                
+                // Update UI based on allowlist status
+                updateAllowlistUI();
+                
+                // Update quantity controls
+                if (remainingPaid === 0) {
+                    document.getElementById('decrease-btn').disabled = true;
+                    document.getElementById('increase-btn').disabled = true;
+                    document.getElementById('btn-mint-paid').disabled = true;
+                } else {
+                    document.getElementById('decrease-btn').disabled = false;
+                    document.getElementById('increase-btn').disabled = false;
+                    document.getElementById('btn-mint-paid').disabled = false;
+                }
+                
+                // Update bundle quantity limits
+                if (hasClaimedFree) {
+                    bundleQuantity = Math.min(bundleQuantity, remainingPaid);
+                }
+                
+                console.log('User status:', {
+                    freeClaimed: freeClaimedNum,
+                    paidClaimed: paidClaimedNum,
+                    totalClaimed,
+                    isOnAllowlist,
+                    hasClaimedFree,
+                    remainingPaid
+                });
+                
+            } catch (error) {
+                console.error('Error updating balances:', error);
+                showStatus('Error updating balances: ' + parseError(error), 'error');
+            }
+        }
+
+        function updateAllowlistUI() {
+            const freeBtn = document.getElementById('btn-mint-free');
+            const bundleBtn = document.getElementById('btn-mint-bundle');
+            
+            // Check if allowlist is enabled for this pack
+            if (!hasAllowlist) {
+                if (freeBtn) {
+                    freeBtn.disabled = true;
+                    freeBtn.textContent = 'Allowlist Disabled';
+                }
+                if (bundleBtn) {
+                    bundleBtn.disabled = true;
+                    bundleBtn.textContent = 'Allowlist Disabled';
+                }
+                return;
+            }
+            
+            if (!isOnAllowlist) {
+                if (freeBtn) {
+                    freeBtn.disabled = true;
+                    freeBtn.textContent = 'Not on Allowlist';
+                }
+                if (bundleBtn) {
+                    bundleBtn.disabled = true;
+                    bundleBtn.textContent = 'Not on Allowlist';
+                }
+            } else if (hasClaimedFree) {
+                if (freeBtn) {
+                    freeBtn.disabled = true;
+                    freeBtn.textContent = 'Already Claimed';
+                }
+                // Bundle still available for paid mints only if public sale is enabled
+                if (bundleBtn && hasPublicSale) {
+                    bundleBtn.disabled = false;
+                    bundleBtn.textContent = 'Mint Bundle (Paid Only)';
+                }
+            } else {
+                if (freeBtn) {
+                    freeBtn.disabled = false;
+                    freeBtn.textContent = 'Claim Free';
+                }
+                if (bundleBtn) {
+                    bundleBtn.disabled = false;
+                    bundleBtn.textContent = 'Mint Bundle';
+                }
+            }
+        }
+
+        async function checkAllowlistStatus() {
+            // This is now handled in updateBalances() with getUserAllowlistStatus
+            // Keeping for backward compatibility but it's no longer needed
+            console.log('Allowlist status check moved to updateBalances');
+        }
+
+
+
+        // Get pack configuration
+        async function getPackConfig() {
+            try {
+                const config = await retryWithBackoff(async () => {
+                    return await packMinter.packConfigs(PACK_ID);
+                });
+                
+                packConfig = {
+                    id: config[0],
+                    publicPrice: config[1],
+                    maxSupply: config[2],
+                    minted: config[3],
+                    itemsPerPack: config[4],
+                    maxPerWallet: config[5],
+                    startTime: config[6],
+                    endTime: config[7],
+                    active: config[8],
+                    allowlistFreeAmount: config[9],
+                    allowlistPrice: config[10],
+                    hasPublicSale: config[11],
+                    hasAllowlist: config[12]
+                };
+                
+                hasPublicSale = packConfig.hasPublicSale;
+                hasAllowlist = packConfig.hasAllowlist;
+                
+                console.log('📦 Pack Config:', packConfig);
+                
+                // Update UI based on pack configuration
+                updatePackConfigUI();
+                
+            } catch (error) {
+                console.error('❌ Error getting pack config:', error);
+                showStatus('Error loading pack configuration: ' + parseError(error), 'error');
+            }
+        }
+
+        function updatePackConfigUI() {
+            // Show/hide sections based on pack configuration
+            const freeSection = document.querySelector('.option-card:nth-child(1)');
+            const paidSection = document.querySelector('.option-card:nth-child(2)');
+            const bundleSection = document.querySelector('.option-card:nth-child(3)');
+            
+            if (freeSection) {
+                freeSection.style.display = hasAllowlist ? 'block' : 'none';
+            }
+            
+            if (paidSection) {
+                paidSection.style.display = hasPublicSale ? 'block' : 'none';
+            }
+            
+            if (bundleSection) {
+                bundleSection.style.display = (hasAllowlist || hasPublicSale) ? 'block' : 'none';
+            }
+            
+            // Update info display
+            const infoContainer = document.querySelector('.mint-info');
+            if (infoContainer && packConfig) {
+                const publicSaleInfo = hasPublicSale ? 
+                    `<div class="info-row">
+                        <span class="label">Public Sale:</span>
+                        <span class="value">Active</span>
+                    </div>` : '';
+                
+                const allowlistInfo = hasAllowlist ? 
+                    `<div class="info-row">
+                        <span class="label">Allowlist:</span>
+                        <span class="value">Active</span>
+                    </div>` : '';
+                
+                // Add new info rows if they don't exist
+                if (hasPublicSale && !infoContainer.querySelector('.public-sale-info')) {
+                    infoContainer.insertAdjacentHTML('beforeend', publicSaleInfo);
+                }
+                
+                if (hasAllowlist && !infoContainer.querySelector('.allowlist-info')) {
+                    infoContainer.insertAdjacentHTML('beforeend', allowlistInfo);
+                }
+            }
+        }
+
+        function increaseQuantity() {
+            if (quantity < 14) {
+                quantity++;
+                updateQuantityDisplay();
+            }
+        }
+
+        function decreaseQuantity() {
+            if (quantity > 1) {
+                quantity--;
+                updateQuantityDisplay();
+            }
+        }
+
+        function increaseBundleQuantity() {
+            if (bundleQuantity < 14) {
+                bundleQuantity++;
+                updateBundleDisplay();
+            }
+        }
+
+        function decreaseBundleQuantity() {
+            if (bundleQuantity > 1) {
+                bundleQuantity--;
+                updateBundleDisplay();
+            }
+        }
+
+        function updateQuantityDisplay() {
+            document.getElementById('quantity').textContent = quantity;
+            document.getElementById('total-cost').textContent = (quantity * 1000).toLocaleString();
+        }
+
+        function updateBundleDisplay() {
+            document.getElementById('bundle-quantity').textContent = bundleQuantity;
+            document.getElementById('bundle-paid-count').textContent = bundleQuantity;
+            document.getElementById('bundle-total-cost').textContent = (bundleQuantity * 1000).toLocaleString();
+        }
+
+        async function approve() {
+            const btn = document.getElementById('btn-approve');
+            await withPending(btn, async () => {
+                await ensureCorrectNetwork();
+                const amount = PACK_PRICE.mul(quantity);
+                await approveAmount(amount);
+            });
+        }
+
+        async function approveBundle() {
+            const btn = document.getElementById('btn-approve-bundle');
+            await withPending(btn, async () => {
+                await ensureCorrectNetwork();
+                const amount = PACK_PRICE.mul(bundleQuantity);
+                await approveAmount(amount);
+            });
+        }
+
+        async function approveAmount(amount) {
+            showStatus('Checking allowance...', 'info');
+            
+            const allowance = await adrianToken.allowance(userAddress, PACK_MINTER);
+            
+            if (allowance.gte(amount)) {
+                showStatus('Allowance already sufficient!', 'success');
+                return;
+            }
+
+            showStatus('Approving $ADRIAN tokens...', 'info');
+            
+            const tx = await adrianToken.approve(PACK_MINTER, amount);
+            showStatus(`Approving... <a href="https://basescan.org/tx/${tx.hash}" target="_blank" class="tx-link">View TX</a>`, 'info');
+            
+            await tx.wait();
+            showStatus('Approval successful!', 'success');
+        }
+
+        async function mintFree() {
+            const btn = document.getElementById('btn-mint-free');
+            await withPending(btn, async () => {
+                await ensureCorrectNetwork();
+                
+                if (!hasAllowlist) {
+                    throw new Error('Allowlist is not enabled for this pack!');
+                }
+                
+                if (!isOnAllowlist) {
+                    throw new Error('You are not on the allowlist for free mint!');
+                }
+
+                if (hasClaimedFree) {
+                    throw new Error('You have already claimed your free mint!');
+                }
+
+                showStatus('Processing free claim...', 'info');
+                
+                const tx = await packMinter.purchasePack(PACK_ID, 1, true);
+                showStatus(`Minting free... <a href="https://basescan.org/tx/${tx.hash}" target="_blank" class="tx-link">View TX</a>`, 'info');
+                
+                await tx.wait();
+                showStatus('Free mint successful! 🎉', 'success');
+                
+                await updateBalances();
+            });
+        }
+
+        async function mintPaid() {
+            const btn = document.getElementById('btn-mint-paid');
+            await withPending(btn, async () => {
+                await ensureCorrectNetwork();
+                
+                if (!hasPublicSale) {
+                    throw new Error('Public sale is not enabled for this pack!');
+                }
+                
+                // Check if user has enough balance with retry
+                const balance = await retryWithBackoff(async () => {
+                    return await adrianToken.balanceOf(userAddress);
+                });
+                const requiredAmount = PACK_PRICE.mul(quantity);
+                
+                if (balance.lt(requiredAmount)) {
+                    throw new Error(`Insufficient $ADRIAN balance. You need ${ethers.utils.formatUnits(requiredAmount, tokenDecimals)} $ADRIAN but have ${ethers.utils.formatUnits(balance, tokenDecimals)}`);
+                }
+                
+                showStatus('Processing paid mint...', 'info');
+                
+                const tx = await packMinter.purchasePack(PACK_ID, quantity, false);
+                showStatus(`Minting ${quantity} paid... <a href="https://basescan.org/tx/${tx.hash}" target="_blank" class="tx-link">View TX</a>`, 'info');
+                
+                await tx.wait();
+                showStatus(`Successfully minted ${quantity} OG Floppy! 🎉`, 'success');
+                
+                await updateBalances();
+            });
+        }
+
+        async function mintBundle() {
+            const btn = document.getElementById('btn-mint-bundle');
+            await withPending(btn, async () => {
+                await ensureCorrectNetwork();
+                
+                if (!hasAllowlist && !hasPublicSale) {
+                    throw new Error('Neither allowlist nor public sale is enabled for this pack!');
+                }
+                
+                if (hasAllowlist && !isOnAllowlist) {
+                    throw new Error('You are not on the allowlist for free claim!');
+                }
+
+                // Check if user has enough balance for paid portion with retry
+                const balance = await retryWithBackoff(async () => {
+                    return await adrianToken.balanceOf(userAddress);
+                });
+                const requiredAmount = PACK_PRICE.mul(bundleQuantity);
+                
+                if (balance.lt(requiredAmount)) {
+                    throw new Error(`Insufficient $ADRIAN balance. You need ${ethers.utils.formatUnits(requiredAmount, tokenDecimals)} $ADRIAN but have ${ethers.utils.formatUnits(balance, tokenDecimals)}`);
+                }
+
+                showStatus('Processing bundle mint...', 'info');
+                
+                // Total quantity is 1 free + bundleQuantity paid
+                const totalQuantity = hasClaimedFree ? bundleQuantity : bundleQuantity + 1;
+                
+                const tx = await packMinter.purchasePack(PACK_ID, totalQuantity, true);
+                showStatus(`Minting bundle (${totalQuantity} total)... <a href="https://basescan.org/tx/${tx.hash}" target="_blank" class="tx-link">View TX</a>`, 'info');
+                
+                await tx.wait();
+                showStatus(`Successfully minted ${totalQuantity} OG Floppy! 🎉`, 'success');
+                
+                await updateBalances();
+            });
+        }
+
+        function showStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.className = `status ${type}`;
+            status.innerHTML = message;
+            status.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Listen for messages from parent window
+        window.addEventListener('message', async function(event) {
+            if (event.data.type === 'WALLET_CONNECTED') {
+                console.log('Received wallet connected message from parent');
+                try {
+                    userAddress = event.data.address;
+                    
+                    // Initialize with parent's provider
+                    provider = new ethers.providers.Web3Provider(window.parent.ethereum);
+                    signer = provider.getSigner();
+                    
+                    // Initialize contracts
+                    adrianToken = new ethers.Contract(ADRIAN_TOKEN, ERC20_ABI, signer);
+                    packMinter = new ethers.Contract(PACK_MINTER, PACK_MINTER_ABI, signer);
+                    
+                    // Get token decimals
+                    try {
+                        tokenDecimals = await adrianToken.decimals();
+                    } catch (error) {
+                        console.warn('Could not get token decimals, using default 18');
+                        tokenDecimals = 18;
+                    }
+                    
+                    // Update UI
+                    const shortAddress = userAddress.slice(0, 6) + '...' + userAddress.slice(-4);
+                    document.getElementById('wallet-address').textContent = shortAddress;
+                    document.getElementById('connect-section').style.display = 'none';
+                    document.getElementById('wallet-connected').style.display = 'block';
+                    document.getElementById('mint-section').style.display = 'block';
+                    
+                    // Load data
+                    await getPackConfig();
+                    await updateBalances();
+                    await checkAllowlistStatus();
+                    
+                    showStatus('Wallet connected from parent!', 'success');
+                } catch (error) {
+                    console.error('Error setting up wallet from parent:', error);
+                    showStatus('Error connecting wallet from parent', 'error');
+                }
+            } else if (event.data.type === 'WALLET_DISCONNECTED') {
+                console.log('Received wallet disconnected message from parent');
+                // Reset UI to disconnected state
+                document.getElementById('connect-section').style.display = 'block';
+                document.getElementById('wallet-connected').style.display = 'none';
+                document.getElementById('mint-section').style.display = 'none';
+                showStatus('Wallet disconnected', 'warning');
+            }
+        });
+
+        // Auto-connect if already connected - improved method
+        window.addEventListener('load', async function() {
+            // Check if we're in an iframe and parent has wallet connected
+            if (window.parent && window.parent !== window) {
+                try {
+                    // Try to get wallet info from parent
+                    const parentAccounts = await window.parent.ethereum?.request({ method: 'eth_accounts' });
+                    if (parentAccounts && parentAccounts.length > 0) {
+                        console.log('Using wallet from parent window on load');
+                        userAddress = parentAccounts[0];
+                        
+                        // Initialize with parent's provider
+                        provider = new ethers.providers.Web3Provider(window.parent.ethereum);
+                        signer = provider.getSigner();
+                        
+                        // Initialize contracts
+                        adrianToken = new ethers.Contract(ADRIAN_TOKEN, ERC20_ABI, signer);
+                        packMinter = new ethers.Contract(PACK_MINTER, PACK_MINTER_ABI, signer);
+                        
+                        // Get token decimals
+                        try {
+                            tokenDecimals = await adrianToken.decimals();
+                        } catch (error) {
+                            console.warn('Could not get token decimals, using default 18');
+                            tokenDecimals = 18;
+                        }
+                        
+                        // Update UI
+                        const shortAddress = userAddress.slice(0, 6) + '...' + userAddress.slice(-4);
+                        document.getElementById('wallet-address').textContent = shortAddress;
+                        document.getElementById('connect-section').style.display = 'none';
+                        document.getElementById('wallet-connected').style.display = 'block';
+                        document.getElementById('mint-section').style.display = 'block';
+                        
+                        // Load data
+                        await getPackConfig();
+                        await updateBalances();
+                        await checkAllowlistStatus();
+                        
+                        showStatus('Wallet connected from parent!', 'success');
+                        return;
+                    }
+                } catch (parentError) {
+                    console.log('Could not get wallet from parent on load');
+                }
+            }
+            
+            // Fallback to local connection if not in iframe or parent not available
+            if (window.ethereum) {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    if (accounts.length > 0) {
+                        connectWallet();
+                    }
+                } catch (error) {
+                    console.log('No local wallet connected');
+                }
+            }
+        });
+
+        // Listen for account changes
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', function (accounts) {
+                if (accounts.length === 0) {
+                    document.getElementById('connect-section').style.display = 'block';
+                    document.getElementById('wallet-connected').style.display = 'none';
+                    document.getElementById('mint-section').style.display = 'none';
+                    document.getElementById('network-warning').style.display = 'none';
+                    userAddress = null;
+                } else {
+                    connectWallet();
+                }
+            });
+
+            window.ethereum.on('chainChanged', function (chainId) {
+                window.location.reload();
+            });
+        }
+    </script>
+</body>
+</html>
