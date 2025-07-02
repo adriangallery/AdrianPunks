@@ -688,7 +688,6 @@
                     <span class="label">Max per wallet:</span>
                     <span class="value">15 (1 free + 14 paid)</span>
                 </div>
-            </div>                </div>
             </div>
 
             <div id="network-warning" class="network-warning" style="display: none;">
@@ -1108,8 +1107,7 @@
                     document.getElementById('decrease-btn').disabled = false;
                     document.getElementById('increase-btn').disabled = false;
                     document.getElementById('btn-mint-paid').disabled = false;
-                // Update mint info display after balance update
-                updateMintInfoDisplay();                }
+                }
                 
                 // Update bundle quantity limits
                 if (hasClaimedFree) {
@@ -1185,8 +1183,6 @@
             console.log('Allowlist status check moved to updateBalances');
         }
 
-
-
         // Get pack configuration
         async function getPackConfig() {
             try {
@@ -1247,32 +1243,20 @@
             // Update info display
             const infoContainer = document.querySelector('.mint-info');
             if (infoContainer && packConfig) {
-            // Update info display
-            const infoContainer = document.querySelector(".mint-info");
-            if (infoContainer && packConfig) {
-                // Remove existing dynamic info rows first
-                const existingPublicSale = infoContainer.querySelector(".public-sale-info");
-                const existingAllowlist = infoContainer.querySelector(".allowlist-info");
-                if (existingPublicSale) existingPublicSale.remove();
-                if (existingAllowlist) existingAllowlist.remove();
-                
-                // Add new info rows only if they don exist
+                // Eliminar previos para evitar duplicados
+                const prevAllowlist = infoContainer.querySelector('.allowlist-info');
+                if (prevAllowlist) prevAllowlist.remove();
+                const prevPublicSale = infoContainer.querySelector('.public-sale-info');
+                if (prevPublicSale) prevPublicSale.remove();
+
                 if (hasPublicSale) {
-                    const publicSaleInfo = `<div class="info-row public-sale-info">
-                        <span class="label">Public Sale:</span>
-                        <span class="value">Active</span>
-                    </div>`;
-                    infoContainer.insertAdjacentHTML("beforeend", publicSaleInfo);
+                    infoContainer.insertAdjacentHTML('beforeend', `<div class="info-row public-sale-info"><span class="label">Public Sale:</span><span class="value">Active</span></div>`);
                 }
-                
                 if (hasAllowlist) {
-                    const allowlistInfo = `<div class="info-row allowlist-info">
-                        <span class="label">Allowlist:</span>
-                        <span class="value">Active</span>
-                    </div>`;
-                    infoContainer.insertAdjacentHTML("beforeend", allowlistInfo);
+                    infoContainer.insertAdjacentHTML('beforeend', `<div class="info-row allowlist-info"><span class="label">Allowlist:</span><span class="value">Active</span></div>`);
                 }
-            }        }
+            }
+        }
 
         function increaseQuantity() {
             if (quantity < 14) {
@@ -1584,6 +1568,8 @@
                     connectWallet();
                 }
             });
+        }
+
         // Function to update mint info display
         function updateMintInfoDisplay() {
             if (!packConfig) return;
@@ -1617,71 +1603,66 @@
             if (!isActive) {
                 mintStatusElement.textContent = "Inactive";
                 mintStatusElement.style.color = "#ff4444";
-        // Function to update mint status and time remaining
-        function updateMintStatus() {
-            if (!packConfig) return;
-            
-            const now = Math.floor(Date.now() / 1000);
-            const startTime = parseInt(packConfig.startTime.toString());
-            const endTime = parseInt(packConfig.endTime.toString());
-            const isActive = packConfig.active;
-            
-            const mintStatusElement = document.getElementById("mint-status");
-            const timeRemainingElement = document.getElementById("time-remaining");
-            const timeRemainingRow = document.getElementById("time-remaining-row");
-            
-            if (!isActive) {
-                mintStatusElement.textContent = "Inactive";
-                mintStatusElement.style.color = "#ff4444";
                 timeRemainingRow.style.display = "none";
                 return;
             }
             
-            // Handle case where timestamps are 0 (no time limit)
+            // Handle timestamp 0 logic
             if (startTime === 0 && endTime === 0) {
+                // No time limits - always active
                 mintStatusElement.textContent = "Active";
                 mintStatusElement.style.color = "#00ff88";
                 timeRemainingElement.textContent = "No Time Limit";
                 timeRemainingRow.style.display = "block";
-                return;
-            }
-            
-            if (now < startTime && startTime > 0) {
-                // Mint has not started yet
-                const timeUntilStart = startTime - now;
-                mintStatusElement.textContent = "Starting Soon";
-                mintStatusElement.style.color = "#ff8800";
-                timeRemainingElement.textContent = formatTimeRemaining(timeUntilStart);
-                timeRemainingRow.style.display = "block";
-            } else if ((now >= startTime || startTime === 0) && (now <= endTime || endTime === 0)) {
-                // Mint is active
-                if (endTime > 0) {
+            } else if (startTime === 0) {
+                // No start time - always active until end time
+                if (endTime === 0 || now <= endTime) {
+                    mintStatusElement.textContent = "Active";
+                    mintStatusElement.style.color = "#00ff88";
+                    if (endTime === 0) {
+                        timeRemainingElement.textContent = "No Time Limit";
+                    } else {
+                        timeRemainingElement.textContent = formatTimeRemaining(endTime - now);
+                    }
+                    timeRemainingRow.style.display = "block";
+                } else {
+                    mintStatusElement.textContent = "Ended";
+                    mintStatusElement.style.color = "#ff4444";
+                    timeRemainingRow.style.display = "none";
+                }
+            } else if (endTime === 0) {
+                // No end time - active after start time
+                if (now >= startTime) {
+                    mintStatusElement.textContent = "Active";
+                    mintStatusElement.style.color = "#00ff88";
+                    timeRemainingElement.textContent = "No Time Limit";
+                    timeRemainingRow.style.display = "block";
+                } else {
+                    const timeUntilStart = startTime - now;
+                    mintStatusElement.textContent = "Starting Soon";
+                    mintStatusElement.style.color = "#ff8800";
+                    timeRemainingElement.textContent = formatTimeRemaining(timeUntilStart);
+                    timeRemainingRow.style.display = "block";
+                }
+            } else {
+                // Both timestamps set - normal logic
+                if (now < startTime) {
+                    const timeUntilStart = startTime - now;
+                    mintStatusElement.textContent = "Starting Soon";
+                    mintStatusElement.style.color = "#ff8800";
+                    timeRemainingElement.textContent = formatTimeRemaining(timeUntilStart);
+                    timeRemainingRow.style.display = "block";
+                } else if (now >= startTime && now <= endTime) {
                     const timeUntilEnd = endTime - now;
                     mintStatusElement.textContent = "Active";
                     mintStatusElement.style.color = "#00ff88";
                     timeRemainingElement.textContent = formatTimeRemaining(timeUntilEnd);
                     timeRemainingRow.style.display = "block";
                 } else {
-                    mintStatusElement.textContent = "Active";
-                    mintStatusElement.style.color = "#00ff88";
-                    timeRemainingElement.textContent = "No Time Limit";
-                    timeRemainingRow.style.display = "block";
+                    mintStatusElement.textContent = "Ended";
+                    mintStatusElement.style.color = "#ff4444";
+                    timeRemainingRow.style.display = "none";
                 }
-            } else {
-                // Mint has ended
-                mintStatusElement.textContent = "Ended";
-                mintStatusElement.style.color = "#ff4444";
-                timeRemainingRow.style.display = "none";
-            }
-        }            const hours = Math.floor((seconds % 86400) / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            
-            if (days > 0) {
-                return `${days}d ${hours}h ${minutes}m`;
-            } else if (hours > 0) {
-                return `${hours}h ${minutes}m`;
-            } else {
-                return `${minutes}m`;
             }
         }
         
@@ -1697,10 +1678,24 @@
                 updateMintStatus();
             }, 60000); // Update every minute
         }
-            window.ethereum.on('chainChanged', function (chainId) {
-                window.location.reload();
-            });
+
+        function formatTimeRemaining(seconds) {
+            const days = Math.floor(seconds / 86400);
+            const hours = Math.floor((seconds % 86400) / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            
+            if (days > 0) {
+                return `${days}d ${hours}h ${minutes}m`;
+            } else if (hours > 0) {
+                return `${hours}h ${minutes}m`;
+            } else {
+                return `${minutes}m`;
+            }
         }
+
+        window.ethereum.on('chainChanged', function (chainId) {
+            window.location.reload();
+        });
     </script>
 </body>
 </html>
