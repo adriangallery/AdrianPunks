@@ -1247,28 +1247,32 @@
             // Update info display
             const infoContainer = document.querySelector('.mint-info');
             if (infoContainer && packConfig) {
-                const publicSaleInfo = hasPublicSale ? 
-                    `<div class="info-row">
+            // Update info display
+            const infoContainer = document.querySelector(".mint-info");
+            if (infoContainer && packConfig) {
+                // Remove existing dynamic info rows first
+                const existingPublicSale = infoContainer.querySelector(".public-sale-info");
+                const existingAllowlist = infoContainer.querySelector(".allowlist-info");
+                if (existingPublicSale) existingPublicSale.remove();
+                if (existingAllowlist) existingAllowlist.remove();
+                
+                // Add new info rows only if they don exist
+                if (hasPublicSale) {
+                    const publicSaleInfo = `<div class="info-row public-sale-info">
                         <span class="label">Public Sale:</span>
                         <span class="value">Active</span>
-                    </div>` : '';
+                    </div>`;
+                    infoContainer.insertAdjacentHTML("beforeend", publicSaleInfo);
+                }
                 
-                const allowlistInfo = hasAllowlist ? 
-                    `<div class="info-row">
+                if (hasAllowlist) {
+                    const allowlistInfo = `<div class="info-row allowlist-info">
                         <span class="label">Allowlist:</span>
                         <span class="value">Active</span>
-                    </div>` : '';
-                
-                // Add new info rows if they don't exist
-                if (hasPublicSale && !infoContainer.querySelector('.public-sale-info')) {
-                    infoContainer.insertAdjacentHTML('beforeend', publicSaleInfo);
+                    </div>`;
+                    infoContainer.insertAdjacentHTML("beforeend", allowlistInfo);
                 }
-                
-                if (hasAllowlist && !infoContainer.querySelector('.allowlist-info')) {
-                    infoContainer.insertAdjacentHTML('beforeend', allowlistInfo);
-                }
-            }
-        }
+            }        }
 
         function increaseQuantity() {
             if (quantity < 14) {
@@ -1613,38 +1617,63 @@
             if (!isActive) {
                 mintStatusElement.textContent = "Inactive";
                 mintStatusElement.style.color = "#ff4444";
+        // Function to update mint status and time remaining
+        function updateMintStatus() {
+            if (!packConfig) return;
+            
+            const now = Math.floor(Date.now() / 1000);
+            const startTime = parseInt(packConfig.startTime.toString());
+            const endTime = parseInt(packConfig.endTime.toString());
+            const isActive = packConfig.active;
+            
+            const mintStatusElement = document.getElementById("mint-status");
+            const timeRemainingElement = document.getElementById("time-remaining");
+            const timeRemainingRow = document.getElementById("time-remaining-row");
+            
+            if (!isActive) {
+                mintStatusElement.textContent = "Inactive";
+                mintStatusElement.style.color = "#ff4444";
                 timeRemainingRow.style.display = "none";
                 return;
             }
             
-            if (now < startTime) {
+            // Handle case where timestamps are 0 (no time limit)
+            if (startTime === 0 && endTime === 0) {
+                mintStatusElement.textContent = "Active";
+                mintStatusElement.style.color = "#00ff88";
+                timeRemainingElement.textContent = "No Time Limit";
+                timeRemainingRow.style.display = "block";
+                return;
+            }
+            
+            if (now < startTime && startTime > 0) {
                 // Mint has not started yet
                 const timeUntilStart = startTime - now;
                 mintStatusElement.textContent = "Starting Soon";
                 mintStatusElement.style.color = "#ff8800";
                 timeRemainingElement.textContent = formatTimeRemaining(timeUntilStart);
                 timeRemainingRow.style.display = "block";
-            } else if (now >= startTime && now <= endTime) {
+            } else if ((now >= startTime || startTime === 0) && (now <= endTime || endTime === 0)) {
                 // Mint is active
-                const timeUntilEnd = endTime - now;
-                mintStatusElement.textContent = "Active";
-                mintStatusElement.style.color = "#00ff88";
-                timeRemainingElement.textContent = formatTimeRemaining(timeUntilEnd);
-                timeRemainingRow.style.display = "block";
+                if (endTime > 0) {
+                    const timeUntilEnd = endTime - now;
+                    mintStatusElement.textContent = "Active";
+                    mintStatusElement.style.color = "#00ff88";
+                    timeRemainingElement.textContent = formatTimeRemaining(timeUntilEnd);
+                    timeRemainingRow.style.display = "block";
+                } else {
+                    mintStatusElement.textContent = "Active";
+                    mintStatusElement.style.color = "#00ff88";
+                    timeRemainingElement.textContent = "No Time Limit";
+                    timeRemainingRow.style.display = "block";
+                }
             } else {
                 // Mint has ended
                 mintStatusElement.textContent = "Ended";
                 mintStatusElement.style.color = "#ff4444";
                 timeRemainingRow.style.display = "none";
             }
-        }
-        
-        // Function to format time remaining
-        function formatTimeRemaining(seconds) {
-            if (seconds <= 0) return "Ended";
-            
-            const days = Math.floor(seconds / 86400);
-            const hours = Math.floor((seconds % 86400) / 3600);
+        }            const hours = Math.floor((seconds % 86400) / 3600);
             const minutes = Math.floor((seconds % 3600) / 60);
             
             if (days > 0) {
