@@ -658,7 +658,23 @@
                 </div>
                 <div class="info-row">
                     <span class="label">Total Supply:</span>
-                    <span class="value">100</span>
+                    <span class="value" id="total-supply">100</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Minted:</span>
+                    <span class="value" id="minted-count">0</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Remaining:</span>
+                    <span class="value" id="remaining-count">100</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Mint Status:</span>
+                    <span class="value" id="mint-status">Loading...</span>
+                </div>
+                <div class="info-row" id="time-remaining-row" style="display: none;">
+                    <span class="label">Time Remaining:</span>
+                    <span class="value" id="time-remaining">--</span>
                 </div>
                 <div class="info-row">
                     <span class="label">Free Mint:</span>
@@ -672,6 +688,7 @@
                     <span class="label">Max per wallet:</span>
                     <span class="value">15 (1 free + 14 paid)</span>
                 </div>
+            </div>                </div>
             </div>
 
             <div id="network-warning" class="network-warning" style="display: none;">
@@ -1091,7 +1108,8 @@
                     document.getElementById('decrease-btn').disabled = false;
                     document.getElementById('increase-btn').disabled = false;
                     document.getElementById('btn-mint-paid').disabled = false;
-                }
+                // Update mint info display after balance update
+                updateMintInfoDisplay();                }
                 
                 // Update bundle quantity limits
                 if (hasClaimedFree) {
@@ -1191,7 +1209,9 @@
                     hasPublicSale: config[11],
                     hasAllowlist: config[12]
                 };
-                
+                // Update mint info display and start countdown
+                updateMintInfoDisplay();
+                startCountdownTimer();                
                 hasPublicSale = packConfig.hasPublicSale;
                 hasAllowlist = packConfig.hasAllowlist;
                 
@@ -1560,7 +1580,94 @@
                     connectWallet();
                 }
             });
-
+        // Function to update mint info display
+        function updateMintInfoDisplay() {
+            if (!packConfig) return;
+            
+            const totalSupply = parseInt(packConfig.maxSupply.toString());
+            const minted = parseInt(packConfig.minted.toString());
+            const remaining = totalSupply - minted;
+            
+            // Update supply info
+            document.getElementById("total-supply").textContent = totalSupply.toLocaleString();
+            document.getElementById("minted-count").textContent = minted.toLocaleString();
+            document.getElementById("remaining-count").textContent = remaining.toLocaleString();
+            
+            // Update mint status and time
+            updateMintStatus();
+        }
+        
+        // Function to update mint status and time remaining
+        function updateMintStatus() {
+            if (!packConfig) return;
+            
+            const now = Math.floor(Date.now() / 1000);
+            const startTime = parseInt(packConfig.startTime.toString());
+            const endTime = parseInt(packConfig.endTime.toString());
+            const isActive = packConfig.active;
+            
+            const mintStatusElement = document.getElementById("mint-status");
+            const timeRemainingElement = document.getElementById("time-remaining");
+            const timeRemainingRow = document.getElementById("time-remaining-row");
+            
+            if (!isActive) {
+                mintStatusElement.textContent = "Inactive";
+                mintStatusElement.style.color = "#ff4444";
+                timeRemainingRow.style.display = "none";
+                return;
+            }
+            
+            if (now < startTime) {
+                // Mint has not started yet
+                const timeUntilStart = startTime - now;
+                mintStatusElement.textContent = "Starting Soon";
+                mintStatusElement.style.color = "#ff8800";
+                timeRemainingElement.textContent = formatTimeRemaining(timeUntilStart);
+                timeRemainingRow.style.display = "block";
+            } else if (now >= startTime && now <= endTime) {
+                // Mint is active
+                const timeUntilEnd = endTime - now;
+                mintStatusElement.textContent = "Active";
+                mintStatusElement.style.color = "#00ff88";
+                timeRemainingElement.textContent = formatTimeRemaining(timeUntilEnd);
+                timeRemainingRow.style.display = "block";
+            } else {
+                // Mint has ended
+                mintStatusElement.textContent = "Ended";
+                mintStatusElement.style.color = "#ff4444";
+                timeRemainingRow.style.display = "none";
+            }
+        }
+        
+        // Function to format time remaining
+        function formatTimeRemaining(seconds) {
+            if (seconds <= 0) return "Ended";
+            
+            const days = Math.floor(seconds / 86400);
+            const hours = Math.floor((seconds % 86400) / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            
+            if (days > 0) {
+                return `${days}d ${hours}h ${minutes}m`;
+            } else if (hours > 0) {
+                return `${hours}h ${minutes}m`;
+            } else {
+                return `${minutes}m`;
+            }
+        }
+        
+        // Function to start countdown timer
+        function startCountdownTimer() {
+            if (!packConfig) return;
+            
+            // Update immediately
+            updateMintStatus();
+            
+            // Update every minute
+            setInterval(() => {
+                updateMintStatus();
+            }, 60000); // Update every minute
+        }
             window.ethereum.on('chainChanged', function (chainId) {
                 window.location.reload();
             });
