@@ -4,18 +4,18 @@
 
 import { ContractAddresses } from '@/types/contracts';
 
-// Contract addresses - Update these with actual deployed addresses
+// Contract addresses - BASE Network
 export const CONTRACTS: ContractAddresses = {
-  ADRIAN_LAB_CORE: process.env.NEXT_PUBLIC_ADRIAN_LAB_CORE || '0x0000000000000000000000000000000000000000',
-  ADRIAN_TRAITS_CORE: process.env.NEXT_PUBLIC_ADRIAN_TRAITS_CORE || '0x0000000000000000000000000000000000000000',
+  ADRIAN_LAB_CORE: process.env.NEXT_PUBLIC_ADRIAN_LAB_CORE || '0x6e369bf0e4e0c106192d606fb6d85836d684da75',
+  ADRIAN_TRAITS_CORE: process.env.NEXT_PUBLIC_ADRIAN_TRAITS_CORE || '0x90546848474fb3c9fda3fdad887969bb244e7e58',
   ADRIAN_TRAITS_EXTENSIONS: process.env.NEXT_PUBLIC_ADRIAN_TRAITS_EXTENSIONS || '0x0000000000000000000000000000000000000000',
 };
 
-// Chain configuration
+// Chain configuration - BASE Network
 export const CHAIN_CONFIG = {
-  id: parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '1'),
-  name: 'Ethereum',
-  network: 'ethereum',
+  id: parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '8453'),
+  name: 'Base',
+  network: 'base',
   nativeCurrency: {
     decimals: 18,
     name: 'Ether',
@@ -23,16 +23,16 @@ export const CHAIN_CONFIG = {
   },
   rpcUrls: {
     default: {
-      http: [process.env.NEXT_PUBLIC_RPC_URL || 'https://eth-mainnet.alchemyapi.io/v2/'],
+      http: [process.env.NEXT_PUBLIC_RPC_URL || 'https://mainnet.base.org'],
     },
     public: {
-      http: [process.env.NEXT_PUBLIC_RPC_URL || 'https://eth-mainnet.alchemyapi.io/v2/'],
+      http: [process.env.NEXT_PUBLIC_RPC_URL || 'https://mainnet.base.org'],
     },
   },
   blockExplorers: {
     default: {
-      name: 'Etherscan',
-      url: 'https://etherscan.io',
+      name: 'Basescan',
+      url: 'https://basescan.org',
     },
   },
 };

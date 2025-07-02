@@ -4,19 +4,16 @@
 
 import type { AppProps } from 'next/app';
 import { WagmiConfig, createConfig, configureChains } from 'wagmi';
-import { mainnet, polygon } from 'wagmi/chains';
+import { base } from 'wagmi/chains';
 import { publicProvider } from 'wagmi/providers/public';
-import { MetaMaskConnector } from 'wagmi/connectors/metaMask';
-import { WalletConnectConnector } from 'wagmi/connectors/walletConnect';
-import { CoinbaseWalletConnector } from 'wagmi/connectors/coinbaseWallet';
 import { RainbowKitProvider, getDefaultWallets } from '@rainbow-me/rainbowkit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@rainbow-me/rainbowkit/styles.css';
 import '@/styles/globals.css';
 
-// Configure chains & providers
+// Configure chains & providers - Only BASE network
 const { chains, publicClient, webSocketPublicClient } = configureChains(
-  [mainnet, polygon],
+  [base],
   [publicProvider()]
 );
 

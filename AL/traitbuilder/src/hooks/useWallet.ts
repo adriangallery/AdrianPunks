@@ -2,7 +2,7 @@
  * Hook for wallet connection and management
  */
 
-import { useAccount, useConnect, useDisconnect, useNetwork, useSwitchNetwork } from 'wagmi';
+import { useAccount, useConnect, useDisconnect, useNetwork } from 'wagmi';
 import { useCallback, useEffect, useState } from 'react';
 import { CHAIN_CONFIG } from '@/utils/contracts';
 import { ERROR_MESSAGES } from '@/utils/constants';
@@ -21,11 +21,10 @@ export const useWallet = () => {
   const { connect, connectors, error: connectError } = useConnect();
   const { disconnect } = useDisconnect();
   const { chain } = useNetwork();
-  const { switchNetwork } = useSwitchNetwork();
 
   const [error, setError] = useState<string | null>(null);
 
-  // Check if connected to correct network
+  // Check if connected to correct network (BASE)
   const isCorrectNetwork = chain?.id === CHAIN_CONFIG.id;
 
   // Connect wallet
@@ -52,27 +51,14 @@ export const useWallet = () => {
     }
   }, [disconnect]);
 
-  // Switch to correct network
-  const switchToCorrectNetwork = useCallback(async () => {
-    if (switchNetwork) {
-      try {
-        await switchNetwork(CHAIN_CONFIG.id);
-        setError(null);
-      } catch (err) {
-        setError('Failed to switch network');
-        console.error('Network switch error:', err);
-      }
-    }
-  }, [switchNetwork]);
-
-  // Auto-switch network if incorrect
+  // Auto-check network
   useEffect(() => {
-    if (isConnected && !isCorrectNetwork && switchNetwork) {
-      setError('Please switch to the correct network');
+    if (isConnected && !isCorrectNetwork) {
+      setError('Please connect to Base network');
     } else if (isConnected && isCorrectNetwork) {
       setError(null);
     }
-  }, [isConnected, isCorrectNetwork, switchNetwork]);
+  }, [isConnected, isCorrectNetwork]);
 
   // Handle connection errors
   useEffect(() => {
@@ -96,7 +82,6 @@ export const useWallet = () => {
     // Actions
     connectWallet,
     disconnectWallet,
-    switchToCorrectNetwork,
     
     // Available connectors
     availableConnectors,

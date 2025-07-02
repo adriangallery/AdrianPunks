@@ -2,161 +2,134 @@
  * Hook for fetching user traits
  */
 
-import { useCallback, useEffect, useState } from 'react';
-import { useContractReads } from 'wagmi';
-import { Trait, TraitCategory } from '@/types/traits';
-import { CONTRACTS } from '@/utils/contracts';
-import { groupTraitsByCategory, filterTraits, sortTraits } from '@/utils/helpers';
+import { useAccount, useContractReads } from 'wagmi';
+import { ADRIAN_TRAITS_CORE_ADDRESS } from '../utils/constants';
+import AdrianTraitsCoreABI from '../abis/AdrianTraitsCore.json';
 
-// Import ABIs
-import adrianTraitsCoreABI from '@/abis/AdrianTraitsCore.json';
+// Filtrar solo las funciones del ABI para evitar errores de tipado
+const abiFunctions = AdrianTraitsCoreABI.filter(item => item.type === 'function');
 
-export interface UseUserTraitsOptions {
-  address?: string;
-  enabled?: boolean;
-  filters?: {
-    category?: TraitCategory;
-    rarity?: string;
-    equipped?: boolean;
-    search?: string;
-  };
-  sortBy?: 'id' | 'name' | 'rarity' | 'balance';
+export interface Trait {
+  id: string;
+  tokenId: number;
+  category: string;
+  name: string;
+  image: string;
+  rarity: string;
+  balance: number;
 }
 
-export const useUserTraits = ({ 
-  address, 
-  enabled = true, 
-  filters = {},
-  sortBy = 'id'
-}: UseUserTraitsOptions = {}) => {
-  const [traits, setTraits] = useState<Trait[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export function useUserTraits() {
+  const { address, isConnected } = useAccount();
 
-  // Get user traits from contract
-  const { data: userTraitsData, isLoading: contractLoading } = useContractReads({
-    contracts: address ? [
+  // Leer el balance de traits de la wallet
+  const { data: balanceData, isLoading: balanceLoading } = useContractReads({
+    contracts: [
       {
-        address: CONTRACTS.ADRIAN_TRAITS_CORE as `0x${string}`,
-        abi: adrianTraitsCoreABI,
-        functionName: 'getUserTraits',
+        address: ADRIAN_TRAITS_CORE_ADDRESS as `0x${string}`,
+        abi: abiFunctions,
+        functionName: 'balanceOf',
         args: [address as `0x${string}`],
-      }
-    ] : [],
-    enabled: !!address && enabled,
+        enabled: !!address && isConnected,
+      },
+    ],
   });
 
-  // Fetch traits metadata
-  const fetchTraitsMetadata = useCallback(async (traitIds: number[], balances: number[]) => {
-    if (!traitIds.length) return [];
+  const balance = balanceData?.[0]?.result as bigint | undefined;
+  const traitCount = balance ? Number(balance) : 0;
 
-    try {
-      const traitPromises = traitIds.map(async (traitId, index) => {
-        try {
-          // Get trait metadata from contract
-          const { data: metadataData } = await useContractReads({
-            contracts: [{
-              address: CONTRACTS.ADRIAN_TRAITS_CORE as `0x${string}`,
-              abi: adrianTraitsCoreABI,
-              functionName: 'getTraitMetadata',
-              args: [BigInt(traitId)],
-            }],
-          });
+  // Crear contratos para leer cada trait por índice
+  const traitContracts = Array.from({ length: traitCount }, (_, index) => ({
+    address: ADRIAN_TRAITS_CORE_ADDRESS as `0x${string}`,
+    abi: abiFunctions,
+    functionName: 'tokenOfOwnerByIndex' as const,
+    args: [address as `0x${string}`, BigInt(index)],
+    enabled: !!address && isConnected && traitCount > 0,
+  }));
 
-          const metadata = metadataData?.[0]?.result as [string, string, string, string] | undefined;
-          
-          if (metadata) {
-            const [name, category, description, imageURI] = metadata;
-            
-            const trait: Trait = {
-              id: traitId,
-              category: category as TraitCategory,
-              name: name || `Trait #${traitId}`,
-              description: description || '',
-              imageURI: imageURI || '',
-              balance: balances[index] || 0,
-              isEquipped: false, // Will be updated by useEquippedTraits hook
-              rarity: 'common', // Default rarity, can be enhanced later
-            };
+  // Leer todos los trait IDs
+  const { data: traitIdsData, isLoading: traitIdsLoading } = useContractReads({
+    contracts: traitContracts,
+  });
 
-            return trait;
-          }
-        } catch (err) {
-          console.error(`Error fetching metadata for trait ${traitId}:`, err);
-        }
-        return null;
-      });
+  const traitIds = traitIdsData?.map(result => 
+    result.result ? Number(result.result) : null
+  ).filter(id => id !== null) as number[] || [];
 
-      const traitResults = await Promise.all(traitPromises);
-      return traitResults.filter((trait): trait is Trait => trait !== null);
+  // Crear contratos para leer datos de cada trait
+  const traitDataContracts = traitIds.map(traitId => [
+    {
+      address: ADRIAN_TRAITS_CORE_ADDRESS as `0x${string}`,
+      abi: abiFunctions,
+      functionName: 'uri' as const,
+      args: [BigInt(traitId)],
+      enabled: !!address && isConnected,
+    },
+    {
+      address: ADRIAN_TRAITS_CORE_ADDRESS as `0x${string}`,
+      abi: abiFunctions,
+      functionName: 'balanceOf' as const,
+      args: [address as `0x${string}`, BigInt(traitId)],
+      enabled: !!address && isConnected,
+    },
+  ]).flat();
 
-    } catch (err) {
-      console.error('Error fetching traits metadata:', err);
-      return [];
-    }
-  }, []);
+  // Leer datos de todos los traits
+  const { data: traitData, isLoading: traitDataLoading } = useContractReads({
+    contracts: traitDataContracts,
+  });
 
-  // Process user traits data
-  useEffect(() => {
-    const processUserTraits = async () => {
-      if (!userTraitsData?.[0]?.result) return;
+  // Procesar los datos de los traits
+  const traits: Trait[] = [];
+  
+  if (traitData && traitIds.length > 0) {
+    for (let i = 0; i < traitIds.length; i++) {
+      const traitId = traitIds[i];
+      const baseIndex = i * 2;
+      
+      const uriData = traitData[baseIndex]?.result as string | undefined;
+      const balanceData = traitData[baseIndex + 1]?.result as bigint | undefined;
 
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        const [traitIds, balances] = userTraitsData[0].result as [number[], number[]];
+      if (uriData && balanceData) {
+        const balance = Number(balanceData);
         
-        if (!traitIds || !balances) {
-          setTraits([]);
-          return;
-        }
-
-        const traitsWithMetadata = await fetchTraitsMetadata(traitIds, balances);
+        // Parsear la URI para obtener información del trait
+        // Asumiendo que la URI contiene información del trait
+        const traitInfo = parseTraitURI(uriData, traitId);
         
-        // Apply filters and sorting
-        let filteredTraits = filterTraits(traitsWithMetadata, filters);
-        filteredTraits = sortTraits(filteredTraits, sortBy);
-
-        setTraits(filteredTraits);
-
-      } catch (err) {
-        setError('Failed to fetch traits');
-        console.error('Error processing user traits:', err);
-      } finally {
-        setIsLoading(false);
+        traits.push({
+          id: `trait-${traitId}`,
+          tokenId: traitId,
+          category: traitInfo.category,
+          name: traitInfo.name,
+          image: traitInfo.image,
+          rarity: traitInfo.rarity,
+          balance,
+        });
       }
-    };
+    }
+  }
 
-    processUserTraits();
-  }, [userTraitsData, fetchTraitsMetadata, filters, sortBy]);
-
-  // Group traits by category
-  const traitsByCategory = groupTraitsByCategory(traits);
-
-  // Get traits for specific category
-  const getTraitsByCategory = useCallback((category: TraitCategory) => {
-    return traitsByCategory[category] || [];
-  }, [traitsByCategory]);
-
-  // Get trait by ID
-  const getTraitById = useCallback((traitId: number) => {
-    return traits.find(trait => trait.id === traitId);
-  }, [traits]);
-
-  // Refresh traits
-  const refresh = useCallback(() => {
-    // This will trigger a re-fetch by changing the enabled state temporarily
-    // Implementation depends on how you want to handle refresh
-  }, []);
+  const isLoading = balanceLoading || traitIdsLoading || traitDataLoading;
 
   return {
     traits,
-    traitsByCategory,
-    isLoading: isLoading || contractLoading,
-    error,
-    getTraitsByCategory,
-    getTraitById,
-    refresh,
+    isLoading,
+    error: null,
   };
-}; 
+}
+
+// Función auxiliar para parsear la URI del trait
+function parseTraitURI(uri: string, traitId: number) {
+  // Por ahora, crear datos de ejemplo basados en el traitId
+  // En un caso real, la URI contendría metadata real
+  const categories = ['BACKGROUND', 'BODY', 'EYES', 'MOUTH', 'ACCESSORY'];
+  const category = categories[traitId % categories.length];
+  
+  return {
+    category,
+    name: `${category} #${traitId}`,
+    image: `/api/preview?traitId=${traitId}`,
+    rarity: ['Common', 'Rare', 'Epic', 'Legendary'][traitId % 4],
+  };
+} 

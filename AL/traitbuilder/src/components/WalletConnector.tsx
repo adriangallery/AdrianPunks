@@ -18,7 +18,6 @@ export const WalletConnector: React.FC<WalletConnectorProps> = ({ className = ''
     isCorrectNetwork,
     error,
     formattedAddress,
-    switchToCorrectNetwork,
   } = useWallet();
 
   if (isConnected) {
@@ -34,12 +33,9 @@ export const WalletConnector: React.FC<WalletConnectorProps> = ({ className = ''
 
         {/* Network Status */}
         {!isCorrectNetwork && (
-          <button
-            onClick={switchToCorrectNetwork}
-            className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-          >
-            Switch Network
-          </button>
+          <div className="bg-orange-100 border border-orange-300 text-orange-700 px-3 py-2 rounded-lg text-sm">
+            Please connect to Base network
+          </div>
         )}
 
         {/* Error Display */}
@@ -63,7 +59,7 @@ export const WalletConnector: React.FC<WalletConnectorProps> = ({ className = ''
           Welcome to AdrianLab Trait Builder
         </h2>
         <p className="text-gray-600 mb-6">
-          Connect your wallet to start customizing your NFTs
+          Connect your wallet to start customizing your NFTs on Base network
         </p>
       </div>
 
@@ -90,7 +86,7 @@ export const WalletConnector: React.FC<WalletConnectorProps> = ({ className = ''
         <h3 className="font-medium text-blue-900 mb-2">How to get started:</h3>
         <ol className="text-sm text-blue-800 space-y-1">
           <li>1. Connect your wallet (MetaMask, WalletConnect, etc.)</li>
-          <li>2. Make sure you're on the correct network</li>
+          <li>2. Make sure you're on Base network</li>
           <li>3. Select an NFT from your collection</li>
           <li>4. Browse and equip traits to customize your NFT</li>
         </ol>

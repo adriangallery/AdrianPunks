@@ -18,33 +18,24 @@ import { NFT } from '@/types/nft';
 import { TraitCategory } from '@/types/traits';
 
 export default function TraitBuilder() {
-  const [selectedNFT, setSelectedNFT] = useState<NFT | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<TraitCategory>('BACKGROUND');
-
-  // Wallet connection
   const { isConnected, address } = useWallet();
+  const { nfts, isLoading: nftsLoading } = useUserNFTs();
+  const { traits, isLoading: traitsLoading } = useUserTraits();
+  const [selectedNFT, setSelectedNFT] = useState<string | null>(null);
 
-  // User NFTs
-  const { nfts, isLoading: nftsLoading, error: nftsError } = useUserNFTs({
-    address,
-    enabled: isConnected,
-  });
-
-  // User traits
-  const { traits, traitsByCategory, isLoading: traitsLoading, error: traitsError } = useUserTraits({
-    address,
-    enabled: isConnected && !!selectedNFT,
-  });
-
-  // Handle NFT selection
-  const handleSelectNFT = (nft: NFT) => {
-    setSelectedNFT(nft);
-  };
-
-  // Handle category selection
-  const handleSelectCategory = (category: TraitCategory) => {
-    setSelectedCategory(category);
-  };
+  if (!isConnected) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-white mb-8">AdrianLab Trait Builder</h1>
+          <p className="text-xl text-gray-300 mb-8">
+            Conecta tu wallet para comenzar a personalizar tus NFTs
+          </p>
+          <WalletConnector />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -56,15 +47,16 @@ export default function TraitBuilder() {
       </Head>
 
       <ErrorBoundary>
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900">
           {/* Header */}
-          <header className="bg-white shadow-sm border-b border-gray-200">
+          <header className="bg-black/20 backdrop-blur-sm border-b border-white/10">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex justify-between items-center h-16">
-                <div className="flex items-center">
-                  <h1 className="text-xl font-bold text-gray-900">
-                    AdrianLab Trait Builder
-                  </h1>
+              <div className="flex justify-between items-center py-4">
+                <div className="flex items-center space-x-4">
+                  <h1 className="text-2xl font-bold text-white">AdrianLab Trait Builder</h1>
+                  <div className="text-sm text-gray-300">
+                    {address && `Wallet: ${address.slice(0, 6)}...${address.slice(-4)}`}
+                  </div>
                 </div>
                 <WalletConnector />
               </div>
@@ -73,100 +65,63 @@ export default function TraitBuilder() {
 
           {/* Main Content */}
           <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {!isConnected ? (
-              // Wallet Connection Screen
-              <div className="flex items-center justify-center min-h-[60vh]">
-                <WalletConnector />
+            {nftsLoading || traitsLoading ? (
+              <div className="flex justify-center items-center h-64">
+                <LoadingSpinner />
               </div>
             ) : (
-              // Main Builder Interface
-              <div className="space-y-8">
-                {/* NFT Selection */}
-                <section>
-                  <NFTSelector
-                    nfts={nfts}
-                    selectedNFT={selectedNFT}
-                    onSelectNFT={handleSelectNFT}
-                    isLoading={nftsLoading}
-                    error={nftsError}
-                  />
-                </section>
-
-                {/* Trait Builder (only show if NFT is selected) */}
-                {selectedNFT && (
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Left Panel - Trait Categories */}
-                    <div className="lg:col-span-1">
-                      <TraitPanel
-                        traitsByCategory={traitsByCategory}
-                        selectedCategory={selectedCategory}
-                        onSelectCategory={handleSelectCategory}
-                        isLoading={traitsLoading}
-                        error={traitsError}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* NFT Grid */}
+                <div className="lg:col-span-2">
+                  <div className="bg-black/20 backdrop-blur-sm rounded-lg p-6 border border-white/10">
+                    <h2 className="text-xl font-semibold text-white mb-4">
+                      Tus NFTs ({nfts.length})
+                    </h2>
+                    {nfts.length > 0 ? (
+                      <NFTSelector 
+                        nfts={nfts} 
+                        selectedNFT={selectedNFT}
+                        onSelectNFT={setSelectedNFT}
                       />
-                    </div>
-
-                    {/* Center Panel - Preview */}
-                    <div className="lg:col-span-1">
-                      <PreviewDisplay
-                        nft={selectedNFT}
-                        selectedTraits={traitsByCategory}
-                      />
-                    </div>
-
-                    {/* Right Panel - Equipped Traits */}
-                    <div className="lg:col-span-1">
-                      <EquippedTraits
-                        nft={selectedNFT}
-                        equippedTraits={traitsByCategory}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Loading State */}
-                {(nftsLoading || traitsLoading) && (
-                  <div className="flex items-center justify-center py-12">
-                    <LoadingSpinner size="lg" />
-                  </div>
-                )}
-
-                {/* Error State */}
-                {(nftsError || traitsError) && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <div className="flex">
-                      <div className="flex-shrink-0">
-                        <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                        </svg>
+                    ) : (
+                      <div className="text-center py-12">
+                        <p className="text-gray-300 text-lg">
+                          No tienes NFTs de AdrianLab en tu wallet
+                        </p>
+                        <p className="text-gray-400 mt-2">
+                          Minta algunos NFTs primero para poder personalizarlos
+                        </p>
                       </div>
-                      <div className="ml-3">
-                        <h3 className="text-sm font-medium text-red-800">
-                          Error loading data
-                        </h3>
-                        <div className="mt-2 text-sm text-red-700">
-                          {nftsError && <p>{nftsError}</p>}
-                          {traitsError && <p>{traitsError}</p>}
-                        </div>
-                      </div>
-                    </div>
+                    )}
                   </div>
-                )}
+                </div>
+
+                {/* Trait Panel */}
+                <div className="space-y-6">
+                  {/* Selected NFT Info */}
+                  {selectedNFT && (
+                    <div className="bg-black/20 backdrop-blur-sm rounded-lg p-6 border border-white/10">
+                      <h3 className="text-lg font-semibold text-white mb-4">
+                        NFT Seleccionado
+                      </h3>
+                      <EquippedTraits nftId={selectedNFT} />
+                    </div>
+                  )}
+
+                  {/* Available Traits */}
+                  <div className="bg-black/20 backdrop-blur-sm rounded-lg p-6 border border-white/10">
+                    <h3 className="text-lg font-semibold text-white mb-4">
+                      Traits Disponibles ({traits.length})
+                    </h3>
+                    <TraitPanel 
+                      traits={traits}
+                      selectedNFT={selectedNFT}
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </main>
-
-          {/* Footer */}
-          <footer className="bg-white border-t border-gray-200 mt-16">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              <div className="text-center text-gray-500 text-sm">
-                <p>&copy; 2024 AdrianLab. All rights reserved.</p>
-                <p className="mt-2">
-                  Built with Next.js, Tailwind CSS, and Web3 technologies
-                </p>
-              </div>
-            </div>
-          </footer>
         </div>
       </ErrorBoundary>
     </>
