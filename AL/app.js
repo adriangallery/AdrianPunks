@@ -12,6 +12,7 @@ let introTimer;
 let musicInitialized = false;
 let ethersLoaded = false;
 let progressInterval;
+let isMobile = false;
 
 // DOM elements
 const introScreen = document.getElementById('intro-screen');
@@ -31,10 +32,18 @@ const progressText = document.querySelector('.progress-text');
 
 // Initialization
 document.addEventListener('DOMContentLoaded', function() {
+    detectMobile();
     initializeApp();
     setupEventListeners();
     startIntro();
 });
+
+function detectMobile() {
+    // Check if device is mobile
+    isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+               window.innerWidth <= 768;
+    console.log('Mobile device detected:', isMobile);
+}
 
 function initializeApp() {
     // Configure music
@@ -337,12 +346,20 @@ function toggleMute() {
     
     if (isMuted) {
         backgroundMusic.pause();
-        muteButton.textContent = '🔇';
+        if (isMobile) {
+            muteButton.textContent = 'Music OFF';
+        } else {
+            muteButton.textContent = '🔇';
+        }
     } else {
         if (musicInitialized) {
             backgroundMusic.play().catch(e => console.log('Audio play failed'));
         }
-        muteButton.textContent = '🔊';
+        if (isMobile) {
+            muteButton.textContent = 'Music ON';
+        } else {
+            muteButton.textContent = '🔊';
+        }
     }
 }
 
