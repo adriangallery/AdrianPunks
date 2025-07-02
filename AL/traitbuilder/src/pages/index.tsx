@@ -5,17 +5,14 @@
 import React, { useState } from 'react';
 import Head from 'next/head';
 import { WalletConnector } from '@/components/WalletConnector';
-import { NFTSelector } from '@/components/NFTSelector';
-import { TraitPanel } from '@/components/TraitPanel';
-import { PreviewDisplay } from '@/components/PreviewDisplay';
-import { EquippedTraits } from '@/components/EquippedTraits';
+import NFTGrid from '@/components/NFTGrid';
+import TraitPanel from '@/components/TraitPanel';
+import EquippedTraits from '@/components/EquippedTraits';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useWallet } from '@/hooks/useWallet';
 import { useUserNFTs } from '@/hooks/useUserNFTs';
 import { useUserTraits } from '@/hooks/useUserTraits';
-import { NFT } from '@/types/nft';
-import { TraitCategory } from '@/types/traits';
 
 export default function TraitBuilder() {
   const { isConnected, address } = useWallet();
@@ -78,7 +75,7 @@ export default function TraitBuilder() {
                       Tus NFTs ({nfts.length})
                     </h2>
                     {nfts.length > 0 ? (
-                      <NFTSelector 
+                      <NFTGrid 
                         nfts={nfts} 
                         selectedNFT={selectedNFT}
                         onSelectNFT={setSelectedNFT}
