@@ -1,0 +1,41 @@
+name: Deploy Traitbuilder to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: AdrianLab/traitbuilder
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build static site
+        run: npm run build
+
+      - name: Fix relative paths in HTML
+        run: |
+          echo "const fs = require('fs');\nconst path = require('path');\nfunction fixPathsInFile(filePath) {\n  let content = fs.readFileSync(filePath, 'utf8');\n  content = content.replace(/src=\"\//g, 'src=\".\/');\n  content = content.replace(/href=\"\//g, 'href=\".\/');\n  fs.writeFileSync(filePath, content);\n}\nconst outDir = path.join(__dirname, 'out');\n['index.html', '404.html'].forEach(file => {\n  const filePath = path.join(outDir, file);\n  if (fs.existsSync(filePath)) fixPathsInFile(filePath);\n});" > fix-paths.js
+          node fix-paths.js
+
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: AdrianLab/traitbuilder/out
+          destination_dir: AdrianLab/traitbuilder/out
+          keep_files: true
+          force_orphan: true 
