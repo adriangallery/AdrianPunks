@@ -250,9 +250,9 @@ function handleIntroClick(event) {
 function goToMainScreen() {
     console.log('Starting transition to main screen');
     
-    // Fade out intro (5 seconds - changed from 4)
+    // Fade out intro (7 seconds - changed from 5)
     introScreen.style.opacity = '0';
-    introScreen.style.transition = 'opacity 5s ease-in-out';
+    introScreen.style.transition = 'opacity 7s ease-in-out';
     
     setTimeout(() => {
         introScreen.classList.remove('active');
@@ -279,7 +279,7 @@ function goToMainScreen() {
                 loadEthersWhenNeeded();
             }
         }, 100);
-    }, 5000);
+    }, 7000);
 }
 
 async function loadEthersWhenNeeded() {
