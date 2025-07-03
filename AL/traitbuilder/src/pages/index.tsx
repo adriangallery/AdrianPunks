@@ -10,6 +10,7 @@ import TraitPanel from '@/components/TraitPanel';
 import EquippedTraits from '@/components/EquippedTraits';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { Web3ErrorBoundary } from '@/components/Web3ErrorBoundary';
 import ClientOnly from '@/components/ClientOnly';
 import { useWallet } from '@/hooks/useWallet';
 import { useUserNFTs } from '@/hooks/useUserNFTs';
@@ -126,15 +127,17 @@ export default function TraitBuilder() {
       </Head>
 
       <ErrorBoundary>
-        <ClientOnly 
-          fallback={
-            <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-              <LoadingSpinner size="xl" text="Cargando..." />
-            </div>
-          }
-        >
-          <TraitBuilderContent />
-        </ClientOnly>
+        <Web3ErrorBoundary>
+          <ClientOnly 
+            fallback={
+              <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+                <LoadingSpinner size="xl" text="Cargando..." />
+              </div>
+            }
+          >
+            <TraitBuilderContent />
+          </ClientOnly>
+        </Web3ErrorBoundary>
       </ErrorBoundary>
     </>
   );
