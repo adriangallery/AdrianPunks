@@ -16,12 +16,48 @@ interface PreviewResponse {
   timestamp: number;
 }
 
+interface ErrorResponse {
+  error: string;
+  retryAfter?: number;
+}
+
+// Simple in-memory rate limiting (in production, use Redis or similar)
+const requestCounts = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT = 100; // requests per minute
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const userRequests = requestCounts.get(ip);
+
+  if (!userRequests || now > userRequests.resetTime) {
+    requestCounts.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    return true;
+  }
+
+  if (userRequests.count >= RATE_LIMIT) {
+    return false;
+  }
+
+  userRequests.count++;
+  return true;
+}
+
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<PreviewResponse | { error: string }>
+  res: NextApiResponse<PreviewResponse | ErrorResponse>
 ) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Rate limiting
+  const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  if (!checkRateLimit(clientIP as string)) {
+    return res.status(429).json({ 
+      error: 'Too many requests. Please try again later.',
+      retryAfter: 60
+    });
   }
 
   try {
@@ -52,8 +88,9 @@ export default async function handler(
       timestamp: Date.now(),
     };
 
-    // Set cache headers
-    res.setHeader('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
+    // Set aggressive cache headers
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600'); // Cache for 1 hour
+    res.setHeader('ETag', `"${tokenId}-${JSON.stringify(traitsMap)}"`);
     res.status(200).json(response);
 
   } catch (error) {

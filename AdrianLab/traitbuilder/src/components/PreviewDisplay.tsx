@@ -2,7 +2,7 @@
  * Preview display component for NFT with traits
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { NFT } from '@/types/nft';
 import { TraitCategory } from '@/types/traits';
 import { getNFTDisplayName, getNFTImageUrl } from '@/utils/helpers';
@@ -21,9 +21,11 @@ export const PreviewDisplay: React.FC<PreviewDisplayProps> = ({
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastRequestRef = useRef<string>('');
 
   // Build preview URL with selected traits
-  const buildPreviewUrl = () => {
+  const buildPreviewUrl = useCallback(() => {
     const params = new URLSearchParams();
     params.append('tokenId', nft.tokenId);
     
@@ -36,27 +38,53 @@ export const PreviewDisplay: React.FC<PreviewDisplayProps> = ({
     });
     
     return `/api/preview?${params.toString()}`;
-  };
+  }, [nft.tokenId, selectedTraits]);
 
-  // Update preview when traits change
-  useEffect(() => {
-    const updatePreview = async () => {
-      setIsLoading(true);
-      setError(null);
+  // Debounced preview update
+  const updatePreview = useCallback(async () => {
+    const url = buildPreviewUrl();
+    
+    // Skip if this is the same request as the last one
+    if (url === lastRequestRef.current) {
+      return;
+    }
+    
+    lastRequestRef.current = url;
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Add a small delay to prevent rapid requests
+      await new Promise(resolve => setTimeout(resolve, 100));
       
-      try {
-        const url = buildPreviewUrl();
-        setPreviewUrl(url);
-      } catch (err) {
-        setError('Error generating preview');
-        console.error('Preview error:', err);
-      } finally {
-        setIsLoading(false);
+      setPreviewUrl(url);
+    } catch (err) {
+      setError('Error generating preview');
+      console.error('Preview error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [buildPreviewUrl]);
+
+  // Update preview when traits change with debouncing
+  useEffect(() => {
+    // Clear previous timeout
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    
+    // Set new timeout for debouncing
+    debounceTimeoutRef.current = setTimeout(() => {
+      updatePreview();
+    }, 500); // 500ms debounce delay
+    
+    // Cleanup on unmount
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
       }
     };
-
-    updatePreview();
-  }, [nft.tokenId, selectedTraits]);
+  }, [updatePreview]);
 
   return (
     <div className={`card ${className}`}>
