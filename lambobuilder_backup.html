@@ -502,6 +502,7 @@
     
     <p id="error-message" class="error-message hidden"></p>
   </div>
+  
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       // Load the menu
@@ -612,61 +613,165 @@
         infuraProvider
       );
       
-      // State variables
-      let ownedTokens = [];
-      let userAccount = null;
-      
-      // Estado global para el manejo de tokens
-      const tokenState = {
-        currentTokenId: null,
-        useCustomToken: false
-      };
-      
-      // Referencias a elementos DOM
+      // Wallet connection
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
       const connectWalletBtn = document.getElementById('connectWalletBtn');
       const accountSection = document.getElementById('account-section');
       const accountDisplay = document.getElementById('accountDisplay');
       const connectSection = document.getElementById('connect-section');
-      const tokenInput = document.getElementById('token-id');
-      const generateBtn = document.getElementById('generate-btn');
-      const downloadBtn = document.getElementById('download-btn');
-      const canvas = document.getElementById('canvas');
-      const ctx = canvas.getContext('2d');
-      const previewSection = document.getElementById('preview-section');
-      const errorMessage = document.getElementById('error-message');
-      const loadingEl = document.getElementById('loading');
-      const lamboOptions = document.getElementsByName('lambo-color');
-      const customTokenInput = document.getElementById('custom-token-id');
-      const customTokenBtn = document.getElementById('custom-token-btn');
       
-      // Set canvas size
-      canvas.width = 1500;
-      canvas.height = 500;
+      // State variables
+      let ownedTokens = [];
+      let userAccount = null;
       
-      // Variables for images
-      let lamboImg = new Image();
-      let punkImg = new Image();
+      // Función para chequear si una URL es un GIF
+      const isGif = (url, tokenId) => {
+        // Lista de tokens conocidos que necesitan ser tratados como GIF
+        const tokensToTreatAsGif = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; // Añade aquí los tokens problemáticos
+        
+        // Comprobar si la URL termina en .gif o si es un token problemático
+        return url.toLowerCase().endsWith('.gif') || tokensToTreatAsGif.includes(tokenId);
+      };
       
-      // Check if wallet is already connected
+      // Función para manejar imágenes GIF
+      const handleGifImage = (gifUrl) => {
+        return new Promise((resolve, reject) => {
+          // Crear un elemento de imagen para cargar el GIF
+          const gifImg = new Image();
+          gifImg.crossOrigin = 'Anonymous';
+          gifImg.onload = () => {
+            // Crear un canvas temporal para extraer el primer frame
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = gifImg.width;
+            tempCanvas.height = gifImg.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Dibujar solo el primer frame
+            tempCtx.drawImage(gifImg, 0, 0);
+            
+            // Crear una nueva imagen a partir del canvas
+            const staticImg = new Image();
+            staticImg.onload = () => resolve(staticImg);
+            staticImg.onerror = (e) => reject(new Error('Error converting GIF to static image'));
+            staticImg.src = tempCanvas.toDataURL('image/png');
+          };
+          gifImg.onerror = () => reject(new Error(`Failed to load GIF: ${gifUrl}`));
+          gifImg.src = gifUrl + '?t=' + new Date().getTime();
+        });
+      };
+      
+      // Load user tokens function
+      const loadUserTokens = async (address) => {
+        try {
+          // Message indicating we're loading tokens
+          showError('Loading your AdrianPunks tokens...');
+          
+          // Get AdrianPunks balance
+          const balance = await adrianPunksContract.balanceOf(address);
+          const totalTokens = balance.toNumber();
+          
+          if (totalTokens === 0) {
+            showError('You don\'t own any AdrianPunks. Use the custom token field to view any token.');
+            tokenInput.disabled = true;
+            // Don't disable generate button, since we can use custom token
+            return;
+          }
+          
+          // Configure Multicall for efficiency
+          const multicall = new ethers.Contract(
+            "0xcA11bde05977b3631167028862bE2a173976CA11",
+            [
+              "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"
+            ],
+            infuraProvider
+          );
+          
+          // Prepare calls to get all tokenIds
+          const calls = [];
+          for (let i = 0; i < totalTokens; i++) {
+            calls.push({
+              target: ADRIAN_PUNKS_ADDRESS,
+              allowFailure: true,
+              callData: adrianPunksContract.interface.encodeFunctionData('tokenOfOwnerByIndex', [address, i])
+            });
+          }
+          
+          // Execute all calls in a single transaction
+          const results = await multicall.aggregate3(calls);
+          ownedTokens = results
+            .filter(result => result.success)
+            .map(result => {
+              const decoded = adrianPunksContract.interface.decodeFunctionResult('tokenOfOwnerByIndex', result.returnData);
+              return decoded[0].toNumber();
+            });
+          
+          // Enable the input and load the first token
+          tokenInput.disabled = false;
+          
+          if (ownedTokens.length > 0) {
+            // Create dropdown options with tokens
+            createTokenOptions(ownedTokens);
+            // Generate first image automatically
+            generateImage();
+            showError(`Loaded ${ownedTokens.length} AdrianPunks from your wallet`);
+          }
+        } catch (error) {
+          console.error('Error loading tokens:', error);
+          showError('Could not load your tokens. Use the custom token field to view any token.');
+        }
+      };
+      
+      // Crear opciones de datalist para los tokens
+      const createTokenOptions = (tokens) => {
+        // Limpiar opciones existentes
+        tokenInput.innerHTML = '';
+        
+        if (tokens.length === 0) {
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = 'No tokens found';
+          option.disabled = true;
+          option.selected = true;
+          tokenInput.appendChild(option);
+          return;
+        }
+        
+        // Agregar opciones ordenadas numéricamente
+        tokens.sort((a, b) => a - b).forEach(tokenId => {
+          const option = document.createElement('option');
+          option.value = tokenId;
+          option.textContent = `AdrianPunk #${tokenId}`;
+          tokenInput.appendChild(option);
+        });
+        
+        // Seleccionar el primer token
+        tokenInput.selectedIndex = 0;
+      };
+      
+      // Check if already connected
       const checkConnection = async () => {
         try {
-          const provider = new ethers.providers.Web3Provider(window.ethereum);
           const accounts = await provider.listAccounts();
           if (accounts.length > 0) {
             userAccount = accounts[0];
             displayAccount(userAccount);
+            // Load user tokens
             await loadUserTokens(userAccount);
           } else {
+            // No wallet connected - show a message to use custom token input
             showError('No wallet connected. You can still use the custom token field to view any AdrianPunk.');
             tokenInput.disabled = true;
             connectWalletBtn.style.display = 'block';
+            // Make sure custom token input is enabled
             customTokenInput.disabled = false;
             customTokenBtn.disabled = false;
           }
         } catch (error) {
           console.error('Error checking connection:', error);
+          // Show a helpful error message for users without a wallet
           showError('No wallet detected. You can still use the custom token field to view any AdrianPunk.');
           tokenInput.disabled = true;
+          // Make sure custom token input is enabled
           customTokenInput.disabled = false;
           customTokenBtn.disabled = false;
         }
@@ -682,153 +787,110 @@
       // Connect wallet function
       connectWalletBtn.addEventListener('click', async () => {
         try {
-          const provider = new ethers.providers.Web3Provider(window.ethereum);
           await provider.send("eth_requestAccounts", []);
           const signer = provider.getSigner();
           userAccount = await signer.getAddress();
           displayAccount(userAccount);
+          // Load user tokens
           await loadUserTokens(userAccount);
         } catch (error) {
           console.error('Error connecting wallet:', error);
           showError('Could not connect to wallet. You can still use the custom token field to view any AdrianPunk.');
+          // Make sure custom token input is enabled
           customTokenInput.disabled = false;
           customTokenBtn.disabled = false;
         }
       });
       
-      // Load user tokens
-      const loadUserTokens = async (address) => {
-        try {
-          showError('Loading your AdrianPunks tokens...');
-          const balance = await adrianPunksContract.balanceOf(address);
-          const totalTokens = balance.toNumber();
-          
-          if (totalTokens === 0) {
-            showError('You don\'t own any AdrianPunks. Use the custom token field to view any token.');
-            tokenInput.disabled = true;
-            return;
-          }
-          
-          // Configure Multicall for efficiency
-          const multicall = new ethers.Contract(
-            "0xcA11bde05977b3631167028862bE2a173976CA11",
-            [
-              "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"
-            ],
-            infuraProvider
-          );
-          
-          const calls = [];
-          for (let i = 0; i < totalTokens; i++) {
-            calls.push({
-              target: ADRIAN_PUNKS_ADDRESS,
-              allowFailure: true,
-              callData: adrianPunksContract.interface.encodeFunctionData('tokenOfOwnerByIndex', [address, i])
-            });
-          }
-          
-          const results = await multicall.aggregate3(calls);
-          ownedTokens = results
-            .filter(result => result.success)
-            .map(result => {
-              const decoded = adrianPunksContract.interface.decodeFunctionResult('tokenOfOwnerByIndex', result.returnData);
-              return decoded[0].toNumber();
-            });
-          
-          tokenInput.disabled = false;
-          
-          if (ownedTokens.length > 0) {
-            createTokenOptions(ownedTokens);
-            generateImage();
-            showError(`Loaded ${ownedTokens.length} AdrianPunks from your wallet`);
-          }
-        } catch (error) {
-          console.error('Error loading tokens:', error);
-          showError('Could not load your tokens. Use the custom token field to view any token.');
+      // Validar que el token ingresado pertenezca al usuario
+      const validateTokenOwnership = (tokenId) => {
+        if (!ownedTokens.includes(tokenId)) {
+          showError(`You don't own AdrianPunk #${tokenId}. Please select one of your tokens.`);
+          return false;
         }
+        return true;
       };
       
-      // Create token options
-      const createTokenOptions = (tokens) => {
-        tokenInput.innerHTML = '';
+      // Check if already connected on page load
+      checkConnection();
+      
+      // Lambo Builder Logic
+      const tokenInput = document.getElementById('token-id');
+      let generateBtn = document.getElementById('generate-btn');
+      let downloadBtn = document.getElementById('download-btn');
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      const previewSection = document.getElementById('preview-section');
+      const errorMessage = document.getElementById('error-message');
+      const loadingEl = document.getElementById('loading');
+      const lamboOptions = document.getElementsByName('lambo-color');
+      
+      // Set canvas size to match the new lambo images aspect ratio (1500x500)
+      canvas.width = 1500;
+      canvas.height = 500;
+      
+      // Variables for images
+      let lamboImg = new Image();
+      let punkImg = new Image();
+      
+      // Generar imagen automáticamente al cambiar token o color
+      tokenInput.addEventListener('change', generateImage);
+      
+      // Agregar eventos a los radio buttons para generar imagen al cambiar
+      lamboOptions.forEach(option => {
+        option.addEventListener('change', generateImage);
+      });
+      
+      // Handle button click (mantener para compatibilidad)
+      generateBtn.addEventListener('click', generateImage);
+      downloadBtn.addEventListener('click', downloadImage);
+      
+      async function generateImage() {
+        // Get token ID from dropdown or custom input
+        const dropdownTokenId = parseInt(tokenInput.value);
+        const customTokenId = parseInt(customTokenInput.value);
         
-        if (tokens.length === 0) {
-          const option = document.createElement('option');
-          option.value = '';
-          option.textContent = 'No tokens found';
-          option.disabled = true;
-          option.selected = true;
-          tokenInput.appendChild(option);
+        let tokenId;
+        
+        // First check if we have a manual token ID set from mobile
+        if (window.manualTokenId && window.manualTokenId >= 1 && window.manualTokenId <= 1000) {
+          tokenId = window.manualTokenId;
+          window.manualTokenId = null; // Clear it after use
+        }
+        // Otherwise check which source should be used for the token ID
+        else if (window.useCustomToken || 
+            (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000)) {
+          // If we're explicitly using the custom token or the custom field has a valid value
+          tokenId = customTokenId;
+        } else if (!isNaN(dropdownTokenId) && dropdownTokenId >= 1 && dropdownTokenId <= 1000) {
+          // Otherwise use the dropdown value if valid
+          tokenId = dropdownTokenId;
+          // Clear the custom input field to avoid confusion
+          customTokenInput.value = '';
+        } else {
+          // No valid token ID found
+          showError('Please select a valid AdrianPunk token.');
           return;
         }
         
-        tokens.sort((a, b) => a - b).forEach(tokenId => {
-          const option = document.createElement('option');
-          option.value = tokenId;
-          option.textContent = `AdrianPunk #${tokenId}`;
-          tokenInput.appendChild(option);
-        });
+        // Debug output for mobile troubleshooting
+        console.log("generateImage using token ID:", tokenId);
         
-        tokenInput.selectedIndex = 0;
-      };
-      
-      // Handle custom token button click
-      function handleCustomTokenButtonClick(e) {
-        if (e) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-        
-        const customTokenId = parseInt(customTokenInput.value);
-        
-        if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000) {
-          tokenState.currentTokenId = customTokenId;
-          tokenState.useCustomToken = true;
-          
-          if (document.activeElement instanceof HTMLElement) {
-            document.activeElement.blur();
-          }
-          
-          generateImage();
-        } else {
-          showError('Please enter a valid token ID between 1 and 1000');
-        }
-      }
-      
-      // Setup custom token button events
-      customTokenBtn.addEventListener('click', handleCustomTokenButtonClick);
-      customTokenBtn.addEventListener('touchend', (e) => {
-        e.preventDefault();
-        handleCustomTokenButtonClick(e);
-      });
-      
-      customTokenInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          handleCustomTokenButtonClick();
-        }
-      });
-      
-      // Generate image function
-      async function generateImage() {
-        let tokenId;
-        
-        if (tokenState.useCustomToken && tokenState.currentTokenId) {
-          tokenId = tokenState.currentTokenId;
-        } else {
-          tokenId = parseInt(tokenInput.value);
-        }
-        
+        // Validate input
         if (isNaN(tokenId) || tokenId < 1 || tokenId > 1000) {
           showError('Please select a valid AdrianPunk token.');
           return;
         }
         
+        // No need to verify ownership since we want to allow any token ID
+        
+        // Show loading
         errorMessage.classList.add('hidden');
         previewSection.classList.add('hidden');
         loadingEl.style.display = 'block';
         
         try {
+          // Determine which lambo color is selected
           let lamboColor = 'YELLOW';
           for (let option of lamboOptions) {
             if (option.checked) {
@@ -837,23 +899,45 @@
             }
           }
           
+          // Build the file paths - using the new images
           const punkPath = `/market/adrianpunksimages/${tokenId}.png`;
           const lamboPath = `/lambo-images/ADRIAN_LAMBO_${lamboColor}.jpg`;
           
-          const [punkImage, lamboImage] = await Promise.all([
-            loadImage(punkPath),
-            loadImage(lamboPath)
-          ]);
+          // Load the images
+          // Check if punk image is a GIF or a problematic token
+          if (isGif(punkPath, tokenId)) {
+            try {
+              // Convert GIF to static image
+              punkImg = await handleGifImage(punkPath);
+            } catch (gifError) {
+              // If it fails to load as GIF, try loading as PNG directly
+              console.warn("Error handling GIF, trying alternate method:", gifError);
+              punkImg = await loadImage(`/market/adrianpunksimages/${tokenId}.png`);
+            }
+            
+            // Load the Lambo separately
+            lamboImg = await loadImage(lamboPath);
+          } else {
+            // Load images normally
+            const [punkImage, lamboImage] = await Promise.all([
+              loadImage(punkPath),
+              loadImage(lamboPath)
+            ]);
+            
+            // Store the images for potential reuse
+            punkImg = punkImage;
+            lamboImg = lamboImage;
+          }
           
-          punkImg = punkImage;
-          lamboImg = lamboImage;
-          
+          // Draw the images on the canvas 
           drawCombinedImage();
           
+          // Show the preview section
           loadingEl.style.display = 'none';
           previewSection.classList.remove('hidden');
           
-          tokenState.currentTokenId = tokenId; // Save current token for download
+          // Update custom token field to match current token
+          customTokenInput.value = tokenId;
         } catch (error) {
           console.error('Error loading images:', error);
           loadingEl.style.display = 'none';
@@ -862,111 +946,214 @@
       }
       
       function drawCombinedImage() {
+        // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx
+        
+        // First draw the Lambo (no need to apply color filter, we're using colored images)
         ctx.drawImage(lamboImg, 0, 0, canvas.width, canvas.height);
-       
-       const tempCanvas = document.createElement('canvas');
-       const tempCtx = tempCanvas.getContext('2d');
-       
-       const punkSize = Math.min(canvas.width, canvas.height) * 0.23;
-       tempCanvas.width = punkSize;
-       tempCanvas.height = punkSize;
-       
-       tempCtx.drawImage(punkImg, 0, 0, punkSize, punkSize);
-       
-       const imageData = tempCtx.getImageData(0, 0, punkSize, punkSize);
-       const data = imageData.data;
-       
-       for (let i = 0; i < data.length; i += 4) {
-         const r = data[i];
-         const g = data[i + 1];
-         const b = data[i + 2];
-         
-         if ((r === 204 && g === 204 && b === 204) || (r === 51 && g === 51 && b === 51)) {
-           data[i + 3] = 0;
-         }
-       }
-       
-       tempCtx.putImageData(imageData, 0, 0);
-       
-       const punkX = (canvas.width - punkSize) / 2 - 39;
-       const punkY = (canvas.height - punkSize) / 2 - 101;
-       
-       ctx.drawImage(tempCanvas, punkX, punkY, punkSize, punkSize);
-     }
-     
-     function loadImage(src) {
-       return new Promise((resolve, reject) => {
-         const img = new Image();
-         img.crossOrigin = 'Anonymous';
-         img.onload = () => resolve(img);
-         img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
-         img.src = src + '?t=' + new Date().getTime();
-       });
-     }
-     
-     function downloadImage() {
-       // Use the current token ID from state
-       const tokenId = tokenState.currentTokenId || parseInt(tokenInput.value);
-       
-       if (!tokenId) {
-         showError('Please generate an image first');
-         return;
-       }
-       
-       let lamboColor = 'YELLOW';
-       for (let option of lamboOptions) {
-         if (option.checked) {
-           lamboColor = option.value;
-           break;
-         }
-       }
+        
+        // Create a temporary canvas for processing the AdrianPunk image
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        // Set the size for the temporary canvas (5% más pequeño, era 0.28)
+        const punkSize = Math.min(canvas.width, canvas.height) * 0.23;
+        tempCanvas.width = punkSize;
+        tempCanvas.height = punkSize;
+        
+        // Draw the punk on the temporary canvas
+        tempCtx.drawImage(punkImg, 0, 0, punkSize, punkSize);
+        
+        // Get image data to process the background
+        const imageData = tempCtx.getImageData(0, 0, punkSize, punkSize);
+        const data = imageData.data;
+        
+        // Remove background color (#cccccc or #333333)
+        for (let i = 0; i < data.length; i += 4) {
+          // Get pixel RGB values
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          
+          // Check if the pixel is the background color (cccccc or 333333)
+          if ((r === 204 && g === 204 && b === 204) || // #cccccc
+              (r === 51 && g === 51 && b === 51)) {    // #333333
+            // Make this pixel fully transparent
+            data[i + 3] = 0;
+          }
+        }
+        
+        // Put the processed image data back to the temporary canvas
+        tempCtx.putImageData(imageData, 0, 0);
+        
+        // Calculate position for the punk
+        const punkX = (canvas.width - punkSize) / 2 - 39;
+        const punkY = (canvas.height - punkSize) / 2 - 101; // 99 - 2 píxeles adicionales
+        
+        // Draw the processed punk on the main canvas
+        ctx.drawImage(tempCanvas, punkX, punkY, punkSize, punkSize);
+      }
+      
+      function loadImage(src) {
+        return new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'Anonymous';
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+          
+          // Add a cache-busting parameter to prevent caching issues
+          img.src = src + '?t=' + new Date().getTime();
+        });
+      }
+      
+      function downloadImage() {
+        const tokenId = tokenInput.value;
+        let lamboColor = 'YELLOW';
+        for (let option of lamboOptions) {
+          if (option.checked) {
+            lamboColor = option.value;
+            break;
+          }
+        }
 
-       const fileName = `adrianpunk${tokenId}-${lamboColor}-lambo.png`;
-       const imgData = canvas.toDataURL('image/png');
-       
-       const link = document.createElement('a');
-       link.download = fileName;
-       link.href = imgData;
-       link.click();
-       showError('Image downloaded successfully');
-     }
-     
-     function showError(message) {
-       errorMessage.textContent = message;
-       errorMessage.classList.remove('hidden');
-       setTimeout(() => {
-         errorMessage.classList.add('hidden');
-       }, 5000);
-     }
-     
-     // Event listeners
-     tokenInput.addEventListener('change', () => {
-       tokenState.useCustomToken = false;
-       customTokenInput.value = '';
-       generateImage();
-     });
-     
-     lamboOptions.forEach(option => {
-       option.addEventListener('change', generateImage);
-     });
-     
-     generateBtn.addEventListener('click', generateImage);
-     downloadBtn.addEventListener('click', downloadImage);
-     
-     // Mobile-specific adjustments
-     function setupMobileOptimizations() {
-       document.querySelectorAll('.btn').forEach(button => {
-         button.style.display = 'inline-block';
-         button.style.width = 'auto';
-       });
-     }
-     
-     // Initialize
-     setupMobileOptimizations();
-     checkConnection();
-   });
- </script>
+        const fileName = `adrianpunk${tokenId}-${lamboColor}-lambo.png`;
+        const imgData = canvas.toDataURL('image/png');
+        
+        // Simple direct download for all devices
+        const link = document.createElement('a');
+        link.download = fileName;
+        link.href = imgData;
+        link.click();
+        showError('Image downloaded successfully');
+        
+        // Also save the colored images for the server
+        saveColoredLambo(lamboColor);
+      }
+      
+      function showLoading(message) {
+        loadingEl.querySelector('p').textContent = message;
+        loadingEl.style.display = 'block';
+        previewSection.classList.add('hidden');
+      }
+      
+      function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.classList.remove('hidden');
+        // Auto-hide después de 5 segundos
+        setTimeout(() => {
+          errorMessage.classList.add('hidden');
+        }, 5000);
+      }
+      
+      // Función para guardar las imágenes de colores en el servidor (solo simulada)
+      function saveColoredLambo(color) {
+        console.log(`${color} Lambo image saved for server use`);
+        // En un entorno real, aquí enviaríamos la imagen al servidor
+      }
+      
+      // Custom token input handling
+      const customTokenInput = document.getElementById('custom-token-id');
+      const customTokenBtn = document.getElementById('custom-token-btn');
+      
+      function handleCustomTokenButtonClick(e) {
+        // If there's an event, prevent default behavior
+        if (e) e.preventDefault();
+        
+        // Get the token ID from the input
+        const customTokenId = parseInt(customTokenInput.value);
+        
+        // Debug output for mobile troubleshooting
+        console.log("Custom token button clicked on mobile. Token ID:", customTokenId);
+        
+        // Validate the token ID
+        if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000) {
+          // Explicitly set the token value to use in generateImage
+          window.manualTokenId = customTokenId;
+          window.useCustomToken = true;
+          
+          // Force a focus blur to hide mobile keyboard
+          customTokenInput.blur();
+          
+          // Call generate image function directly
+          try {
+            console.log("Calling generateImage with manual token:", customTokenId);
+            generateImage();
+          } catch (error) {
+            console.error("Error in generateImage:", error);
+            showError('Error generating image. Please try again.');
+          }
+          
+          // Clear the flag after use
+          setTimeout(() => {
+            window.useCustomToken = false;
+          }, 500);
+        } else {
+          showError('Please enter a valid token ID between 1 and 1000');
+        }
+      }
+      
+      // Standard click events for buttons - ensure they work on mobile
+      if (customTokenBtn) {
+        // Remove any existing listeners
+        const newCustomBtn = customTokenBtn.cloneNode(true);
+        customTokenBtn.parentNode.replaceChild(newCustomBtn, customTokenBtn);
+        customTokenBtn = document.getElementById('custom-token-btn');
+        
+        // Add multiple event types for better mobile compatibility
+        ['click', 'touchend'].forEach(eventType => {
+          customTokenBtn.addEventListener(eventType, handleCustomTokenButtonClick, {passive: false});
+        });
+      }
+      
+      // Allow Enter key to trigger the custom token button
+      customTokenInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleCustomTokenButtonClick();
+        }
+      });
+      
+      // Add change event to token dropdown
+      if (tokenInput) {
+        tokenInput.addEventListener('change', () => {
+          // Clear the custom token input when using the dropdown
+          customTokenInput.value = '';
+          generateImage();
+        });
+      }
+      
+      // Standard click events for buttons - no cloning needed
+      if (generateBtn) {
+        // Clear any existing event listeners by cloning and replacing
+        generateBtn.replaceWith(generateBtn.cloneNode(true));
+        // Get the fresh button reference
+        generateBtn = document.getElementById('generate-btn');
+        // Add the click event
+        generateBtn.addEventListener('click', generateImage);
+      }
+      
+      if (downloadBtn) {
+        // Clear any existing event listeners by cloning and replacing
+        downloadBtn.replaceWith(downloadBtn.cloneNode(true));
+        // Get the fresh button reference
+        downloadBtn = document.getElementById('download-btn');
+        // Add the click event
+        downloadBtn.addEventListener('click', downloadImage);
+      }
+      
+      // Mobile-specific adjustments
+      function setupMobileOptimizations() {
+        // Add basic styles for mobile
+        document.querySelectorAll('.btn').forEach(button => {
+          // Ensure buttons display correctly on mobile
+          button.style.display = 'inline-block';
+          button.style.width = 'auto';
+        });
+      }
+      
+      // Run mobile optimizations when DOM is loaded
+      setupMobileOptimizations();
+    });
+  </script>
 </body>
-</html>
+</html> 

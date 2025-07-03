@@ -66,7 +66,7 @@ Una dapp retro pixel art inspirada en los juegos point & click de los años 80, 
 
 ## 🔗 Contratos
 
-- **AdrianPackTokenMinter.sol**: `0x19DD7F770b464C00Ed0c7A6b349143836F61057f`
+- **AdrianPackTokenMinter.sol**: `0x9e569BA579bc9fB9A2A826555e6A9C456a981D14`
 - **Adrian Token**: `0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea`
 
 ## 🚀 Instalación y Uso
