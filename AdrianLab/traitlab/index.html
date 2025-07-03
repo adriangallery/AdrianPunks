@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdrianLab - Token Gallery</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js" type="application/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alchemy-web3@latest/dist/alchemyWeb3.umd.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .connect-section {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .connect-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .connect-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+
+        .account-section {
+            display: none;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .wallet-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .wallet-address {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-family: monospace;
+            font-weight: bold;
+        }
+
+        .disconnect-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .disconnect-btn:hover {
+            background: #c82333;
+        }
+
+        .tokens-section {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #333;
+            text-align: center;
+        }
+
+        .contract-filter {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .contract-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .contract-btn.active {
+            background: #667eea;
+        }
+
+        .contract-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .tokens-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .token-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .token-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .token-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #f8f9fa;
+        }
+
+        .token-info {
+            padding: 15px;
+        }
+
+        .token-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .token-id {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+
+        .token-contract {
+            color: #999;
+            font-size: 0.8rem;
+            font-family: monospace;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .no-tokens {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .tokens-grid {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: 15px;
+            }
+            
+            .contract-filter {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 AdrianLab Token Gallery</h1>
+            <p>Explora tus tokens de los contratos específicos</p>
+        </div>
+
+        <!-- Connect Section -->
+        <div id="connect-section" class="connect-section">
+            <h2>Conecta tu Wallet</h2>
+            <p style="margin: 20px 0;">Para ver tus tokens, necesitas conectar tu wallet de MetaMask</p>
+            <button id="connectBtn" class="connect-btn">🔗 Conectar Wallet</button>
+        </div>
+
+        <!-- Account Section -->
+        <div id="account-section" class="account-section">
+            <div class="wallet-info">
+                <div>
+                    <strong>Wallet conectada:</strong>
+                    <span id="walletAddress" class="wallet-address"></span>
+                </div>
+                <button id="disconnectBtn" class="disconnect-btn">Desconectar</button>
+            </div>
+        </div>
+
+        <!-- Tokens Section -->
+        <div id="tokens-section" class="tokens-section" style="display: none;">
+            <h2 class="section-title">📱 Tus Tokens</h2>
+            
+            <div class="contract-filter">
+                <button class="contract-btn active" data-contract="0x90546848474fb3c9fda3fdad887969bb244e7e58">
+                    ERC721 Collection
+                </button>
+                <button class="contract-btn" data-contract="0x6e369bf0e4e0c106192d606fb6d85836d684da75">
+                    ERC1155 Collection
+                </button>
+            </div>
+
+            <div id="loading" class="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>Cargando tokens...</p>
+            </div>
+
+            <div id="error" class="error" style="display: none;"></div>
+            <div id="success" class="success" style="display: none;"></div>
+
+            <div id="no-tokens" class="no-tokens" style="display: none;">
+                <p>No se encontraron tokens en este contrato</p>
+            </div>
+
+            <div id="tokens-grid" class="tokens-grid"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const ALCHEMY_API_KEY = "5qIXA1UZxOAzi8b9l0nrYmsQBO9-W7Ot";
+        const ALCHEMY_RPC_URL = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+        const BASE_NETWORK = {
+            chainId: "0x2105", // 8453 in hex
+            chainName: "Base Mainnet",
+            nativeCurrency: {
+                name: "ETH",
+                symbol: "ETH",
+                decimals: 18,
+            },
+            rpcUrls: [ALCHEMY_RPC_URL],
+            blockExplorerUrls: ["https://basescan.org/"],
+        };
+
+        // Contract addresses
+        const CONTRACTS = {
+            ERC721: "0x90546848474fb3c9fda3fdad887969bb244e7e58",
+            ERC1155: "0x6e369bf0e4e0c106192d606fb6d85836d684da75"
+        };
+
+        // App state
+        let currentAccount = null;
+        let alchemyWeb3 = null;
+        let currentContract = CONTRACTS.ERC721;
+
+        // DOM Elements
+        const connectSection = document.getElementById('connect-section');
+        const accountSection = document.getElementById('account-section');
+        const tokensSection = document.getElementById('tokens-section');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const walletAddress = document.getElementById('walletAddress');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const success = document.getElementById('success');
+        const noTokens = document.getElementById('no-tokens');
+        const tokensGrid = document.getElementById('tokens-grid');
+        const contractBtns = document.querySelectorAll('.contract-btn');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            connectBtn.addEventListener('click', connectWallet);
+            disconnectBtn.addEventListener('click', disconnectWallet);
+            
+            // Contract filter buttons
+            contractBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    contractBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    currentContract = btn.dataset.contract;
+                    if (currentAccount) {
+                        loadTokens(currentAccount, currentContract);
+                    }
+                });
+            });
+
+            // Check if wallet is already connected
+            checkConnection();
+        });
+
+        // Initialize Alchemy Web3
+        function initAlchemyWeb3() {
+            try {
+                if (window.AlchemyWeb3) {
+                    console.log("Initializing AlchemyWeb3");
+                    alchemyWeb3 = AlchemyWeb3.createAlchemyWeb3(ALCHEMY_RPC_URL);
+                    console.log("AlchemyWeb3 initialized successfully");
+                    return true;
+                }
+                console.error("AlchemyWeb3 not available");
+                return false;
+            } catch (err) {
+                console.error("Error initializing AlchemyWeb3:", err);
+                return false;
+            }
+        }
+
+        // Check if wallet is connected
+        async function checkConnection() {
+            if (window.ethereum) {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    if (accounts.length > 0) {
+                        await connectWallet();
+                    }
+                } catch (error) {
+                    console.error("Failed to check connection:", error);
+                }
+            }
+        }
+
+        // Connect wallet
+        async function connectWallet() {
+            try {
+                if (!window.ethereum) {
+                    showError("MetaMask no detectado! Por favor instala MetaMask para usar esta aplicación.");
+                    return;
+                }
+                
+                // Request account access
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                currentAccount = accounts[0];
+                
+                // Check if user is on the Base network
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                if (chainId !== BASE_NETWORK.chainId) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: BASE_NETWORK.chainId }],
+                        });
+                    } catch (switchError) {
+                        if (switchError.code === 4902) {
+                            await window.ethereum.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [BASE_NETWORK],
+                            });
+                        } else {
+                            throw switchError;
+                        }
+                    }
+                }
+                
+                // Initialize Alchemy Web3
+                initAlchemyWeb3();
+                
+                // Update UI
+                connectSection.style.display = "none";
+                accountSection.style.display = "block";
+                tokensSection.style.display = "block";
+                walletAddress.textContent = `${currentAccount.slice(0,6)}...${currentAccount.slice(-4)}`;
+                
+                // Load tokens
+                await loadTokens(currentAccount, currentContract);
+                
+                // Event listeners for account/chain changes
+                window.ethereum.on('accountsChanged', (accounts) => {
+                    window.location.reload();
+                });
+                
+                window.ethereum.on('chainChanged', () => {
+                    window.location.reload();
+                });
+                
+                showSuccess("Wallet conectada exitosamente!");
+                
+            } catch (error) {
+                console.error("Connection error:", error);
+                showError(error.message || "Error al conectar wallet");
+            }
+        }
+
+        // Disconnect wallet
+        function disconnectWallet() {
+            currentAccount = null;
+            connectSection.style.display = "block";
+            accountSection.style.display = "none";
+            tokensSection.style.display = "none";
+            tokensGrid.innerHTML = "";
+            hideMessages();
+        }
+
+        // Load tokens for specific contract
+        async function loadTokens(userAddress, contractAddress) {
+            showLoading();
+            hideMessages();
+            
+            try {
+                // Check if Alchemy is initialized
+                if (!alchemyWeb3) {
+                    if (!initAlchemyWeb3()) {
+                        throw new Error("Alchemy Web3 no pudo inicializarse");
+                    }
+                }
+                
+                // Determine token type based on contract address
+                const isERC721 = contractAddress.toLowerCase() === CONTRACTS.ERC721.toLowerCase();
+                const tokenType = isERC721 ? "ERC721" : "ERC1155";
+                
+                console.log(`Cargando tokens ${tokenType} del contrato: ${contractAddress}`);
+                
+                // Use Alchemy's getNFTsForOwner method
+                let alchemyUrl = `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${userAddress}&contractAddresses[]=${contractAddress}&withMetadata=true&pageSize=50&tokenType=${tokenType}`;
+                
+                console.log(`Solicitando NFTs con URL: ${alchemyUrl}`);
+                
+                const alchemyResponse = await fetch(alchemyUrl);
+                
+                if (!alchemyResponse.ok) {
+                    throw new Error("Error al obtener NFTs de Alchemy API");
+                }
+                
+                const nftsData = await alchemyResponse.json();
+                console.log(`Datos de NFTs recibidos:`, nftsData);
+                
+                // Process NFTs
+                if (nftsData.ownedNfts && nftsData.ownedNfts.length > 0) {
+                    const tokens = nftsData.ownedNfts.map(nft => {
+                        try {
+                            // Extract tokenId
+                            let tokenId;
+                            if (nft.tokenId) {
+                                tokenId = nft.tokenId;
+                            } else if (nft.id && nft.id.tokenId) {
+                                tokenId = nft.id.tokenId;
+                            } else {
+                                console.error("No tokenId found in NFT:", nft);
+                                return null;
+                            }
+                            
+                            // Convert tokenId to integer
+                            let tokenIdInt;
+                            if (typeof tokenId === 'number') {
+                                tokenIdInt = tokenId;
+                            } else if (tokenId.startsWith('0x')) {
+                                tokenIdInt = parseInt(tokenId, 16);
+                            } else {
+                                tokenIdInt = parseInt(tokenId, 10);
+                            }
+                            
+                            if (isNaN(tokenIdInt)) {
+                                console.error("Invalid tokenId format:", tokenId);
+                                return null;
+                            }
+                            
+                            // Extract title/name
+                            let title = `Token #${tokenIdInt}`;
+                            
+                            if (nft.title) {
+                                title = nft.title;
+                            } else if (nft.name) {
+                                title = nft.name;
+                            } else if (nft.metadata && nft.metadata.name) {
+                                title = nft.metadata.name;
+                            } else if (nft.contract && nft.contract.name) {
+                                title = `${nft.contract.name} #${tokenIdInt}`;
+                            }
+                            
+                            // Extract image URL
+                            let mediaUrl = "";
+                            
+                            // Try multiple locations for image URL
+                            if (nft.raw && nft.raw.metadata && nft.raw.metadata.image) {
+                                mediaUrl = nft.raw.metadata.image;
+                            } else if (nft.media && Array.isArray(nft.media) && nft.media.length > 0) {
+                                const mediaSources = ['gateway', 'raw', 'thumbnail', 'format'];
+                                for (const source of mediaSources) {
+                                    if (nft.media[0][source] && typeof nft.media[0][source] === 'string') {
+                                        mediaUrl = nft.media[0][source];
+                                        break;
+                                    }
+                                }
+                            } else if (nft.metadata) {
+                                const imageProps = ['image', 'image_url', 'imageUrl', 'imageURI', 'image_uri', 'imageData'];
+                                for (const prop of imageProps) {
+                                    if (nft.metadata[prop] && typeof nft.metadata[prop] === 'string') {
+                                        mediaUrl = nft.metadata[prop];
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            // Clean up IPFS URLs
+                            if (mediaUrl && mediaUrl.startsWith('ipfs://')) {
+                                mediaUrl = mediaUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
+                            }
+                            
+                            return {
+                                tokenId: tokenIdInt,
+                                title: title,
+                                imageUrl: mediaUrl,
+                                contract: nft.contract.address,
+                                contractName: nft.contract.name || 'Unknown Contract',
+                                tokenType: tokenType,
+                                metadata: nft.metadata || {}
+                            };
+                            
+                        } catch (err) {
+                            console.error("Error processing NFT:", err, nft);
+                            return null;
+                        }
+                    }).filter(token => token !== null);
+                    
+                    console.log(`Tokens procesados:`, tokens);
+                    displayTokens(tokens);
+                    
+                } else {
+                    showNoTokens();
+                }
+                
+            } catch (error) {
+                console.error("Error loading tokens:", error);
+                showError(`Error al cargar tokens: ${error.message}`);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Display tokens in grid
+        function displayTokens(tokens) {
+            tokensGrid.innerHTML = "";
+            
+            tokens.forEach(token => {
+                const tokenCard = document.createElement('div');
+                tokenCard.className = 'token-card';
+                
+                const imageUrl = token.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+';
+                
+                tokenCard.innerHTML = `
+                    <img src="${imageUrl}" alt="${token.title}" class="token-image" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+'">
+                    <div class="token-info">
+                        <div class="token-name">${token.title}</div>
+                        <div class="token-id">ID: ${token.tokenId}</div>
+                        <div class="token-contract">${token.contractName}</div>
+                        <div class="token-contract">${token.contract.slice(0,6)}...${token.contract.slice(-4)}</div>
+                    </div>
+                `;
+                
+                tokensGrid.appendChild(tokenCard);
+            });
+        }
+
+        // UI Helper functions
+        function showLoading() {
+            loading.style.display = "block";
+            tokensGrid.innerHTML = "";
+            noTokens.style.display = "none";
+        }
+
+        function hideLoading() {
+            loading.style.display = "none";
+        }
+
+        function showError(message) {
+            error.textContent = message;
+            error.style.display = "block";
+        }
+
+        function showSuccess(message) {
+            success.textContent = message;
+            success.style.display = "block";
+            setTimeout(() => {
+                success.style.display = "none";
+            }, 3000);
+        }
+
+        function hideMessages() {
+            error.style.display = "none";
+            success.style.display = "none";
+        }
+
+        function showNoTokens() {
+            noTokens.style.display = "block";
+            tokensGrid.innerHTML = "";
+        }
+    </script>
+</body>
+</html> 
