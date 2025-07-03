@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AdrianLab - Token Gallery</title>
     <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js" type="application/javascript"></script>
-    <script src="https://cdn.jsdelivr.net/npm/alchemy-web3@latest/dist/alchemyWeb3.umd.js"></script>
     <style>
         * {
             margin: 0;
@@ -343,7 +342,6 @@
 
         // App state
         let currentAccount = null;
-        let alchemyWeb3 = null;
         let currentContract = CONTRACTS.ERC721;
 
         // DOM Elements
@@ -380,23 +378,6 @@
             // Check if wallet is already connected
             checkConnection();
         });
-
-        // Initialize Alchemy Web3
-        function initAlchemyWeb3() {
-            try {
-                if (window.AlchemyWeb3) {
-                    console.log("Initializing AlchemyWeb3");
-                    alchemyWeb3 = AlchemyWeb3.createAlchemyWeb3(ALCHEMY_RPC_URL);
-                    console.log("AlchemyWeb3 initialized successfully");
-                    return true;
-                }
-                console.error("AlchemyWeb3 not available");
-                return false;
-            } catch (err) {
-                console.error("Error initializing AlchemyWeb3:", err);
-                return false;
-            }
-        }
 
         // Check if wallet is connected
         async function checkConnection() {
@@ -444,9 +425,6 @@
                     }
                 }
                 
-                // Initialize Alchemy Web3
-                initAlchemyWeb3();
-                
                 // Update UI
                 connectSection.style.display = "none";
                 accountSection.style.display = "block";
@@ -483,26 +461,19 @@
             hideMessages();
         }
 
-        // Load tokens for specific contract
+        // Load tokens for specific contract using direct API calls
         async function loadTokens(userAddress, contractAddress) {
             showLoading();
             hideMessages();
             
             try {
-                // Check if Alchemy is initialized
-                if (!alchemyWeb3) {
-                    if (!initAlchemyWeb3()) {
-                        throw new Error("Alchemy Web3 no pudo inicializarse");
-                    }
-                }
-                
                 // Determine token type based on contract address
                 const isERC721 = contractAddress.toLowerCase() === CONTRACTS.ERC721.toLowerCase();
                 const tokenType = isERC721 ? "ERC721" : "ERC1155";
                 
                 console.log(`Cargando tokens ${tokenType} del contrato: ${contractAddress}`);
                 
-                // Use Alchemy's getNFTsForOwner method
+                // Use Alchemy's REST API directly
                 let alchemyUrl = `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${userAddress}&contractAddresses[]=${contractAddress}&withMetadata=true&pageSize=50&tokenType=${tokenType}`;
                 
                 console.log(`Solicitando NFTs con URL: ${alchemyUrl}`);
@@ -510,7 +481,7 @@
                 const alchemyResponse = await fetch(alchemyUrl);
                 
                 if (!alchemyResponse.ok) {
-                    throw new Error("Error al obtener NFTs de Alchemy API");
+                    throw new Error(`Error al obtener NFTs de Alchemy API: ${alchemyResponse.status}`);
                 }
                 
                 const nftsData = await alchemyResponse.json();
