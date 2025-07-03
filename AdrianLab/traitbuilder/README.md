@@ -80,17 +80,37 @@ Una aplicación web para construir y personalizar traits de NFTs de AdrianLab en
 
 ## 🚀 Despliegue
 
-### Vercel (Recomendado)
+### Static Export (Recomendado)
 
+Este app está configurado para exportación estática y puede ser desplegado en cualquier hosting estático:
+
+```bash
+npm run build
+# Los archivos estáticos estarán en el directorio 'out'
+```
+
+### Hosting Estático
+- **Vercel**: Subir el directorio `out`
+- **Netlify**: Subir el directorio `out`
+- **GitHub Pages**: Subir el directorio `out`
+- **Cualquier hosting estático**
+
+### Configuración
+1. **Editar `public/config.js`** con tus valores:
+   - `WALLET_CONNECT_PROJECT_ID`: Tu Project ID de WalletConnect
+   - Direcciones de contratos (si son diferentes)
+   - URLs de API
+
+2. **Build y deploy**:
+```bash
+npm run build
+# Subir el directorio 'out' a tu servicio de hosting
+```
+
+### Vercel (Alternativo)
 1. **Conectar repositorio a Vercel**
 2. **Configurar variables de entorno en Vercel**
 3. **Desplegar automáticamente**
-
-### Netlify
-
-1. **Build command**: `npm run build`
-2. **Publish directory**: `.next`
-3. **Configurar variables de entorno**
 
 ## 📱 Uso
 

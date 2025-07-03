@@ -6,12 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { NFT } from '@/types/nft';
 import { getFromLocalStorage, saveToLocalStorage } from '@/utils/helpers';
 import { STORAGE_KEYS } from '@/utils/constants';
-import { useAccount, useContractReads } from 'wagmi';
-import AdrianLabCoreABI from '../abis/AdrianLabCore.json';
-import { ADRIAN_LAB_CORE_ADDRESS } from '../utils/constants';
-
-// Filtrar solo las funciones del ABI para evitar errores de tipado
-const abiFunctions = AdrianLabCoreABI.filter(item => item.type === 'function');
+import { useAccount } from 'wagmi';
 
 export interface UseUserNFTsOptions {
   address?: string;
@@ -21,111 +16,48 @@ export interface UseUserNFTsOptions {
 
 export function useUserNFTs() {
   const { address, isConnected } = useAccount();
+  const [nfts, setNfts] = useState<NFT[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Leer el balance de tokens de la wallet
-  const { data: balanceData, isLoading: balanceLoading } = useContractReads({
-    contracts: [
-      {
-        address: ADRIAN_LAB_CORE_ADDRESS as `0x${string}`,
-        abi: abiFunctions,
-        functionName: 'balanceOf',
-        args: [address as `0x${string}`],
-        enabled: !!address && isConnected,
-      },
-    ],
-  });
-
-  const balance = balanceData?.[0]?.result as bigint | undefined;
-  const tokenCount = balance ? Number(balance) : 0;
-
-  // Crear contratos para leer cada token por índice
-  const tokenContracts = Array.from({ length: tokenCount }, (_, index) => ({
-    address: ADRIAN_LAB_CORE_ADDRESS as `0x${string}`,
-    abi: abiFunctions,
-    functionName: 'tokenOfOwnerByIndex' as const,
-    args: [address as `0x${string}`, BigInt(index)],
-    enabled: !!address && isConnected,
-  }));
-
-  // Leer todos los token IDs
-  const { data: tokenIdsData, isLoading: tokenIdsLoading } = useContractReads({
-    contracts: tokenContracts,
-  });
-
-  const tokenIds = tokenIdsData?.map(result => 
-    result.result ? Number(result.result) : null
-  ).filter(id => id !== null) as number[] || [];
-
-  // Crear contratos para leer datos de cada token
-  const tokenDataContracts = tokenIds.map(tokenId => [
-    {
-      address: ADRIAN_LAB_CORE_ADDRESS as `0x${string}`,
-      abi: abiFunctions,
-      functionName: 'getTraits' as const,
-      args: [BigInt(tokenId)],
-      enabled: !!address && isConnected,
-    },
-    {
-      address: ADRIAN_LAB_CORE_ADDRESS as `0x${string}`,
-      abi: abiFunctions,
-      functionName: 'getTokenSkin' as const,
-      args: [BigInt(tokenId)],
-      enabled: !!address && isConnected,
-    },
-    {
-      address: ADRIAN_LAB_CORE_ADDRESS as `0x${string}`,
-      abi: abiFunctions,
-      functionName: 'getTokenData' as const,
-      args: [BigInt(tokenId)],
-      enabled: !!address && isConnected,
-    },
-  ]).flat();
-
-  // Leer datos de todos los tokens
-  const { data: tokenData, isLoading: tokenDataLoading } = useContractReads({
-    contracts: tokenDataContracts,
-  });
-
-  // Procesar los datos de los tokens
-  const nfts: NFT[] = [];
-  
-  if (tokenData && tokenIds.length > 0) {
-    for (let i = 0; i < tokenIds.length; i++) {
-      const tokenId = tokenIds[i];
-      const baseIndex = i * 3;
-      
-      const traitsData = tokenData[baseIndex]?.result as [bigint, bigint, string] | undefined;
-      const skinData = tokenData[baseIndex + 1]?.result as [bigint, string] | undefined;
-      const tokenDataResult = tokenData[baseIndex + 2]?.result as [bigint, number, boolean, bigint, bigint, boolean] | undefined;
-
-      if (traitsData) {
-        const [generation, , mutation] = traitsData;
-        const skinId = skinData ? Number(skinData[0]) : undefined;
-        const skinName = skinData ? skinData[1] : undefined;
-        const mutationLevel = tokenDataResult ? tokenDataResult[1] : undefined;
-        const canReplicate = tokenDataResult ? tokenDataResult[2] : undefined;
-        const hasBeenModified = tokenDataResult ? tokenDataResult[5] : undefined;
-
-        nfts.push({
-          id: `adrian-lab-${tokenId}`,
-          tokenId,
-          name: `AdrianLab #${tokenId}`,
-          image: `/api/preview?tokenId=${tokenId}`,
-          attributes: {
-            generation: Number(generation),
-            mutation,
-            skinId,
-            skinName,
-            mutationLevel,
-            canReplicate,
-            hasBeenModified,
-          },
-        });
-      }
+  // Mock data for now - will be replaced with real contract calls
+  useEffect(() => {
+    if (!address || !isConnected) {
+      setNfts([]);
+      return;
     }
-  }
 
-  const isLoading = balanceLoading || tokenIdsLoading || tokenDataLoading;
+    setIsLoading(true);
+    
+    // Simulate API call delay
+    setTimeout(() => {
+      // Create mock NFTs
+      const mockNFTs: NFT[] = [];
+      
+      for (let i = 1; i <= 5; i++) {
+        const nft: NFT = {
+          tokenId: i.toString(),
+          owner: address,
+          currentSkin: 0,
+          previewUrl: `/api/preview?tokenId=${i}`,
+          metadata: {
+            name: `AdrianLab NFT #${i}`,
+            description: `AdrianLab NFT with token ID ${i}`,
+            image: `/api/preview?tokenId=${i}`,
+            attributes: [
+              { trait_type: 'Background', value: 'Default' },
+              { trait_type: 'Base', value: 'Default' },
+              { trait_type: 'Body', value: 'Default' },
+            ],
+          },
+        };
+        
+        mockNFTs.push(nft);
+      }
+
+      setNfts(mockNFTs);
+      setIsLoading(false);
+    }, 1000);
+  }, [address, isConnected]);
 
   return {
     nfts,

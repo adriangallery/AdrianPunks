@@ -73,13 +73,43 @@ export const RARITY_LEVELS = {
 export const DEFAULT_PAGE_SIZE = 12;
 export const MAX_PAGE_SIZE = 50;
 
+// Contract addresses - will be loaded from config
+export const getContractAddresses = () => {
+  if (typeof window !== 'undefined' && window.ADRIANLAB_CONFIG) {
+    return {
+      ADRIAN_LAB_CORE: window.ADRIANLAB_CONFIG.ADRIAN_LAB_CORE,
+      ADRIAN_TRAITS_CORE: window.ADRIANLAB_CONFIG.ADRIAN_TRAITS_CORE,
+      ADRIAN_TRAITS_EXTENSIONS: window.ADRIANLAB_CONFIG.ADRIAN_TRAITS_EXTENSIONS,
+    };
+  }
+  // Fallback values
+  return {
+    ADRIAN_LAB_CORE: '0x6e369bf0e4e0c106192d606fb6d85836d684da75',
+    ADRIAN_TRAITS_CORE: '0x90546848474fb3c9fda3fdad887969bb244e7e58',
+    ADRIAN_TRAITS_EXTENSIONS: '0x0000000000000000000000000000000000000000',
+  };
+};
+
 // API endpoints
-export const API_ENDPOINTS = {
-  PREVIEW: '/api/preview',
-  TRAITS: '/api/traits',
-  NFTS: '/api/nfts',
-  STATS: '/api/stats',
-} as const;
+export const getApiEndpoints = () => {
+  if (typeof window !== 'undefined' && window.ADRIANLAB_CONFIG) {
+    return {
+      PREVIEW: `${window.ADRIANLAB_CONFIG.PREVIEW_API_URL}`,
+      TRAITS: `${window.ADRIANLAB_CONFIG.API_URL}/traits`,
+      NFTS: `${window.ADRIANLAB_CONFIG.API_URL}/nfts`,
+      STATS: `${window.ADRIANLAB_CONFIG.API_URL}/stats`,
+    };
+  }
+  // Fallback values
+  return {
+    PREVIEW: 'https://adrianpunks.com/api/preview',
+    TRAITS: 'https://adrianpunks.com/api/traits',
+    NFTS: 'https://adrianpunks.com/api/nfts',
+    STATS: 'https://adrianpunks.com/api/stats',
+  };
+};
+
+export const API_ENDPOINTS = getApiEndpoints();
 
 // Local storage keys
 export const STORAGE_KEYS = {

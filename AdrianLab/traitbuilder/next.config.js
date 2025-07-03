@@ -3,7 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   images: {
-    domains: ['localhost'],
+    domains: ['localhost', 'adrianpunks.com', 'ipfs.io', 'gateway.pinata.cloud'],
     unoptimized: true,
   },
   experimental: {
@@ -15,6 +15,13 @@ const nextConfig = {
       fs: false,
     };
     return config;
+  },
+  // Enable static export for deployment
+  output: 'export',
+  trailingSlash: true,
+  // Disable image optimization for static export
+  images: {
+    unoptimized: true,
   },
 }
 

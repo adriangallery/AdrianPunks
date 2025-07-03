@@ -3,6 +3,7 @@
  */
 
 import type { AppProps } from 'next/app';
+import Head from 'next/head';
 import { WagmiConfig, createConfig, configureChains } from 'wagmi';
 import { base } from 'wagmi/chains';
 import { publicProvider } from 'wagmi/providers/public';
@@ -21,8 +22,12 @@ const { chains, publicClient, webSocketPublicClient } = configureChains(
       rpc: (chain) => {
         if (chain.id === base.id) {
           return {
-            http: process.env.NEXT_PUBLIC_RPC_URL || 'https://mainnet.base.org',
-            webSocket: process.env.NEXT_PUBLIC_WS_URL || undefined,
+            http: typeof window !== 'undefined' && window.ADRIANLAB_CONFIG 
+              ? window.ADRIANLAB_CONFIG.RPC_URL 
+              : 'https://mainnet.base.org',
+            webSocket: typeof window !== 'undefined' && window.ADRIANLAB_CONFIG 
+              ? window.ADRIANLAB_CONFIG.WS_URL || undefined 
+              : undefined,
           };
         }
         return null;
@@ -36,7 +41,9 @@ const { chains, publicClient, webSocketPublicClient } = configureChains(
 // Set up wagmi config
 const { connectors } = getDefaultWallets({
   appName: 'AdrianLab Trait Builder',
-  projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || 'your-project-id',
+  projectId: typeof window !== 'undefined' && window.ADRIANLAB_CONFIG 
+    ? window.ADRIANLAB_CONFIG.WALLET_CONNECT_PROJECT_ID 
+    : 'your-project-id',
   chains,
 });
 
@@ -60,12 +67,17 @@ const queryClient = new QueryClient({
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
-    <WagmiConfig config={wagmiConfig}>
-      <RainbowKitProvider chains={chains}>
-        <QueryClientProvider client={queryClient}>
-          <Component {...pageProps} />
-        </QueryClientProvider>
-      </RainbowKitProvider>
-    </WagmiConfig>
+    <>
+      <Head>
+        <script src="/config.js" async />
+      </Head>
+      <WagmiConfig config={wagmiConfig}>
+        <RainbowKitProvider chains={chains}>
+          <QueryClientProvider client={queryClient}>
+            <Component {...pageProps} />
+          </QueryClientProvider>
+        </RainbowKitProvider>
+      </WagmiConfig>
+    </>
   );
 } 

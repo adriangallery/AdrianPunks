@@ -3,39 +3,51 @@
  */
 
 import { ContractAddresses } from '@/types/contracts';
+import { getContractAddresses } from './constants';
 
-// Contract addresses - BASE Network
-export const CONTRACTS: ContractAddresses = {
-  ADRIAN_LAB_CORE: process.env.NEXT_PUBLIC_ADRIAN_LAB_CORE || '0x6e369bf0e4e0c106192d606fb6d85836d684da75',
-  ADRIAN_TRAITS_CORE: process.env.NEXT_PUBLIC_ADRIAN_TRAITS_CORE || '0x90546848474fb3c9fda3fdad887969bb244e7e58',
-  ADRIAN_TRAITS_EXTENSIONS: process.env.NEXT_PUBLIC_ADRIAN_TRAITS_EXTENSIONS || '0x0000000000000000000000000000000000000000',
+// Contract addresses - will be loaded dynamically
+export const getContracts = (): ContractAddresses => {
+  return getContractAddresses();
 };
 
 // Chain configuration - BASE Network
-export const CHAIN_CONFIG = {
-  id: parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '8453'),
-  name: 'Base',
-  network: 'base',
-  nativeCurrency: {
-    decimals: 18,
-    name: 'Ether',
-    symbol: 'ETH',
-  },
-  rpcUrls: {
-    default: {
-      http: [process.env.NEXT_PUBLIC_RPC_URL || 'https://mainnet.base.org'],
+export const getChainConfig = () => {
+  const chainId = typeof window !== 'undefined' && window.ADRIANLAB_CONFIG 
+    ? window.ADRIANLAB_CONFIG.CHAIN_ID 
+    : 8453;
+  
+  const rpcUrl = typeof window !== 'undefined' && window.ADRIANLAB_CONFIG 
+    ? window.ADRIANLAB_CONFIG.RPC_URL 
+    : 'https://mainnet.base.org';
+
+  return {
+    id: chainId,
+    name: 'Base',
+    network: 'base',
+    nativeCurrency: {
+      decimals: 18,
+      name: 'Ether',
+      symbol: 'ETH',
     },
-    public: {
-      http: [process.env.NEXT_PUBLIC_RPC_URL || 'https://mainnet.base.org'],
+    rpcUrls: {
+      default: {
+        http: [rpcUrl],
+      },
+      public: {
+        http: [rpcUrl],
+      },
     },
-  },
-  blockExplorers: {
-    default: {
-      name: 'Basescan',
-      url: 'https://basescan.org',
+    blockExplorers: {
+      default: {
+        name: 'Basescan',
+        url: 'https://basescan.org',
+      },
     },
-  },
+  };
 };
+
+export const CHAIN_CONFIG = getChainConfig();
+export const CONTRACTS = getContracts();
 
 // Contract ABIs will be imported from the abis directory
 export const getContractConfig = (contractName: keyof ContractAddresses) => ({
