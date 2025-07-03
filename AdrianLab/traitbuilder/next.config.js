@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+const isProd = process.env.NODE_ENV === 'production';
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
@@ -23,6 +24,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Base path and asset prefix for subfolder deployment
+  basePath: isProd ? '/AdrianLab/traitbuilder' : '',
+  assetPrefix: isProd ? '/AdrianLab/traitbuilder/' : '',
 }
 
 module.exports = nextConfig 
