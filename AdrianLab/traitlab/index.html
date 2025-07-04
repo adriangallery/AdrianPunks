@@ -308,6 +308,58 @@
             font-family: 'VT323', monospace;
         }
 
+        .apply-traits-btn {
+            background: linear-gradient(45deg, #ff69b4, #667eea);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            font-family: 'VT323', monospace;
+            font-weight: bold;
+        }
+
+        .apply-traits-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+
+        .apply-traits-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .apply-status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: 'VT323', monospace;
+            font-size: 1rem;
+        }
+
+        .apply-status.loading {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .apply-status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .apply-status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
         .footer {
             text-align: center;
             margin-top: 40px;
@@ -380,6 +432,10 @@
                     <img id="combined-image" src="" alt="Generated Image">
                     <div id="generated-image-url" class="generated-image-url"></div>
                 </div>
+                <div id="apply-traits-section" style="display: none; margin-top: 20px; text-align: center;">
+                    <button id="applyTraitsBtn" class="apply-traits-btn">🎨 Apply Traits to NFT</button>
+                    <div id="apply-status" class="apply-status" style="display: none;"></div>
+                </div>
             </div>
 
             <div id="loading" class="loading" style="display: none;">
@@ -424,6 +480,9 @@
             ERC1155: "0x90546848474fb3c9fda3fdad887969bb244e7e58" // AdrianLAB
         };
 
+        // AdrianTraitsExtensions contract
+        const TRAITS_EXTENSIONS_CONTRACT = "0x0995c0dA1ca071b792E852b6Ec531b7cD7d1F8D6";
+
         // App state
         let currentAccount = null;
         let currentContract = CONTRACTS.ERC721; // AdrianZERO by default
@@ -448,11 +507,15 @@
         const generatedImage = document.getElementById('generated-image');
         const combinedImage = document.getElementById('combined-image');
         const generatedImageUrl = document.getElementById('generated-image-url');
+        const applyTraitsSection = document.getElementById('apply-traits-section');
+        const applyTraitsBtn = document.getElementById('applyTraitsBtn');
+        const applyStatus = document.getElementById('apply-status');
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             connectBtn.addEventListener('click', connectWallet);
             disconnectBtn.addEventListener('click', disconnectWallet);
+            applyTraitsBtn.addEventListener('click', applyTraitsToNFT);
             
             // Contract filter buttons
             contractBtns.forEach(btn => {
@@ -553,6 +616,8 @@
             tokensGrid.innerHTML = "";
             selectionInfo.style.display = "none";
             generatedImage.style.display = "none";
+            applyTraitsSection.style.display = "none";
+            applyStatus.style.display = "none";
             hideMessages();
         }
 
@@ -872,13 +937,16 @@
                 if (selectedERC721 && selectedERC1155.length > 0) {
                     console.log('Both selections present, calling generateCombinedImage');
                     generateCombinedImage();
+                    applyTraitsSection.style.display = 'block';
                 } else {
                     console.log('Missing selections, hiding generated image');
                     generatedImage.style.display = 'none';
+                    applyTraitsSection.style.display = 'none';
                 }
             } else {
                 selectionInfo.style.display = 'none';
                 generatedImage.style.display = 'none';
+                applyTraitsSection.style.display = 'none';
             }
         }
 
@@ -938,6 +1006,111 @@
             combinedImage.onload = function() {
                 console.log('Generated image loaded successfully');
             };
+        }
+
+        // Apply traits to NFT using blockchain contract
+        async function applyTraitsToNFT() {
+            console.log('applyTraitsToNFT called');
+            
+            if (!selectedERC721 || selectedERC1155.length === 0) {
+                showApplyStatus('Please select both an ERC721 token and ERC1155 traits first.', 'error');
+                return;
+            }
+
+            if (!currentAccount) {
+                showApplyStatus('Please connect your wallet first.', 'error');
+                return;
+            }
+
+            try {
+                // Show loading state
+                showApplyStatus('Preparing transaction...', 'loading');
+                applyTraitsBtn.disabled = true;
+
+                // Get provider and signer
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const signer = provider.getSigner();
+
+                // Contract ABI for applyTraitMultiple function
+                const contractABI = [
+                    {
+                        "inputs": [
+                            {
+                                "internalType": "uint256",
+                                "name": "tokenId",
+                                "type": "uint256"
+                            },
+                            {
+                                "internalType": "uint256[]",
+                                "name": "traitIds",
+                                "type": "uint256[]"
+                            }
+                        ],
+                        "name": "applyTraitMultiple",
+                        "outputs": [],
+                        "stateMutability": "nonpayable",
+                        "type": "function"
+                    }
+                ];
+
+                // Create contract instance
+                const contract = new ethers.Contract(TRAITS_EXTENSIONS_CONTRACT, contractABI, signer);
+
+                // Prepare parameters
+                const erc721TokenId = selectedERC721.tokenId;
+                const traitIds = selectedERC1155.map(token => token.tokenId);
+
+                console.log('Contract address:', TRAITS_EXTENSIONS_CONTRACT);
+                console.log('ERC721 Token ID:', erc721TokenId);
+                console.log('Trait IDs:', traitIds);
+
+                showApplyStatus('Confirming transaction in your wallet...', 'loading');
+
+                // Call the contract function
+                const tx = await contract.applyTraitMultiple(erc721TokenId, traitIds);
+                
+                showApplyStatus('Transaction sent! Waiting for confirmation...', 'loading');
+                console.log('Transaction hash:', tx.hash);
+
+                // Wait for transaction confirmation
+                const receipt = await tx.wait();
+                
+                showApplyStatus(`✅ Traits applied successfully! Transaction: ${receipt.transactionHash}`, 'success');
+                console.log('Transaction confirmed:', receipt);
+
+                // Refresh tokens after successful application
+                setTimeout(() => {
+                    loadTokens(currentAccount, currentContract);
+                }, 2000);
+
+            } catch (error) {
+                console.error('Error applying traits:', error);
+                
+                let errorMessage = 'Failed to apply traits.';
+                if (error.code === 4001) {
+                    errorMessage = 'Transaction was rejected by user.';
+                } else if (error.message) {
+                    errorMessage = `Error: ${error.message}`;
+                }
+                
+                showApplyStatus(errorMessage, 'error');
+            } finally {
+                applyTraitsBtn.disabled = false;
+            }
+        }
+
+        // Helper function to show apply status
+        function showApplyStatus(message, type) {
+            applyStatus.textContent = message;
+            applyStatus.className = `apply-status ${type}`;
+            applyStatus.style.display = 'block';
+            
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    applyStatus.style.display = 'none';
+                }, 5000);
+            }
         }
 
         // UI Helper functions
