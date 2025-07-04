@@ -219,6 +219,15 @@
             font-family: monospace;
         }
 
+        .token-category {
+            color: #ff69b4;
+            font-size: 0.9rem;
+            font-family: 'VT323', monospace;
+            font-weight: bold;
+            margin-top: 5px;
+            text-transform: uppercase;
+        }
+
         .selection-info {
             background: rgba(255, 105, 180, 0.1);
             border: 2px solid #ff69b4;
@@ -617,6 +626,12 @@
                                 mediaUrl = mediaUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
                             }
                             
+                            // Extract category from metadata for ERC1155 tokens
+                            let category = '';
+                            if (tokenType === 'ERC1155' && nft.metadata) {
+                                category = nft.metadata.category || nft.metadata.Category || '';
+                            }
+                            
                             return {
                                 tokenId: tokenIdInt,
                                 title: title,
@@ -624,6 +639,7 @@
                                 contract: nft.contract.address,
                                 contractName: nft.contract.name || 'Unknown Contract',
                                 tokenType: tokenType,
+                                category: category,
                                 metadata: nft.metadata || {}
                             };
                             
@@ -676,11 +692,16 @@
                     tokenCard.classList.add('selected');
                 }
                 
+                // Create category display for ERC1155 tokens
+                const categoryDisplay = token.tokenType === 'ERC1155' && token.category ? 
+                    `<div class="token-category">${token.category}</div>` : '';
+                
                 tokenCard.innerHTML = `
                     <img src="${imageUrl}" alt="${token.title}" class="token-image" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l5ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+">
                     <div class="token-info">
                         <div class="token-name">${token.title}</div>
                         <div class="token-id">ID: ${token.tokenId}</div>
+                        ${categoryDisplay}
                         <div class="token-contract">${token.contractName}</div>
                         <div class="token-contract">${token.contract.slice(0,6)}...${token.contract.slice(-4)}</div>
                     </div>
