@@ -1086,47 +1086,15 @@
             const freeBtn = document.getElementById('btn-mint-free');
             const bundleBtn = document.getElementById('btn-mint-bundle');
             
-            // Check if allowlist is enabled for this pack
-            if (!hasAllowlist) {
-                if (freeBtn) {
-                    freeBtn.disabled = true;
-                    freeBtn.textContent = 'Allowlist Disabled';
-                }
-                if (bundleBtn) {
-                    bundleBtn.disabled = true;
-                    bundleBtn.textContent = 'Allowlist Disabled';
-                }
-                return;
+            // Para STARTER Floppy, siempre mostrar el botón de mint gratuito habilitado
+            if (freeBtn) {
+                freeBtn.disabled = false;
+                freeBtn.textContent = 'Claim Free';
             }
             
-            if (!isOnAllowlist) {
-                if (freeBtn) {
-                    freeBtn.disabled = true;
-                    freeBtn.textContent = 'Not on Allowlist';
-                }
-                if (bundleBtn) {
-                    bundleBtn.disabled = true;
-                    bundleBtn.textContent = 'Not on Allowlist';
-                }
-            } else if (hasClaimedFree) {
-                if (freeBtn) {
-                    freeBtn.disabled = true;
-                    freeBtn.textContent = 'Already Claimed';
-                }
-                // Bundle still available for paid mints only if public sale is enabled
-                if (bundleBtn && hasPublicSale) {
-                    bundleBtn.disabled = false;
-                    bundleBtn.textContent = 'Mint Bundle (Paid Only)';
-                }
-            } else {
-                if (freeBtn) {
-                    freeBtn.disabled = false;
-                    freeBtn.textContent = 'Claim Free';
-                }
-                if (bundleBtn) {
-                    bundleBtn.disabled = false;
-                    bundleBtn.textContent = 'Mint Bundle';
-                }
+            // Ocultar el botón de bundle ya que solo queremos mint gratuito
+            if (bundleBtn) {
+                bundleBtn.style.display = 'none';
             }
         }
 
@@ -1181,16 +1149,17 @@
             const paidSection = document.querySelector('.option-card:nth-child(2)');
             const bundleSection = document.querySelector('.option-card:nth-child(3)');
             
+            // Para STARTER Floppy, siempre mostrar solo la sección de mint gratuito
             if (freeSection) {
-                freeSection.style.display = hasAllowlist ? 'block' : 'none';
+                freeSection.style.display = 'block';
             }
             
             if (paidSection) {
-                paidSection.style.display = hasPublicSale ? 'block' : 'none';
+                paidSection.style.display = 'none';
             }
             
             if (bundleSection) {
-                bundleSection.style.display = (hasAllowlist || hasPublicSale) ? 'block' : 'none';
+                bundleSection.style.display = 'none';
             }
             
             // Update info display
@@ -1292,21 +1261,10 @@
             await withPending(btn, async () => {
                 await ensureCorrectNetwork();
                 
-                if (!hasAllowlist) {
-                    throw new Error('Allowlist is not enabled for this pack!');
-                }
-                
-                if (!isOnAllowlist) {
-                    throw new Error('You are not on the allowlist for free mint!');
-                }
-
-                if (hasClaimedFree) {
-                    throw new Error('You have already claimed your free mint!');
-                }
-
                 showStatus('Processing free claim...', 'info');
                 
-                const tx = await packMinter.purchasePack(PACK_ID, 1, true);
+                // Usar los parámetros correctos: packId=10001, quantity=1, useAllowlist=false
+                const tx = await packMinter.purchasePack(10001, 1, false);
                 showStatus(`Minting free... <a href="https://basescan.org/tx/${tx.hash}" target="_blank" class="tx-link">View TX</a>`, 'info');
                 
                 await tx.wait();
