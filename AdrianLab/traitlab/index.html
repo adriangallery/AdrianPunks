@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AdrianLab - Token Gallery</title>
+    <title>TraitLAB - Token Gallery</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js" type="application/javascript"></script>
     <style>
         * {
@@ -13,7 +14,7 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'VT323', monospace;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             color: #333;
@@ -32,13 +33,21 @@
         }
 
         .header h1 {
-            font-size: 2.5rem;
+            font-size: 3rem;
             margin-bottom: 10px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
 
+        .header h1 .trait {
+            color: #333333;
+        }
+
+        .header h1 .lab {
+            color: #ff69b4;
+        }
+
         .header p {
-            font-size: 1.1rem;
+            font-size: 1.3rem;
             opacity: 0.9;
         }
 
@@ -61,6 +70,7 @@
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            font-family: 'VT323', monospace;
         }
 
         .connect-btn:hover {
@@ -100,6 +110,7 @@
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
+            font-family: 'VT323', monospace;
         }
 
         .disconnect-btn:hover {
@@ -114,10 +125,11 @@
         }
 
         .section-title {
-            font-size: 1.5rem;
+            font-size: 1.8rem;
             margin-bottom: 20px;
             color: #333;
             text-align: center;
+            font-family: 'VT323', monospace;
         }
 
         .contract-filter {
@@ -132,11 +144,12 @@
             background: #6c757d;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 12px 24px;
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
-            font-size: 0.9rem;
+            font-size: 1rem;
+            font-family: 'VT323', monospace;
         }
 
         .contract-btn.active {
@@ -161,11 +174,17 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.1);
             transition: all 0.3s ease;
             cursor: pointer;
+            border: 3px solid transparent;
         }
 
         .token-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .token-card.selected {
+            border-color: #ff69b4;
+            box-shadow: 0 0 20px rgba(255, 105, 180, 0.5);
         }
 
         .token-image {
@@ -183,18 +202,32 @@
             font-weight: bold;
             margin-bottom: 5px;
             color: #333;
+            font-family: 'VT323', monospace;
+            font-size: 1.1rem;
         }
 
         .token-id {
             color: #666;
             font-size: 0.9rem;
             margin-bottom: 5px;
+            font-family: 'VT323', monospace;
         }
 
         .token-contract {
             color: #999;
             font-size: 0.8rem;
             font-family: monospace;
+        }
+
+        .selection-info {
+            background: rgba(255, 105, 180, 0.1);
+            border: 2px solid #ff69b4;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+            font-family: 'VT323', monospace;
+            font-size: 1.1rem;
         }
 
         .loading {
@@ -225,6 +258,7 @@
             border-radius: 8px;
             margin: 20px 0;
             text-align: center;
+            font-family: 'VT323', monospace;
         }
 
         .success {
@@ -234,6 +268,7 @@
             border-radius: 8px;
             margin: 20px 0;
             text-align: center;
+            font-family: 'VT323', monospace;
         }
 
         .no-tokens {
@@ -241,6 +276,15 @@
             padding: 40px;
             color: #666;
             font-style: italic;
+            font-family: 'VT323', monospace;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            color: white;
+            font-family: 'VT323', monospace;
+            font-size: 1.1rem;
         }
 
         @media (max-width: 768px) {
@@ -249,7 +293,7 @@
             }
             
             .header h1 {
-                font-size: 2rem;
+                font-size: 2.5rem;
             }
             
             .tokens-grid {
@@ -267,31 +311,30 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎨 AdrianLab Token Gallery</h1>
-            <p>Explora tus tokens de los contratos específicos</p>
+            <h1><span class="trait">Trait</span><span class="lab">LAB</span></h1>
         </div>
 
         <!-- Connect Section -->
         <div id="connect-section" class="connect-section">
-            <h2>Conecta tu Wallet</h2>
-            <p style="margin: 20px 0;">Para ver tus tokens, necesitas conectar tu wallet de MetaMask</p>
-            <button id="connectBtn" class="connect-btn">🔗 Conectar Wallet</button>
+            <h2>Connect Your Wallet</h2>
+            <p style="margin: 20px 0;">To view your tokens, you need to connect your MetaMask wallet</p>
+            <button id="connectBtn" class="connect-btn">🔗 Connect Wallet</button>
         </div>
 
         <!-- Account Section -->
         <div id="account-section" class="account-section">
             <div class="wallet-info">
                 <div>
-                    <strong>Wallet conectada:</strong>
+                    <strong>Connected Wallet:</strong>
                     <span id="walletAddress" class="wallet-address"></span>
                 </div>
-                <button id="disconnectBtn" class="disconnect-btn">Desconectar</button>
+                <button id="disconnectBtn" class="disconnect-btn">Disconnect</button>
             </div>
         </div>
 
         <!-- Tokens Section -->
         <div id="tokens-section" class="tokens-section" style="display: none;">
-            <h2 class="section-title">📱 Tus Tokens</h2>
+            <h2 class="section-title">📱 Your Tokens</h2>
             
             <div class="contract-filter">
                 <button class="contract-btn active" data-contract="0x6e369bf0e4e0c106192d606fb6d85836d684da75">
@@ -302,19 +345,27 @@
                 </button>
             </div>
 
+            <div id="selection-info" class="selection-info" style="display: none;">
+                <div id="selection-text"></div>
+            </div>
+
             <div id="loading" class="loading" style="display: none;">
                 <div class="spinner"></div>
-                <p>Cargando tokens...</p>
+                <p>Loading tokens...</p>
             </div>
 
             <div id="error" class="error" style="display: none;"></div>
             <div id="success" class="success" style="display: none;"></div>
 
             <div id="no-tokens" class="no-tokens" style="display: none;">
-                <p>No se encontraron tokens en este contrato</p>
+                <p>No tokens found in this contract</p>
             </div>
 
             <div id="tokens-grid" class="tokens-grid"></div>
+        </div>
+
+        <div class="footer">
+            Powered by $ADRIAN
         </div>
     </div>
 
@@ -343,6 +394,8 @@
         // App state
         let currentAccount = null;
         let currentContract = CONTRACTS.ERC721; // AdrianZERO by default
+        let selectedERC721 = null;
+        let selectedERC1155 = [];
 
         // DOM Elements
         const connectSection = document.getElementById('connect-section');
@@ -357,6 +410,8 @@
         const noTokens = document.getElementById('no-tokens');
         const tokensGrid = document.getElementById('tokens-grid');
         const contractBtns = document.querySelectorAll('.contract-btn');
+        const selectionInfo = document.getElementById('selection-info');
+        const selectionText = document.getElementById('selection-text');
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -397,7 +452,7 @@
         async function connectWallet() {
             try {
                 if (!window.ethereum) {
-                    showError("MetaMask no detectado! Por favor instala MetaMask para usar esta aplicación.");
+                    showError("MetaMask not detected! Please install MetaMask to use this application.");
                     return;
                 }
                 
@@ -443,21 +498,24 @@
                     window.location.reload();
                 });
                 
-                showSuccess("Wallet conectada exitosamente!");
+                showSuccess("Wallet connected successfully!");
                 
             } catch (error) {
                 console.error("Connection error:", error);
-                showError(error.message || "Error al conectar wallet");
+                showError(error.message || "Error connecting wallet");
             }
         }
 
         // Disconnect wallet
         function disconnectWallet() {
             currentAccount = null;
+            selectedERC721 = null;
+            selectedERC1155 = [];
             connectSection.style.display = "block";
             accountSection.style.display = "none";
             tokensSection.style.display = "none";
             tokensGrid.innerHTML = "";
+            selectionInfo.style.display = "none";
             hideMessages();
         }
 
@@ -471,21 +529,21 @@
                 const isERC721 = contractAddress.toLowerCase() === CONTRACTS.ERC721.toLowerCase(); // AdrianZERO
                 const tokenType = isERC721 ? "ERC721" : "ERC1155";
                 
-                console.log(`Cargando tokens ${tokenType} del contrato: ${contractAddress}`);
+                console.log(`Loading ${tokenType} tokens from contract: ${contractAddress}`);
                 
                 // Use Alchemy's REST API directly
                 let alchemyUrl = `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${userAddress}&contractAddresses[]=${contractAddress}&withMetadata=true&pageSize=50&tokenType=${tokenType}`;
                 
-                console.log(`Solicitando NFTs con URL: ${alchemyUrl}`);
+                console.log(`Requesting NFTs with URL: ${alchemyUrl}`);
                 
                 const alchemyResponse = await fetch(alchemyUrl);
                 
                 if (!alchemyResponse.ok) {
-                    throw new Error(`Error al obtener NFTs de Alchemy API: ${alchemyResponse.status}`);
+                    throw new Error(`Error getting NFTs from Alchemy API: ${alchemyResponse.status}`);
                 }
                 
                 const nftsData = await alchemyResponse.json();
-                console.log(`Datos de NFTs recibidos:`, nftsData);
+                console.log(`NFT data received:`, nftsData);
                 
                 // Process NFTs
                 if (nftsData.ownedNfts && nftsData.ownedNfts.length > 0) {
@@ -575,7 +633,7 @@
                         }
                     }).filter(token => token !== null);
                     
-                    console.log(`Tokens procesados:`, tokens);
+                    console.log(`Processed tokens:`, tokens);
                     displayTokens(tokens);
                     
                 } else {
@@ -584,7 +642,7 @@
                 
             } catch (error) {
                 console.error("Error loading tokens:", error);
-                showError(`Error al cargar tokens: ${error.message}`);
+                showError(`Error loading tokens: ${error.message}`);
             } finally {
                 hideLoading();
             }
@@ -600,8 +658,17 @@
                 
                 const imageUrl = token.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+';
                 
+                // Check if token is selected
+                const isSelected = token.tokenType === 'ERC721' ? 
+                    (selectedERC721 && selectedERC721.tokenId === token.tokenId) :
+                    selectedERC1155.some(t => t.tokenId === token.tokenId);
+                
+                if (isSelected) {
+                    tokenCard.classList.add('selected');
+                }
+                
                 tokenCard.innerHTML = `
-                    <img src="${imageUrl}" alt="${token.title}" class="token-image" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+'">
+                    <img src="${imageUrl}" alt="${token.title}" class="token-image" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l5ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+">
                     <div class="token-info">
                         <div class="token-name">${token.title}</div>
                         <div class="token-id">ID: ${token.tokenId}</div>
@@ -610,8 +677,64 @@
                     </div>
                 `;
                 
+                // Add click event for selection
+                tokenCard.addEventListener('click', () => {
+                    if (token.tokenType === 'ERC721') {
+                        // Single selection for ERC721
+                        if (selectedERC721 && selectedERC721.tokenId === token.tokenId) {
+                            selectedERC721 = null;
+                            tokenCard.classList.remove('selected');
+                        } else {
+                            // Deselect previous ERC721
+                            const prevSelected = tokensGrid.querySelector('.token-card.selected');
+                            if (prevSelected) prevSelected.classList.remove('selected');
+                            
+                            selectedERC721 = token;
+                            tokenCard.classList.add('selected');
+                        }
+                    } else {
+                        // Multiple selection for ERC1155
+                        const index = selectedERC1155.findIndex(t => t.tokenId === token.tokenId);
+                        if (index > -1) {
+                            selectedERC1155.splice(index, 1);
+                            tokenCard.classList.remove('selected');
+                        } else {
+                            selectedERC1155.push(token);
+                            tokenCard.classList.add('selected');
+                        }
+                    }
+                    
+                    updateSelectionInfo();
+                });
+                
                 tokensGrid.appendChild(tokenCard);
             });
+            
+            updateSelectionInfo();
+        }
+
+        // Update selection info display
+        function updateSelectionInfo() {
+            let infoText = '';
+            
+            if (selectedERC721) {
+                infoText += `Selected ERC721: ${selectedERC721.title} (ID: ${selectedERC721.tokenId})`;
+            }
+            
+            if (selectedERC1155.length > 0) {
+                if (infoText) infoText += '<br>';
+                infoText += `Selected ERC1155: ${selectedERC1155.length} token(s)`;
+                selectedERC1155.forEach(token => {
+                    infoText += `<br>• ${token.title} (ID: ${token.tokenId})`;
+                });
+            }
+            
+            if (infoText) {
+                selectionText.innerHTML = infoText;
+                selectionInfo.style.display = 'block';
+            } else {
+                selectionInfo.style.display = 'none';
+            }
         }
 
         // UI Helper functions
