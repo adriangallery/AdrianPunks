@@ -239,6 +239,26 @@
             font-size: 1.1rem;
         }
 
+        .generated-image {
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .generated-image img {
+            max-width: 300px;
+            height: auto;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .generated-image-url {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: #666;
+            word-break: break-all;
+            font-family: monospace;
+        }
+
         .loading {
             text-align: center;
             padding: 40px;
@@ -356,6 +376,10 @@
 
             <div id="selection-info" class="selection-info" style="display: none;">
                 <div id="selection-text"></div>
+                <div id="generated-image" class="generated-image" style="display: none;">
+                    <img id="combined-image" src="" alt="Generated Image">
+                    <div id="generated-image-url" class="generated-image-url"></div>
+                </div>
             </div>
 
             <div id="loading" class="loading" style="display: none;">
@@ -421,6 +445,9 @@
         const contractBtns = document.querySelectorAll('.contract-btn');
         const selectionInfo = document.getElementById('selection-info');
         const selectionText = document.getElementById('selection-text');
+        const generatedImage = document.getElementById('generated-image');
+        const combinedImage = document.getElementById('combined-image');
+        const generatedImageUrl = document.getElementById('generated-image-url');
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -525,6 +552,7 @@
             tokensSection.style.display = "none";
             tokensGrid.innerHTML = "";
             selectionInfo.style.display = "none";
+            generatedImage.style.display = "none";
             hideMessages();
         }
 
@@ -762,9 +790,50 @@
             if (infoText) {
                 selectionText.innerHTML = infoText;
                 selectionInfo.style.display = 'block';
+                
+                // Generate combined image if we have both ERC721 and ERC1155 selections
+                if (selectedERC721 && selectedERC1155.length > 0) {
+                    generateCombinedImage();
+                } else {
+                    generatedImage.style.display = 'none';
+                }
             } else {
                 selectionInfo.style.display = 'none';
+                generatedImage.style.display = 'none';
             }
+        }
+
+        // Generate combined image from selected tokens
+        function generateCombinedImage() {
+            if (!selectedERC721 || selectedERC1155.length === 0) {
+                return;
+            }
+
+            // Build query parameters from ERC1155 tokens
+            const queryParams = [];
+            selectedERC1155.forEach(token => {
+                if (token.category && token.tokenId) {
+                    queryParams.push(`${token.category}=${token.tokenId}`);
+                }
+            });
+
+            if (queryParams.length === 0) {
+                generatedImage.style.display = 'none';
+                return;
+            }
+
+            // Create the URL
+            const baseUrl = 'https://adrianlab.vercel.app/api/render/custom';
+            const erc721TokenId = selectedERC721.tokenId;
+            const queryString = queryParams.join('&');
+            const imageUrl = `${baseUrl}/${erc721TokenId}?${queryString}`;
+
+            // Update the image and URL display
+            combinedImage.src = imageUrl;
+            generatedImageUrl.textContent = imageUrl;
+            generatedImage.style.display = 'block';
+
+            console.log('Generated combined image URL:', imageUrl);
         }
 
         // UI Helper functions
