@@ -657,7 +657,32 @@
                             // Extract category from metadata for ERC1155 tokens
                             let category = '';
                             if (tokenType === 'ERC1155' && nft.metadata) {
+                                console.log('ERC1155 metadata:', nft.metadata);
                                 category = nft.metadata.category || nft.metadata.Category || '';
+                                
+                                // If category is still empty, try to extract from other metadata fields
+                                if (!category && nft.metadata.attributes) {
+                                    console.log('Checking attributes:', nft.metadata.attributes);
+                                    // Look for category in attributes
+                                    const categoryAttr = nft.metadata.attributes.find(attr => 
+                                        attr.trait_type && attr.trait_type.toLowerCase() === 'category'
+                                    );
+                                    if (categoryAttr) {
+                                        category = categoryAttr.value;
+                                    }
+                                }
+                                
+                                // If still empty, try to extract from name or description
+                                if (!category) {
+                                    if (nft.metadata.name && nft.metadata.name.includes(' ')) {
+                                        const nameParts = nft.metadata.name.split(' ');
+                                        if (nameParts.length > 1) {
+                                            category = nameParts[0].toLowerCase();
+                                        }
+                                    }
+                                }
+                                
+                                console.log('Extracted category:', category);
                             }
                             
                             return {
@@ -824,11 +849,37 @@
             const queryParams = [];
             selectedERC1155.forEach(token => {
                 console.log('Processing ERC1155 token:', token);
+                console.log('Token category:', token.category);
+                console.log('Token tokenId:', token.tokenId);
+                console.log('Token metadata:', token.metadata);
+                
                 if (token.category && token.tokenId) {
                     queryParams.push(`${token.category}=${token.tokenId}`);
                     console.log(`Added parameter: ${token.category}=${token.tokenId}`);
                 } else {
                     console.log('Token missing category or tokenId:', token);
+                    
+                    // Try to extract category from metadata if not already set
+                    if (!token.category && token.metadata) {
+                        let extractedCategory = '';
+                        
+                        // Try different locations for category
+                        if (token.metadata.category) {
+                            extractedCategory = token.metadata.category;
+                        } else if (token.metadata.attributes) {
+                            const categoryAttr = token.metadata.attributes.find(attr => 
+                                attr.trait_type && attr.trait_type.toLowerCase() === 'category'
+                            );
+                            if (categoryAttr) {
+                                extractedCategory = categoryAttr.value;
+                            }
+                        }
+                        
+                        if (extractedCategory && token.tokenId) {
+                            queryParams.push(`${extractedCategory}=${token.tokenId}`);
+                            console.log(`Added parameter from metadata: ${extractedCategory}=${token.tokenId}`);
+                        }
+                    }
                 }
             });
 
