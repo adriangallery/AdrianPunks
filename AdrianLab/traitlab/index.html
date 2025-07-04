@@ -712,7 +712,55 @@
                     });
                     
                     console.log(`Processed tokens:`, filteredTokens);
-                    displayTokens(filteredTokens);
+                    
+                    // For ERC1155 tokens, fetch individual metadata if it's empty
+                    if (tokenType === 'ERC1155') {
+                        const tokensWithMetadata = await Promise.all(
+                            filteredTokens.map(async (token) => {
+                                if (!token.metadata || Object.keys(token.metadata).length === 0) {
+                                    console.log(`Fetching individual metadata for token ${token.tokenId}`);
+                                    try {
+                                        const metadataUrl = `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTMetadata?contractAddress=${contractAddress}&tokenId=${token.tokenId}&tokenType=ERC1155`;
+                                        const metadataResponse = await fetch(metadataUrl);
+                                        
+                                        if (metadataResponse.ok) {
+                                            const metadataData = await metadataResponse.json();
+                                            console.log(`Metadata for token ${token.tokenId}:`, metadataData);
+                                            
+                                            // Extract category from the new metadata
+                                            let category = '';
+                                            if (metadataData.metadata) {
+                                                category = metadataData.metadata.category || metadataData.metadata.Category || '';
+                                                
+                                                if (!category && metadataData.metadata.attributes) {
+                                                    const categoryAttr = metadataData.metadata.attributes.find(attr => 
+                                                        attr.trait_type && attr.trait_type.toLowerCase() === 'category'
+                                                    );
+                                                    if (categoryAttr) {
+                                                        category = categoryAttr.value.toLowerCase();
+                                                    }
+                                                }
+                                            }
+                                            
+                                            return {
+                                                ...token,
+                                                metadata: metadataData.metadata || {},
+                                                category: category
+                                            };
+                                        }
+                                    } catch (error) {
+                                        console.error(`Error fetching metadata for token ${token.tokenId}:`, error);
+                                    }
+                                }
+                                return token;
+                            })
+                        );
+                        
+                        console.log(`Tokens with metadata:`, tokensWithMetadata);
+                        displayTokens(tokensWithMetadata);
+                    } else {
+                        displayTokens(filteredTokens);
+                    }
                     
                 } else {
                     showNoTokens();
