@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TraitLAB - Token Gallery</title>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
-    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js" type="application/javascript"></script>
     <style>
         * {
             margin: 0;
@@ -1018,85 +1017,111 @@
                 return;
             }
 
-            // Check if ethers is available
-            if (typeof ethers === 'undefined') {
-                showApplyStatus('Ethers library not loaded. Please refresh the page.', 'error');
-                return;
-            }
-
             try {
                 // Show loading state
-                showApplyStatus('Preparing transaction...', 'loading');
+                showApplyStatus('Loading ethers library...', 'loading');
                 applyTraitsBtn.disabled = true;
 
-                // Get provider and signer
-                const provider = new ethers.providers.Web3Provider(window.ethereum);
-                const signer = provider.getSigner();
+                // Load ethers dynamically only when needed
+                let ethers;
+                if (typeof window.ethers === 'undefined') {
+                    // Load ethers from CDN
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+                    script.onload = () => {
+                        ethers = window.ethers;
+                        console.log('Ethers loaded successfully');
+                        executeTransaction();
+                    };
+                    script.onerror = () => {
+                        showApplyStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                        applyTraitsBtn.disabled = false;
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    ethers = window.ethers;
+                    executeTransaction();
+                }
 
-                // Contract ABI for applyTraitMultiple function
-                const contractABI = [
-                    {
-                        "inputs": [
+                async function executeTransaction() {
+                    try {
+                        showApplyStatus('Preparing transaction...', 'loading');
+
+                        // Get provider and signer
+                        const provider = new ethers.providers.Web3Provider(window.ethereum);
+                        const signer = provider.getSigner();
+
+                        // Contract ABI for applyTraitMultiple function
+                        const contractABI = [
                             {
-                                "internalType": "uint256",
-                                "name": "tokenId",
-                                "type": "uint256"
-                            },
-                            {
-                                "internalType": "uint256[]",
-                                "name": "traitIds",
-                                "type": "uint256[]"
+                                "inputs": [
+                                    {
+                                        "internalType": "uint256",
+                                        "name": "tokenId",
+                                        "type": "uint256"
+                                    },
+                                    {
+                                        "internalType": "uint256[]",
+                                        "name": "traitIds",
+                                        "type": "uint256[]"
+                                    }
+                                ],
+                                "name": "applyTraitMultiple",
+                                "outputs": [],
+                                "stateMutability": "nonpayable",
+                                "type": "function"
                             }
-                        ],
-                        "name": "applyTraitMultiple",
-                        "outputs": [],
-                        "stateMutability": "nonpayable",
-                        "type": "function"
+                        ];
+
+                        // Create contract instance
+                        const contract = new ethers.Contract(TRAITS_EXTENSIONS_CONTRACT, contractABI, signer);
+
+                        // Prepare parameters
+                        const erc721TokenId = selectedERC721.tokenId;
+                        const traitIds = selectedERC1155.map(token => token.tokenId);
+
+                        console.log('Contract address:', TRAITS_EXTENSIONS_CONTRACT);
+                        console.log('ERC721 Token ID:', erc721TokenId);
+                        console.log('Trait IDs:', traitIds);
+
+                        showApplyStatus('Confirming transaction in your wallet...', 'loading');
+
+                        // Call the contract function
+                        const tx = await contract.applyTraitMultiple(erc721TokenId, traitIds);
+                        
+                        showApplyStatus('Transaction sent! Waiting for confirmation...', 'loading');
+                        console.log('Transaction hash:', tx.hash);
+
+                        // Wait for transaction confirmation
+                        const receipt = await tx.wait();
+                        
+                        showApplyStatus(`✅ Traits applied successfully! Transaction: ${receipt.transactionHash}`, 'success');
+                        console.log('Transaction confirmed:', receipt);
+
+                        // Refresh tokens after successful application
+                        setTimeout(() => {
+                            loadTokens(currentAccount, currentContract);
+                        }, 2000);
+
+                    } catch (error) {
+                        console.error('Error in transaction:', error);
+                        
+                        let errorMessage = 'Failed to apply traits.';
+                        if (error.code === 4001) {
+                            errorMessage = 'Transaction was rejected by user.';
+                        } else if (error.message) {
+                            errorMessage = `Error: ${error.message}`;
+                        }
+                        
+                        showApplyStatus(errorMessage, 'error');
+                    } finally {
+                        applyTraitsBtn.disabled = false;
                     }
-                ];
-
-                // Create contract instance
-                const contract = new ethers.Contract(TRAITS_EXTENSIONS_CONTRACT, contractABI, signer);
-
-                // Prepare parameters
-                const erc721TokenId = selectedERC721.tokenId;
-                const traitIds = selectedERC1155.map(token => token.tokenId);
-
-                console.log('Contract address:', TRAITS_EXTENSIONS_CONTRACT);
-                console.log('ERC721 Token ID:', erc721TokenId);
-                console.log('Trait IDs:', traitIds);
-
-                showApplyStatus('Confirming transaction in your wallet...', 'loading');
-
-                // Call the contract function
-                const tx = await contract.applyTraitMultiple(erc721TokenId, traitIds);
-                
-                showApplyStatus('Transaction sent! Waiting for confirmation...', 'loading');
-                console.log('Transaction hash:', tx.hash);
-
-                // Wait for transaction confirmation
-                const receipt = await tx.wait();
-                
-                showApplyStatus(`✅ Traits applied successfully! Transaction: ${receipt.transactionHash}`, 'success');
-                console.log('Transaction confirmed:', receipt);
-
-                // Refresh tokens after successful application
-                setTimeout(() => {
-                    loadTokens(currentAccount, currentContract);
-                }, 2000);
+                }
 
             } catch (error) {
                 console.error('Error applying traits:', error);
-                
-                let errorMessage = 'Failed to apply traits.';
-                if (error.code === 4001) {
-                    errorMessage = 'Transaction was rejected by user.';
-                } else if (error.message) {
-                    errorMessage = `Error: ${error.message}`;
-                }
-                
-                showApplyStatus(errorMessage, 'error');
-            } finally {
+                showApplyStatus('Failed to load ethers library. Please refresh the page.', 'error');
                 applyTraitsBtn.disabled = false;
             }
         }
