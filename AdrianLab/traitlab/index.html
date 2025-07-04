@@ -894,40 +894,17 @@
             }
 
             // Build query parameters from ERC1155 tokens
+            // Use 'trait' as parameter name for all ERC1155 tokens
             const queryParams = [];
             selectedERC1155.forEach(token => {
                 console.log('Processing ERC1155 token:', token);
-                console.log('Token category:', token.category);
                 console.log('Token tokenId:', token.tokenId);
-                console.log('Token metadata:', token.metadata);
                 
-                if (token.category && token.tokenId) {
-                    queryParams.push(`${token.category}=${token.tokenId}`);
-                    console.log(`Added parameter: ${token.category}=${token.tokenId}`);
+                if (token.tokenId) {
+                    queryParams.push(`trait=${token.tokenId}`);
+                    console.log(`Added parameter: trait=${token.tokenId}`);
                 } else {
-                    console.log('Token missing category or tokenId:', token);
-                    
-                    // Try to extract category from metadata if not already set
-                    if (!token.category && token.metadata) {
-                        let extractedCategory = '';
-                        
-                        // Try different locations for category
-                        if (token.metadata.category) {
-                            extractedCategory = token.metadata.category.toLowerCase();
-                        } else if (token.metadata.attributes) {
-                            const categoryAttr = token.metadata.attributes.find(attr => 
-                                attr.trait_type && attr.trait_type.toLowerCase() === 'category'
-                            );
-                            if (categoryAttr) {
-                                extractedCategory = categoryAttr.value.toLowerCase(); // Convert to lowercase for URL
-                            }
-                        }
-                        
-                        if (extractedCategory && token.tokenId) {
-                            queryParams.push(`${extractedCategory}=${token.tokenId}`);
-                            console.log(`Added parameter from metadata: ${extractedCategory}=${token.tokenId}`);
-                        }
-                    }
+                    console.log('Token missing tokenId:', token);
                 }
             });
 

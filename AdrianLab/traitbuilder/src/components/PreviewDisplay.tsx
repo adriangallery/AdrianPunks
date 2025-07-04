@@ -50,20 +50,20 @@ export const PreviewDisplay: React.FC<PreviewDisplayProps> = ({
     }
     
     lastRequestRef.current = url;
-    setIsLoading(true);
-    setError(null);
-    
-    try {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
       // Add a small delay to prevent rapid requests
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      setPreviewUrl(url);
-    } catch (err) {
-      setError('Error generating preview');
-      console.error('Preview error:', err);
-    } finally {
-      setIsLoading(false);
-    }
+        setPreviewUrl(url);
+      } catch (err) {
+        setError('Error generating preview');
+        console.error('Preview error:', err);
+      } finally {
+        setIsLoading(false);
+      }
   }, [buildPreviewUrl]);
 
   // Update preview when traits change with debouncing

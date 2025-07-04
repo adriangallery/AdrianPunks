@@ -14,6 +14,10 @@ const nextConfig = {
       ...config.resolve.fallback,
       fs: false,
     };
+    
+    // Force relative paths for all chunks
+    config.output.publicPath = './';
+    
     return config;
   },
   // Enable static export for deployment
@@ -23,6 +27,9 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Force relative paths for all assets
+  assetPrefix: './',
+  basePath: '',
 }
 
 module.exports = nextConfig 

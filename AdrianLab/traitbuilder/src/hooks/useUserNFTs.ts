@@ -27,7 +27,7 @@ export function useUserNFTs() {
     }
 
     setIsLoading(true);
-    
+
     // Simulate API call delay
     setTimeout(() => {
       // Create mock NFTs

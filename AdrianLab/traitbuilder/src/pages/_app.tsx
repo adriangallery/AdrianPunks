@@ -71,13 +71,13 @@ export default function App({ Component, pageProps }: AppProps) {
       <Head>
         <script src="/config.js" async />
       </Head>
-      <WagmiConfig config={wagmiConfig}>
-        <RainbowKitProvider chains={chains}>
-          <QueryClientProvider client={queryClient}>
-            <Component {...pageProps} />
-          </QueryClientProvider>
-        </RainbowKitProvider>
-      </WagmiConfig>
+    <WagmiConfig config={wagmiConfig}>
+      <RainbowKitProvider chains={chains}>
+        <QueryClientProvider client={queryClient}>
+          <Component {...pageProps} />
+        </QueryClientProvider>
+      </RainbowKitProvider>
+    </WagmiConfig>
     </>
   );
 } 

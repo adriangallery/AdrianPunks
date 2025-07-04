@@ -22,28 +22,28 @@ export const getChainConfig = () => {
 
   return {
     id: chainId,
-    name: 'Base',
-    network: 'base',
-    nativeCurrency: {
-      decimals: 18,
-      name: 'Ether',
-      symbol: 'ETH',
-    },
-    rpcUrls: {
-      default: {
+  name: 'Base',
+  network: 'base',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Ether',
+    symbol: 'ETH',
+  },
+  rpcUrls: {
+    default: {
         http: [rpcUrl],
-      },
-      public: {
+    },
+    public: {
         http: [rpcUrl],
-      },
     },
-    blockExplorers: {
-      default: {
-        name: 'Basescan',
-        url: 'https://basescan.org',
-      },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Basescan',
+      url: 'https://basescan.org',
     },
-  };
+  },
+};
 };
 
 export const CHAIN_CONFIG = getChainConfig();
