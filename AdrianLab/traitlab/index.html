@@ -6,17 +6,6 @@
     <title>TraitLAB - Token Gallery</title>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
     <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js" type="application/javascript"></script>
-    <script>
-        // Verify ethers is loaded
-        window.addEventListener('load', function() {
-            if (typeof ethers === 'undefined') {
-                console.error('Ethers library not loaded!');
-                alert('Error: Ethers library failed to load. Please refresh the page.');
-            } else {
-                console.log('Ethers library loaded successfully:', ethers.version);
-            }
-        });
-    </script>
     <style>
         * {
             margin: 0;
@@ -367,42 +356,6 @@
             border: 1px solid #f5c6cb;
         }
 
-        .image-loading {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 10px;
-            margin: 10px 0;
-        }
-
-        .pixel-spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            animation: pixel-spin 1s linear infinite;
-            image-rendering: pixelated;
-            image-rendering: -moz-crisp-edges;
-            image-rendering: crisp-edges;
-        }
-
-        @keyframes pixel-spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .loading-text {
-            margin-top: 10px;
-            font-family: 'VT323', monospace;
-            font-size: 1rem;
-            color: #666;
-            text-align: center;
-        }
-
         .footer {
             text-align: center;
             margin-top: 40px;
@@ -472,10 +425,6 @@
             <div id="selection-info" class="selection-info" style="display: none;">
                 <div id="selection-text"></div>
                 <div id="generated-image" class="generated-image" style="display: none;">
-                    <div id="image-loading" class="image-loading" style="display: none;">
-                        <div class="pixel-spinner"></div>
-                        <div class="loading-text">Generating image...</div>
-                    </div>
                     <img id="combined-image" src="" alt="Generated Image">
                     <div id="generated-image-url" class="generated-image-url"></div>
                 </div>
@@ -554,7 +503,6 @@
         const generatedImage = document.getElementById('generated-image');
         const combinedImage = document.getElementById('combined-image');
         const generatedImageUrl = document.getElementById('generated-image-url');
-        const imageLoading = document.getElementById('image-loading');
         const applyTraitsSection = document.getElementById('apply-traits-section');
         const applyTraitsBtn = document.getElementById('applyTraitsBtn');
         const applyStatus = document.getElementById('apply-status');
@@ -664,7 +612,6 @@
             tokensGrid.innerHTML = "";
             selectionInfo.style.display = "none";
             generatedImage.style.display = "none";
-            imageLoading.style.display = "none";
             applyTraitsSection.style.display = "none";
             applyStatus.style.display = "none";
             hideMessages();
@@ -1041,38 +988,25 @@
 
             console.log('Generated combined image URL:', imageUrl);
 
-            // Show loading spinner
-            imageLoading.style.display = 'block';
-            combinedImage.style.display = 'none';
-            generatedImage.style.display = 'block';
-            generatedImageUrl.textContent = imageUrl;
-            
-            // Set image source to start loading
+            // Update the image and URL display
             combinedImage.src = imageUrl;
+            generatedImageUrl.textContent = imageUrl;
+            generatedImage.style.display = 'block';
 
             // Add error handling for image load
             combinedImage.onerror = function() {
                 console.error('Failed to load generated image:', imageUrl);
-                imageLoading.style.display = 'none';
                 generatedImageUrl.textContent = `Error loading image: ${imageUrl}`;
             };
             
             combinedImage.onload = function() {
                 console.log('Generated image loaded successfully');
-                imageLoading.style.display = 'none';
-                combinedImage.style.display = 'block';
             };
         }
 
         // Apply traits to NFT using blockchain contract
         async function applyTraitsToNFT() {
             console.log('applyTraitsToNFT called');
-            
-            // Check if ethers is available
-            if (typeof ethers === 'undefined') {
-                showApplyStatus('Error: Ethers library not loaded. Please refresh the page.', 'error');
-                return;
-            }
             
             if (!selectedERC721 || selectedERC1155.length === 0) {
                 showApplyStatus('Please select both an ERC721 token and ERC1155 traits first.', 'error');
@@ -1084,13 +1018,16 @@
                 return;
             }
 
+            // Check if ethers is available
+            if (typeof ethers === 'undefined') {
+                showApplyStatus('Ethers library not loaded. Please refresh the page.', 'error');
+                return;
+            }
+
             try {
                 // Show loading state
                 showApplyStatus('Preparing transaction...', 'loading');
                 applyTraitsBtn.disabled = true;
-
-                console.log('Ethers available:', typeof ethers);
-                console.log('Ethers version:', ethers.version);
 
                 // Get provider and signer
                 const provider = new ethers.providers.Web3Provider(window.ethereum);
