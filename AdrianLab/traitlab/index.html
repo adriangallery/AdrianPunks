@@ -773,6 +773,10 @@
 
         // Update selection info display
         function updateSelectionInfo() {
+            console.log('updateSelectionInfo called');
+            console.log('selectedERC721:', selectedERC721);
+            console.log('selectedERC1155:', selectedERC1155);
+            
             let infoText = '';
             
             if (selectedERC721) {
@@ -793,8 +797,10 @@
                 
                 // Generate combined image if we have both ERC721 and ERC1155 selections
                 if (selectedERC721 && selectedERC1155.length > 0) {
+                    console.log('Both selections present, calling generateCombinedImage');
                     generateCombinedImage();
                 } else {
+                    console.log('Missing selections, hiding generated image');
                     generatedImage.style.display = 'none';
                 }
             } else {
@@ -805,19 +811,31 @@
 
         // Generate combined image from selected tokens
         function generateCombinedImage() {
+            console.log('generateCombinedImage called');
+            console.log('selectedERC721:', selectedERC721);
+            console.log('selectedERC1155:', selectedERC1155);
+            
             if (!selectedERC721 || selectedERC1155.length === 0) {
+                console.log('Missing required selections');
                 return;
             }
 
             // Build query parameters from ERC1155 tokens
             const queryParams = [];
             selectedERC1155.forEach(token => {
+                console.log('Processing ERC1155 token:', token);
                 if (token.category && token.tokenId) {
                     queryParams.push(`${token.category}=${token.tokenId}`);
+                    console.log(`Added parameter: ${token.category}=${token.tokenId}`);
+                } else {
+                    console.log('Token missing category or tokenId:', token);
                 }
             });
 
+            console.log('Query params built:', queryParams);
+
             if (queryParams.length === 0) {
+                console.log('No valid query parameters, hiding image');
                 generatedImage.style.display = 'none';
                 return;
             }
@@ -828,12 +846,22 @@
             const queryString = queryParams.join('&');
             const imageUrl = `${baseUrl}/${erc721TokenId}?${queryString}`;
 
+            console.log('Generated combined image URL:', imageUrl);
+
             // Update the image and URL display
             combinedImage.src = imageUrl;
             generatedImageUrl.textContent = imageUrl;
             generatedImage.style.display = 'block';
 
-            console.log('Generated combined image URL:', imageUrl);
+            // Add error handling for image load
+            combinedImage.onerror = function() {
+                console.error('Failed to load generated image:', imageUrl);
+                generatedImageUrl.textContent = `Error loading image: ${imageUrl}`;
+            };
+            
+            combinedImage.onload = function() {
+                console.log('Generated image loaded successfully');
+            };
         }
 
         // UI Helper functions
