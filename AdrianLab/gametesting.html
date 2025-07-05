@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Testing - AdrianLAB</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'VT323', monospace;
+            background: #808080;
+            min-height: 100vh;
+            color: #333;
+            overflow: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 4.5rem;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header h1 .game {
+            color: #333333;
+        }
+
+        .header h1 .testing {
+            color: #00ff00;
+        }
+
+        .header .subtitle {
+            font-size: 1.45rem;
+            color: white;
+            margin-bottom: 20px;
+            font-family: 'VT323', monospace;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .connect-section {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .connect-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            font-family: 'VT323', monospace;
+        }
+
+        .connect-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+
+        .account-section {
+            display: none;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .wallet-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .wallet-address {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-family: monospace;
+            font-weight: bold;
+        }
+
+        .disconnect-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'VT323', monospace;
+        }
+
+        .disconnect-btn:hover {
+            background: #c82333;
+        }
+
+        .game-section {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .game-content {
+            flex: 1;
+            display: flex;
+            gap: 20px;
+        }
+
+        .game-area {
+            flex: 1;
+            background: #f0f0f0;
+            border-radius: 10px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: #666;
+        }
+
+        .game-panel {
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .commands-section {
+            background: #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            flex: 1;
+        }
+
+        .commands-title {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #333;
+            text-align: center;
+        }
+
+        .command-btn {
+            width: 100%;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+            font-family: 'VT323', monospace;
+            margin-bottom: 10px;
+        }
+
+        .command-btn:hover {
+            transform: translateY(-1px);
+            background: #5a6fd8;
+        }
+
+        .inventory-section {
+            background: #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            flex: 1;
+        }
+
+        .inventory-title {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #333;
+            text-align: center;
+        }
+
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .inventory-item {
+            background: white;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .inventory-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .inventory-item.selected {
+            border-color: #333333;
+            box-shadow: 0 0 10px rgba(51, 51, 51, 0.5);
+        }
+
+        .inventory-item img {
+            width: 100%;
+            height: auto;
+            max-height: 60px;
+            object-fit: contain;
+            margin-bottom: 5px;
+        }
+
+        .inventory-item .item-name {
+            font-size: 0.8rem;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .inventory-item .item-id {
+            font-size: 0.7rem;
+            color: #666;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+            font-family: 'VT323', monospace;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+            font-family: 'VT323', monospace;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            color: white;
+            font-family: 'VT323', monospace;
+            font-size: 1.1rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 3.5rem;
+            }
+            
+            .header .subtitle {
+                font-size: 1rem;
+            }
+            
+            .game-content {
+                flex-direction: column;
+            }
+            
+            .game-panel {
+                width: 100%;
+            }
+            
+            .inventory-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><span class="game">Game</span><span class="testing">Testing</span></h1>
+            <div class="subtitle">by $ADRIAN and HalfxTiger</div>
+        </div>
+
+        <!-- Connect Section -->
+        <div id="connect-section" class="connect-section">
+            <h2>Connect Your Wallet</h2>
+            <p style="margin: 20px 0;">To view your floppy discs, you need to connect your MetaMask wallet</p>
+            <button id="connectBtn" class="connect-btn">Connect Wallet</button>
+        </div>
+
+        <!-- Account Section -->
+        <div id="account-section" class="account-section">
+            <div class="wallet-info">
+                <div>
+                    <strong>Connected Wallet:</strong>
+                    <span id="walletAddress" class="wallet-address"></span>
+                </div>
+                <button id="disconnectBtn" class="disconnect-btn">Disconnect</button>
+            </div>
+        </div>
+
+        <!-- Game Section -->
+        <div id="game-section" class="game-section" style="display: none;">
+            <div class="game-content">
+                <div class="game-area">
+                    Game Area - Coming Soon
+                </div>
+                
+                <div class="game-panel">
+                    <div class="commands-section">
+                        <div class="commands-title">Commands</div>
+                        <button class="command-btn">LOOK</button>
+                        <button class="command-btn">TAKE</button>
+                        <button class="command-btn">USE</button>
+                        <button class="command-btn">OPEN</button>
+                        <button class="command-btn">EXAMINE</button>
+                    </div>
+                    
+                    <div class="inventory-section">
+                        <div class="inventory-title">Inventory</div>
+                        <div id="inventory-grid" class="inventory-grid">
+                            <!-- Floppy discs will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Loading floppy discs...</p>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="success" class="success" style="display: none;"></div>
+
+        <div class="footer">
+            Powered by $ADRIAN
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const ALCHEMY_API_KEY = "5qIXA1UZxOAzi8b9l0nrYmsQBO9-W7Ot";
+        const ALCHEMY_RPC_URL = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+        const BASE_NETWORK = {
+            chainId: "0x2105", // 8453 in hex
+            chainName: "Base Mainnet",
+            nativeCurrency: {
+                name: "ETH",
+                symbol: "ETH",
+                decimals: 18,
+            },
+            rpcUrls: [ALCHEMY_RPC_URL],
+            blockExplorerUrls: ["https://basescan.org/"],
+        };
+
+        // Contract addresses
+        const CONTRACTS = {
+            ERC721: "0x6e369bf0e4e0c106192d606fb6d85836d684da75", // AdrianZERO
+            ERC1155: "0x90546848474fb3c9fda3fdad887969bb244e7e58" // AdrianLAB
+        };
+
+        // App state
+        let currentAccount = null;
+        let floppyDiscs = [];
+
+        // DOM Elements
+        const connectSection = document.getElementById('connect-section');
+        const accountSection = document.getElementById('account-section');
+        const gameSection = document.getElementById('game-section');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const walletAddress = document.getElementById('walletAddress');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        const success = document.getElementById('success');
+        const inventoryGrid = document.getElementById('inventory-grid');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            connectBtn.addEventListener('click', connectWallet);
+            disconnectBtn.addEventListener('click', disconnectWallet);
+            
+            // Check if wallet is already connected
+            checkConnection();
+        });
+
+        // Check if wallet is connected
+        async function checkConnection() {
+            if (window.ethereum) {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    if (accounts.length > 0) {
+                        await connectWallet();
+                    }
+                } catch (error) {
+                    console.error("Failed to check connection:", error);
+                }
+            }
+        }
+
+        // Connect wallet
+        async function connectWallet() {
+            try {
+                if (!window.ethereum) {
+                    showError("MetaMask not detected! Please install MetaMask to use this application.");
+                    return;
+                }
+                
+                // Request account access
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                currentAccount = accounts[0];
+                
+                // Check if user is on the Base network
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                if (chainId !== BASE_NETWORK.chainId) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: BASE_NETWORK.chainId }],
+                        });
+                    } catch (switchError) {
+                        if (switchError.code === 4902) {
+                            await window.ethereum.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [BASE_NETWORK],
+                            });
+                        } else {
+                            throw switchError;
+                        }
+                    }
+                }
+                
+                // Update UI
+                connectSection.style.display = "none";
+                accountSection.style.display = "block";
+                gameSection.style.display = "block";
+                walletAddress.textContent = `${currentAccount.slice(0,6)}...${currentAccount.slice(-4)}`;
+                
+                // Load floppy discs
+                await loadFloppyDiscs();
+                
+                // Event listeners for account/chain changes
+                window.ethereum.on('accountsChanged', (accounts) => {
+                    window.location.reload();
+                });
+                
+                window.ethereum.on('chainChanged', () => {
+                    window.location.reload();
+                });
+                
+                showSuccess("Wallet connected successfully!");
+                
+            } catch (error) {
+                console.error("Connection error:", error);
+                showError(error.message || "Error connecting wallet");
+            }
+        }
+
+        // Disconnect wallet
+        function disconnectWallet() {
+            currentAccount = null;
+            floppyDiscs = [];
+            connectSection.style.display = "block";
+            accountSection.style.display = "none";
+            gameSection.style.display = "none";
+            inventoryGrid.innerHTML = "";
+            hideMessages();
+        }
+
+        // Load floppy discs (ERC1155 tokens 10000 and 10001)
+        async function loadFloppyDiscs() {
+            showLoading();
+            hideMessages();
+            
+            try {
+                console.log('Loading floppy discs for wallet:', currentAccount);
+                
+                // Use Alchemy's REST API to get ERC1155 tokens
+                const alchemyUrl = `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${currentAccount}&contractAddresses[]=${CONTRACTS.ERC1155}&withMetadata=true&pageSize=50&tokenType=ERC1155`;
+                
+                console.log('Requesting NFTs with URL:', alchemyUrl);
+                
+                const alchemyResponse = await fetch(alchemyUrl);
+                
+                if (!alchemyResponse.ok) {
+                    throw new Error(`Error getting NFTs from Alchemy API: ${alchemyResponse.status}`);
+                }
+                
+                const nftsData = await alchemyResponse.json();
+                console.log('NFT data received:', nftsData);
+                
+                // Filter only tokens 10000 and 10001
+                if (nftsData.ownedNfts && nftsData.ownedNfts.length > 0) {
+                    const floppyTokens = nftsData.ownedNfts.filter(nft => {
+                        const tokenId = parseInt(nft.tokenId);
+                        return tokenId === 10000 || tokenId === 10001;
+                    });
+                    
+                    console.log('Floppy discs found:', floppyTokens);
+                    
+                    // Process floppy discs
+                    floppyDiscs = floppyTokens.map(nft => {
+                        const tokenId = parseInt(nft.tokenId);
+                        let title = `Floppy Disc #${tokenId}`;
+                        
+                        if (nft.title) {
+                            title = nft.title;
+                        } else if (nft.name) {
+                            title = nft.name;
+                        } else if (nft.metadata && nft.metadata.name) {
+                            title = nft.metadata.name;
+                        }
+                        
+                        // Extract image URL
+                        let mediaUrl = "";
+                        
+                        if (nft.raw && nft.raw.metadata && nft.raw.metadata.image) {
+                            mediaUrl = nft.raw.metadata.image;
+                        } else if (nft.media && Array.isArray(nft.media) && nft.media.length > 0) {
+                            const mediaSources = ['gateway', 'raw', 'thumbnail', 'format'];
+                            for (const source of mediaSources) {
+                                if (nft.media[0][source] && typeof nft.media[0][source] === 'string') {
+                                    mediaUrl = nft.media[0][source];
+                                    break;
+                                }
+                            }
+                        } else if (nft.metadata) {
+                            const imageProps = ['image', 'image_url', 'imageUrl', 'imageURI', 'image_uri', 'imageData'];
+                            for (const prop of imageProps) {
+                                if (nft.metadata[prop] && typeof nft.metadata[prop] === 'string') {
+                                    mediaUrl = nft.metadata[prop];
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Clean up IPFS URLs
+                        if (mediaUrl && mediaUrl.startsWith('ipfs://')) {
+                            mediaUrl = mediaUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
+                        }
+                        
+                        return {
+                            tokenId: tokenId,
+                            title: title,
+                            imageUrl: mediaUrl,
+                            contract: nft.contract.address,
+                            contractName: nft.contract.name || 'AdrianLAB',
+                            metadata: nft.metadata || {}
+                        };
+                    });
+                    
+                    displayFloppyDiscs();
+                } else {
+                    console.log('No floppy discs found');
+                    inventoryGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: #666;">No floppy discs found</p>';
+                }
+                
+            } catch (error) {
+                console.error("Error loading floppy discs:", error);
+                showError(`Error loading floppy discs: ${error.message}`);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Display floppy discs in inventory grid
+        function displayFloppyDiscs() {
+            inventoryGrid.innerHTML = "";
+            
+            floppyDiscs.forEach(floppy => {
+                const floppyItem = document.createElement('div');
+                floppyItem.className = 'inventory-item';
+                
+                const imageUrl = floppy.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjMwIiB5PSIzMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjOTk5OTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+RmxvcHB5PC90ZXh0Pgo8L3N2Zz4=';
+                
+                floppyItem.innerHTML = `
+                    <img src="${imageUrl}" alt="${floppy.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjMwIiB5PSIzMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjOTk5OTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+RmxvcHB5PC90ZXh0Pgo8L3N2Zz4='">
+                    <div class="item-name">${floppy.title}</div>
+                    <div class="item-id">ID: ${floppy.tokenId}</div>
+                `;
+                
+                // Add click event for selection
+                floppyItem.addEventListener('click', () => {
+                    // Remove selection from other items
+                    document.querySelectorAll('.inventory-item').forEach(item => {
+                        item.classList.remove('selected');
+                    });
+                    
+                    // Add selection to clicked item
+                    floppyItem.classList.add('selected');
+                    
+                    console.log('Selected floppy disc:', floppy);
+                });
+                
+                inventoryGrid.appendChild(floppyItem);
+            });
+        }
+
+        // UI Helper functions
+        function showLoading() {
+            loading.style.display = "block";
+            inventoryGrid.innerHTML = "";
+        }
+
+        function hideLoading() {
+            loading.style.display = "none";
+        }
+
+        function showError(message) {
+            error.textContent = message;
+            error.style.display = "block";
+        }
+
+        function showSuccess(message) {
+            success.textContent = message;
+            success.style.display = "block";
+            setTimeout(() => {
+                success.style.display = "none";
+            }, 3000);
+        }
+
+        function hideMessages() {
+            error.style.display = "none";
+            success.style.display = "none";
+        }
+    </script>
+</body>
+</html> 
