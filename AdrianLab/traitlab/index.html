@@ -251,11 +251,56 @@
             text-align: center;
         }
 
+        .generated-image {
+            margin: 20px 0;
+            text-align: center;
+            position: relative;
+        }
+
         .generated-image img {
             max-width: 300px;
             height: auto;
             border-radius: 10px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .image-loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            height: 300px;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 10px;
+            z-index: 10;
+        }
+
+        .image-loading-overlay p {
+            color: #00ff00;
+            font-family: 'VT323', monospace;
+            font-size: 18px;
+            margin-top: 15px;
+            text-shadow: 0 0 10px #00ff00;
+        }
+
+        .pixelated-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #333;
+            border-top: 4px solid #00ff00;
+            border-radius: 0;
+            animation: pixelated-spin 1s linear infinite;
+            image-rendering: pixelated;
+        }
+
+        @keyframes pixelated-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         .loading {
@@ -432,6 +477,10 @@
             <div id="selection-info" class="selection-info" style="display: none;">
                 <div id="selection-text"></div>
                 <div id="generated-image" class="generated-image" style="display: none;">
+                    <div id="image-loading-overlay" class="image-loading-overlay" style="display: none;">
+                        <div class="pixelated-spinner"></div>
+                        <p>Generating image...</p>
+                    </div>
                     <img id="combined-image" src="" alt="Generated Image">
                 </div>
                 <div id="apply-traits-section" style="display: none; margin-top: 20px; text-align: center;">
@@ -521,6 +570,7 @@
         const selectionText = document.getElementById('selection-text');
         const generatedImage = document.getElementById('generated-image');
         const combinedImage = document.getElementById('combined-image');
+        const imageLoadingOverlay = document.getElementById('image-loading-overlay');
         const applyTraitsSection = document.getElementById('apply-traits-section');
         const applyTraitsBtn = document.getElementById('applyTraitsBtn');
         const applyStatus = document.getElementById('apply-status');
@@ -1114,6 +1164,11 @@
 
             console.log('Generated combined image URL:', imageUrl);
 
+            // Show loading overlay if image is already displayed
+            if (generatedImage.style.display !== 'none') {
+                imageLoadingOverlay.style.display = 'flex';
+            }
+
             // Update the image display
             combinedImage.src = imageUrl;
             generatedImage.style.display = 'block';
@@ -1121,10 +1176,12 @@
             // Add error handling for image load
             combinedImage.onerror = function() {
                 console.error('Failed to load generated image:', imageUrl);
+                imageLoadingOverlay.style.display = 'none';
             };
             
             combinedImage.onload = function() {
                 console.log('Generated image loaded successfully');
+                imageLoadingOverlay.style.display = 'none';
             };
         }
 
