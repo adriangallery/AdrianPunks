@@ -438,6 +438,10 @@
                     <button id="applyTraitsBtn" class="apply-traits-btn">Apply Traits</button>
                     <div id="apply-status" class="apply-status" style="display: none;"></div>
                 </div>
+                <div id="refresh-metadata-section" style="display: none; margin-top: 20px; text-align: center;">
+                    <button id="refreshMetadataBtn" class="apply-traits-btn">Refresh metadata OpenSea</button>
+                    <div id="refresh-metadata-status" class="apply-status" style="display: none;"></div>
+                </div>
                 <div id="open-floppy-section" style="display: none; margin-top: 20px; text-align: center;">
                     <button id="openFloppyBtn" class="apply-traits-btn">Open Floppy</button>
                     <div id="open-floppy-status" class="apply-status" style="display: none;"></div>
@@ -520,6 +524,9 @@
         const applyTraitsSection = document.getElementById('apply-traits-section');
         const applyTraitsBtn = document.getElementById('applyTraitsBtn');
         const applyStatus = document.getElementById('apply-status');
+        const refreshMetadataSection = document.getElementById('refresh-metadata-section');
+        const refreshMetadataBtn = document.getElementById('refreshMetadataBtn');
+        const refreshMetadataStatus = document.getElementById('refresh-metadata-status');
         const openFloppySection = document.getElementById('open-floppy-section');
         const openFloppyBtn = document.getElementById('openFloppyBtn');
         const openFloppyStatus = document.getElementById('open-floppy-status');
@@ -529,6 +536,7 @@
             connectBtn.addEventListener('click', connectWallet);
             disconnectBtn.addEventListener('click', disconnectWallet);
             applyTraitsBtn.addEventListener('click', applyTraitsToNFT);
+            refreshMetadataBtn.addEventListener('click', refreshMetadata);
             openFloppyBtn.addEventListener('click', openFloppy);
             
             // Contract filter buttons
@@ -649,6 +657,8 @@
             generatedImage.style.display = "none";
             applyTraitsSection.style.display = "none";
             applyStatus.style.display = "none";
+            refreshMetadataSection.style.display = "none";
+            refreshMetadataStatus.style.display = "none";
             openFloppySection.style.display = "none";
             openFloppyStatus.style.display = "none";
             hideMessages();
@@ -1029,6 +1039,13 @@
                     selectionText.innerHTML = infoText;
                     selectionInfo.style.display = 'block';
                     
+                    // Show refresh metadata button if ERC721 is selected
+                    if (selectedERC721) {
+                        refreshMetadataSection.style.display = 'block';
+                    } else {
+                        refreshMetadataSection.style.display = 'none';
+                    }
+                    
                     // Generate combined image if we have both ERC721 and ERC1155 selections
                     if (selectedERC721 && selectedERC1155.length > 0) {
                         console.log('Both selections present, calling generateCombinedImage');
@@ -1043,6 +1060,7 @@
                     selectionInfo.style.display = 'none';
                     generatedImage.style.display = 'none';
                     applyTraitsSection.style.display = 'none';
+                    refreshMetadataSection.style.display = 'none';
                 }
                 
                 // Hide floppy section in AdrianLAB tab
@@ -1243,6 +1261,20 @@
             }
         }
 
+        // Helper function to show refresh metadata status
+        function showRefreshMetadataStatus(message, type) {
+            refreshMetadataStatus.textContent = message;
+            refreshMetadataStatus.className = `apply-status ${type}`;
+            refreshMetadataStatus.style.display = 'block';
+            
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    refreshMetadataStatus.style.display = 'none';
+                }, 5000);
+            }
+        }
+
         // Helper function to show open floppy status
         function showOpenFloppyStatus(message, type) {
             openFloppyStatus.textContent = message;
@@ -1254,6 +1286,59 @@
                 setTimeout(() => {
                     openFloppyStatus.style.display = 'none';
                 }, 5000);
+            }
+        }
+
+        // Refresh metadata by calling Vercel endpoints
+        async function refreshMetadata() {
+            console.log('refreshMetadata called');
+            
+            if (!selectedERC721) {
+                showRefreshMetadataStatus('Please select an AdrianZERO token first.', 'error');
+                return;
+            }
+
+            try {
+                // Show loading state
+                showRefreshMetadataStatus('Refreshing metadata on OpenSea...', 'loading');
+                refreshMetadataBtn.disabled = true;
+
+                const tokenId = selectedERC721.tokenId;
+                const renderUrl = `https://adrianlab.vercel.app/api/render/${tokenId}`;
+                const metadataUrl = `https://adrianlab.vercel.app/api/metadata/${tokenId}`;
+
+                console.log('Calling render URL:', renderUrl);
+                console.log('Calling metadata URL:', metadataUrl);
+
+                // Make both requests in parallel
+                const [renderResponse, metadataResponse] = await Promise.all([
+                    fetch(renderUrl),
+                    fetch(metadataUrl)
+                ]);
+
+                console.log('Render response status:', renderResponse.status);
+                console.log('Metadata response status:', metadataResponse.status);
+
+                // Check if both requests were successful
+                if (renderResponse.ok && metadataResponse.ok) {
+                    showRefreshMetadataStatus(`✅ Metadata refreshed successfully for token ${tokenId}!`, 'success');
+                    console.log('Both endpoints called successfully');
+                } else {
+                    let errorMessage = 'Failed to refresh metadata.';
+                    if (!renderResponse.ok) {
+                        errorMessage += ` Render endpoint returned ${renderResponse.status}.`;
+                    }
+                    if (!metadataResponse.ok) {
+                        errorMessage += ` Metadata endpoint returned ${metadataResponse.status}.`;
+                    }
+                    showRefreshMetadataStatus(errorMessage, 'error');
+                }
+
+            } catch (error) {
+                console.error('Error refreshing metadata:', error);
+                showRefreshMetadataStatus(`Error: ${error.message}`, 'error');
+            } finally {
+                refreshMetadataBtn.disabled = false;
             }
         }
 
