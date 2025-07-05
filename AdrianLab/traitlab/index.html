@@ -411,6 +411,9 @@
                 <button class="contract-btn" data-contract="0x90546848474fb3c9fda3fdad887969bb244e7e58">
                     AdrianLAB
                 </button>
+                <button class="contract-btn" data-contract="0x90546848474fb3c9fda3fdad887969bb244e7e58" data-filter="floppy">
+                    Floppy Discs
+                </button>
             </div>
 
             <div id="selection-info" class="selection-info" style="display: none;">
@@ -472,6 +475,7 @@
         // App state
         let currentAccount = null;
         let currentContract = CONTRACTS.ERC721; // AdrianZERO by default
+        let currentFilter = null; // null = normal, "floppy" = floppy discs filter
         let selectedERC721 = null;
         let selectedERC1155 = [];
 
@@ -508,6 +512,7 @@
                     contractBtns.forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
                     currentContract = btn.dataset.contract;
+                    currentFilter = btn.dataset.filter || null; // Set filter type
                     if (currentAccount) {
                         loadTokens(currentAccount, currentContract);
                     }
@@ -593,6 +598,8 @@
         // Disconnect wallet
         function disconnectWallet() {
             currentAccount = null;
+            currentContract = CONTRACTS.ERC721; // Reset to default
+            currentFilter = null; // Reset filter
             selectedERC721 = null;
             selectedERC1155 = [];
             connectSection.style.display = "block";
@@ -604,6 +611,10 @@
             applyTraitsSection.style.display = "none";
             applyStatus.style.display = "none";
             hideMessages();
+            
+            // Reset button states
+            contractBtns.forEach(btn => btn.classList.remove('active'));
+            contractBtns[0].classList.add('active'); // Set AdrianZERO as active
         }
 
         // Load tokens for specific contract using direct API calls
@@ -752,13 +763,28 @@
                         }
                     }).filter(token => token !== null);
                     
-                    // Filter out tokens 10000 and 10001 for ERC1155 collection
+                    // Apply filtering based on current filter
                     const filteredTokens = tokens.filter(token => {
-                        if (token.tokenType === 'ERC1155' && (token.tokenId === 10000 || token.tokenId === 10001)) {
-                            console.log(`Filtering out ERC1155 token ${token.tokenId}`);
-                            return false;
+                        if (token.tokenType === 'ERC1155') {
+                            if (currentFilter === 'floppy') {
+                                // Floppy discs filter: show only tokens 10000 and 10001
+                                if (token.tokenId === 10000 || token.tokenId === 10001) {
+                                    console.log(`Including ERC1155 token ${token.tokenId} in floppy discs`);
+                                    return true;
+                                } else {
+                                    console.log(`Filtering out ERC1155 token ${token.tokenId} from floppy discs`);
+                                    return false;
+                                }
+                            } else {
+                                // Normal filter: exclude tokens 10000 and 10001
+                                if (token.tokenId === 10000 || token.tokenId === 10001) {
+                                    console.log(`Filtering out ERC1155 token ${token.tokenId}`);
+                                    return false;
+                                }
+                                return true;
+                            }
                         }
-                        return true;
+                        return true; // Keep all ERC721 tokens
                     });
                     
                     console.log(`Processed tokens:`, filteredTokens);
