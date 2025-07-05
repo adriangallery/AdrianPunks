@@ -3,6 +3,16 @@ const BASE_CHAIN_ID = '0x2105'; // 8453 in decimal
 const BASE_RPC_URL = 'https://mainnet.base.org';
 const BASE_EXPLORER = 'https://basescan.org';
 
+// Alchemy configuration for inventory
+const ALCHEMY_API_KEY = "5qIXA1UZxOAzi8b9l0nrYmsQBO9-W7Ot";
+const ALCHEMY_RPC_URL = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+
+// Contract addresses
+const CONTRACTS = {
+    ERC721: "0x6e369bf0e4e0c106192d606fb6d85836d684da75", // AdrianZERO
+    ERC1155: "0x90546848474fb3c9fda3fdad887969bb244e7e58" // AdrianLAB
+};
+
 // Global variables
 let provider;
 let signer;
@@ -13,6 +23,16 @@ let musicInitialized = false;
 let ethersLoaded = false;
 let progressInterval;
 let isMobile = false;
+
+// Inventory variables
+let currentAccount = null;
+let inventoryItems = [];
+let selectedInventoryItem = null;
+let gameState = {
+    currentLocation: 'basement',
+    discoveredItems: [],
+    interactions: []
+};
 
 // DOM elements
 const introScreen = document.getElementById('intro-screen');
@@ -29,6 +49,11 @@ const buyFloppyBtn = document.getElementById('buy-floppy');
 const backToMainBtn = document.getElementById('back-to-main');
 const progressFill = document.querySelector('.progress-fill');
 const progressText = document.querySelector('.progress-text');
+
+// New inventory elements
+const inventoryToggle = document.getElementById('inventory-toggle');
+const inventoryModal = document.getElementById('inventory-modal');
+const inventoryGrid = document.getElementById('inventory-grid');
 
 // Initialization
 document.addEventListener('DOMContentLoaded', function() {
@@ -278,6 +303,11 @@ function goToMainScreen() {
             if (!ethersLoaded) {
                 loadEthersWhenNeeded();
             }
+            
+            // Initialize point & click system
+            setTimeout(() => {
+                initializePointAndClickSystem();
+            }, 100);
         }, 100);
     }, 7000);
 }
@@ -337,6 +367,16 @@ function goToMainScreen() {
         setTimeout(() => {
             mainScreen.classList.add('active');
             mainScreen.style.opacity = '1';
+            
+            // Load ethers.js when entering main screen
+            if (!ethersLoaded) {
+                loadEthersWhenNeeded();
+            }
+            
+            // Initialize point & click system
+            setTimeout(() => {
+                initializePointAndClickSystem();
+            }, 100);
         }, 100);
     }, 2000);
 }
@@ -477,6 +517,9 @@ function updateWalletUI() {
         
         // Notify iframe about wallet connection
         notifyIframeWalletConnected();
+        
+        // Update inventory for connected wallet
+        updateWalletForInventory();
     } else {
         connectWalletBtn.textContent = 'Connect Wallet';
         connectWalletBtn.style.background = '#000';
@@ -484,6 +527,9 @@ function updateWalletUI() {
         
         // Notify iframe about wallet disconnection
         notifyIframeWalletDisconnected();
+        
+        // Clear inventory for disconnected wallet
+        updateWalletForInventory();
     }
 }
 
@@ -516,18 +562,9 @@ function notifyIframeWalletDisconnected() {
 }
 
 function handleBasementClick(event) {
-    if (!isWalletConnected) {
-        showNotification('Connect your wallet first', 'warning');
-        return;
-    }
-    
-    // Show mint popup
-    mintPopup.classList.add('active');
-    
-    // Notify iframe about wallet connection when popup opens
-    setTimeout(() => {
-        notifyIframeWalletConnected();
-    }, 100);
+    // This function is now handled by the point & click system
+    // The mint popup functionality is integrated into handlePointAndClick
+    console.log('Basement click handled by point & click system');
 }
 
 function closeMintPopup() {
@@ -637,4 +674,501 @@ document.addEventListener('contextmenu', e => e.preventDefault());
 // Prevent zoom on mobile
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('gesturechange', e => e.preventDefault());
-document.addEventListener('gestureend', e => e.preventDefault()); 
+document.addEventListener('gestureend', e => e.preventDefault());
+
+// ===== POINT & CLICK AND INVENTORY SYSTEM =====
+
+// Initialize point & click system
+function initializePointAndClick() {
+    if (clickArea) {
+        clickArea.addEventListener('click', handlePointAndClick);
+        clickArea.addEventListener('mousemove', handleMouseMove);
+    }
+}
+
+// Handle point & click interactions
+function handlePointAndClick(event) {
+    const rect = clickArea.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // Convert to percentage for responsive design
+    const xPercent = (x / rect.width) * 100;
+    const yPercent = (y / rect.height) * 100;
+    
+    console.log(`Clicked at: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
+    
+    // Check if click is in center area (for mint popup)
+    if (xPercent >= 40 && xPercent <= 60 && yPercent >= 40 && yPercent <= 60) {
+        // Original mint popup functionality
+        if (!isWalletConnected) {
+            showNotification('Connect your wallet first', 'warning');
+            return;
+        }
+        
+        mintPopup.classList.add('active');
+        setTimeout(() => {
+            notifyIframeWalletConnected();
+        }, 100);
+        return;
+    }
+    
+    // Define clickable areas (hotspots) based on basement.png layout
+    const hotspots = [
+        {
+            name: 'Desk Area',
+            x: [40, 55],
+            y: [80, 95],
+            action: 'inspect_desk_area',
+            message: "💬 You feel a sudden urge to write a thread on Twitter."
+        },
+        {
+            name: 'Boxes Area',
+            x: [71, 86],
+            y: [65, 80],
+            action: 'inspect_boxes',
+            message: "💬 Boxes full of failed NFT projects... and one unopened Bored Ape piñata."
+        },
+        {
+            name: 'Armchair Area',
+            x: [80, 95],
+            y: [79, 94],
+            action: 'inspect_armchair',
+            message: "💬 Sits like a throne. Probably where the DAO founder disappeared."
+        },
+        {
+            name: 'Washing Machine Area',
+            x: [63, 78],
+            y: [64, 79],
+            action: 'inspect_washing_machine',
+            message: "💬 Perfect for laundering… socks. Only socks."
+        },
+        {
+            name: 'Stairs Area',
+            x: [0, 15],
+            y: [34, 49],
+            action: 'inspect_stairs',
+            message: "💬 Do you really want to go upstairs? That's where the fiat lives."
+        },
+        {
+            name: 'Computer Area',
+            x: [18, 33],
+            y: [44, 59],
+            action: 'inspect_computer',
+            message: "💬 Someone mined 6 BTC on this in 2010… then rage quit and sold at $12."
+        },
+        {
+            name: 'Light Bulb Area',
+            x: [43, 58],
+            y: [0, 15],
+            action: 'inspect_light_bulb',
+            message: "💬 It's lit... unlike your portfolio."
+        },
+        {
+            name: 'Windows Area',
+            x: [46, 61],
+            y: [32, 47],
+            action: 'inspect_windows',
+            message: "💬 Outside: darkness. Inside: DeFi."
+        }
+    ];
+    
+    // Check if click is in any hotspot
+    for (const hotspot of hotspots) {
+        if (xPercent >= hotspot.x[0] && xPercent <= hotspot.x[1] &&
+            yPercent >= hotspot.y[0] && yPercent <= hotspot.y[1]) {
+            
+            handleHotspotClick(hotspot, xPercent, yPercent);
+            return;
+        }
+    }
+    
+    // General area click
+    showNotification(`You clicked at ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
+}
+
+// Handle hotspot clicks
+function handleHotspotClick(hotspot, x, y) {
+    console.log(`Hotspot clicked: ${hotspot.name}`);
+    
+    // Show the specific message for each hotspot as floating text
+    if (hotspot.message) {
+        showFloatingText(hotspot.message, x, y);
+    } else {
+        showFloatingText(`💬 You interact with ${hotspot.name}`, x, y);
+    }
+    
+    // Add to discovered items if not already found
+    if (!gameState.discoveredItems.includes(hotspot.name)) {
+        gameState.discoveredItems.push(hotspot.name);
+    }
+}
+
+// Show floating text over the image
+function showFloatingText(message, x, y) {
+    // Remove any existing floating text
+    const existingText = document.querySelector('.floating-text');
+    if (existingText) {
+        existingText.remove();
+    }
+    
+    // Create new floating text element
+    const floatingText = document.createElement('div');
+    floatingText.className = 'floating-text';
+    floatingText.textContent = message;
+    
+    // Position the text near the click but ensure it's visible
+    const gameArea = document.querySelector('.background-container');
+    const rect = gameArea.getBoundingClientRect();
+    
+    // Convert percentage to pixels
+    const xPos = (x / 100) * rect.width;
+    const yPos = (y / 100) * rect.height;
+    
+    // Position text above the click point, but ensure it stays within bounds
+    let left = xPos - 150; // Center the text
+    let top = yPos - 80;   // Position above the click
+    
+    // Ensure text stays within the game area bounds
+    if (left < 10) left = 10;
+    if (left > rect.width - 310) left = rect.width - 310;
+    if (top < 10) top = yPos + 20; // Show below if too close to top
+    if (top > rect.height - 100) top = rect.height - 100;
+    
+    floatingText.style.left = left + 'px';
+    floatingText.style.top = top + 'px';
+    
+    // Add to game area
+    gameArea.appendChild(floatingText);
+    
+    // Remove after animation completes
+    setTimeout(() => {
+        if (floatingText.parentNode) {
+            floatingText.remove();
+        }
+    }, 4000);
+}
+
+// Handle mouse movement for cursor feedback
+function handleMouseMove(event) {
+    const rect = clickArea.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    const xPercent = (x / rect.width) * 100;
+    const yPercent = (y / rect.height) * 100;
+    
+    // Change cursor based on location (optional)
+    // This could be used to show different cursors for different areas
+}
+
+// ===== INVENTORY SYSTEM =====
+
+// Load inventory (ERC1155 tokens 10000 and 10001)
+async function loadInventory() {
+    if (!currentAccount) return;
+    
+    showInventoryLoading();
+    
+    try {
+        const contractAddress = CONTRACTS.ERC1155;
+        const tokenType = "ERC1155";
+        
+        console.log(`Loading ${tokenType} tokens from contract: ${contractAddress}`);
+        
+        // Use Alchemy's REST API directly
+        let alchemyUrl = `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${currentAccount}&contractAddresses[]=${contractAddress}&withMetadata=true&pageSize=50&tokenType=${tokenType}`;
+        
+        console.log(`Requesting NFTs with URL: ${alchemyUrl}`);
+        
+        const alchemyResponse = await fetch(alchemyUrl);
+        
+        if (!alchemyResponse.ok) {
+            throw new Error(`Error getting NFTs from Alchemy API: ${alchemyResponse.status}`);
+        }
+        
+        const nftsData = await alchemyResponse.json();
+        console.log(`NFT data received:`, nftsData);
+        
+        // Process NFTs and filter for tokens 10000 and 10001
+        if (nftsData.ownedNfts && nftsData.ownedNfts.length > 0) {
+            const tokens = nftsData.ownedNfts.map(nft => {
+                try {
+                    // Extract tokenId
+                    let tokenId;
+                    if (nft.tokenId) {
+                        tokenId = nft.tokenId;
+                    } else if (nft.id && nft.id.tokenId) {
+                        tokenId = nft.id.tokenId;
+                    } else {
+                        console.error("No tokenId found in NFT:", nft);
+                        return null;
+                    }
+                    
+                    // Convert tokenId to integer
+                    let tokenIdInt;
+                    if (typeof tokenId === 'number') {
+                        tokenIdInt = tokenId;
+                    } else if (tokenId.startsWith('0x')) {
+                        tokenIdInt = parseInt(tokenId, 16);
+                    } else {
+                        tokenIdInt = parseInt(tokenId, 10);
+                    }
+                    
+                    if (isNaN(tokenIdInt)) {
+                        console.error("Invalid tokenId format:", tokenId);
+                        return null;
+                    }
+                    
+                    // Filter for tokens 10000 and 10001 only
+                    if (tokenIdInt !== 10000 && tokenIdInt !== 10001) {
+                        return null;
+                    }
+                    
+                    // Extract title/name
+                    let title = `Token #${tokenIdInt}`;
+                    
+                    if (nft.title) {
+                        title = nft.title;
+                    } else if (nft.name) {
+                        title = nft.name;
+                    } else if (nft.metadata && nft.metadata.name) {
+                        title = nft.metadata.name;
+                    } else if (nft.contract && nft.contract.name) {
+                        title = `${nft.contract.name} #${tokenIdInt}`;
+                    }
+                    
+                    // Extract image URL
+                    let mediaUrl = "";
+                    
+                    if (nft.raw && nft.raw.metadata && nft.raw.metadata.image) {
+                        mediaUrl = nft.raw.metadata.image;
+                    } else if (nft.media && Array.isArray(nft.media) && nft.media.length > 0) {
+                        const mediaSources = ['gateway', 'raw', 'thumbnail', 'format'];
+                        for (const source of mediaSources) {
+                            if (nft.media[0][source] && typeof nft.media[0][source] === 'string') {
+                                mediaUrl = nft.media[0][source];
+                                break;
+                            }
+                        }
+                    } else if (nft.metadata) {
+                        const imageProps = ['image', 'image_url', 'imageUrl', 'imageURI', 'image_uri', 'imageData'];
+                        for (const prop of imageProps) {
+                            if (nft.metadata[prop] && typeof nft.metadata[prop] === 'string') {
+                                mediaUrl = nft.metadata[prop];
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Clean up IPFS URLs
+                    if (mediaUrl && mediaUrl.startsWith('ipfs://')) {
+                        mediaUrl = mediaUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
+                    }
+                    
+                    return {
+                        tokenId: tokenIdInt,
+                        title: title,
+                        imageUrl: mediaUrl,
+                        contract: nft.contract.address,
+                        contractName: nft.contract.name || 'Unknown Contract',
+                        tokenType: tokenType,
+                        metadata: nft.metadata || {}
+                    };
+                    
+                } catch (err) {
+                    console.error("Error processing NFT:", err, nft);
+                    return null;
+                }
+            }).filter(token => token !== null);
+            
+            console.log(`Filtered tokens:`, tokens);
+            inventoryItems = tokens;
+            displayInventory();
+            
+        } else {
+            showNoItems();
+        }
+        
+    } catch (error) {
+        console.error("Error loading inventory:", error);
+        showNotification(`Error loading inventory: ${error.message}`, 'error');
+    } finally {
+        hideInventoryLoading();
+    }
+}
+
+// Display inventory items
+function displayInventory() {
+    inventoryGrid.innerHTML = "";
+    
+    if (inventoryItems.length === 0) {
+        inventoryGrid.innerHTML = '<div class="no-items">No floppy discs found in your wallet.</div>';
+        return;
+    }
+    
+    inventoryItems.forEach(item => {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'inventory-item';
+        
+        const imageUrl = item.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjIwIiB5PSIyMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+';
+        
+        itemElement.innerHTML = `
+            <img src="${imageUrl}" alt="${item.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjIwIiB5PSIyMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+">
+            <div class="item-name">${item.title}</div>
+            <div class="item-id">ID: ${item.tokenId}</div>
+        `;
+        
+        // Add click event for item selection
+        itemElement.addEventListener('click', () => {
+            selectInventoryItem(item);
+        });
+        
+        inventoryGrid.appendChild(itemElement);
+    });
+}
+
+// Handle inventory item selection
+function selectInventoryItem(item) {
+    console.log('Selected inventory item:', item);
+    selectedInventoryItem = item;
+    showNotification(`Selected: ${item.title} (ID: ${item.tokenId})`, 'success');
+    
+    // Update visual feedback for selected item
+    document.querySelectorAll('.inventory-item').forEach(el => {
+        el.classList.remove('selected');
+    });
+    
+    // Highlight selected item
+    event.target.closest('.inventory-item').classList.add('selected');
+}
+
+// Show no items message
+function showNoItems() {
+    inventoryGrid.innerHTML = '<div class="no-items">No floppy discs found in your wallet.</div>';
+}
+
+// Show/hide inventory loading
+function showInventoryLoading() {
+    inventoryGrid.innerHTML = `
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Loading inventory...</p>
+        </div>
+    `;
+}
+
+function hideInventoryLoading() {
+    // Loading state is handled by displayInventory or showNoItems
+}
+
+// Toggle inventory modal
+function toggleInventory() {
+    if (inventoryModal.style.display === 'none' || !inventoryModal.style.display) {
+        inventoryModal.style.display = 'block';
+        inventoryToggle.textContent = '❌ Close';
+    } else {
+        inventoryModal.style.display = 'none';
+        inventoryToggle.textContent = '📦 Inventory';
+    }
+}
+
+// Update wallet connection for inventory
+function updateWalletForInventory() {
+    if (isWalletConnected && window.ethereum.selectedAddress) {
+        currentAccount = window.ethereum.selectedAddress;
+        inventoryToggle.style.display = 'block';
+        loadInventory();
+    } else {
+        currentAccount = null;
+        inventoryItems = [];
+        selectedInventoryItem = null;
+        inventoryToggle.style.display = 'none';
+        inventoryModal.style.display = 'none';
+        inventoryGrid.innerHTML = '<div class="no-items">No items found. Connect wallet to load inventory.</div>';
+    }
+}
+
+// Enhanced wallet connection function
+async function connectWalletEnhanced() {
+    try {
+        if (!window.ethereum) {
+            showNotification("MetaMask not detected! Please install MetaMask to use this application.", 'error');
+            return;
+        }
+        
+        // Request account access
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        currentAccount = accounts[0];
+        
+        // Check if user is on the Base network
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        if (chainId !== '0x2105') {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x2105' }],
+                });
+            } catch (switchError) {
+                if (switchError.code === 4902) {
+                    await window.ethereum.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: '0x2105',
+                            chainName: 'Base Mainnet',
+                            nativeCurrency: {
+                                name: 'ETH',
+                                symbol: 'ETH',
+                                decimals: 18,
+                            },
+                            rpcUrls: [ALCHEMY_RPC_URL],
+                            blockExplorerUrls: ['https://basescan.org/'],
+                        }],
+                    });
+                } else {
+                    throw switchError;
+                }
+            }
+        }
+        
+        // Update UI
+        updateWalletForInventory();
+        
+        // Event listeners for account/chain changes
+        window.ethereum.on('accountsChanged', (accounts) => {
+            if (accounts.length > 0) {
+                currentAccount = accounts[0];
+                updateWalletForInventory();
+            } else {
+                currentAccount = null;
+                updateWalletForInventory();
+            }
+        });
+        
+        window.ethereum.on('chainChanged', () => {
+            window.location.reload();
+        });
+        
+        showNotification("Wallet connected successfully!", 'success');
+        
+    } catch (error) {
+        console.error("Connection error:", error);
+        showNotification(error.message || "Error connecting wallet", 'error');
+    }
+}
+
+// Initialize point & click system when main screen is shown
+function initializePointAndClickSystem() {
+    initializePointAndClick();
+    
+    // Add inventory toggle event listener
+    if (inventoryToggle) {
+        inventoryToggle.addEventListener('click', toggleInventory);
+    }
+    
+    // Check if wallet is already connected
+    if (window.ethereum && window.ethereum.selectedAddress) {
+        currentAccount = window.ethereum.selectedAddress;
+        updateWalletForInventory();
+    }
+} 
