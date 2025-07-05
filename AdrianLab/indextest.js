@@ -34,7 +34,7 @@ let gameState = {
     interactions: []
 };
 
-// DOM elements - will be initialized after DOM loads
+// DOM elements
 let introScreen, mainScreen, floppyScreen, introImage, backgroundMusic, muteButton;
 let connectWalletBtn, clickArea, mintPopup, closePopupBtn, buyFloppyBtn, backToMainBtn;
 let progressFill, progressText, inventoryToggle, inventoryModal, inventoryGrid;
@@ -164,7 +164,7 @@ function setupEventListeners() {
     // Wallet
     connectWalletBtn.addEventListener('click', connectWallet);
     
-    // Navigation
+    // Navigation - Use the original handleBasementClick for basic functionality
     clickArea.addEventListener('click', handleBasementClick);
     closePopupBtn.addEventListener('click', closeMintPopup);
     buyFloppyBtn.addEventListener('click', handleBuyFloppy);
@@ -271,7 +271,7 @@ function handleIntroClick(event) {
         progressContainer.style.display = 'none';
     }
     
-    goToMainScreen();
+    goToMainScreenFromIntro();
 }
 
 function goToMainScreenFromIntro() {
@@ -558,12 +558,36 @@ function notifyIframeWalletDisconnected() {
     }
 }
 
+// Original handleBasementClick function - this is the key fix
 function handleBasementClick(event) {
-    // This function is now handled by the point & click system
-    // The mint popup functionality is integrated into handlePointAndClick
-    console.log('Basement click handled by point & click system');
+    console.log('Basement clicked - checking for point & click or mint popup');
     
-    // Call the point & click handler
+    const rect = clickArea.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // Convert to percentage for responsive design
+    const xPercent = (x / rect.width) * 100;
+    const yPercent = (y / rect.height) * 100;
+    
+    console.log(`Clicked at: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
+    
+    // Check if click is in center area (for mint popup) - original functionality
+    if (xPercent >= 40 && xPercent <= 60 && yPercent >= 40 && yPercent <= 60) {
+        console.log('Center area clicked - opening mint popup');
+        if (!isWalletConnected) {
+            showNotification('Connect your wallet first', 'warning');
+            return;
+        }
+        
+        mintPopup.classList.add('active');
+        setTimeout(() => {
+            notifyIframeWalletConnected();
+        }, 100);
+        return;
+    }
+    
+    // If not center area, check for hotspots
     handlePointAndClick(event);
 }
 
@@ -680,13 +704,11 @@ document.addEventListener('gestureend', e => e.preventDefault());
 
 // Initialize point & click system
 function initializePointAndClick() {
-    if (clickArea) {
-        clickArea.addEventListener('click', handlePointAndClick);
-        clickArea.addEventListener('mousemove', handleMouseMove);
-    }
+    console.log('Initializing point & click system');
+    // The click handling is now done in handleBasementClick
 }
 
-// Handle point & click interactions
+// Handle point & click interactions for hotspots only
 function handlePointAndClick(event) {
     const rect = clickArea.getBoundingClientRect();
     const x = event.clientX - rect.left;
@@ -696,22 +718,7 @@ function handlePointAndClick(event) {
     const xPercent = (x / rect.width) * 100;
     const yPercent = (y / rect.height) * 100;
     
-    console.log(`Clicked at: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
-    
-    // Check if click is in center area (for mint popup)
-    if (xPercent >= 40 && xPercent <= 60 && yPercent >= 40 && yPercent <= 60) {
-        // Original mint popup functionality
-        if (!isWalletConnected) {
-            showNotification('Connect your wallet first', 'warning');
-            return;
-        }
-        
-        mintPopup.classList.add('active');
-        setTimeout(() => {
-            notifyIframeWalletConnected();
-        }, 100);
-        return;
-    }
+    console.log(`Point & click at: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
     
     // Define clickable areas (hotspots) based on basement.png layout
     const hotspots = [
@@ -783,7 +790,7 @@ function handlePointAndClick(event) {
         }
     }
     
-    // General area click
+    // General area click - show coordinates
     showNotification(`You clicked at ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
 }
 
@@ -866,8 +873,12 @@ function handleMouseMove(event) {
 
 // Load inventory (ERC1155 tokens 10000 and 10001)
 async function loadInventory() {
-    if (!currentAccount) return;
+    if (!currentAccount) {
+        console.log('No current account, skipping inventory load');
+        return;
+    }
     
+    console.log('Loading inventory for account:', currentAccount);
     showInventoryLoading();
     
     try {
@@ -1000,6 +1011,7 @@ async function loadInventory() {
 
 // Display inventory items
 function displayInventory() {
+    console.log('Displaying inventory items:', inventoryItems);
     inventoryGrid.innerHTML = "";
     
     if (inventoryItems.length === 0) {
@@ -1064,6 +1076,7 @@ function hideInventoryLoading() {
 
 // Toggle inventory modal
 function toggleInventory() {
+    console.log('Toggling inventory modal');
     if (inventoryModal.style.display === 'none' || !inventoryModal.style.display) {
         inventoryModal.style.display = 'block';
         inventoryToggle.textContent = '❌ Close';
@@ -1075,8 +1088,10 @@ function toggleInventory() {
 
 // Update wallet connection for inventory
 function updateWalletForInventory() {
+    console.log('Updating wallet for inventory, isWalletConnected:', isWalletConnected);
     if (isWalletConnected && window.ethereum.selectedAddress) {
         currentAccount = window.ethereum.selectedAddress;
+        console.log('Setting current account:', currentAccount);
         inventoryToggle.style.display = 'block';
         loadInventory();
     } else {
@@ -1091,16 +1106,19 @@ function updateWalletForInventory() {
 
 // Initialize point & click system when main screen is shown
 function initializePointAndClickSystem() {
+    console.log('Initializing point & click system');
     initializePointAndClick();
     
     // Add inventory toggle event listener
     if (inventoryToggle) {
         inventoryToggle.addEventListener('click', toggleInventory);
+        console.log('Inventory toggle event listener added');
     }
     
     // Check if wallet is already connected
     if (window.ethereum && window.ethereum.selectedAddress) {
         currentAccount = window.ethereum.selectedAddress;
+        console.log('Wallet already connected, updating inventory');
         updateWalletForInventory();
     }
 } 
