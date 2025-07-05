@@ -438,6 +438,10 @@
                     <button id="applyTraitsBtn" class="apply-traits-btn">Apply Traits</button>
                     <div id="apply-status" class="apply-status" style="display: none;"></div>
                 </div>
+                <div id="open-floppy-section" style="display: none; margin-top: 20px; text-align: center;">
+                    <button id="openFloppyBtn" class="apply-traits-btn">Open Floppy</button>
+                    <div id="open-floppy-status" class="apply-status" style="display: none;"></div>
+                </div>
             </div>
 
             <div id="loading" class="loading" style="display: none;">
@@ -484,6 +488,9 @@
 
         // AdrianTraitsExtensions contract
         const TRAITS_EXTENSIONS_CONTRACT = "0x0995c0dA1ca071b792E852b6Ec531b7cD7d1F8D6";
+        
+        // PackTokenMinter contract
+        const PACK_TOKEN_MINTER_CONTRACT = "0x9e569ba579bc9fb9a2a826555e6a9c456a981d14";
 
         // App state
         let currentAccount = null;
@@ -491,6 +498,7 @@
         let currentFilter = null; // null = normal, "floppy" = floppy discs filter
         let selectedERC721 = null;
         let selectedERC1155 = [];
+        let selectedFloppy = null; // For single floppy selection
 
         // DOM Elements
         const connectSection = document.getElementById('connect-section');
@@ -512,12 +520,16 @@
         const applyTraitsSection = document.getElementById('apply-traits-section');
         const applyTraitsBtn = document.getElementById('applyTraitsBtn');
         const applyStatus = document.getElementById('apply-status');
+        const openFloppySection = document.getElementById('open-floppy-section');
+        const openFloppyBtn = document.getElementById('openFloppyBtn');
+        const openFloppyStatus = document.getElementById('open-floppy-status');
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             connectBtn.addEventListener('click', connectWallet);
             disconnectBtn.addEventListener('click', disconnectWallet);
             applyTraitsBtn.addEventListener('click', applyTraitsToNFT);
+            openFloppyBtn.addEventListener('click', openFloppy);
             
             // Contract filter buttons
             contractBtns.forEach(btn => {
@@ -526,6 +538,12 @@
                     btn.classList.add('active');
                     currentContract = btn.dataset.contract;
                     currentFilter = btn.dataset.filter || null; // Set filter type
+                    
+                    // Clear selections when changing tabs
+                    selectedERC721 = null;
+                    selectedERC1155 = [];
+                    selectedFloppy = null;
+                    
                     if (currentAccount) {
                         loadTokens(currentAccount, currentContract);
                     }
@@ -615,6 +633,7 @@
             currentFilter = null; // Reset filter
             selectedERC721 = null;
             selectedERC1155 = [];
+            selectedFloppy = null;
             connectSection.style.display = "block";
             accountSection.style.display = "none";
             tokensSection.style.display = "none";
@@ -623,6 +642,8 @@
             generatedImage.style.display = "none";
             applyTraitsSection.style.display = "none";
             applyStatus.style.display = "none";
+            openFloppySection.style.display = "none";
+            openFloppyStatus.style.display = "none";
             hideMessages();
             
             // Reset button states
@@ -913,14 +934,30 @@
                             tokenCard.classList.add('selected');
                         }
                     } else {
-                        // Multiple selection for ERC1155
-                        const index = selectedERC1155.findIndex(t => t.tokenId === token.tokenId);
-                        if (index > -1) {
-                            selectedERC1155.splice(index, 1);
-                            tokenCard.classList.remove('selected');
+                        // Handle ERC1155 selection based on current filter
+                        if (currentFilter === 'floppy') {
+                            // Single selection for Floppy Discs
+                            if (selectedFloppy && selectedFloppy.tokenId === token.tokenId) {
+                                selectedFloppy = null;
+                                tokenCard.classList.remove('selected');
+                            } else {
+                                // Deselect previous floppy
+                                const prevSelected = tokensGrid.querySelector('.token-card.selected');
+                                if (prevSelected) prevSelected.classList.remove('selected');
+                                
+                                selectedFloppy = token;
+                                tokenCard.classList.add('selected');
+                            }
                         } else {
-                            selectedERC1155.push(token);
-                            tokenCard.classList.add('selected');
+                            // Multiple selection for AdrianLAB
+                            const index = selectedERC1155.findIndex(t => t.tokenId === token.tokenId);
+                            if (index > -1) {
+                                selectedERC1155.splice(index, 1);
+                                tokenCard.classList.remove('selected');
+                            } else {
+                                selectedERC1155.push(token);
+                                tokenCard.classList.add('selected');
+                            }
                         }
                     }
                     
@@ -938,39 +975,62 @@
             console.log('updateSelectionInfo called');
             console.log('selectedERC721:', selectedERC721);
             console.log('selectedERC1155:', selectedERC1155);
+            console.log('selectedFloppy:', selectedFloppy);
+            console.log('currentFilter:', currentFilter);
             
             let infoText = '';
             
-            if (selectedERC721) {
-                infoText += `Selected ERC721: ${selectedERC721.title} (ID: ${selectedERC721.tokenId})`;
-            }
-            
-            if (selectedERC1155.length > 0) {
-                if (infoText) infoText += '<br>';
-                infoText += `Selected ERC1155: ${selectedERC1155.length} token(s)`;
-                selectedERC1155.forEach(token => {
-                    infoText += `<br>• ${token.title} (ID: ${token.tokenId})`;
-                });
-            }
-            
-            if (infoText) {
-                selectionText.innerHTML = infoText;
-                selectionInfo.style.display = 'block';
-                
-                // Generate combined image if we have both ERC721 and ERC1155 selections
-                if (selectedERC721 && selectedERC1155.length > 0) {
-                    console.log('Both selections present, calling generateCombinedImage');
-                    generateCombinedImage();
-                    applyTraitsSection.style.display = 'block';
+            if (currentFilter === 'floppy') {
+                // Handle Floppy Discs tab
+                if (selectedFloppy) {
+                    infoText = `Selected Floppy: ${selectedFloppy.title} (ID: ${selectedFloppy.tokenId})`;
+                    selectionText.innerHTML = infoText;
+                    selectionInfo.style.display = 'block';
+                    openFloppySection.style.display = 'block';
+                    generatedImage.style.display = 'none';
+                    applyTraitsSection.style.display = 'none';
                 } else {
-                    console.log('Missing selections, hiding generated image');
+                    selectionInfo.style.display = 'none';
+                    openFloppySection.style.display = 'none';
                     generatedImage.style.display = 'none';
                     applyTraitsSection.style.display = 'none';
                 }
             } else {
-                selectionInfo.style.display = 'none';
-                generatedImage.style.display = 'none';
-                applyTraitsSection.style.display = 'none';
+                // Handle AdrianLAB tab
+                if (selectedERC721) {
+                    infoText += `Selected ERC721: ${selectedERC721.title} (ID: ${selectedERC721.tokenId})`;
+                }
+                
+                if (selectedERC1155.length > 0) {
+                    if (infoText) infoText += '<br>';
+                    infoText += `Selected ERC1155: ${selectedERC1155.length} token(s)`;
+                    selectedERC1155.forEach(token => {
+                        infoText += `<br>• ${token.title} (ID: ${token.tokenId})`;
+                    });
+                }
+                
+                if (infoText) {
+                    selectionText.innerHTML = infoText;
+                    selectionInfo.style.display = 'block';
+                    
+                    // Generate combined image if we have both ERC721 and ERC1155 selections
+                    if (selectedERC721 && selectedERC1155.length > 0) {
+                        console.log('Both selections present, calling generateCombinedImage');
+                        generateCombinedImage();
+                        applyTraitsSection.style.display = 'block';
+                    } else {
+                        console.log('Missing selections, hiding generated image');
+                        generatedImage.style.display = 'none';
+                        applyTraitsSection.style.display = 'none';
+                    }
+                } else {
+                    selectionInfo.style.display = 'none';
+                    generatedImage.style.display = 'none';
+                    applyTraitsSection.style.display = 'none';
+                }
+                
+                // Hide floppy section in AdrianLAB tab
+                openFloppySection.style.display = 'none';
             }
         }
 
@@ -1164,6 +1224,136 @@
                 setTimeout(() => {
                     applyStatus.style.display = 'none';
                 }, 5000);
+            }
+        }
+
+        // Helper function to show open floppy status
+        function showOpenFloppyStatus(message, type) {
+            openFloppyStatus.textContent = message;
+            openFloppyStatus.className = `apply-status ${type}`;
+            openFloppyStatus.style.display = 'block';
+            
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    openFloppyStatus.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Open floppy using blockchain contract
+        async function openFloppy() {
+            console.log('openFloppy called');
+            
+            if (!selectedFloppy) {
+                showOpenFloppyStatus('Please select a floppy disc first.', 'error');
+                return;
+            }
+
+            if (!currentAccount) {
+                showOpenFloppyStatus('Please connect your wallet first.', 'error');
+                return;
+            }
+
+            try {
+                // Show loading state
+                showOpenFloppyStatus('Loading ethers library...', 'loading');
+                openFloppyBtn.disabled = true;
+
+                // Load ethers dynamically only when needed
+                let ethers;
+                if (typeof window.ethers === 'undefined') {
+                    // Load ethers from CDN
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+                    script.onload = () => {
+                        ethers = window.ethers;
+                        console.log('Ethers loaded successfully');
+                        executeTransaction();
+                    };
+                    script.onerror = () => {
+                        showOpenFloppyStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                        openFloppyBtn.disabled = false;
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    ethers = window.ethers;
+                    executeTransaction();
+                }
+
+                async function executeTransaction() {
+                    try {
+                        showOpenFloppyStatus('Preparing transaction...', 'loading');
+
+                        // Get provider and signer
+                        const provider = new ethers.providers.Web3Provider(window.ethereum);
+                        const signer = provider.getSigner();
+
+                        // Contract ABI for openPack function
+                        const contractABI = [
+                            {
+                                "inputs": [
+                                    {
+                                        "internalType": "uint256",
+                                        "name": "packId",
+                                        "type": "uint256"
+                                    }
+                                ],
+                                "name": "openPack",
+                                "outputs": [],
+                                "stateMutability": "nonpayable",
+                                "type": "function"
+                            }
+                        ];
+
+                        // Create contract instance
+                        const contract = new ethers.Contract(PACK_TOKEN_MINTER_CONTRACT, contractABI, signer);
+
+                        // Prepare parameters - use the floppy token ID as packId
+                        const packId = selectedFloppy.tokenId;
+
+                        console.log('Contract address:', PACK_TOKEN_MINTER_CONTRACT);
+                        console.log('Pack ID:', packId);
+
+                        showOpenFloppyStatus('Confirming transaction in your wallet...', 'loading');
+
+                        // Call the contract function
+                        const tx = await contract.openPack(packId);
+                        
+                        showOpenFloppyStatus('Transaction sent! Waiting for confirmation...', 'loading');
+                        console.log('Transaction hash:', tx.hash);
+
+                        // Wait for transaction confirmation
+                        const receipt = await tx.wait();
+                        
+                        showOpenFloppyStatus(`✅ Floppy opened successfully! Transaction: ${receipt.transactionHash}`, 'success');
+                        console.log('Transaction confirmed:', receipt);
+
+                        // Refresh tokens after successful opening
+                        setTimeout(() => {
+                            loadTokens(currentAccount, currentContract);
+                        }, 2000);
+
+                    } catch (error) {
+                        console.error('Error in transaction:', error);
+                        
+                        let errorMessage = 'Failed to open floppy.';
+                        if (error.code === 4001) {
+                            errorMessage = 'Transaction was rejected by user.';
+                        } else if (error.message) {
+                            errorMessage = `Error: ${error.message}`;
+                        }
+                        
+                        showOpenFloppyStatus(errorMessage, 'error');
+                    } finally {
+                        openFloppyBtn.disabled = false;
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error opening floppy:', error);
+                showOpenFloppyStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                openFloppyBtn.disabled = false;
             }
         }
 
