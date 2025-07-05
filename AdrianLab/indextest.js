@@ -34,34 +34,55 @@ let gameState = {
     interactions: []
 };
 
-// DOM elements
-const introScreen = document.getElementById('intro-screen');
-const mainScreen = document.getElementById('main-screen');
-const floppyScreen = document.getElementById('floppy-screen');
-const introImage = document.getElementById('intro-image');
-const backgroundMusic = document.getElementById('background-music');
-const muteButton = document.getElementById('mute-button');
-const connectWalletBtn = document.getElementById('connect-wallet');
-const clickArea = document.getElementById('click-area');
-const mintPopup = document.getElementById('mint-popup');
-const closePopupBtn = document.getElementById('close-popup');
-const buyFloppyBtn = document.getElementById('buy-floppy');
-const backToMainBtn = document.getElementById('back-to-main');
-const progressFill = document.querySelector('.progress-fill');
-const progressText = document.querySelector('.progress-text');
-
-// New inventory elements
-const inventoryToggle = document.getElementById('inventory-toggle');
-const inventoryModal = document.getElementById('inventory-modal');
-const inventoryGrid = document.getElementById('inventory-grid');
+// DOM elements - will be initialized after DOM loads
+let introScreen, mainScreen, floppyScreen, introImage, backgroundMusic, muteButton;
+let connectWalletBtn, clickArea, mintPopup, closePopupBtn, buyFloppyBtn, backToMainBtn;
+let progressFill, progressText, inventoryToggle, inventoryModal, inventoryGrid;
 
 // Initialization
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing indextest.js...');
+    
+    // Initialize DOM elements
+    initializeDOMElements();
+    
     detectMobile();
     initializeApp();
     setupEventListeners();
     startIntro();
 });
+
+function initializeDOMElements() {
+    // Initialize all DOM elements
+    introScreen = document.getElementById('intro-screen');
+    mainScreen = document.getElementById('main-screen');
+    floppyScreen = document.getElementById('floppy-screen');
+    introImage = document.getElementById('intro-image');
+    backgroundMusic = document.getElementById('background-music');
+    muteButton = document.getElementById('mute-button');
+    connectWalletBtn = document.getElementById('connect-wallet');
+    clickArea = document.getElementById('click-area');
+    mintPopup = document.getElementById('mint-popup');
+    closePopupBtn = document.getElementById('close-popup');
+    buyFloppyBtn = document.getElementById('buy-floppy');
+    backToMainBtn = document.getElementById('back-to-main');
+    progressFill = document.querySelector('.progress-fill');
+    progressText = document.querySelector('.progress-text');
+    
+    // New inventory elements
+    inventoryToggle = document.getElementById('inventory-toggle');
+    inventoryModal = document.getElementById('inventory-modal');
+    inventoryGrid = document.getElementById('inventory-grid');
+    
+    console.log('DOM elements initialized:', {
+        introScreen: !!introScreen,
+        mainScreen: !!mainScreen,
+        clickArea: !!clickArea,
+        inventoryToggle: !!inventoryToggle,
+        inventoryModal: !!inventoryModal,
+        inventoryGrid: !!inventoryGrid
+    });
+}
 
 function detectMobile() {
     // Check if device is mobile
@@ -193,7 +214,7 @@ function startIntro() {
         });
         
         // Start transition to main screen
-        goToMainScreen();
+        goToMainScreenFromIntro();
     });
     
     setTimeout(() => {
@@ -253,8 +274,8 @@ function handleIntroClick(event) {
     goToMainScreen();
 }
 
-function goToMainScreen() {
-    console.log('Starting transition to main screen');
+function goToMainScreenFromIntro() {
+    console.log('Starting transition to main screen from intro');
     
     // Fade out intro (7 seconds - changed from 5)
     introScreen.style.opacity = '0';
@@ -291,6 +312,29 @@ function goToMainScreen() {
             }, 100);
         }, 100);
     }, 7000);
+}
+
+function goToMainScreen() {
+    floppyScreen.classList.remove('active');
+    floppyScreen.style.opacity = '0';
+    floppyScreen.style.transition = 'opacity 2s ease-in-out';
+    
+    setTimeout(() => {
+        floppyScreen.style.display = 'none';
+        mainScreen.style.display = 'block';
+        mainScreen.style.opacity = '0';
+        mainScreen.style.transition = 'opacity 2s ease-in-out';
+        
+        setTimeout(() => {
+            mainScreen.classList.add('active');
+            mainScreen.style.opacity = '1';
+            
+            // Initialize point & click system when returning from floppy screen
+            setTimeout(() => {
+                initializePointAndClickSystem();
+            }, 100);
+        }, 100);
+    }, 2000);
 }
 
 async function loadEthersWhenNeeded() {
@@ -330,24 +374,6 @@ function goToFloppyScreen() {
         setTimeout(() => {
             floppyScreen.classList.add('active');
             floppyScreen.style.opacity = '1';
-        }, 100);
-    }, 2000);
-}
-
-function goToMainScreen() {
-    floppyScreen.classList.remove('active');
-    floppyScreen.style.opacity = '0';
-    floppyScreen.style.transition = 'opacity 2s ease-in-out';
-    
-    setTimeout(() => {
-        floppyScreen.style.display = 'none';
-        mainScreen.style.display = 'block';
-        mainScreen.style.opacity = '0';
-        mainScreen.style.transition = 'opacity 2s ease-in-out';
-        
-        setTimeout(() => {
-            mainScreen.classList.add('active');
-            mainScreen.style.opacity = '1';
         }, 100);
     }, 2000);
 }
@@ -536,6 +562,9 @@ function handleBasementClick(event) {
     // This function is now handled by the point & click system
     // The mint popup functionality is integrated into handlePointAndClick
     console.log('Basement click handled by point & click system');
+    
+    // Call the point & click handler
+    handlePointAndClick(event);
 }
 
 function closeMintPopup() {
