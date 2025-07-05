@@ -131,6 +131,7 @@
             flex: 1;
             display: flex;
             flex-direction: column;
+            min-height: 800px;
         }
 
         .game-content {
@@ -145,10 +146,12 @@
             border-radius: 10px;
             padding: 20px;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             font-size: 2rem;
             color: #666;
+            overflow-y: auto;
         }
 
         .game-panel {
@@ -209,46 +212,271 @@
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 10px;
+            max-height: 200px;
+            overflow-y: auto;
         }
 
-        .inventory-item {
+        /* TraitLAB Styles */
+        .traitlab-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #333;
+        }
+
+        .tab {
+            background: #e0e0e0;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: 'VT323', monospace;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            border-radius: 8px 8px 0 0;
+            margin-right: 5px;
+        }
+
+        .tab.active {
+            background: #333333;
+            color: white;
+        }
+
+        .tab:hover {
+            background: #333333;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            flex: 1;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .tokens-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .token-item {
             background: white;
-            border-radius: 8px;
-            padding: 10px;
+            border-radius: 10px;
+            padding: 15px;
             text-align: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
             transition: all 0.3s ease;
             cursor: pointer;
-            border: 2px solid transparent;
+            border: 3px solid transparent;
+            position: relative;
         }
 
-        .inventory-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        .token-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.2);
         }
 
-        .inventory-item.selected {
+        .token-item.selected {
             border-color: #333333;
-            box-shadow: 0 0 10px rgba(51, 51, 51, 0.5);
+            box-shadow: 0 0 15px rgba(51, 51, 51, 0.6);
         }
 
-        .inventory-item img {
+        .token-item img {
             width: 100%;
             height: auto;
-            max-height: 60px;
+            max-height: 80px;
             object-fit: contain;
+            margin-bottom: 8px;
+        }
+
+        .token-item .token-name {
+            font-size: 0.9rem;
+            color: #333;
+            font-weight: bold;
             margin-bottom: 5px;
         }
 
-        .inventory-item .item-name {
+        .token-item .token-id {
             font-size: 0.8rem;
-            color: #333;
-            font-weight: bold;
+            color: #666;
         }
 
-        .inventory-item .item-id {
-            font-size: 0.7rem;
-            color: #666;
+        .selection-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 2px solid #e9ecef;
+        }
+
+        .selection-info h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 1.3rem;
+        }
+
+        .selected-tokens {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .selected-token {
+            background: #333333;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .remove-token {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: #333333;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'VT323', monospace;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .action-btn:hover {
+            background: #555555;
+            transform: translateY(-2px);
+        }
+
+        .action-btn:disabled {
+            background: #999;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .combined-image-container {
+            text-align: center;
+            margin-top: 20px;
+            position: relative;
+        }
+
+        .combined-image {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            color: white;
+            font-family: 'VT323', monospace;
+            font-size: 1.2rem;
+        }
+
+        .loading-pixel {
+            width: 4px;
+            height: 4px;
+            background: white;
+            margin: 1px;
+            animation: pixelPulse 1s infinite;
+        }
+
+        @keyframes pixelPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .close {
+            position: absolute;
+            right: 20px;
+            top: 15px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #aaa;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+
+        .modal h2 {
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 1.8rem;
+        }
+
+        .modal img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+            margin: 20px 0;
         }
 
         .loading {
@@ -324,6 +552,14 @@
             .inventory-grid {
                 grid-template-columns: repeat(3, 1fr);
             }
+            
+            .tokens-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
         }
     </style>
 </head>
@@ -356,7 +592,76 @@
         <div id="game-section" class="game-section" style="display: none;">
             <div class="game-content">
                 <div class="game-area">
-                    Game Area - Coming Soon
+                    <div class="traitlab-container">
+                        <div class="tabs">
+                            <button class="tab active" onclick="switchTab('adrianlab')">AdrianLAB</button>
+                            <button class="tab" onclick="switchTab('floppy')">Floppy Discs</button>
+                        </div>
+                        
+                        <!-- AdrianLAB Tab -->
+                        <div id="adrianlab-tab" class="tab-content active">
+                            <div class="tokens-grid" id="adrianlab-tokens">
+                                <!-- AdrianZERO tokens will be loaded here -->
+                            </div>
+                            
+                            <div class="selection-info" id="adrianlab-selection" style="display: none;">
+                                <h3>Selected AdrianZERO</h3>
+                                <div class="selected-tokens" id="adrianlab-selected-tokens"></div>
+                            </div>
+                            
+                            <div class="tokens-grid" id="adrianlab-traits">
+                                <!-- AdrianLAB traits will be loaded here -->
+                            </div>
+                            
+                            <div class="selection-info" id="adrianlab-traits-selection" style="display: none;">
+                                <h3>Selected Traits</h3>
+                                <div class="selected-tokens" id="adrianlab-selected-traits"></div>
+                                <div class="action-buttons">
+                                    <button class="action-btn" onclick="generateCombinedImage()">Generate Image</button>
+                                    <button class="action-btn" onclick="applyTraitsToNFT()">Apply Traits</button>
+                                </div>
+                            </div>
+                            
+                            <div class="combined-image-container" id="combined-image-container" style="display: none;">
+                                <img id="combined-image" class="combined-image" alt="Combined Image">
+                                <div id="loading-overlay" class="loading-overlay" style="display: none;">
+                                    <div style="display: flex; flex-wrap: wrap; width: 40px; height: 40px;">
+                                        <div class="loading-pixel"></div>
+                                        <div class="loading-pixel"></div>
+                                        <div class="loading-pixel"></div>
+                                        <div class="loading-pixel"></div>
+                                        <div class="loading-pixel"></div>
+                                        <div class="loading-pixel"></div>
+                                        <div class="loading-pixel"></div>
+                                        <div class="loading-pixel"></div>
+                                        <div class="loading-pixel"></div>
+                                        <div class="loading-pixel"></div>
+                                        <div class="loading-pixel"></div>
+                                        <div class="loading-pixel"></div>
+                                        <div class="loading-pixel"></div>
+                                        <div class="loading-pixel"></div>
+                                        <div class="loading-pixel"></div>
+                                        <div class="loading-pixel"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Floppy Discs Tab -->
+                        <div id="floppy-tab" class="tab-content">
+                            <div class="tokens-grid" id="floppy-tokens">
+                                <!-- Floppy discs will be loaded here -->
+                            </div>
+                            
+                            <div class="selection-info" id="floppy-selection" style="display: none;">
+                                <h3>Selected Floppy Disc</h3>
+                                <div class="selected-tokens" id="floppy-selected-tokens"></div>
+                                <div class="action-buttons">
+                                    <button class="action-btn" id="open-floppy-btn" onclick="openFloppy()">Open Floppy</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="game-panel">
@@ -392,6 +697,15 @@
         </div>
     </div>
 
+    <!-- Modal for combined image -->
+    <div id="imageModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <h2>Combined Image</h2>
+            <img id="modalImage" src="" alt="Combined Image">
+        </div>
+    </div>
+
     <script>
         // Configuration
         const ALCHEMY_API_KEY = "5qIXA1UZxOAzi8b9l0nrYmsQBO9-W7Ot";
@@ -411,12 +725,18 @@
         // Contract addresses
         const CONTRACTS = {
             ERC721: "0x6e369bf0e4e0c106192d606fb6d85836d684da75", // AdrianZERO
-            ERC1155: "0x90546848474fb3c9fda3fdad887969bb244e7e58" // AdrianLAB
+            ERC1155: "0x90546848474fb3c9fda3fdad887969bb244e7e58", // AdrianLAB
+            PACK_MINTER: "0x6e369bf0e4e0c106192d606fb6d85836d684da75" // PackTokenMinter (same as ERC721 for now)
         };
 
         // App state
         let currentAccount = null;
         let floppyDiscs = [];
+        let adrianZeroTokens = [];
+        let adrianLabTraits = [];
+        let selectedAdrianZero = null;
+        let selectedTraits = [];
+        let selectedFloppy = null;
 
         // DOM Elements
         const connectSection = document.getElementById('connect-section');
@@ -429,6 +749,16 @@
         const error = document.getElementById('error');
         const success = document.getElementById('success');
         const inventoryGrid = document.getElementById('inventory-grid');
+        
+        // TraitLAB DOM Elements
+        const adrianlabTokensGrid = document.getElementById('adrianlab-tokens');
+        const adrianlabTraitsGrid = document.getElementById('adrianlab-traits');
+        const floppyTokensGrid = document.getElementById('floppy-tokens');
+        const combinedImageContainer = document.getElementById('combined-image-container');
+        const combinedImage = document.getElementById('combined-image');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const imageModal = document.getElementById('imageModal');
+        const modalImage = document.getElementById('modalImage');
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -494,6 +824,10 @@
                 // Load floppy discs
                 await loadFloppyDiscs();
                 
+                // Load AdrianZERO tokens and AdrianLAB traits
+                await loadAdrianZeroTokens();
+                await loadAdrianLabTraits();
+                
                 // Event listeners for account/chain changes
                 window.ethereum.on('accountsChanged', (accounts) => {
                     window.location.reload();
@@ -515,10 +849,20 @@
         function disconnectWallet() {
             currentAccount = null;
             floppyDiscs = [];
+            adrianZeroTokens = [];
+            adrianLabTraits = [];
+            selectedAdrianZero = null;
+            selectedTraits = [];
+            selectedFloppy = null;
+            
             connectSection.style.display = "block";
             accountSection.style.display = "none";
             gameSection.style.display = "none";
             inventoryGrid.innerHTML = "";
+            adrianlabTokensGrid.innerHTML = "";
+            adrianlabTraitsGrid.innerHTML = "";
+            floppyTokensGrid.innerHTML = "";
+            combinedImageContainer.style.display = "none";
             hideMessages();
         }
 
@@ -607,7 +951,7 @@
                     displayFloppyDiscs();
                 } else {
                     console.log('No floppy discs found');
-                    inventoryGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: #666;">No floppy discs found</p>';
+                    floppyTokensGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: #666;">No floppy discs found</p>';
                 }
                 
             } catch (error) {
@@ -620,63 +964,507 @@
 
         // Display floppy discs in inventory grid
         function displayFloppyDiscs() {
-            inventoryGrid.innerHTML = "";
+            floppyTokensGrid.innerHTML = "";
             
             floppyDiscs.forEach(floppy => {
                 const floppyItem = document.createElement('div');
-                floppyItem.className = 'inventory-item';
+                floppyItem.className = 'token-item';
                 
                 const imageUrl = floppy.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjMwIiB5PSIzMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjOTk5OTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+RmxvcHB5PC90ZXh0Pgo8L3N2Zz4=';
                 
                 floppyItem.innerHTML = `
                     <img src="${imageUrl}" alt="${floppy.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjMwIiB5PSIzMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjOTk5OTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+RmxvcHB5PC90ZXh0Pgo8L3N2Zz4='">
-                    <div class="item-name">${floppy.title}</div>
-                    <div class="item-id">ID: ${floppy.tokenId}</div>
+                    <div class="token-name">${floppy.title}</div>
+                    <div class="token-id">ID: ${floppy.tokenId}</div>
                 `;
                 
                 // Add click event for selection
                 floppyItem.addEventListener('click', () => {
                     // Remove selection from other items
-                    document.querySelectorAll('.inventory-item').forEach(item => {
+                    document.querySelectorAll('#floppy-tokens .token-item').forEach(item => {
                         item.classList.remove('selected');
                     });
                     
                     // Add selection to clicked item
                     floppyItem.classList.add('selected');
+                    selectedFloppy = floppy;
+                    
+                    // Show selection info
+                    document.getElementById('floppy-selection').style.display = 'block';
+                    document.getElementById('floppy-selected-tokens').innerHTML = `
+                        <div class="selected-token">
+                            ${floppy.title} (ID: ${floppy.tokenId})
+                            <button class="remove-token" onclick="removeFloppySelection()">×</button>
+                        </div>
+                    `;
+                    
+                    // Update open floppy button
+                    const openFloppyBtn = document.getElementById('open-floppy-btn');
+                    if (floppy.tokenId === 10001) {
+                        openFloppyBtn.disabled = true;
+                        openFloppyBtn.textContent = 'SOON';
+                    } else {
+                        openFloppyBtn.disabled = false;
+                        openFloppyBtn.textContent = 'Open Floppy';
+                    }
                     
                     console.log('Selected floppy disc:', floppy);
                 });
                 
-                inventoryGrid.appendChild(floppyItem);
+                floppyTokensGrid.appendChild(floppyItem);
             });
         }
 
-        // UI Helper functions
-        function showLoading() {
-            loading.style.display = "block";
-            inventoryGrid.innerHTML = "";
+        // Load AdrianZERO tokens
+        async function loadAdrianZeroTokens() {
+            try {
+                console.log('Loading AdrianZERO tokens for wallet:', currentAccount);
+                
+                const alchemyUrl = `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${currentAccount}&contractAddresses[]=${CONTRACTS.ERC721}&withMetadata=true&pageSize=50&tokenType=ERC721`;
+                
+                const alchemyResponse = await fetch(alchemyUrl);
+                
+                if (!alchemyResponse.ok) {
+                    throw new Error(`Error getting AdrianZERO NFTs: ${alchemyResponse.status}`);
+                }
+                
+                const nftsData = await alchemyResponse.json();
+                console.log('AdrianZERO data received:', nftsData);
+                
+                if (nftsData.ownedNfts && nftsData.ownedNfts.length > 0) {
+                    adrianZeroTokens = nftsData.ownedNfts.map(nft => {
+                        const tokenId = parseInt(nft.tokenId);
+                        let title = `AdrianZERO #${tokenId}`;
+                        
+                        if (nft.title) {
+                            title = nft.title;
+                        } else if (nft.name) {
+                            title = nft.name;
+                        } else if (nft.metadata && nft.metadata.name) {
+                            title = nft.metadata.name;
+                        }
+                        
+                        let mediaUrl = "";
+                        
+                        if (nft.raw && nft.raw.metadata && nft.raw.metadata.image) {
+                            mediaUrl = nft.raw.metadata.image;
+                        } else if (nft.media && Array.isArray(nft.media) && nft.media.length > 0) {
+                            const mediaSources = ['gateway', 'raw', 'thumbnail', 'format'];
+                            for (const source of mediaSources) {
+                                if (nft.media[0][source] && typeof nft.media[0][source] === 'string') {
+                                    mediaUrl = nft.media[0][source];
+                                    break;
+                                }
+                            }
+                        } else if (nft.metadata) {
+                            const imageProps = ['image', 'image_url', 'imageUrl', 'imageURI', 'image_uri', 'imageData'];
+                            for (const prop of imageProps) {
+                                if (nft.metadata[prop] && typeof nft.metadata[prop] === 'string') {
+                                    mediaUrl = nft.metadata[prop];
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (mediaUrl && mediaUrl.startsWith('ipfs://')) {
+                            mediaUrl = mediaUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
+                        }
+                        
+                        return {
+                            tokenId: tokenId,
+                            title: title,
+                            imageUrl: mediaUrl,
+                            contract: nft.contract.address,
+                            contractName: nft.contract.name || 'AdrianZERO',
+                            metadata: nft.metadata || {}
+                        };
+                    });
+                    
+                    displayAdrianZeroTokens();
+                } else {
+                    console.log('No AdrianZERO tokens found');
+                    adrianlabTokensGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: #666;">No AdrianZERO tokens found</p>';
+                }
+                
+            } catch (error) {
+                console.error("Error loading AdrianZERO tokens:", error);
+                showError(`Error loading AdrianZERO tokens: ${error.message}`);
+            }
         }
 
-        function hideLoading() {
-            loading.style.display = "none";
+        // Display AdrianZERO tokens
+        function displayAdrianZeroTokens() {
+            adrianlabTokensGrid.innerHTML = "";
+            
+            adrianZeroTokens.forEach(token => {
+                const tokenItem = document.createElement('div');
+                tokenItem.className = 'token-item';
+                
+                const imageUrl = token.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjMwIiB5PSIzMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjOTk5OTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+WkVSTzwvdGV4dD4KPC9zdmc+';
+                
+                tokenItem.innerHTML = `
+                    <img src="${imageUrl}" alt="${token.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjMwIiB5PSIzMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjOTk5OTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+WkVSTzwvdGV4dD4KPC9zdmc+='">
+                    <div class="token-name">${token.title}</div>
+                    <div class="token-id">ID: ${token.tokenId}</div>
+                `;
+                
+                tokenItem.addEventListener('click', () => {
+                    document.querySelectorAll('#adrianlab-tokens .token-item').forEach(item => {
+                        item.classList.remove('selected');
+                    });
+                    
+                    tokenItem.classList.add('selected');
+                    selectedAdrianZero = token;
+                    
+                    document.getElementById('adrianlab-selection').style.display = 'block';
+                    document.getElementById('adrianlab-selected-tokens').innerHTML = `
+                        <div class="selected-token">
+                            ${token.title} (ID: ${token.tokenId})
+                            <button class="remove-token" onclick="removeAdrianZeroSelection()">×</button>
+                        </div>
+                    `;
+                    
+                    console.log('Selected AdrianZERO:', token);
+                });
+                
+                adrianlabTokensGrid.appendChild(tokenItem);
+            });
         }
 
-        function showError(message) {
-            error.textContent = message;
-            error.style.display = "block";
+        // Load AdrianLAB traits
+        async function loadAdrianLabTraits() {
+            try {
+                console.log('Loading AdrianLAB traits for wallet:', currentAccount);
+                
+                const alchemyUrl = `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${currentAccount}&contractAddresses[]=${CONTRACTS.ERC1155}&withMetadata=true&pageSize=50&tokenType=ERC1155`;
+                
+                const alchemyResponse = await fetch(alchemyUrl);
+                
+                if (!alchemyResponse.ok) {
+                    throw new Error(`Error getting AdrianLAB traits: ${alchemyResponse.status}`);
+                }
+                
+                const nftsData = await alchemyResponse.json();
+                console.log('AdrianLAB traits data received:', nftsData);
+                
+                if (nftsData.ownedNfts && nftsData.ownedNfts.length > 0) {
+                    // Filter out floppy discs (10000, 10001)
+                    const traitTokens = nftsData.ownedNfts.filter(nft => {
+                        const tokenId = parseInt(nft.tokenId);
+                        return tokenId !== 10000 && tokenId !== 10001;
+                    });
+                    
+                    adrianLabTraits = traitTokens.map(nft => {
+                        const tokenId = parseInt(nft.tokenId);
+                        let title = `Trait #${tokenId}`;
+                        
+                        if (nft.title) {
+                            title = nft.title;
+                        } else if (nft.name) {
+                            title = nft.name;
+                        } else if (nft.metadata && nft.metadata.name) {
+                            title = nft.metadata.name;
+                        }
+                        
+                        let mediaUrl = "";
+                        
+                        if (nft.raw && nft.raw.metadata && nft.raw.metadata.image) {
+                            mediaUrl = nft.raw.metadata.image;
+                        } else if (nft.media && Array.isArray(nft.media) && nft.media.length > 0) {
+                            const mediaSources = ['gateway', 'raw', 'thumbnail', 'format'];
+                            for (const source of mediaSources) {
+                                if (nft.media[0][source] && typeof nft.media[0][source] === 'string') {
+                                    mediaUrl = nft.media[0][source];
+                                    break;
+                                }
+                            }
+                        } else if (nft.metadata) {
+                            const imageProps = ['image', 'image_url', 'imageUrl', 'imageURI', 'image_uri', 'imageData'];
+                            for (const prop of imageProps) {
+                                if (nft.metadata[prop] && typeof nft.metadata[prop] === 'string') {
+                                    mediaUrl = nft.metadata[prop];
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (mediaUrl && mediaUrl.startsWith('ipfs://')) {
+                            mediaUrl = mediaUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
+                        }
+                        
+                        return {
+                            tokenId: tokenId,
+                            title: title,
+                            imageUrl: mediaUrl,
+                            contract: nft.contract.address,
+                            contractName: nft.contract.name || 'AdrianLAB',
+                            metadata: nft.metadata || {}
+                        };
+                    });
+                    
+                    displayAdrianLabTraits();
+                } else {
+                    console.log('No AdrianLAB traits found');
+                    adrianlabTraitsGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: #666;">No AdrianLAB traits found</p>';
+                }
+                
+            } catch (error) {
+                console.error("Error loading AdrianLAB traits:", error);
+                showError(`Error loading AdrianLAB traits: ${error.message}`);
+            }
         }
 
-        function showSuccess(message) {
-            success.textContent = message;
-            success.style.display = "block";
-            setTimeout(() => {
-                success.style.display = "none";
-            }, 3000);
+        // Display AdrianLAB traits
+        function displayAdrianLabTraits() {
+            adrianlabTraitsGrid.innerHTML = "";
+            
+            adrianLabTraits.forEach(trait => {
+                const traitItem = document.createElement('div');
+                traitItem.className = 'token-item';
+                
+                const imageUrl = trait.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjMwIiB5PSIzMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjOTk5OTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+VHJhaXQ8L3RleHQ+Cjwvc3ZnPg==';
+                
+                traitItem.innerHTML = `
+                    <img src="${imageUrl}" alt="${trait.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjMwIiB5PSIzMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjOTk5OTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+VHJhaXQ8L3RleHQ+Cjwvc3ZnPg==='">
+                    <div class="token-name">${trait.title}</div>
+                    <div class="token-id">ID: ${trait.tokenId}</div>
+                `;
+                
+                traitItem.addEventListener('click', () => {
+                    const isSelected = traitItem.classList.contains('selected');
+                    
+                    if (isSelected) {
+                        traitItem.classList.remove('selected');
+                        selectedTraits = selectedTraits.filter(t => t.tokenId !== trait.tokenId);
+                    } else {
+                        traitItem.classList.add('selected');
+                        selectedTraits.push(trait);
+                    }
+                    
+                    updateTraitsSelection();
+                    console.log('Selected traits:', selectedTraits);
+                });
+                
+                adrianlabTraitsGrid.appendChild(traitItem);
+            });
         }
 
-        function hideMessages() {
-            error.style.display = "none";
-            success.style.display = "none";
+        // Update traits selection display
+        function updateTraitsSelection() {
+            const selectionDiv = document.getElementById('adrianlab-traits-selection');
+            const selectedTraitsDiv = document.getElementById('adrianlab-selected-traits');
+            
+            if (selectedTraits.length > 0) {
+                selectionDiv.style.display = 'block';
+                selectedTraitsDiv.innerHTML = selectedTraits.map(trait => `
+                    <div class="selected-token">
+                        ${trait.title} (ID: ${trait.tokenId})
+                        <button class="remove-token" onclick="removeTrait(${trait.tokenId})">×</button>
+                    </div>
+                `).join('');
+            } else {
+                selectionDiv.style.display = 'none';
+            }
+        }
+
+        // Remove trait from selection
+        function removeTrait(tokenId) {
+            selectedTraits = selectedTraits.filter(t => t.tokenId !== tokenId);
+            
+            // Update visual selection
+            document.querySelectorAll('#adrianlab-traits .token-item').forEach(item => {
+                const itemTokenId = parseInt(item.querySelector('.token-id').textContent.split(': ')[1]);
+                if (itemTokenId === tokenId) {
+                    item.classList.remove('selected');
+                }
+            });
+            
+            updateTraitsSelection();
+        }
+
+        // Remove AdrianZERO selection
+        function removeAdrianZeroSelection() {
+            selectedAdrianZero = null;
+            document.getElementById('adrianlab-selection').style.display = 'none';
+            document.querySelectorAll('#adrianlab-tokens .token-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            combinedImageContainer.style.display = 'none';
+        }
+
+        // Remove floppy selection
+        function removeFloppySelection() {
+            selectedFloppy = null;
+            document.getElementById('floppy-selection').style.display = 'none';
+            document.querySelectorAll('#floppy-tokens .token-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+        }
+
+        // Switch tabs
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            if (tabName === 'adrianlab') {
+                document.getElementById('adrianlab-tab').classList.add('active');
+            } else if (tabName === 'floppy') {
+                document.getElementById('floppy-tab').classList.add('active');
+            }
+        }
+
+        // Generate combined image
+        async function generateCombinedImage() {
+            if (!selectedAdrianZero) {
+                showError('Please select an AdrianZERO token first');
+                return;
+            }
+            
+            if (selectedTraits.length === 0) {
+                showError('Please select at least one trait');
+                return;
+            }
+            
+            try {
+                combinedImageContainer.style.display = 'block';
+                loadingOverlay.style.display = 'flex';
+                
+                // Build URL with traits
+                const traitParams = selectedTraits.map(trait => `trait=${trait.tokenId}`).join('&');
+                const imageUrl = `https://adrianlab.vercel.app/api/render/custom/${selectedAdrianZero.tokenId}?${traitParams}`;
+                
+                console.log('Generating combined image with URL:', imageUrl);
+                
+                // Create new image to test loading
+                const img = new Image();
+                img.onload = () => {
+                    combinedImage.src = imageUrl;
+                    loadingOverlay.style.display = 'none';
+                    showSuccess('Combined image generated successfully!');
+                };
+                img.onerror = () => {
+                    loadingOverlay.style.display = 'none';
+                    showError('Failed to generate combined image');
+                };
+                img.src = imageUrl;
+                
+            } catch (error) {
+                console.error('Error generating combined image:', error);
+                loadingOverlay.style.display = 'none';
+                showError(`Error generating combined image: ${error.message}`);
+            }
+        }
+
+        // Apply traits to NFT
+        async function applyTraitsToNFT() {
+            if (!selectedAdrianZero) {
+                showError('Please select an AdrianZERO token first');
+                return;
+            }
+            
+            if (selectedTraits.length === 0) {
+                showError('Please select at least one trait');
+                return;
+            }
+            
+            try {
+                // Load ethers dynamically
+                const { ethers } = await import('https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js');
+                
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const signer = provider.getSigner();
+                
+                // AdrianTraitsExtensions contract ABI (simplified)
+                const contractABI = [
+                    "function applyTraitMultiple(uint256 tokenId, uint256[] calldata traitIds) external"
+                ];
+                
+                const contract = new ethers.Contract(CONTRACTS.ERC1155, contractABI, signer);
+                
+                const traitIds = selectedTraits.map(trait => trait.tokenId);
+                
+                console.log('Applying traits:', traitIds, 'to token:', selectedAdrianZero.tokenId);
+                
+                const tx = await contract.applyTraitMultiple(selectedAdrianZero.tokenId, traitIds);
+                
+                showSuccess('Transaction sent! Waiting for confirmation...');
+                
+                const receipt = await tx.wait();
+                
+                showSuccess('Traits applied successfully!');
+                console.log('Transaction receipt:', receipt);
+                
+            } catch (error) {
+                console.error('Error applying traits:', error);
+                showError(`Error applying traits: ${error.message}`);
+            }
+        }
+
+        // Open floppy disc
+        async function openFloppy() {
+            if (!selectedFloppy) {
+                showError('Please select a floppy disc first');
+                return;
+            }
+            
+            if (selectedFloppy.tokenId === 10001) {
+                showError('This floppy disc is not available yet');
+                return;
+            }
+            
+            try {
+                // Load ethers dynamically
+                const { ethers } = await import('https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js');
+                
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const signer = provider.getSigner();
+                
+                // PackTokenMinter contract ABI (simplified)
+                const contractABI = [
+                    "function openPack(uint256 packId) external"
+                ];
+                
+                const contract = new ethers.Contract(CONTRACTS.PACK_MINTER, contractABI, signer);
+                
+                console.log('Opening floppy disc:', selectedFloppy.tokenId);
+                
+                const tx = await contract.openPack(selectedFloppy.tokenId);
+                
+                showSuccess('Opening floppy disc... Waiting for confirmation...');
+                
+                const receipt = await tx.wait();
+                
+                showSuccess('Floppy disc opened successfully!');
+                console.log('Transaction receipt:', receipt);
+                
+                // Reload tokens after opening
+                await loadFloppyDiscs();
+                await loadAdrianLabTraits();
+                
+            } catch (error) {
+                console.error('Error opening floppy disc:', error);
+                showError(`Error opening floppy disc: ${error.message}`);
+            }
+        }
+
+        // Modal functions
+        function closeModal() {
+            imageModal.style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            if (event.target === imageModal) {
+                closeModal();
+            }
         }
     </script>
 </body>
