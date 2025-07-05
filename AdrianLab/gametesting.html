@@ -141,6 +141,30 @@
             overflow: hidden;
         }
 
+        /* Floating text overlay for point & click messages */
+        .floating-text {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff00;
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #00ff00;
+            font-family: 'VT323', monospace;
+            font-size: 1rem;
+            max-width: 300px;
+            z-index: 1000;
+            pointer-events: none;
+            animation: fadeInOut 4s ease-in-out;
+            box-shadow: 0 4px 12px rgba(0, 255, 0, 0.3);
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(10px); }
+            10% { opacity: 1; transform: translateY(0); }
+            80% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-10px); }
+        }
+
         /* Game Area Modal - Main gameplay area */
         .game-area-modal {
             background: rgba(0, 0, 0, 0.9);
@@ -697,74 +721,60 @@
             // Define clickable areas (hotspots) based on basement.png layout
             const hotspots = [
                 {
-                    name: 'Boxes of Failed NFTs',
-                    x: [15, 35],
-                    y: [20, 40],
+                    name: 'Desk Area',
+                    x: [40, 55],
+                    y: [80, 95],
+                    action: 'inspect_desk_area',
+                    message: "💬 You feel a sudden urge to write a thread on Twitter."
+                },
+                {
+                    name: 'Boxes Area',
+                    x: [71, 86],
+                    y: [65, 80],
                     action: 'inspect_boxes',
                     message: "💬 Boxes full of failed NFT projects... and one unopened Bored Ape piñata."
                 },
                 {
-                    name: 'Printer on Shelf',
-                    x: [35, 50],
-                    y: [15, 30],
-                    action: 'inspect_printer',
-                    message: "🖨️ A relic of the past… still used to print rugpull apology letters."
-                },
-                {
-                    name: 'Armchair',
-                    x: [75, 90],
-                    y: [30, 50],
-                    action: 'inspect_armchair',
-                    message: "🛋️ Sits like a throne. Probably where the DAO founder disappeared."
-                },
-                {
-                    name: 'Washing Machine',
+                    name: 'Armchair Area',
                     x: [80, 95],
-                    y: [60, 80],
+                    y: [79, 94],
+                    action: 'inspect_armchair',
+                    message: "💬 Sits like a throne. Probably where the DAO founder disappeared."
+                },
+                {
+                    name: 'Washing Machine Area',
+                    x: [63, 78],
+                    y: [64, 79],
                     action: 'inspect_washing_machine',
-                    message: "🧺 Perfect for laundering… socks. Only socks."
+                    message: "💬 Perfect for laundering… socks. Only socks."
                 },
                 {
-                    name: 'Stairs',
-                    x: [5, 20],
-                    y: [40, 70],
+                    name: 'Stairs Area',
+                    x: [0, 15],
+                    y: [34, 49],
                     action: 'inspect_stairs',
-                    message: "🪜 Do you really want to go upstairs? That's where the fiat lives."
+                    message: "💬 Do you really want to go upstairs? That's where the fiat lives."
                 },
                 {
-                    name: 'Left Desk with PC',
-                    x: [20, 40],
-                    y: [50, 70],
-                    action: 'inspect_left_desk',
-                    message: "🖥️ Someone mined 6 BTC on this in 2010… then rage quit and sold at $12."
+                    name: 'Computer Area',
+                    x: [18, 33],
+                    y: [44, 59],
+                    action: 'inspect_computer',
+                    message: "💬 Someone mined 6 BTC on this in 2010… then rage quit and sold at $12."
                 },
                 {
-                    name: 'Chair at Left Desk',
-                    x: [25, 35],
-                    y: [70, 85],
-                    action: 'inspect_chair',
-                    message: "🪑 This seat is reserved for the one who still believes in Terra."
-                },
-                {
-                    name: 'Drawer',
-                    x: [30, 40],
-                    y: [75, 85],
-                    action: 'inspect_drawer',
-                    message: "🗃️ You find a sticky note: 'Never trust Vitalik's dance moves.'"
-                },
-                {
-                    name: 'Hanging Light Bulb',
-                    x: [45, 55],
-                    y: [10, 20],
+                    name: 'Light Bulb Area',
+                    x: [43, 58],
+                    y: [0, 15],
                     action: 'inspect_light_bulb',
-                    message: "💡 It's lit... unlike your portfolio."
+                    message: "💬 It's lit... unlike your portfolio."
                 },
                 {
-                    name: 'Windows',
-                    x: [60, 80],
-                    y: [10, 25],
+                    name: 'Windows Area',
+                    x: [46, 61],
+                    y: [32, 47],
                     action: 'inspect_windows',
-                    message: "🪟 Outside: darkness. Inside: DeFi."
+                    message: "💬 Outside: darkness. Inside: DeFi."
                 }
             ];
             
@@ -786,30 +796,30 @@
         function handleHotspotClick(hotspot, x, y) {
             console.log(`Hotspot clicked: ${hotspot.name}`);
             
-            // Show the specific message for each hotspot
+            // Show the specific message for each hotspot as floating text
             if (hotspot.message) {
-                showSuccess(hotspot.message);
+                showFloatingText(hotspot.message, x, y);
             } else {
                 // Fallback for old hotspots
                 switch (hotspot.action) {
                     case 'inspect_computer':
-                        showSuccess(`You examine the computer terminal. It's running AdrianLAB OS v1.0`);
+                        showFloatingText("💬 You examine the computer terminal. It's running AdrianLAB OS v1.0", x, y);
                         break;
                     case 'use_floppy_drive':
                         if (selectedInventoryItem && selectedInventoryItem.tokenId === 10000) {
-                            showSuccess(`You insert the floppy disc into the drive. The computer begins reading...`);
+                            showFloatingText("💬 You insert the floppy disc into the drive. The computer begins reading...", x, y);
                         } else {
-                            showSuccess(`The floppy drive is ready. You need a compatible disc to use it.`);
+                            showFloatingText("💬 The floppy drive is ready. You need a compatible disc to use it.", x, y);
                         }
                         break;
                     case 'search_cabinet':
-                        showSuccess(`You search through the storage cabinet. It's filled with old tech manuals.`);
+                        showFloatingText("💬 You search through the storage cabinet. It's filled with old tech manuals.", x, y);
                         break;
                     case 'inspect_workbench':
-                        showSuccess(`The workbench is covered with circuit boards and tools. A true hacker's workspace.`);
+                        showFloatingText("💬 The workbench is covered with circuit boards and tools. A true hacker's workspace.", x, y);
                         break;
                     default:
-                        showSuccess(`You interact with ${hotspot.name}`);
+                        showFloatingText(`💬 You interact with ${hotspot.name}`, x, y);
                 }
             }
             
@@ -817,6 +827,51 @@
             if (!gameState.discoveredItems.includes(hotspot.name)) {
                 gameState.discoveredItems.push(hotspot.name);
             }
+        }
+
+        // Show floating text over the image
+        function showFloatingText(message, x, y) {
+            // Remove any existing floating text
+            const existingText = document.querySelector('.floating-text');
+            if (existingText) {
+                existingText.remove();
+            }
+            
+            // Create new floating text element
+            const floatingText = document.createElement('div');
+            floatingText.className = 'floating-text';
+            floatingText.textContent = message;
+            
+            // Position the text near the click but ensure it's visible
+            const gameArea = document.querySelector('.game-area-content');
+            const rect = gameArea.getBoundingClientRect();
+            
+            // Convert percentage to pixels
+            const xPos = (x / 100) * rect.width;
+            const yPos = (y / 100) * rect.height;
+            
+            // Position text above the click point, but ensure it stays within bounds
+            let left = xPos - 150; // Center the text
+            let top = yPos - 80;   // Position above the click
+            
+            // Ensure text stays within the game area bounds
+            if (left < 10) left = 10;
+            if (left > rect.width - 310) left = rect.width - 310;
+            if (top < 10) top = yPos + 20; // Show below if too close to top
+            if (top > rect.height - 100) top = rect.height - 100;
+            
+            floatingText.style.left = left + 'px';
+            floatingText.style.top = top + 'px';
+            
+            // Add to game area
+            gameArea.appendChild(floatingText);
+            
+            // Remove after animation completes
+            setTimeout(() => {
+                if (floatingText.parentNode) {
+                    floatingText.remove();
+                }
+            }, 4000);
         }
 
         // Handle mouse movement for cursor feedback
