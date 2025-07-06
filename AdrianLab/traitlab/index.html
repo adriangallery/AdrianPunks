@@ -878,13 +878,30 @@
                             
                             if (tokenType === 'ERC1155' && nft.metadata) {
                                 console.log('ERC1155 metadata:', nft.metadata);
+                                console.log('Full ERC1155 NFT object:', nft);
                                 category = nft.metadata.category || nft.metadata.Category || '';
                                 
-                                // Extract balance for ERC1155 tokens
+                                // Extract balance for ERC1155 tokens - try multiple locations
                                 if (nft.balance) {
                                     balance = parseInt(nft.balance);
+                                    console.log('Balance found in nft.balance:', balance);
                                 } else if (nft.raw && nft.raw.balance) {
                                     balance = parseInt(nft.raw.balance);
+                                    console.log('Balance found in nft.raw.balance:', balance);
+                                } else if (nft.amount) {
+                                    balance = parseInt(nft.amount);
+                                    console.log('Balance found in nft.amount:', balance);
+                                } else if (nft.raw && nft.raw.amount) {
+                                    balance = parseInt(nft.raw.amount);
+                                    console.log('Balance found in nft.raw.amount:', balance);
+                                } else if (nft.quantity) {
+                                    balance = parseInt(nft.quantity);
+                                    console.log('Balance found in nft.quantity:', balance);
+                                } else if (nft.raw && nft.raw.quantity) {
+                                    balance = parseInt(nft.raw.quantity);
+                                    console.log('Balance found in nft.raw.quantity:', balance);
+                                } else {
+                                    console.log('No balance found, using default:', balance);
                                 }
                                 
                                 // If category is still empty, try to extract from other metadata fields
@@ -910,7 +927,7 @@
                                 }
                                 
                                 console.log('Extracted category:', category);
-                                console.log('Extracted balance:', balance);
+                                console.log('Final extracted balance:', balance);
                             }
                             
                             return {
@@ -1044,6 +1061,11 @@
                 // Create quantity tag for ERC1155 tokens with balance > 1
                 const quantityTag = token.tokenType === 'ERC1155' && token.balance > 1 ? 
                     `<div class="token-quantity-tag">${token.balance}</div>` : '';
+                
+                // Debug logging for ERC1155 tokens
+                if (token.tokenType === 'ERC1155') {
+                    console.log(`Token ${token.tokenId} - Balance: ${token.balance}, Will show tag: ${token.balance > 1}`);
+                }
                 
                 tokenCard.innerHTML = `
                     <img src="${imageUrl}" alt="${token.title}" class="token-image" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l5ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+">
