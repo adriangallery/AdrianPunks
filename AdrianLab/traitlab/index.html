@@ -876,10 +876,8 @@
                             let category = '';
                             let balance = 1; // Default balance for ERC721 tokens
                             
-                            if (tokenType === 'ERC1155' && nft.metadata) {
-                                console.log('ERC1155 metadata:', nft.metadata);
+                            if (tokenType === 'ERC1155') {
                                 console.log('Full ERC1155 NFT object:', nft);
-                                category = nft.metadata.category || nft.metadata.Category || '';
                                 
                                 // Extract balance for ERC1155 tokens - try multiple locations
                                 if (nft.balance) {
@@ -904,24 +902,30 @@
                                     console.log('No balance found, using default:', balance);
                                 }
                                 
-                                // If category is still empty, try to extract from other metadata fields
-                                if (!category && nft.metadata.attributes) {
-                                    console.log('Checking attributes:', nft.metadata.attributes);
-                                    // Look for category in attributes (case insensitive)
-                                    const categoryAttr = nft.metadata.attributes.find(attr => 
-                                        attr.trait_type && attr.trait_type.toLowerCase() === 'category'
-                                    );
-                                    if (categoryAttr) {
-                                        category = categoryAttr.value.toLowerCase(); // Convert to lowercase for URL
+                                // Extract category from metadata if available
+                                if (nft.metadata) {
+                                    console.log('ERC1155 metadata:', nft.metadata);
+                                    category = nft.metadata.category || nft.metadata.Category || '';
+                                    
+                                    // If category is still empty, try to extract from other metadata fields
+                                    if (!category && nft.metadata.attributes) {
+                                        console.log('Checking attributes:', nft.metadata.attributes);
+                                        // Look for category in attributes (case insensitive)
+                                        const categoryAttr = nft.metadata.attributes.find(attr => 
+                                            attr.trait_type && attr.trait_type.toLowerCase() === 'category'
+                                        );
+                                        if (categoryAttr) {
+                                            category = categoryAttr.value.toLowerCase(); // Convert to lowercase for URL
+                                        }
                                     }
-                                }
-                                
-                                // If still empty, try to extract from name or description
-                                if (!category) {
-                                    if (nft.metadata.name && nft.metadata.name.includes(' ')) {
-                                        const nameParts = nft.metadata.name.split(' ');
-                                        if (nameParts.length > 1) {
-                                            category = nameParts[0].toLowerCase();
+                                    
+                                    // If still empty, try to extract from name or description
+                                    if (!category) {
+                                        if (nft.metadata.name && nft.metadata.name.includes(' ')) {
+                                            const nameParts = nft.metadata.name.split(' ');
+                                            if (nameParts.length > 1) {
+                                                category = nameParts[0].toLowerCase();
+                                            }
                                         }
                                     }
                                 }
