@@ -1128,15 +1128,12 @@ function updateWalletForInventory() {
     if (isWalletConnected && window.ethereum.selectedAddress) {
         currentAccount = window.ethereum.selectedAddress;
         console.log('Setting current account:', currentAccount);
-        inventoryToggle.style.display = 'block';
         loadInventory();
     } else {
         currentAccount = null;
         inventoryItems = [];
         selectedInventoryItem = null;
-        inventoryToggle.style.display = 'none';
-        inventoryModal.style.display = 'none';
-        inventoryGrid.innerHTML = '<div class="no-items">No items found. Connect wallet to load inventory.</div>';
+        showNoItems();
     }
 }
 
@@ -1144,12 +1141,6 @@ function updateWalletForInventory() {
 function initializePointAndClickSystem() {
     console.log('Initializing point & click system');
     initializePointAndClick();
-    
-    // Add inventory toggle event listener
-    if (inventoryToggle) {
-        inventoryToggle.addEventListener('click', toggleInventory);
-        console.log('Inventory toggle event listener added');
-    }
     
     // Check if wallet is already connected
     if (window.ethereum && window.ethereum.selectedAddress) {
