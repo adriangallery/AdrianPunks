@@ -37,7 +37,7 @@ let gameState = {
 // DOM elements
 let introScreen, mainScreen, floppyScreen, introImage, backgroundMusic, muteButton;
 let connectWalletBtn, clickArea, mintPopup, closePopupBtn, buyFloppyBtn, backToMainBtn;
-let progressFill, progressText, inventoryToggle, inventoryModal, inventoryGrid;
+let progressFill, progressText, inventoryToggle;
 
 // Initialization
 document.addEventListener('DOMContentLoaded', function() {
@@ -71,16 +71,12 @@ function initializeDOMElements() {
     
     // New inventory elements
     inventoryToggle = document.getElementById('inventory-toggle');
-    inventoryModal = document.getElementById('inventory-modal');
-    inventoryGrid = document.getElementById('inventory-grid');
     
     console.log('DOM elements initialized:', {
         introScreen: !!introScreen,
         mainScreen: !!mainScreen,
         clickArea: !!clickArea,
-        inventoryToggle: !!inventoryToggle,
-        inventoryModal: !!inventoryModal,
-        inventoryGrid: !!inventoryGrid
+        inventoryToggle: !!inventoryToggle
     });
 }
 
@@ -901,7 +897,7 @@ async function loadInventory() {
         const nftsData = await alchemyResponse.json();
         console.log(`NFT data received:`, nftsData);
         
-        // Process NFTs and filter for tokens 10000 and 10001
+        // Process NFTs and filter for tokens 10000, 10001, and 10002
         if (nftsData.ownedNfts && nftsData.ownedNfts.length > 0) {
             const tokens = nftsData.ownedNfts.map(nft => {
                 try {
@@ -931,8 +927,8 @@ async function loadInventory() {
                         return null;
                     }
                     
-                    // Filter for tokens 10000 and 10001 only
-                    if (tokenIdInt !== 10000 && tokenIdInt !== 10001) {
+                    // Filter for tokens 10000, 10001, and 10002 only
+                    if (tokenIdInt !== 10000 && tokenIdInt !== 10001 && tokenIdInt !== 10002) {
                         return null;
                     }
                     
@@ -1012,32 +1008,65 @@ async function loadInventory() {
 // Display inventory items
 function displayInventory() {
     console.log('Displaying inventory items:', inventoryItems);
-    inventoryGrid.innerHTML = "";
+    
+    // Get both inventory grids
+    const inventoryGridLeft = document.getElementById('inventory-grid-left');
+    const inventoryGridRight = document.getElementById('inventory-grid-right');
+    
+    // Clear both grids
+    inventoryGridLeft.innerHTML = "";
+    inventoryGridRight.innerHTML = "";
     
     if (inventoryItems.length === 0) {
-        inventoryGrid.innerHTML = '<div class="no-items">No floppy discs found in your wallet.</div>';
+        inventoryGridLeft.innerHTML = '<div class="no-items">No floppy discs found.</div>';
+        inventoryGridRight.innerHTML = '<div class="no-items">Connect wallet to load.</div>';
         return;
     }
     
-    inventoryItems.forEach(item => {
-        const itemElement = document.createElement('div');
-        itemElement.className = 'inventory-item';
-        
-        const imageUrl = item.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjIwIiB5PSIyMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+';
-        
-        itemElement.innerHTML = `
-            <img src="${imageUrl}" alt="${item.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjIwIiB5PSIyMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+">
-            <div class="item-name">${item.title}</div>
-            <div class="item-id">ID: ${item.tokenId}</div>
-        `;
-        
-        // Add click event for item selection
-        itemElement.addEventListener('click', () => {
-            selectInventoryItem(item);
+    // Distribute items between left and right sections
+    const leftItems = inventoryItems.filter(item => item.tokenId === 10000 || item.tokenId === 10001);
+    const rightItems = inventoryItems.filter(item => item.tokenId === 10002);
+    
+    // Display left section items
+    if (leftItems.length === 0) {
+        inventoryGridLeft.innerHTML = '<div class="no-items">No OG/STARTER discs.</div>';
+    } else {
+        leftItems.forEach(item => {
+            const itemElement = createInventoryItemElement(item);
+            inventoryGridLeft.appendChild(itemElement);
         });
-        
-        inventoryGrid.appendChild(itemElement);
+    }
+    
+    // Display right section items
+    if (rightItems.length === 0) {
+        inventoryGridRight.innerHTML = '<div class="no-items">No GREEN discs.</div>';
+    } else {
+        rightItems.forEach(item => {
+            const itemElement = createInventoryItemElement(item);
+            inventoryGridRight.appendChild(itemElement);
+        });
+    }
+}
+
+// Helper function to create inventory item element
+function createInventoryItemElement(item) {
+    const itemElement = document.createElement('div');
+    itemElement.className = 'inventory-item';
+    
+    const imageUrl = item.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjIwIiB5PSIyMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+';
+    
+    itemElement.innerHTML = `
+        <img src="${imageUrl}" alt="${item.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjIwIiB5PSIyMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+">
+        <div class="item-name">${item.title}</div>
+        <div class="item-id">ID: ${item.tokenId}</div>
+    `;
+    
+    // Add click event for item selection
+    itemElement.addEventListener('click', () => {
+        selectInventoryItem(item);
     });
+    
+    return itemElement;
 }
 
 // Handle inventory item selection
@@ -1057,17 +1086,27 @@ function selectInventoryItem(item) {
 
 // Show no items message
 function showNoItems() {
-    inventoryGrid.innerHTML = '<div class="no-items">No floppy discs found in your wallet.</div>';
+    const inventoryGridLeft = document.getElementById('inventory-grid-left');
+    const inventoryGridRight = document.getElementById('inventory-grid-right');
+    
+    inventoryGridLeft.innerHTML = '<div class="no-items">No floppy discs found.</div>';
+    inventoryGridRight.innerHTML = '<div class="no-items">Connect wallet to load.</div>';
 }
 
 // Show/hide inventory loading
 function showInventoryLoading() {
-    inventoryGrid.innerHTML = `
+    const inventoryGridLeft = document.getElementById('inventory-grid-left');
+    const inventoryGridRight = document.getElementById('inventory-grid-right');
+    
+    const loadingHTML = `
         <div class="loading">
             <div class="spinner"></div>
-            <p>Loading inventory...</p>
+            <p>Loading...</p>
         </div>
     `;
+    
+    inventoryGridLeft.innerHTML = loadingHTML;
+    inventoryGridRight.innerHTML = loadingHTML;
 }
 
 function hideInventoryLoading() {
