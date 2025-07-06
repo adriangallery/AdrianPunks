@@ -37,7 +37,7 @@ let gameState = {
 // DOM elements
 let introScreen, mainScreen, floppyScreen, introImage, backgroundMusic, muteButton;
 let connectWalletBtn, clickArea, mintPopup, closePopupBtn, buyFloppyBtn, backToMainBtn;
-let progressFill, progressText, inventoryToggle;
+let progressFill, progressText;
 
 // Initialization
 document.addEventListener('DOMContentLoaded', function() {
@@ -70,13 +70,10 @@ function initializeDOMElements() {
     progressText = document.querySelector('.progress-text');
     
     // New inventory elements
-    inventoryToggle = document.getElementById('inventory-toggle');
-    
     console.log('DOM elements initialized:', {
         introScreen: !!introScreen,
         mainScreen: !!mainScreen,
-        clickArea: !!clickArea,
-        inventoryToggle: !!inventoryToggle
+        clickArea: !!clickArea
     });
 }
 
