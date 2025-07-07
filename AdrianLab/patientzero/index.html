@@ -624,10 +624,13 @@
             try {
                 showStatus('Loading your Adrians...', 'loading');
                 
-                const response = await fetch(`https://${NETWORK}.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTs?owner=${currentAccount}&contractAddresses[]=${ADRIANZERO_CONTRACT}`);
+                // Use the correct Alchemy API syntax
+                const response = await fetch(`https://${NETWORK}.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${currentAccount}&contractAddresses=${ADRIANZERO_CONTRACT}&withMetadata=true&pageSize=50`);
                 
                 if (!response.ok) {
-                    throw new Error('Failed to fetch Adrians');
+                    const errorText = await response.text();
+                    console.error('Alchemy API error:', response.status, errorText);
+                    throw new Error(`API Error ${response.status}: ${errorText}`);
                 }
                 
                 const data = await response.json();
