@@ -466,7 +466,7 @@
             <div class="tab-content" id="my-adrians-tab">
                 <div class="section-title">My Adrians</div>
                 <div id="adriansGrid" class="my-adrians-grid">
-                    <div class="loading">Loading your Adrians...</div>
+                    <div class="loading">Loading your AdrianZERO tokens...</div>
                 </div>
             </div>
         </div>
@@ -622,10 +622,10 @@
 
         async function loadMyAdrians() {
             try {
-                showStatus('Loading your Adrians...', 'loading');
+                showStatus('Loading your AdrianZERO tokens...', 'loading');
                 
-                // Use the correct Alchemy API syntax
-                const response = await fetch(`https://${NETWORK}.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${currentAccount}&contractAddresses=${ADRIANZERO_CONTRACT}&withMetadata=true&pageSize=50`);
+                // Load specifically ERC721 tokens from AdrianZERO contract
+                const response = await fetch(`https://${NETWORK}.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${currentAccount}&contractAddresses=${ADRIANZERO_CONTRACT}&withMetadata=true&pageSize=50&tokenType=ERC721`);
                 
                 if (!response.ok) {
                     const errorText = await response.text();
@@ -634,14 +634,91 @@
                 }
                 
                 const data = await response.json();
-                myAdrians = data.ownedNfts || [];
+                console.log('AdrianZERO data received:', data);
+                
+                // Process and filter AdrianZERO tokens
+                myAdrians = (data.ownedNfts || []).map(nft => {
+                    // Extract tokenId
+                    let tokenId;
+                    if (nft.tokenId) {
+                        tokenId = nft.tokenId;
+                    } else if (nft.id && nft.id.tokenId) {
+                        tokenId = nft.id.tokenId;
+                    } else {
+                        console.error("No tokenId found in NFT:", nft);
+                        return null;
+                    }
+                    
+                    // Convert tokenId to integer
+                    let tokenIdInt;
+                    if (typeof tokenId === 'number') {
+                        tokenIdInt = tokenId;
+                    } else if (tokenId.startsWith('0x')) {
+                        tokenIdInt = parseInt(tokenId, 16);
+                    } else {
+                        tokenIdInt = parseInt(tokenId, 10);
+                    }
+                    
+                    if (isNaN(tokenIdInt)) {
+                        console.error("Invalid tokenId format:", tokenId);
+                        return null;
+                    }
+                    
+                    // Extract title/name
+                    let title = `Adrian #${tokenIdInt}`;
+                    if (nft.title) {
+                        title = nft.title;
+                    } else if (nft.name) {
+                        title = nft.name;
+                    } else if (nft.metadata && nft.metadata.name) {
+                        title = nft.metadata.name;
+                    }
+                    
+                    // Extract image URL with multiple fallbacks
+                    let imageUrl = "";
+                    
+                    // Try multiple locations for image URL
+                    if (nft.media && Array.isArray(nft.media) && nft.media.length > 0) {
+                        const mediaSources = ['gateway', 'raw', 'thumbnail', 'format'];
+                        for (const source of mediaSources) {
+                            if (nft.media[0][source] && typeof nft.media[0][source] === 'string') {
+                                imageUrl = nft.media[0][source];
+                                break;
+                            }
+                        }
+                    } else if (nft.metadata) {
+                        const imageProps = ['image', 'image_url', 'imageUrl', 'imageURI', 'image_uri', 'imageData'];
+                        for (const prop of imageProps) {
+                            if (nft.metadata[prop] && typeof nft.metadata[prop] === 'string') {
+                                imageUrl = nft.metadata[prop];
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Clean up IPFS URLs
+                    if (imageUrl && imageUrl.startsWith('ipfs://')) {
+                        imageUrl = imageUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
+                    }
+                    
+                    return {
+                        tokenId: tokenIdInt,
+                        title: title,
+                        imageUrl: imageUrl,
+                        contract: nft.contract.address,
+                        contractName: nft.contract.name || 'AdrianZERO',
+                        metadata: nft.metadata || {}
+                    };
+                }).filter(token => token !== null);
+                
+                console.log('Processed AdrianZERO tokens:', myAdrians);
                 displayMyAdrians(myAdrians);
-                showStatus(`Loaded ${myAdrians.length} Adrians`, 'success');
+                showStatus(`Loaded ${myAdrians.length} AdrianZERO tokens`, 'success');
                 
             } catch (error) {
-                console.error('Error loading Adrians:', error);
-                showStatus('Error loading your Adrians: ' + error.message, 'error');
-                adriansGrid.innerHTML = '<div class="error">Failed to load your Adrians</div>';
+                console.error('Error loading AdrianZERO tokens:', error);
+                showStatus('Error loading your AdrianZERO tokens: ' + error.message, 'error');
+                adriansGrid.innerHTML = '<div class="error">Failed to load your AdrianZERO tokens</div>';
             }
         }
 
@@ -685,18 +762,17 @@
 
         function displayMyAdrians(adrians) {
             if (adrians.length === 0) {
-                adriansGrid.innerHTML = '<div class="no-data">No Adrians found in your wallet</div>';
+                adriansGrid.innerHTML = '<div class="no-data">No AdrianZERO tokens found</div>';
                 return;
             }
 
             adriansGrid.innerHTML = adrians.map(adrian => `
                 <div class="adrian-card" onclick="selectAdrian('${adrian.tokenId}')">
                     <div class="adrian-image">
-                        <img src="${adrian.media?.[0]?.gateway || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMkEyQTJBIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+'}" 
-                             alt="Adrian ${adrian.tokenId}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMkEyQTJBIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+'">
+                        <img src="${adrian.imageUrl}" alt="${adrian.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMkEyQTJBIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+'">
                     </div>
                     <div class="adrian-info">
-                        <div class="adrian-name">Adrian #${adrian.tokenId}</div>
+                        <div class="adrian-name">${adrian.title}</div>
                         <div class="adrian-id">Token ID: ${adrian.tokenId}</div>
                     </div>
                 </div>
