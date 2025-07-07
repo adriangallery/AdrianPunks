@@ -454,6 +454,7 @@
             <div class="tabs">
                 <button class="tab-btn active" data-tab="bounties">Active Bounties</button>
                 <button class="tab-btn" data-tab="my-adrians">My Adrians</button>
+                <button class="tab-btn" data-tab="recovery">Recovery Center</button>
             </div>
 
             <div class="tab-content active" id="bounties-tab">
@@ -467,6 +468,13 @@
                 <div class="section-title">My Adrians</div>
                 <div id="adriansGrid" class="my-adrians-grid">
                     <div class="loading">Loading your AdrianZERO tokens...</div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="recovery-tab">
+                <div class="section-title">Recovery Center</div>
+                <div id="recoveryGrid" class="profiles-grid">
+                    <div class="loading">Loading recovered profiles...</div>
                 </div>
             </div>
         </div>
@@ -519,6 +527,7 @@
                     btn.classList.add('active');
                     const tabId = btn.getAttribute('data-tab') + '-tab';
                     document.getElementById(tabId).classList.add('active');
+                    if (tabId === 'recovery-tab') loadRecoveryProfiles();
                 });
             });
         }
@@ -904,6 +913,75 @@
                 "function claimBounty(uint256 tokenId, uint256 profileId) external",
                 "function isPatientZERO(uint256 tokenId, uint256 profileId) external view returns (bool)"
             ];
+        }
+
+        // Extiende el ABI para Recovery Center
+        function getPatientZeroABIExtended() {
+            return [
+                ...getPatientZeroABI(),
+                "function getDepositedTokens() view returns (uint256[] memory)",
+                "function tokenToProfile(uint256) view returns (uint256)",
+                "function getProfile(uint256) view returns (string,uint256[],uint256,bool,uint256)",
+                "function getTokenPrice(uint256) view returns (uint256)",
+                "function purchaseToken(uint256) payable"
+            ];
+        }
+
+        async function loadRecoveryProfiles() {
+            try {
+                showStatus('Loading recovered profiles...', 'loading');
+                if (typeof window.ethers === 'undefined') await loadEthers();
+                const provider = new window.ethers.providers.Web3Provider(window.ethereum);
+                const contract = new window.ethers.Contract(PATIENTZERO_CONTRACT, getPatientZeroABIExtended(), provider);
+
+                const depositedTokenIds = await contract.getDepositedTokens();
+                if (!depositedTokenIds.length) {
+                    document.getElementById('recoveryGrid').innerHTML = '<div class="no-data">No recovered profiles found</div>';
+                    return;
+                }
+
+                const recoveryProfiles = [];
+                for (const tokenId of depositedTokenIds) {
+                    const profileId = await contract.tokenToProfile(tokenId);
+                    const profile = await contract.getProfile(profileId);
+                    const price = await contract.getTokenPrice(tokenId);
+                    recoveryProfiles.push({ tokenId, profileId, profile, price });
+                }
+
+                // Render cards
+                document.getElementById('recoveryGrid').innerHTML = recoveryProfiles.map(rp => `
+                    <div class="profile-card">
+                        <div class="profile-info">
+                            <div class="profile-name">${rp.profile[0]}</div>
+                            <div class="profile-reward">Recovery Price: ${window.ethers.utils.formatEther(rp.price)} $ADRIAN</div>
+                            <div class="profile-stats">
+                                <span>Profile ID: ${rp.profileId}</span>
+                                <span>Token ID: ${rp.tokenId}</span>
+                            </div>
+                            <button onclick="recoverToken('${rp.tokenId}')" class="claim-btn">Recover Adrian</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                document.getElementById('recoveryGrid').innerHTML = '<div class="error">Error loading recovered profiles</div>';
+            }
+        }
+
+        async function recoverToken(tokenId) {
+            try {
+                showStatus('Processing recovery...', 'loading');
+                if (typeof window.ethers === 'undefined') await loadEthers();
+                const provider = new window.ethers.providers.Web3Provider(window.ethereum);
+                const signer = provider.getSigner();
+                const contract = new window.ethers.Contract(PATIENTZERO_CONTRACT, getPatientZeroABIExtended(), signer);
+                const price = await contract.getTokenPrice(tokenId);
+                const tx = await contract.purchaseToken(tokenId, { value: price });
+                await tx.wait();
+                showStatus('Adrian recovered!', 'success');
+                await loadRecoveryProfiles();
+            } catch (e) {
+                showStatus('Error recovering Adrian: ' + e.message, 'error');
+            }
         }
 
         // Handle wallet changes
