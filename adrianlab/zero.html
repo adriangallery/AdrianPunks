@@ -257,8 +257,9 @@
         </div>
 
         <div class="info">
-            <strong>Price:</strong> 50,000 $ADRIAN per NFT<br>
-            <strong>Max per wallet:</strong> 20 NFTs
+            <strong>Price:</strong> <span id="price">Loading...</span><br>
+            <strong>Minted:</strong> <span id="minted">Loading...</span> / <span id="maxSupply">Loading...</span><br>
+            <strong>Max per wallet:</strong> <span id="maxPerWallet">Loading...</span> NFTs
         </div>
 
         <button id="connectBtn" class="connect-btn">Connect Wallet</button>
@@ -282,27 +283,31 @@
     </div>
 
     <script>
-        // ========================================
-        // AdrianZERO Mint Interface - Simplified
-        // ========================================
-        // This interface provides a simple way to mint AdrianZERO NFTs
-        // Features: Auto-approval, Base network detection, clean UI
-        // Last updated: 2024 - Optimized for batch 2 minting
-        
-        // Contract addresses
-        const MINT_CONTRACT = "0x165d6bf979FD64Da5E1b14D9161452671aaFF440";
+        // Updated configuration for new contract
+        const MINT_CONTRACT = "0x39be2ea60f78c55559309ed61acaf5a9174e57b6";
         const ADRIAN_TOKEN = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
 
-        // Simple ABIs
-        const MINT_ABI = ["function mintMultiple(uint256 quantity, bytes32[] merkleProof)"];
+        // Updated ABIs for new contract
+        const MINT_ABI = [
+            "function mintMultiplePublic(uint256 quantity)",
+            "function getCurrentBatchInfo() view returns (uint256 batchId, string name, uint256 price, uint256 minted, uint256 maxSupply, bool active, uint256 startTime, uint256 endTime, bool useMerkleWhitelist)",
+            "function getUserMintInfo(address user, uint256 batchId) view returns (uint256 mintedInBatch, uint256 maxAllowed, uint256 remaining, bool isWhitelisted)",
+            "function canMint(address user) view returns (bool mintable, string reason, uint256 price, uint256 available)",
+            "function isCurrentBatchPublic() view returns (bool)"
+        ];
         const ERC20_ABI = [
             "function approve(address spender, uint256 amount) returns (bool)",
-            "function allowance(address owner, address spender) view returns (uint256)"
+            "function allowance(address owner, address spender) view returns (uint256)",
+            "function balanceOf(address account) view returns (uint256)"
         ];
 
         // App state
         let currentAccount = null;
         let currentQuantity = 1;
+        let batchInfo = null;
+        let userMintInfo = null;
+        let userBalance = null;
+        let maxMintAllowed = 0;
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -326,6 +331,72 @@
             }
         }
 
+        // Load batch information
+        async function loadBatchInfo() {
+            try {
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const contract = new ethers.Contract(MINT_CONTRACT, MINT_ABI, provider);
+                
+                batchInfo = await contract.getCurrentBatchInfo();
+                
+                // Update UI with batch info
+                document.getElementById('price').textContent = `${ethers.utils.formatEther(batchInfo.price)} $ADRIAN`;
+                document.getElementById('minted').textContent = batchInfo.minted.toString();
+                document.getElementById('maxSupply').textContent = batchInfo.maxSupply.toString();
+                
+                console.log("Batch info loaded:", batchInfo);
+                
+            } catch (error) {
+                console.error("Error loading batch info:", error);
+                showStatus("Error loading batch information", "error");
+            }
+        }
+
+        // Load user data
+        async function loadUserData() {
+            if (!currentAccount || !batchInfo) return;
+            
+            try {
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const mintContract = new ethers.Contract(MINT_CONTRACT, MINT_ABI, provider);
+                const tokenContract = new ethers.Contract(ADRIAN_TOKEN, ERC20_ABI, provider);
+                
+                // Get user mint info and balance
+                const [userMintInfoResult, userBalanceResult] = await Promise.all([
+                    mintContract.getUserMintInfo(currentAccount, batchInfo.batchId),
+                    tokenContract.balanceOf(currentAccount)
+                ]);
+                
+                userMintInfo = userMintInfoResult;
+                userBalance = userBalanceResult;
+                
+                // Calculate max mint allowed
+                const maxAllowed = userMintInfo.maxAllowed.toNumber();
+                const balanceMax = userBalance.div(batchInfo.price).toNumber();
+                maxMintAllowed = Math.min(maxAllowed, balanceMax);
+                
+                // Update UI with user limits
+                document.getElementById('maxPerWallet').textContent = userMintInfo.maxAllowed.toString();
+                
+                // Update quantity if needed
+                if (currentQuantity > maxMintAllowed) {
+                    currentQuantity = Math.max(1, maxMintAllowed);
+                    updateQuantityDisplay();
+                }
+                
+                console.log("User data loaded:", {
+                    maxAllowed,
+                    balanceMax,
+                    maxMintAllowed,
+                    userMintInfo: userMintInfo,
+                    userBalance: ethers.utils.formatEther(userBalance)
+                });
+                
+            } catch (error) {
+                console.error("Error loading user data:", error);
+            }
+        }
+
         // Connect wallet
         async function connectWallet() {
             try {
@@ -339,6 +410,10 @@
                 
                 // Switch to Base if needed
                 await switchToBase();
+                
+                // Load batch and user data
+                await loadBatchInfo();
+                await loadUserData();
                 
                 // Update UI
                 document.getElementById('connectBtn').style.display = 'none';
@@ -414,11 +489,15 @@
             }
         }
 
-        // Mint NFT - Optimized for batch 2 with correct merkle proof
-        // Uses the exact same parameters that work in Basescan
+        // Mint NFT - Using mintMultiplePublic (no merkle proof needed)
         async function mintNFT() {
             if (!currentAccount) {
                 showStatus("Connect wallet first!", "error");
+                return;
+            }
+            
+            if (currentQuantity > maxMintAllowed) {
+                showStatus(`You can only mint up to ${maxMintAllowed} NFTs`, "error");
                 return;
             }
             
@@ -430,27 +509,22 @@
                 const signer = provider.getSigner();
                 const contract = new ethers.Contract(MINT_CONTRACT, MINT_ABI, signer);
                 
-                // EXACTLY what works in Basescan:
-                // [0x0000000000000000000000000000000000000000000000000000000000000000]
-                const merkleProof = [0x0000000000000000000000000000000000000000000000000000000000000000];
-                
-                console.log("Sending exactly:", {
-                    quantity: currentQuantity,
-                    merkleProof: merkleProof,
-                    merkleProofValue: merkleProof[0]
-                });
-                
                 console.log("Minting with:", {
                     quantity: currentQuantity,
-                    merkleProof: merkleProof
+                    maxMintAllowed: maxMintAllowed,
+                    batchInfo: batchInfo
                 });
                 
-                const tx = await contract.mintMultiple(currentQuantity, merkleProof);
+                const tx = await contract.mintMultiplePublic(currentQuantity);
                 
                 showStatus("Transaction sent! Waiting for confirmation...", "loading");
                 await tx.wait();
                 
                 showStatus(`🎉 Successfully minted ${currentQuantity} AdrianZERO NFT(s)!`, "success");
+                
+                // Reload data after mint
+                await loadBatchInfo();
+                await loadUserData();
                 
             } catch (error) {
                 console.error("Mint error:", error);
@@ -462,6 +536,10 @@
                     errorMsg = "Need to approve $ADRIAN first";
                 } else if (error.message.includes("denied")) {
                     errorMsg = "Transaction cancelled";
+                } else if (error.message.includes("Mint limit exceeded")) {
+                    errorMsg = "You have reached your mint limit for this batch";
+                } else if (error.message.includes("Batch not available")) {
+                    errorMsg = "Batch is not available or sold out";
                 }
                 
                 showStatus(errorMsg, "error");
@@ -473,10 +551,18 @@
         // Quantity controls
         function changeQuantity(delta) {
             const newQuantity = currentQuantity + delta;
-            if (newQuantity >= 1 && newQuantity <= 20) {
+            if (newQuantity >= 1 && newQuantity <= maxMintAllowed) {
                 currentQuantity = newQuantity;
-                document.getElementById('quantityDisplay').textContent = currentQuantity;
+                updateQuantityDisplay();
             }
+        }
+
+        function updateQuantityDisplay() {
+            document.getElementById('quantityDisplay').textContent = currentQuantity;
+            
+            // Update button states
+            document.getElementById('decreaseBtn').disabled = currentQuantity <= 1;
+            document.getElementById('increaseBtn').disabled = currentQuantity >= maxMintAllowed;
         }
 
         // Show status
