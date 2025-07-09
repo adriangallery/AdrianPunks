@@ -1836,8 +1836,8 @@
                         let errorMessage = 'Failed to activate token.';
                         
                         // Handle specific error cases
-                        if (error.code === 4001) {
-                            errorMessage = 'Transaction was rejected by user.';
+                        if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
+                            errorMessage = '❌ Transaction was cancelled by user.';
                         } else if (error.code === 'UNPREDICTABLE_GAS_LIMIT') {
                             // Check for specific revert reasons
                             if (error.reason && error.reason.includes('already assigned')) {
@@ -1851,6 +1851,12 @@
                             } else {
                                 errorMessage = `❌ Transaction failed: ${error.reason}`;
                             }
+                        } else if (error.code === 'INSUFFICIENT_FUNDS') {
+                            errorMessage = '❌ Insufficient funds for gas fees.';
+                        } else if (error.code === 'NETWORK_ERROR') {
+                            errorMessage = '❌ Network error. Please check your connection.';
+                        } else if (error.code === 'TIMEOUT') {
+                            errorMessage = '❌ Transaction timed out. Please try again.';
                         } else if (error.message) {
                             // Check error message for specific cases
                             if (error.message.includes('already assigned')) {
@@ -1865,6 +1871,8 @@
                                 errorMessage = '❌ Insufficient funds for gas fees.';
                             } else if (error.message.includes('network')) {
                                 errorMessage = '❌ Network error. Please check your connection.';
+                            } else if (error.message.includes('user rejected') || error.message.includes('cancelled')) {
+                                errorMessage = '❌ Transaction was cancelled by user.';
                             } else {
                                 errorMessage = `❌ Error: ${error.message}`;
                             }
@@ -1893,6 +1901,11 @@
                 setTimeout(() => {
                     activateTokenStatus.style.display = 'none';
                 }, 5000);
+            } else if (type === 'error' && message.includes('cancelled')) {
+                // Show additional info for cancelled transactions
+                setTimeout(() => {
+                    activateTokenStatus.innerHTML = message + '<br><small>💡 You can try again by clicking the button.</small>';
+                }, 2000);
             }
         }
     </script>
