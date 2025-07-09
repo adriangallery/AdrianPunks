@@ -741,7 +741,7 @@
             quantityDisplay.textContent = currentQuantity;
         }
 
-        // Approve tokens
+        // Approve tokens - Simplified
         async function approveTokens() {
             if (!currentAccount) {
                 showStatus("Please connect your wallet first", "error");
@@ -756,50 +756,24 @@
                 const signer = provider.getSigner();
                 const tokenContract = new ethers.Contract(ADRIAN_TOKEN, ERC20_ABI, signer);
                 
-                const batchInfo = window.batchInfo;
-                const totalCost = batchInfo.price.mul(maxMint);
-                
-                const tx = await tokenContract.approve(MINT_CONTRACT, totalCost);
+                const tx = await tokenContract.approve(MINT_CONTRACT, ethers.constants.MaxUint256);
                 showStatus("Approval transaction sent! Waiting for confirmation...", "loading");
                 
                 await tx.wait();
-                
                 showStatus("Tokens approved successfully!", "success");
-                
-                // Reload user data
-                await loadUserData();
                 
             } catch (error) {
                 console.error("Approval error:", error);
-                let errorMessage = "Approval failed";
-                if (error.code === 4001) {
-                    errorMessage = "Transaction was rejected by user";
-                } else if (error.message) {
-                    errorMessage = error.message;
-                }
-                showStatus(errorMessage, "error");
+                showStatus(error.message || "Approval failed", "error");
             } finally {
                 approveBtn.disabled = false;
             }
         }
 
-        // Mint NFT
+        // Mint NFT - Simplified
         async function mintNFT() {
             if (!currentAccount) {
                 showStatus("Please connect your wallet first", "error");
-                return;
-            }
-            
-            if (currentQuantity <= 0) {
-                showStatus("Please select a quantity to mint", "error");
-                return;
-            }
-            
-            // Check if user has enough allowance
-            const batchInfo = window.batchInfo;
-            const totalCost = batchInfo.price.mul(currentQuantity);
-            if (window.userAllowance.lt(totalCost)) {
-                showStatus("Please approve tokens first", "error");
                 return;
             }
             
@@ -811,29 +785,15 @@
                 const signer = provider.getSigner();
                 const contract = new ethers.Contract(MINT_CONTRACT, MINT_ABI, signer);
                 
-                // Empty merkle proof since no whitelist is being used
-                const merkleProof = ["0x0000000000000000000000000000000000000000000000000000000000000000"];
-                
-                const tx = await contract.mintMultiple(currentQuantity, merkleProof);
+                const tx = await contract.mintMultiple(currentQuantity, ["0x0000000000000000000000000000000000000000000000000000000000000000"]);
                 showStatus("Mint transaction sent! Waiting for confirmation...", "loading");
                 
                 await tx.wait();
-                
                 showStatus(`Successfully minted ${currentQuantity} AdrianZERO NFT(s)!`, "success");
-                
-                // Reload data
-                await loadBatchInfo();
-                await loadUserData();
                 
             } catch (error) {
                 console.error("Mint error:", error);
-                let errorMessage = "Mint failed";
-                if (error.code === 4001) {
-                    errorMessage = "Transaction was rejected by user";
-                } else if (error.message) {
-                    errorMessage = error.message;
-                }
-                showStatus(errorMessage, "error");
+                showStatus(error.message || "Mint failed", "error");
             } finally {
                 mintBtn.disabled = false;
             }
