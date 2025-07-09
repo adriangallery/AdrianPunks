@@ -701,9 +701,9 @@
                 const batchInfo = window.batchInfo;
                 const maxAllowed = userMintInfo.maxAllowed.toNumber();
                 const balanceMax = userBalance.div(batchInfo.price).toNumber();
-                const allowanceMax = userAllowance.div(batchInfo.price).toNumber();
                 
-                maxMint = Math.min(maxAllowed, balanceMax, allowanceMax);
+                // Only consider balance and maxAllowed, allowance is handled separately
+                maxMint = Math.min(maxAllowed, balanceMax);
                 
                 // Update UI
                 document.getElementById('userBalance').textContent = `${ethers.utils.formatEther(userBalance)} $ADRIAN`;
@@ -792,6 +792,14 @@
             
             if (currentQuantity <= 0) {
                 showStatus("Please select a quantity to mint", "error");
+                return;
+            }
+            
+            // Check if user has enough allowance
+            const batchInfo = window.batchInfo;
+            const totalCost = batchInfo.price.mul(currentQuantity);
+            if (window.userAllowance.lt(totalCost)) {
+                showStatus("Please approve tokens first", "error");
                 return;
             }
             
