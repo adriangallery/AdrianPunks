@@ -539,6 +539,10 @@
                     <button id="refreshMetadataBtn" class="apply-traits-btn">Refresh metadata OpenSea</button>
                     <div id="refresh-metadata-status" class="apply-status" style="display: none;"></div>
                 </div>
+                <div id="activate-token-section" style="display: none; margin-top: 20px; text-align: center;">
+                    <button id="activateTokenBtn" class="apply-traits-btn">Activate Token</button>
+                    <div id="activate-token-status" class="apply-status" style="display: none;"></div>
+                </div>
                 <div id="open-floppy-section" style="display: none; margin-top: 20px; text-align: center;">
                     <button id="openFloppyBtn" class="apply-traits-btn">Open Floppy</button>
                     <div id="open-floppy-status" class="apply-status" style="display: none;"></div>
@@ -628,6 +632,9 @@
         const openFloppySection = document.getElementById('open-floppy-section');
         const openFloppyBtn = document.getElementById('openFloppyBtn');
         const openFloppyStatus = document.getElementById('open-floppy-status');
+        const activateTokenSection = document.getElementById('activate-token-section');
+        const activateTokenBtn = document.getElementById('activateTokenBtn');
+        const activateTokenStatus = document.getElementById('activate-token-status');
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -636,6 +643,7 @@
             applyTraitsBtn.addEventListener('click', applyTraitsToNFT);
             refreshMetadataBtn.addEventListener('click', refreshMetadata);
             openFloppyBtn.addEventListener('click', openFloppy);
+            activateTokenBtn.addEventListener('click', activateToken);
             
             // Listen for messages from parent window (AdrianLab)
             window.addEventListener('message', handleParentMessage);
@@ -1242,6 +1250,13 @@
                     // }
                     refreshMetadataSection.style.display = 'none'; // Temporarily hidden
                     
+                    // Show activate token button if AdrianZERO is selected
+                    if (selectedERC721 && currentContract === CONTRACTS.ERC721) {
+                        activateTokenSection.style.display = 'block';
+                    } else {
+                        activateTokenSection.style.display = 'none';
+                    }
+                    
                     // Generate combined image if we have both ERC721 and ERC1155 selections
                     if (selectedERC721 && selectedERC1155.length > 0) {
                         console.log('Both selections present, calling generateCombinedImage');
@@ -1257,6 +1272,7 @@
                     generatedImage.style.display = 'none';
                     applyTraitsSection.style.display = 'none';
                     refreshMetadataSection.style.display = 'none';
+                    activateTokenSection.style.display = 'none';
                 }
                 
                 // Hide floppy section in AdrianLAB tab
@@ -1697,6 +1713,138 @@
         function showNoTokens() {
             noTokens.style.display = "block";
             tokensGrid.innerHTML = "";
+        }
+
+        // Activate AdrianZERO token using AdrianLabCore contract
+        async function activateToken() {
+            console.log('activateToken called');
+            
+            if (!selectedERC721) {
+                showActivateTokenStatus('Please select an AdrianZERO token first.', 'error');
+                return;
+            }
+
+            if (!currentAccount) {
+                showActivateTokenStatus('Please connect your wallet first.', 'error');
+                return;
+            }
+
+            try {
+                // Show loading state
+                showActivateTokenStatus('Loading ethers library...', 'loading');
+                activateTokenBtn.disabled = true;
+
+                // Load ethers dynamically only when needed
+                let ethers;
+                if (typeof window.ethers === 'undefined') {
+                    // Load ethers from CDN
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+                    script.onload = () => {
+                        ethers = window.ethers;
+                        console.log('Ethers loaded successfully');
+                        executeTransaction();
+                    };
+                    script.onerror = () => {
+                        showActivateTokenStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                        activateTokenBtn.disabled = false;
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    ethers = window.ethers;
+                    executeTransaction();
+                }
+
+                async function executeTransaction() {
+                    try {
+                        showActivateTokenStatus('Preparing transaction...', 'loading');
+
+                        // Get provider and signer
+                        const provider = new ethers.providers.Web3Provider(window.ethereum);
+                        const signer = provider.getSigner();
+
+                        // AdrianLabCore contract address - using AdrianZERO contract for now
+                        const ADRIAN_LAB_CORE_CONTRACT = "0x6e369bf0e4e0c106192d606fb6d85836d684da75";
+                        
+                        // Contract ABI for assignTokenAttributes function
+                        const contractABI = [
+                            {
+                                "inputs": [
+                                    {
+                                        "internalType": "uint256",
+                                        "name": "tokenId",
+                                        "type": "uint256"
+                                    }
+                                ],
+                                "name": "assignTokenAttributes",
+                                "outputs": [],
+                                "stateMutability": "nonpayable",
+                                "type": "function"
+                            }
+                        ];
+
+                        // Create contract instance
+                        const contract = new ethers.Contract(ADRIAN_LAB_CORE_CONTRACT, contractABI, signer);
+
+                        // Prepare parameters
+                        const tokenId = selectedERC721.tokenId;
+
+                        console.log('Contract address:', ADRIAN_LAB_CORE_CONTRACT);
+                        console.log('Token ID:', tokenId);
+
+                        showActivateTokenStatus('Confirming transaction in your wallet...', 'loading');
+
+                        // Call the contract function
+                        const tx = await contract.assignTokenAttributes(tokenId);
+                        
+                        showActivateTokenStatus('Transaction sent! Waiting for confirmation...', 'loading');
+                        console.log('Transaction hash:', tx.hash);
+
+                        // Wait for transaction confirmation
+                        const receipt = await tx.wait();
+                        
+                        showActivateTokenStatus(`✅ Token activated successfully! Transaction: ${receipt.transactionHash}`, 'success');
+                        console.log('Transaction confirmed:', receipt);
+
+                        // Refresh tokens after successful activation
+                        setTimeout(() => {
+                            loadTokens(currentAccount, currentContract);
+                        }, 2000);
+
+                    } catch (error) {
+                        console.error('Error in transaction:', error);
+                        
+                        let errorMessage = 'Failed to activate token.';
+                        if (error.code === 4001) {
+                            errorMessage = 'Transaction was rejected by user.';
+                        } else if (error.message) {
+                            errorMessage = `Error: ${error.message}`;
+                        }
+                        
+                        showActivateTokenStatus(errorMessage, 'error');
+                    } finally {
+                        activateTokenBtn.disabled = false;
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error activating token:', error);
+                showActivateTokenStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                activateTokenBtn.disabled = false;
+            }
+        }
+
+        // Helper function to show activate token status
+        function showActivateTokenStatus(message, type) {
+            activateTokenStatus.textContent = message;
+            activateTokenStatus.className = `apply-status ${type}`;
+            activateTokenStatus.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    activateTokenStatus.style.display = 'none';
+                }, 5000);
+            }
         }
     </script>
 </body>
