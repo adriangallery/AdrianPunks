@@ -1253,6 +1253,19 @@
                     // Show activate token button if AdrianZERO is selected
                     if (selectedERC721 && currentContract === CONTRACTS.ERC721) {
                         activateTokenSection.style.display = 'block';
+                        
+                        // Check if token might already be activated (optional info)
+                        if (selectedERC721.metadata && selectedERC721.metadata.attributes) {
+                            const hasActivationAttribute = selectedERC721.metadata.attributes.some(attr => 
+                                attr.trait_type && attr.trait_type.toLowerCase().includes('activated')
+                            );
+                            if (hasActivationAttribute) {
+                                // Update button text to indicate it might already be activated
+                                activateTokenBtn.textContent = 'Activate Token (May already be activated)';
+                            } else {
+                                activateTokenBtn.textContent = 'Activate Token';
+                            }
+                        }
                     } else {
                         activateTokenSection.style.display = 'none';
                     }
@@ -1729,6 +1742,12 @@
                 return;
             }
 
+            // Check if user owns the token
+            if (selectedERC721.owner && selectedERC721.owner.toLowerCase() !== currentAccount.toLowerCase()) {
+                showActivateTokenStatus('❌ You must own this token to activate it.', 'error');
+                return;
+            }
+
             try {
                 // Show loading state
                 showActivateTokenStatus('Loading ethers library...', 'loading');
@@ -1815,10 +1834,40 @@
                         console.error('Error in transaction:', error);
                         
                         let errorMessage = 'Failed to activate token.';
+                        
+                        // Handle specific error cases
                         if (error.code === 4001) {
                             errorMessage = 'Transaction was rejected by user.';
+                        } else if (error.code === 'UNPREDICTABLE_GAS_LIMIT') {
+                            // Check for specific revert reasons
+                            if (error.reason && error.reason.includes('already assigned')) {
+                                errorMessage = '❌ This token has already been activated!';
+                            } else if (error.reason && error.reason.includes('not owner')) {
+                                errorMessage = '❌ You must own this token to activate it.';
+                            } else if (error.reason && error.reason.includes('token does not exist')) {
+                                errorMessage = '❌ Token does not exist.';
+                            } else if (error.reason && error.reason.includes('not authorized')) {
+                                errorMessage = '❌ You are not authorized to activate this token.';
+                            } else {
+                                errorMessage = `❌ Transaction failed: ${error.reason}`;
+                            }
                         } else if (error.message) {
-                            errorMessage = `Error: ${error.message}`;
+                            // Check error message for specific cases
+                            if (error.message.includes('already assigned')) {
+                                errorMessage = '❌ This token has already been activated!';
+                            } else if (error.message.includes('not owner')) {
+                                errorMessage = '❌ You must own this token to activate it.';
+                            } else if (error.message.includes('token does not exist')) {
+                                errorMessage = '❌ Token does not exist.';
+                            } else if (error.message.includes('not authorized')) {
+                                errorMessage = '❌ You are not authorized to activate this token.';
+                            } else if (error.message.includes('insufficient funds')) {
+                                errorMessage = '❌ Insufficient funds for gas fees.';
+                            } else if (error.message.includes('network')) {
+                                errorMessage = '❌ Network error. Please check your connection.';
+                            } else {
+                                errorMessage = `❌ Error: ${error.message}`;
+                            }
                         }
                         
                         showActivateTokenStatus(errorMessage, 'error');
