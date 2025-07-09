@@ -637,6 +637,9 @@
             refreshMetadataBtn.addEventListener('click', refreshMetadata);
             openFloppyBtn.addEventListener('click', openFloppy);
             
+            // Listen for messages from parent window (AdrianLab)
+            window.addEventListener('message', handleParentMessage);
+            
             // Contract filter buttons
             contractBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -677,6 +680,30 @@
             checkConnection();
         });
 
+        // Handle messages from parent window (AdrianLab)
+        function handleParentMessage(event) {
+            if (event.data && event.data.type) {
+                console.log('Received message from parent:', event.data);
+                
+                switch (event.data.type) {
+                    case 'WALLET_CONNECTED':
+                        if (event.data.address && !currentAccount) {
+                            console.log('Connecting wallet from parent message:', event.data.address);
+                            currentAccount = event.data.address;
+                            updateUIForConnectedWallet();
+                            loadTokens(currentAccount, currentContract);
+                        }
+                        break;
+                    case 'WALLET_DISCONNECTED':
+                        if (currentAccount) {
+                            console.log('Disconnecting wallet from parent message');
+                            disconnectWallet();
+                        }
+                        break;
+                }
+            }
+        }
+
         // Check if wallet is connected
         async function checkConnection() {
             if (window.ethereum) {
@@ -689,6 +716,14 @@
                     console.error("Failed to check connection:", error);
                 }
             }
+        }
+
+        // Update UI for connected wallet (used by parent message handler)
+        function updateUIForConnectedWallet() {
+            connectSection.style.display = "none";
+            accountSection.style.display = "block";
+            tokensSection.style.display = "block";
+            walletAddress.textContent = `${currentAccount.slice(0,6)}...${currentAccount.slice(-4)}`;
         }
 
         // Connect wallet
@@ -724,10 +759,7 @@
                 }
                 
                 // Update UI
-                connectSection.style.display = "none";
-                accountSection.style.display = "block";
-                tokensSection.style.display = "block";
-                walletAddress.textContent = `${currentAccount.slice(0,6)}...${currentAccount.slice(-4)}`;
+                updateUIForConnectedWallet();
                 
                 // Load tokens
                 await loadTokens(currentAccount, currentContract);

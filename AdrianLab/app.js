@@ -491,6 +491,11 @@ function notifyIframeWalletConnected() {
     const iframe = document.querySelector('#mint-popup iframe');
     if (iframe && iframe.contentWindow) {
         try {
+            console.log('Sending wallet connection to iframe:', {
+                address: window.ethereum.selectedAddress,
+                chainId: window.ethereum.chainId
+            });
+            
             iframe.contentWindow.postMessage({
                 type: 'WALLET_CONNECTED',
                 address: window.ethereum.selectedAddress,
@@ -524,7 +529,7 @@ function handleBasementClick(event) {
     // Show mint popup
     mintPopup.classList.add('active');
     
-    // Notify iframe about wallet connection when popup opens
+    // Notify iframe about wallet connection immediately when popup opens
     setTimeout(() => {
         notifyIframeWalletConnected();
     }, 100);
