@@ -275,7 +275,7 @@
                 <button class="quantity-btn" onclick="changeQuantity(1)">+</button>
             </div>
             
-            <button id="approveBtn" class="approve-btn">1. Approve $ADRIAN</button><br>
+            <button id="approveBtn" class="approve-btn">1. Approve <span id="approveAmount">$ADRIAN</span></button><br>
             <button id="mintBtn" class="mint-btn">2. Mint AdrianZERO</button>
         </div>
 
@@ -343,6 +343,9 @@
                 document.getElementById('price').textContent = `${ethers.utils.formatEther(batchInfo.price)} $ADRIAN`;
                 document.getElementById('minted').textContent = batchInfo.minted.toString();
                 document.getElementById('maxSupply').textContent = batchInfo.maxSupply.toString();
+                
+                // Update approve button with initial amount
+                updateQuantityDisplay();
                 
                 console.log("Batch info loaded:", batchInfo);
                 
@@ -460,26 +463,36 @@
             }
         }
 
-        // Approve tokens
+        // Approve tokens - Calculated based on current quantity
         async function approveTokens() {
             if (!currentAccount) {
                 showStatus("Connect wallet first!", "error");
                 return;
             }
             
+            if (!batchInfo) {
+                showStatus("Please wait for batch info to load", "error");
+                return;
+            }
+            
             try {
                 document.getElementById('approveBtn').disabled = true;
-                showStatus("Approving $ADRIAN tokens...", "loading");
+                
+                // Calculate exact amount needed for current quantity
+                const totalCost = batchInfo.price.mul(currentQuantity);
+                const costInTokens = ethers.utils.formatEther(totalCost);
+                
+                showStatus(`Approving ${costInTokens} $ADRIAN tokens...`, "loading");
                 
                 const provider = new ethers.providers.Web3Provider(window.ethereum);
                 const signer = provider.getSigner();
                 const tokenContract = new ethers.Contract(ADRIAN_TOKEN, ERC20_ABI, signer);
                 
-                // Approve max amount for smooth experience
-                const tx = await tokenContract.approve(MINT_CONTRACT, ethers.constants.MaxUint256);
+                // Approve exact amount needed
+                const tx = await tokenContract.approve(MINT_CONTRACT, totalCost);
                 await tx.wait();
                 
-                showStatus("✅ $ADRIAN approved! Now you can mint.", "success");
+                showStatus(`✅ ${costInTokens} $ADRIAN approved! Now you can mint.`, "success");
                 
             } catch (error) {
                 console.error("Approval error:", error);
@@ -563,6 +576,13 @@
             // Update button states
             document.getElementById('decreaseBtn').disabled = currentQuantity <= 1;
             document.getElementById('increaseBtn').disabled = currentQuantity >= maxMintAllowed;
+            
+            // Update approve button text with exact amount
+            if (batchInfo) {
+                const totalCost = batchInfo.price.mul(currentQuantity);
+                const costInTokens = ethers.utils.formatEther(totalCost);
+                document.getElementById('approveAmount').textContent = `${costInTokens} $ADRIAN`;
+            }
         }
 
         // Show status
