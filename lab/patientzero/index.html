@@ -486,6 +486,7 @@
         // Configuration
         const PATIENTZERO_CONTRACT = '0x3609806f1ddd58850b995229a4b9cc9a4127ae45';
         const ADRIANZERO_CONTRACT = '0x6e369bf0e4e0c106192d606fb6d85836d684da75';
+        const ADRIAN_TOKEN_CONTRACT = '0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359'; // ADRIAN ERC20 token
         const ALCHEMY_API_KEY = '5qIXA1UZxOAzi8b9l0nrYmsQBO9-W7Ot';
         const ALCHEMY_RPC_URL = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
         const NETWORK = 'base-mainnet';
@@ -918,6 +919,29 @@
             }
         }
 
+        async function generateRecoveryProfileImage(recoveryProfile, index) {
+            try {
+                // Build query parameters from trait IDs
+                const queryParams = recoveryProfile.profile[1].map(traitId => `trait=${traitId}`);
+                const queryString = queryParams.join('&');
+                
+                // Use a placeholder token ID (1) for the base image
+                const imageUrl = `https://adrianlab.vercel.app/api/render/custom/1?${queryString}`;
+                
+                // Update the image source
+                const profileCards = document.querySelectorAll('.profile-card');
+                if (profileCards[index]) {
+                    const img = profileCards[index].querySelector('img');
+                    if (img) {
+                        img.src = imageUrl;
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error generating recovery profile image:', error);
+            }
+        }
+
         async function loadEthers() {
             return new Promise((resolve, reject) => {
                 if (typeof window.ethers !== 'undefined') {
@@ -966,6 +990,17 @@
             ];
         }
 
+        // ABI para el token ERC20 ADRIAN
+        function getAdrianTokenABI() {
+            return [
+                "function approve(address spender, uint256 amount) external returns (bool)",
+                "function allowance(address owner, address spender) external view returns (uint256)",
+                "function balanceOf(address account) external view returns (uint256)",
+                "function decimals() external view returns (uint8)",
+                "function symbol() external view returns (string memory)"
+            ];
+        }
+
         async function loadRecoveryProfiles() {
             try {
                 showStatus('Loading recovered profiles...', 'loading');
@@ -989,8 +1024,12 @@
                 }
 
                 // Render cards
-                document.getElementById('recoveryGrid').innerHTML = recoveryProfiles.map(rp => `
+                document.getElementById('recoveryGrid').innerHTML = recoveryProfiles.map((rp, index) => `
                     <div class="profile-card">
+                        <div class="profile-image">
+                            <div class="image-loading">Generating preview...</div>
+                            <img src="" alt="${rp.profile[0]}" style="display: none;" onload="this.style.display='block'; this.previousElementSibling.style.display='none';" onerror="this.previousElementSibling.textContent='Image failed to load'; this.previousElementSibling.style.background='rgba(255,0,0,0.1)';">
+                        </div>
                         <div class="profile-info">
                             <div class="profile-name">${rp.profile[0]}</div>
                             <div class="profile-reward">Recovery Price: ${window.ethers.utils.formatEther(rp.price)} $ADRIAN</div>
@@ -1002,8 +1041,67 @@
                         </div>
                     </div>
                 `).join('');
+                
+                // Generate images for recovery profiles
+                recoveryProfiles.forEach((rp, index) => {
+                    generateRecoveryProfileImage(rp, index);
+                });
             } catch (e) {
                 document.getElementById('recoveryGrid').innerHTML = '<div class="error">Error loading recovered profiles</div>';
+            }
+        }
+
+        // Check and approve ADRIAN tokens for PatientZERO contract
+        async function checkAndApproveAdrianTokens(amount) {
+            try {
+                const provider = new window.ethers.providers.Web3Provider(window.ethereum);
+                const signer = provider.getSigner();
+                const adrianToken = new window.ethers.Contract(ADRIAN_TOKEN_CONTRACT, getAdrianTokenABI(), signer);
+                
+                // Check current allowance
+                const currentAllowance = await adrianToken.allowance(currentAccount, PATIENTZERO_CONTRACT);
+                console.log('Current allowance:', window.ethers.utils.formatEther(currentAllowance));
+                console.log('Required amount:', window.ethers.utils.formatEther(amount));
+                
+                if (currentAllowance.lt(amount)) {
+                    showStatus('Approving ADRIAN tokens...', 'loading');
+                    
+                    // Approve the required amount
+                    const approveTx = await adrianToken.approve(PATIENTZERO_CONTRACT, amount);
+                    await approveTx.wait();
+                    
+                    showStatus('ADRIAN tokens approved successfully!', 'success');
+                    return true;
+                }
+                
+                return true; // Already approved
+            } catch (error) {
+                console.error('Error in approve:', error);
+                showStatus('Error approving ADRIAN tokens: ' + error.message, 'error');
+                return false;
+            }
+        }
+
+        // Check ADRIAN token balance
+        async function checkAdrianBalance(requiredAmount) {
+            try {
+                const provider = new window.ethers.providers.JsonRpcProvider(ALCHEMY_RPC_URL);
+                const adrianToken = new window.ethers.Contract(ADRIAN_TOKEN_CONTRACT, getAdrianTokenABI(), provider);
+                
+                const balance = await adrianToken.balanceOf(currentAccount);
+                console.log('ADRIAN balance:', window.ethers.utils.formatEther(balance));
+                console.log('Required amount:', window.ethers.utils.formatEther(requiredAmount));
+                
+                if (balance.lt(requiredAmount)) {
+                    showStatus(`Insufficient ADRIAN tokens. You have ${window.ethers.utils.formatEther(balance)} but need ${window.ethers.utils.formatEther(requiredAmount)}`, 'error');
+                    return false;
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Error checking balance:', error);
+                showStatus('Error checking ADRIAN balance: ' + error.message, 'error');
+                return false;
             }
         }
 
@@ -1011,16 +1109,37 @@
             try {
                 showStatus('Processing recovery...', 'loading');
                 if (typeof window.ethers === 'undefined') await loadEthers();
+                
                 // For transactions, we need the wallet provider with signer
                 const provider = new window.ethers.providers.Web3Provider(window.ethereum);
                 const signer = provider.getSigner();
                 const contract = new window.ethers.Contract(PATIENTZERO_CONTRACT, getPatientZeroABIExtended(), signer);
+                
+                // Get the price for this token
                 const price = await contract.getTokenPrice(tokenId);
-                const tx = await contract.purchaseToken(tokenId, { value: price });
+                console.log('Token price:', window.ethers.utils.formatEther(price));
+                
+                // Check if user has enough ADRIAN tokens
+                const hasBalance = await checkAdrianBalance(price);
+                if (!hasBalance) {
+                    return;
+                }
+                
+                // Check and approve ADRIAN tokens
+                const approved = await checkAndApproveAdrianTokens(price);
+                if (!approved) {
+                    return;
+                }
+                
+                // Execute the purchase
+                showStatus('Executing recovery transaction...', 'loading');
+                const tx = await contract.purchaseToken(tokenId);
                 await tx.wait();
-                showStatus('Adrian recovered!', 'success');
+                
+                showStatus('Adrian recovered successfully!', 'success');
                 await loadRecoveryProfiles();
             } catch (e) {
+                console.error('Error recovering token:', e);
                 showStatus('Error recovering Adrian: ' + e.message, 'error');
             }
         }
