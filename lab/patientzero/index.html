@@ -487,7 +487,21 @@
         const PATIENTZERO_CONTRACT = '0x3609806f1ddd58850b995229a4b9cc9a4127ae45';
         const ADRIANZERO_CONTRACT = '0x6e369bf0e4e0c106192d606fb6d85836d684da75';
         const ALCHEMY_API_KEY = '5qIXA1UZxOAzi8b9l0nrYmsQBO9-W7Ot';
+        const ALCHEMY_RPC_URL = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
         const NETWORK = 'base-mainnet';
+        
+        // Base Network configuration (same as TraitLab)
+        const BASE_NETWORK = {
+            chainId: "0x2105", // 8453 in hex
+            chainName: "Base Mainnet",
+            nativeCurrency: {
+                name: "ETH",
+                symbol: "ETH",
+                decimals: 18,
+            },
+            rpcUrls: [ALCHEMY_RPC_URL],
+            blockExplorerUrls: ["https://basescan.org/"],
+        };
 
         // State variables
         let currentAccount = null;
@@ -551,8 +565,31 @@
 
             try {
                 showStatus('Connecting to wallet...', 'loading');
+                
+                // Request account access
                 const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
                 currentAccount = accounts[0];
+                
+                // Check if user is on the Base network
+                const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+                if (chainId !== BASE_NETWORK.chainId) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_switchEthereumChain',
+                            params: [{ chainId: BASE_NETWORK.chainId }],
+                        });
+                    } catch (switchError) {
+                        if (switchError.code === 4902) {
+                            await window.ethereum.request({
+                                method: 'wallet_addEthereumChain',
+                                params: [BASE_NETWORK],
+                            });
+                        } else {
+                            throw switchError;
+                        }
+                    }
+                }
+                
                 updateUI();
                 loadData();
                 showStatus('Wallet connected successfully!', 'success');
@@ -598,7 +635,8 @@
                     await loadEthers();
                 }
 
-                const provider = new window.ethers.providers.Web3Provider(window.ethereum);
+                // Use Alchemy RPC provider (same as TraitLab)
+                const provider = new window.ethers.providers.JsonRpcProvider(ALCHEMY_RPC_URL);
                 const contract = new window.ethers.Contract(PATIENTZERO_CONTRACT, getPatientZeroABI(), provider);
                 
                 // Get active profile IDs
@@ -837,6 +875,7 @@
             try {
                 showStatus('Preparing bounty claim transaction...', 'loading');
                 
+                // For transactions, we need the wallet provider with signer
                 const provider = new window.ethers.providers.Web3Provider(window.ethereum);
                 const signer = provider.getSigner();
                 const contract = new window.ethers.Contract(PATIENTZERO_CONTRACT, getPatientZeroABI(), signer);
@@ -931,7 +970,8 @@
             try {
                 showStatus('Loading recovered profiles...', 'loading');
                 if (typeof window.ethers === 'undefined') await loadEthers();
-                const provider = new window.ethers.providers.Web3Provider(window.ethereum);
+                // Use Alchemy RPC provider for read operations (same as TraitLab)
+                const provider = new window.ethers.providers.JsonRpcProvider(ALCHEMY_RPC_URL);
                 const contract = new window.ethers.Contract(PATIENTZERO_CONTRACT, getPatientZeroABIExtended(), provider);
 
                 const depositedTokenIds = await contract.getDepositedTokens();
@@ -971,6 +1011,7 @@
             try {
                 showStatus('Processing recovery...', 'loading');
                 if (typeof window.ethers === 'undefined') await loadEthers();
+                // For transactions, we need the wallet provider with signer
                 const provider = new window.ethers.providers.Web3Provider(window.ethereum);
                 const signer = provider.getSigner();
                 const contract = new window.ethers.Contract(PATIENTZERO_CONTRACT, getPatientZeroABIExtended(), signer);
