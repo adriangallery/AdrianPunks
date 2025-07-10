@@ -898,12 +898,36 @@
 
         async function generateProfileImage(profile, index) {
             try {
+                console.log('Generating image for profile:', profile);
+                console.log('Profile traitIds:', profile.traitIds);
+                console.log('Profile traitIds type:', typeof profile.traitIds);
+                console.log('Profile traitIds length:', profile.traitIds ? profile.traitIds.length : 'undefined');
+                
+                // Ensure traitIds is an array and convert strings to numbers if needed
+                let traitIds = profile.traitIds;
+                if (!Array.isArray(traitIds)) {
+                    console.error('traitIds is not an array:', traitIds);
+                    return;
+                }
+                
+                // Convert string trait IDs to numbers if they come as strings from the contract
+                const numericTraitIds = traitIds.map(traitId => {
+                    const numeric = parseInt(traitId, 10);
+                    console.log(`Converting traitId "${traitId}" to number: ${numeric}`);
+                    return numeric;
+                });
+                
+                console.log('Numeric trait IDs:', numericTraitIds);
+                
                 // Build query parameters from trait IDs
-                const queryParams = profile.traitIds.map(traitId => `trait=${traitId}`);
+                const queryParams = numericTraitIds.map(traitId => `trait=${traitId}`);
                 const queryString = queryParams.join('&');
+                
+                console.log('Query string:', queryString);
                 
                 // Use a placeholder token ID (1) for the base image
                 const imageUrl = `https://adrianlab.vercel.app/api/render/custom/1?${queryString}`;
+                console.log('Generated image URL:', imageUrl);
                 
                 // Update the image source
                 const profileCards = document.querySelectorAll('.profile-card');
@@ -911,7 +935,12 @@
                     const img = profileCards[index].querySelector('img');
                     if (img) {
                         img.src = imageUrl;
+                        console.log('Image source set for index:', index);
+                    } else {
+                        console.log('No img element found for index:', index);
                     }
+                } else {
+                    console.log('No profile card found for index:', index);
                 }
                 
             } catch (error) {
