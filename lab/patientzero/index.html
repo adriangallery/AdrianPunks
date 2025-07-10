@@ -919,45 +919,7 @@
             }
         }
 
-        async function generateRecoveryProfileImage(recoveryProfile, index) {
-            try {
-                console.log('Generating image for recovery profile:', recoveryProfile);
-                
-                // Build query parameters from trait IDs
-                // recoveryProfile.profile structure: [profileName, traitIds, reward, active, recovered]
-                const traitIds = recoveryProfile.profile[1];
-                console.log('Trait IDs for image:', traitIds);
-                
-                if (!traitIds || traitIds.length === 0) {
-                    console.log('No trait IDs found, skipping image generation');
-                    return;
-                }
-                
-                const queryParams = traitIds.map(traitId => `trait=${traitId}`);
-                const queryString = queryParams.join('&');
-                
-                // Use a placeholder token ID (1) for the base image
-                const imageUrl = `https://adrianlab.vercel.app/api/render/custom/1?${queryString}`;
-                console.log('Generated image URL:', imageUrl);
-                
-                // Update the image source
-                const profileCards = document.querySelectorAll('.profile-card');
-                if (profileCards[index]) {
-                    const img = profileCards[index].querySelector('img');
-                    if (img) {
-                        img.src = imageUrl;
-                        console.log('Image source set for index:', index);
-                    } else {
-                        console.log('No img element found for index:', index);
-                    }
-                } else {
-                    console.log('No profile card found for index:', index);
-                }
-                
-            } catch (error) {
-                console.error('Error generating recovery profile image:', error);
-            }
-        }
+
 
         async function loadEthers() {
             return new Promise((resolve, reject) => {
@@ -1044,31 +1006,49 @@
                         price: window.ethers.utils.formatEther(price)
                     });
                     
-                    recoveryProfiles.push({ tokenId, profileId, profile, price });
+                    // Structure the profile exactly like Active Bounties
+                    const structuredProfile = {
+                        id: profileId,
+                        name: profile[0], // profileName
+                        traitIds: profile[1], // traitIds array
+                        reward: profile[2], // reward
+                        active: profile[3], // active
+                        recovered: profile[4], // recovered
+                        tokenId: tokenId,
+                        price: price
+                    };
+                    
+                    recoveryProfiles.push(structuredProfile);
                 }
 
-                // Render cards
+                // Render cards using the same structure as Active Bounties
                 document.getElementById('recoveryGrid').innerHTML = recoveryProfiles.map((rp, index) => `
                     <div class="profile-card">
                         <div class="profile-image">
                             <div class="image-loading">Generating preview...</div>
-                            <img src="" alt="${rp.profile[0]}" style="display: none;" onload="this.style.display='block'; this.previousElementSibling.style.display='none';" onerror="this.previousElementSibling.textContent='Image failed to load'; this.previousElementSibling.style.background='rgba(255,0,0,0.1)';">
+                            <img src="" alt="${rp.name}" style="display: none;" onload="this.style.display='block'; this.previousElementSibling.style.display='none';" onerror="this.previousElementSibling.textContent='Image failed to load'; this.previousElementSibling.style.background='rgba(255,0,0,0.1)';">
                         </div>
                         <div class="profile-info">
-                            <div class="profile-name">${rp.profile[0]}</div>
+                            <div class="profile-name">${rp.name}</div>
                             <div class="profile-reward">Recovery Price: ${window.ethers.utils.formatEther(rp.price)} $ADRIAN</div>
                             <div class="profile-stats">
-                                <span>Profile ID: ${rp.profileId}</span>
+                                <span>Profile ID: ${rp.id}</span>
                                 <span>Token ID: ${rp.tokenId}</span>
+                            </div>
+                            <div class="profile-traits">
+                                <div class="traits-title">Required Traits:</div>
+                                <div class="traits-list">
+                                    ${rp.traitIds.map(traitId => `<span class="trait-tag">${traitId}</span>`).join('')}
+                                </div>
                             </div>
                             <button onclick="recoverToken('${rp.tokenId}')" class="claim-btn">Recover Adrian</button>
                         </div>
                     </div>
                 `).join('');
                 
-                // Generate images for recovery profiles
+                // Generate images for recovery profiles using the same function as Active Bounties
                 recoveryProfiles.forEach((rp, index) => {
-                    generateRecoveryProfileImage(rp, index);
+                    generateProfileImage(rp, index);
                 });
             } catch (e) {
                 document.getElementById('recoveryGrid').innerHTML = '<div class="error">Error loading recovered profiles</div>';
