@@ -816,7 +816,7 @@
             contractBtns[0].classList.add('active'); // Set AdrianZERO as active
         }
 
-        // Load tokens for specific contract using direct API calls
+        // Load tokens for specific contract using direct API calls with pagination
         async function loadTokens(userAddress, contractAddress) {
             showLoading();
             hideMessages();
@@ -828,23 +828,56 @@
                 
                 console.log(`Loading ${tokenType} tokens from contract: ${contractAddress}`);
                 
-                // Use Alchemy's REST API directly
-                let alchemyUrl = `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${userAddress}&contractAddresses[]=${contractAddress}&withMetadata=true&pageSize=50&tokenType=${tokenType}`;
+                // Load all tokens with pagination
+                let allNfts = [];
+                let pageKey = null;
+                let hasMore = true;
+                let pageCount = 0;
                 
-                console.log(`Requesting NFTs with URL: ${alchemyUrl}`);
-                
-                const alchemyResponse = await fetch(alchemyUrl);
-                
-                if (!alchemyResponse.ok) {
-                    throw new Error(`Error getting NFTs from Alchemy API: ${alchemyResponse.status}`);
+                while (hasMore) {
+                    pageCount++;
+                    console.log(`Loading page ${pageCount}...`);
+                    
+                    // Build URL with pagination
+                    let alchemyUrl = `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${userAddress}&contractAddresses[]=${contractAddress}&withMetadata=true&pageSize=100&tokenType=${tokenType}`;
+                    
+                    if (pageKey) {
+                        alchemyUrl += `&pageKey=${pageKey}`;
+                    }
+                    
+                    console.log(`Requesting NFTs with URL: ${alchemyUrl}`);
+                    
+                    const alchemyResponse = await fetch(alchemyUrl);
+                    
+                    if (!alchemyResponse.ok) {
+                        throw new Error(`Error getting NFTs from Alchemy API: ${alchemyResponse.status}`);
+                    }
+                    
+                    const nftsData = await alchemyResponse.json();
+                    console.log(`Page ${pageCount}: ${nftsData.ownedNfts?.length || 0} tokens received`);
+                    
+                    // Add tokens from this page
+                    if (nftsData.ownedNfts && nftsData.ownedNfts.length > 0) {
+                        allNfts = allNfts.concat(nftsData.ownedNfts);
+                    }
+                    
+                    // Check if there are more pages
+                    pageKey = nftsData.pageKey;
+                    hasMore = !!pageKey;
+                    
+                    console.log(`Total tokens loaded so far: ${allNfts.length}. Has more: ${hasMore}`);
+                    
+                    // Optional: Add a small delay to avoid rate limiting
+                    if (hasMore) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
                 }
                 
-                const nftsData = await alchemyResponse.json();
-                console.log(`NFT data received:`, nftsData);
+                console.log(`Total tokens loaded: ${allNfts.length} from ${pageCount} pages`);
                 
-                // Process NFTs
-                if (nftsData.ownedNfts && nftsData.ownedNfts.length > 0) {
-                    const tokens = nftsData.ownedNfts.map(nft => {
+                // Process all NFTs
+                if (allNfts.length > 0) {
+                    const tokens = allNfts.map(nft => {
                         try {
                             // Extract tokenId
                             let tokenId;
@@ -997,25 +1030,25 @@
                     // Apply filtering based on current filter
                     const filteredTokens = tokens.filter(token => {
                         if (token.tokenType === 'ERC1155') {
-                                                    if (currentFilter === 'floppy') {
-                            // Floppy discs filter: show only tokens 10000, 10001, 10002, 15000, 15001, 15002, 15003, 15004, 15005
-                            if (token.tokenId === 10000 || token.tokenId === 10001 || token.tokenId === 10002 || 
-                                token.tokenId === 15000 || token.tokenId === 15001 || token.tokenId === 15002 || 
-                                token.tokenId === 15003 || token.tokenId === 15004 || token.tokenId === 15005) {
-                                console.log(`Including ERC1155 token ${token.tokenId} in floppy discs`);
-                                return true;
+                            if (currentFilter === 'floppy') {
+                                // Floppy discs filter: show only tokens 10000, 10001, 10002, 15000, 15001, 15002, 15003, 15004, 15005
+                                if (token.tokenId === 10000 || token.tokenId === 10001 || token.tokenId === 10002 || 
+                                    token.tokenId === 15000 || token.tokenId === 15001 || token.tokenId === 15002 || 
+                                    token.tokenId === 15003 || token.tokenId === 15004 || token.tokenId === 15005) {
+                                    console.log(`Including ERC1155 token ${token.tokenId} in floppy discs`);
+                                    return true;
+                                } else {
+                                    console.log(`Filtering out ERC1155 token ${token.tokenId} from floppy discs`);
+                                    return false;
+                                }
                             } else {
-                                console.log(`Filtering out ERC1155 token ${token.tokenId} from floppy discs`);
-                                return false;
-                            }
-                        } else {
-                            // Normal filter: exclude tokens 10000, 10001, 10002, 15000, 15001, 15002, 15003, 15004, 15005
-                            if (token.tokenId === 10000 || token.tokenId === 10001 || token.tokenId === 10002 || 
-                                token.tokenId === 15000 || token.tokenId === 15001 || token.tokenId === 15002 || 
-                                token.tokenId === 15003 || token.tokenId === 15004 || token.tokenId === 15005) {
-                                console.log(`Filtering out ERC1155 token ${token.tokenId}`);
-                                return false;
-                            }
+                                // Normal filter: exclude tokens 10000, 10001, 10002, 15000, 15001, 15002, 15003, 15004, 15005
+                                if (token.tokenId === 10000 || token.tokenId === 10001 || token.tokenId === 10002 || 
+                                    token.tokenId === 15000 || token.tokenId === 15001 || token.tokenId === 15002 || 
+                                    token.tokenId === 15003 || token.tokenId === 15004 || token.tokenId === 15005) {
+                                    console.log(`Filtering out ERC1155 token ${token.tokenId}`);
+                                    return false;
+                                }
                                 return true;
                             }
                         }
@@ -1095,7 +1128,7 @@
                 const tokenCard = document.createElement('div');
                 tokenCard.className = 'token-card';
                 
-                const imageUrl = token.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l5ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+';
+                const imageUrl = token.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+';
                 
                 // Check if token is selected
                 const isSelected = token.tokenType === 'ERC721' ? 
@@ -1121,7 +1154,7 @@
                 
                 tokenCard.innerHTML = `
                     <div style="position: relative;">
-                        <img src="${imageUrl}" alt="${token.title}" class="token-image" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l5ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+">
+                        <img src="${imageUrl}" alt="${token.title}" class="token-image" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+">
                         ${quantityTag}
                     </div>
                     <div class="token-info">
