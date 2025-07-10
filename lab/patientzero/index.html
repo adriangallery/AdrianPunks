@@ -910,10 +910,18 @@
                     return;
                 }
                 
-                // Convert string trait IDs to numbers if they come as strings from the contract
+                // Convert BigNumber trait IDs to numbers (they come as BigNumber from ethers)
                 const numericTraitIds = traitIds.map(traitId => {
-                    const numeric = parseInt(traitId, 10);
-                    console.log(`Converting traitId "${traitId}" to number: ${numeric}`);
+                    let numeric;
+                    if (traitId && typeof traitId.toNumber === 'function') {
+                        // It's a BigNumber
+                        numeric = traitId.toNumber();
+                        console.log(`Converting BigNumber traitId ${traitId.toString()} to number: ${numeric}`);
+                    } else {
+                        // It's already a number or string
+                        numeric = parseInt(traitId, 10);
+                        console.log(`Converting traitId "${traitId}" to number: ${numeric}`);
+                    }
                     return numeric;
                 });
                 
