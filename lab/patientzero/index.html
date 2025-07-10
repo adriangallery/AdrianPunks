@@ -861,6 +861,8 @@
             for (const adrian of adrians) {
                 try {
                     const status = await getTokenStatus(adrian.tokenId);
+                    const approval = await checkAdrianLabCoreApproval(adrian.tokenId);
+                    
                     if (status) {
                         const statusElement = document.getElementById(`adrian-status-${adrian.tokenId}`);
                         if (statusElement) {
@@ -868,26 +870,43 @@
                             if (status.wasPurchased) {
                                 statusText += ` (Purchased for ${window.ethers.utils.formatEther(status.purchasePrice)} ADRIAN)`;
                             }
+                            
+                            // Add approval status
+                            if (approval.isApproved) {
+                                statusText += ` | ✅ Approved`;
+                            } else {
+                                statusText += ` | ❌ Not Approved`;
+                            }
+                            
                             statusElement.textContent = statusText;
                             
                             // Add visual indicators
                             const card = statusElement.closest('.adrian-card');
                             if (card) {
+                                let borderColor = '#333';
+                                
                                 switch (status.tokenStatus) {
                                     case 'ELIGIBLE':
-                                        card.style.border = '2px solid #00ff00';
+                                        borderColor = approval.isApproved ? '#00ff00' : '#ffaa00';
                                         break;
                                     case 'CLAIMED':
-                                        card.style.border = '2px solid #ffff00';
+                                        borderColor = '#ffff00';
                                         break;
                                     case 'DEPOSITED':
-                                        card.style.border = '2px solid #ff8800';
+                                        borderColor = '#ff8800';
                                         break;
                                     case 'PURCHASED':
-                                        card.style.border = '2px solid #ff0088';
+                                        borderColor = '#ff0088';
                                         break;
                                     default:
-                                        card.style.border = '2px solid #333';
+                                        borderColor = '#333';
+                                }
+                                
+                                card.style.border = `2px solid ${borderColor}`;
+                                
+                                // Add approval indicator
+                                if (approval.isApproved) {
+                                    card.style.boxShadow = '0 0 10px rgba(0, 255, 0, 0.3)';
                                 }
                             }
                         }
@@ -927,11 +946,18 @@
             try {
                 showStatus('Preparing bounty claim transaction...', 'loading');
                 
+                // First, check and approve AdrianLabCore token
+                const adrianApproved = await checkAndApproveAdrianLabCore(selectedAdrian);
+                if (!adrianApproved) {
+                    return; // User cancelled or error occurred
+                }
+                
                 // For transactions, we need the wallet provider with signer
                 const provider = new window.ethers.providers.Web3Provider(window.ethereum);
                 const signer = provider.getSigner();
                 const contract = new window.ethers.Contract(PATIENTZERO_CONTRACT, getPatientZeroABI(), signer);
                 
+                showStatus('Executing bounty claim transaction...', 'loading');
                 const tx = await contract.claimBounty(selectedAdrian, profileId);
                 showStatus('Transaction sent! Waiting for confirmation...', 'loading');
                 
@@ -1102,6 +1128,17 @@
             ];
         }
 
+        // ABI para AdrianLabCore (ERC721)
+        function getAdrianLabCoreABI() {
+            return [
+                "function approve(address to, uint256 tokenId) external",
+                "function setApprovalForAll(address operator, bool approved) external",
+                "function getApproved(uint256 tokenId) external view returns (address)",
+                "function isApprovedForAll(address owner, address operator) external view returns (bool)",
+                "function ownerOf(uint256 tokenId) external view returns (address)"
+            ];
+        }
+
         async function loadRecoveryProfiles() {
             try {
                 showStatus('Loading recovered profiles...', 'loading');
@@ -1243,6 +1280,92 @@
             } catch (error) {
                 console.error('Error getting token status:', error);
                 return null;
+            }
+        }
+
+        // Check and approve AdrianLabCore token for PatientZERO contract
+        async function checkAndApproveAdrianLabCore(tokenId) {
+            try {
+                const provider = new window.ethers.providers.Web3Provider(window.ethereum);
+                const signer = provider.getSigner();
+                const adrianLabCore = new window.ethers.Contract(ADRIANZERO_CONTRACT, getAdrianLabCoreABI(), signer);
+                
+                // Check if user owns the token
+                const owner = await adrianLabCore.ownerOf(tokenId);
+                if (owner.toLowerCase() !== currentAccount.toLowerCase()) {
+                    showStatus(`You don't own AdrianLabCore token #${tokenId}`, 'error');
+                    return false;
+                }
+                
+                // Check current approval
+                const currentApproval = await adrianLabCore.getApproved(tokenId);
+                const isApprovedForAll = await adrianLabCore.isApprovedForAll(currentAccount, PATIENTZERO_CONTRACT);
+                
+                console.log(`Token ${tokenId} approval status:`, {
+                    currentApproval,
+                    isApprovedForAll,
+                    patientZeroContract: PATIENTZERO_CONTRACT
+                });
+                
+                if (currentApproval.toLowerCase() === PATIENTZERO_CONTRACT.toLowerCase() || isApprovedForAll) {
+                    console.log(`Token ${tokenId} is already approved for PatientZERO`);
+                    return true;
+                }
+                
+                // Ask user which approval method to use
+                const useApprovalForAll = confirm(
+                    `Token #${tokenId} needs approval for PatientZERO contract.\n\n` +
+                    `Choose approval method:\n` +
+                    `- OK: Use setApprovalForAll (approves ALL tokens)\n` +
+                    `- Cancel: Use approve (approves only this token)`
+                );
+                
+                if (useApprovalForAll) {
+                    showStatus('Approving ALL tokens for PatientZERO...', 'loading');
+                    const approveAllTx = await adrianLabCore.setApprovalForAll(PATIENTZERO_CONTRACT, true);
+                    await approveAllTx.wait();
+                    showStatus('All tokens approved for PatientZERO!', 'success');
+                } else {
+                    showStatus(`Approving token #${tokenId} for PatientZERO...`, 'loading');
+                    const approveTx = await adrianLabCore.approve(PATIENTZERO_CONTRACT, tokenId);
+                    await approveTx.wait();
+                    showStatus(`Token #${tokenId} approved for PatientZERO!`, 'success');
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Error in AdrianLabCore approve:', error);
+                showStatus('Error approving AdrianLabCore token: ' + error.message, 'error');
+                return false;
+            }
+        }
+
+        // Check AdrianLabCore approval status for a specific token
+        async function checkAdrianLabCoreApproval(tokenId) {
+            try {
+                const provider = new window.ethers.providers.JsonRpcProvider(ALCHEMY_RPC_URL);
+                const adrianLabCore = new window.ethers.Contract(ADRIANZERO_CONTRACT, getAdrianLabCoreABI(), provider);
+                
+                const currentApproval = await adrianLabCore.getApproved(tokenId);
+                const isApprovedForAll = await adrianLabCore.isApprovedForAll(currentAccount, PATIENTZERO_CONTRACT);
+                
+                const isApproved = currentApproval.toLowerCase() === PATIENTZERO_CONTRACT.toLowerCase() || isApprovedForAll;
+                
+                console.log(`Token ${tokenId} approval check:`, {
+                    currentApproval,
+                    isApprovedForAll,
+                    isApproved,
+                    patientZeroContract: PATIENTZERO_CONTRACT
+                });
+                
+                return {
+                    isApproved,
+                    currentApproval,
+                    isApprovedForAll
+                };
+            } catch (error) {
+                console.error('Error checking AdrianLabCore approval:', error);
+                return { isApproved: false, currentApproval: null, isApprovedForAll: false };
             }
         }
 
