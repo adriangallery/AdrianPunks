@@ -942,8 +942,32 @@
                 if (profileCards[index]) {
                     const img = profileCards[index].querySelector('img');
                     if (img) {
+                        // Test the URL first
+                        console.log('Testing image URL:', imageUrl);
+                        try {
+                            const testResponse = await fetch(imageUrl, { method: 'HEAD' });
+                            console.log('Image URL test response:', testResponse.status, testResponse.statusText);
+                            if (testResponse.ok) {
+                                console.log('Image URL is accessible');
+                            } else {
+                                console.log('Image URL returned error:', testResponse.status);
+                            }
+                        } catch (fetchError) {
+                            console.log('Error testing image URL:', fetchError);
+                        }
+                        
                         img.src = imageUrl;
                         console.log('Image source set for index:', index);
+                        
+                        // Add error handling to the img element
+                        img.onerror = () => {
+                            console.log('Image failed to load for URL:', imageUrl);
+                            console.log('Image element:', img);
+                        };
+                        
+                        img.onload = () => {
+                            console.log('Image loaded successfully for URL:', imageUrl);
+                        };
                     } else {
                         console.log('No img element found for index:', index);
                     }
@@ -1084,7 +1108,9 @@
                 `).join('');
                 
                 // Generate images for recovery profiles using the same function as Active Bounties
+                console.log('About to generate images for', recoveryProfiles.length, 'profiles');
                 recoveryProfiles.forEach((rp, index) => {
+                    console.log(`Generating image for profile ${index}:`, rp.name);
                     generateProfileImage(rp, index);
                 });
             } catch (e) {
