@@ -1312,25 +1312,11 @@
                     return true;
                 }
                 
-                // Ask user which approval method to use
-                const useApprovalForAll = confirm(
-                    `Token #${tokenId} needs approval for PatientZERO contract.\n\n` +
-                    `Choose approval method:\n` +
-                    `- OK: Use setApprovalForAll (approves ALL tokens)\n` +
-                    `- Cancel: Use approve (approves only this token)`
-                );
-                
-                if (useApprovalForAll) {
-                    showStatus('Approving ALL tokens for PatientZERO...', 'loading');
-                    const approveAllTx = await adrianLabCore.setApprovalForAll(PATIENTZERO_CONTRACT, true);
-                    await approveAllTx.wait();
-                    showStatus('All tokens approved for PatientZERO!', 'success');
-                } else {
-                    showStatus(`Approving token #${tokenId} for PatientZERO...`, 'loading');
-                    const approveTx = await adrianLabCore.approve(PATIENTZERO_CONTRACT, tokenId);
-                    await approveTx.wait();
-                    showStatus(`Token #${tokenId} approved for PatientZERO!`, 'success');
-                }
+                // Directly approve the specific token
+                showStatus(`Approving token #${tokenId} for PatientZERO...`, 'loading');
+                const approveTx = await adrianLabCore.approve(PATIENTZERO_CONTRACT, tokenId);
+                await approveTx.wait();
+                showStatus(`Token #${tokenId} approved for PatientZERO!`, 'success');
                 
                 return true;
             } catch (error) {
