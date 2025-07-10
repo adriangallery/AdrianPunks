@@ -362,6 +362,13 @@
         .adrian-id {
             font-size: 1rem;
             color: #cccccc;
+            margin-bottom: 5px;
+        }
+
+        .adrian-status {
+            font-size: 0.9rem;
+            color: #888888;
+            font-style: italic;
         }
 
         .loading {
@@ -484,7 +491,7 @@
 
     <script>
         // Configuration
-        const PATIENTZERO_CONTRACT = '0x3609806f1ddd58850b995229a4b9cc9a4127ae45';
+        const PATIENTZERO_CONTRACT = '0x41BD1D621f9a8dE8f175Dd9814d9c27fAbb9172F';
         const ADRIANZERO_CONTRACT = '0x6e369bf0e4e0c106192d606fb6d85836d684da75';
         const ADRIAN_TOKEN_CONTRACT = '0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea'; // ADRIAN ERC20 token
         const ALCHEMY_API_KEY = '5qIXA1UZxOAzi8b9l0nrYmsQBO9-W7Ot';
@@ -830,23 +837,65 @@
             });
         }
 
-        function displayMyAdrians(adrians) {
+        async function displayMyAdrians(adrians) {
             if (adrians.length === 0) {
                 adriansGrid.innerHTML = '<div class="no-data">No AdrianZERO tokens found</div>';
                 return;
             }
 
+            // Generate HTML for all adrians first
             adriansGrid.innerHTML = adrians.map(adrian => `
                 <div class="adrian-card" onclick="selectAdrian('${adrian.tokenId}')">
                     <div class="adrian-image">
-                        <img src="${adrian.imageUrl}" alt="${adrian.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMkEyQTJBIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+'">
+                        <img src="${adrian.imageUrl}" alt="${adrian.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMkEyQTJBIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+'" id="adrian-img-${adrian.tokenId}">
                     </div>
                     <div class="adrian-info">
                         <div class="adrian-name">${adrian.title}</div>
                         <div class="adrian-id">Token ID: ${adrian.tokenId}</div>
+                        <div class="adrian-status" id="adrian-status-${adrian.tokenId}">Loading status...</div>
                     </div>
                 </div>
             `).join('');
+
+            // Load status for each adrian
+            for (const adrian of adrians) {
+                try {
+                    const status = await getTokenStatus(adrian.tokenId);
+                    if (status) {
+                        const statusElement = document.getElementById(`adrian-status-${adrian.tokenId}`);
+                        if (statusElement) {
+                            let statusText = `Status: ${status.tokenStatus}`;
+                            if (status.wasPurchased) {
+                                statusText += ` (Purchased for ${window.ethers.utils.formatEther(status.purchasePrice)} ADRIAN)`;
+                            }
+                            statusElement.textContent = statusText;
+                            
+                            // Add visual indicators
+                            const card = statusElement.closest('.adrian-card');
+                            if (card) {
+                                switch (status.tokenStatus) {
+                                    case 'ELIGIBLE':
+                                        card.style.border = '2px solid #00ff00';
+                                        break;
+                                    case 'CLAIMED':
+                                        card.style.border = '2px solid #ffff00';
+                                        break;
+                                    case 'DEPOSITED':
+                                        card.style.border = '2px solid #ff8800';
+                                        break;
+                                    case 'PURCHASED':
+                                        card.style.border = '2px solid #ff0088';
+                                        break;
+                                    default:
+                                        card.style.border = '2px solid #333';
+                                }
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Error loading status for token ${adrian.tokenId}:`, error);
+                }
+            }
         }
 
         function selectAdrian(tokenId) {
@@ -1031,7 +1080,14 @@
                 "function tokenToProfile(uint256) view returns (uint256)",
                 "function getProfile(uint256) view returns (string,uint256[],uint256,bool,uint256)",
                 "function getTokenPrice(uint256) view returns (uint256)",
-                "function purchaseToken(uint256) payable"
+                "function purchaseToken(uint256) payable",
+                // ✅ NUEVOS - Historial de compras
+                "function tokenWasPurchased(uint256) external view returns (bool)",
+                "function tokenPurchasePrice(uint256) external view returns (uint256)",
+                "function tokenPurchaser(uint256) external view returns (address)",
+                "function tokenPurchaseProfileId(uint256) external view returns (uint256)",
+                // ✅ NUEVA FUNCIÓN - Estado completo de token
+                "function getTokenStatus(uint256 tokenId) external view returns (string memory tokenStatus, uint256 profileId, bool isDeposited, address depositor, bool canBeClaimed, uint256[] memory eligibleProfiles, bool wasPurchased, uint256 purchasePrice)"
             ];
         }
 
@@ -1153,6 +1209,70 @@
                 console.error('Error in approve:', error);
                 showStatus('Error approving ADRIAN tokens: ' + error.message, 'error');
                 return false;
+            }
+        }
+
+        // Get complete token status
+        async function getTokenStatus(tokenId) {
+            try {
+                const provider = new window.ethers.providers.JsonRpcProvider(ALCHEMY_RPC_URL);
+                const contract = new window.ethers.Contract(PATIENTZERO_CONTRACT, getPatientZeroABIExtended(), provider);
+                
+                const status = await contract.getTokenStatus(tokenId);
+                console.log(`Token ${tokenId} status:`, {
+                    tokenStatus: status[0],
+                    profileId: status[1].toString(),
+                    isDeposited: status[2],
+                    depositor: status[3],
+                    canBeClaimed: status[4],
+                    eligibleProfiles: status[5].map(p => p.toString()),
+                    wasPurchased: status[6],
+                    purchasePrice: window.ethers.utils.formatEther(status[7])
+                });
+                
+                return {
+                    tokenStatus: status[0],
+                    profileId: status[1],
+                    isDeposited: status[2],
+                    depositor: status[3],
+                    canBeClaimed: status[4],
+                    eligibleProfiles: status[5],
+                    wasPurchased: status[6],
+                    purchasePrice: status[7]
+                };
+            } catch (error) {
+                console.error('Error getting token status:', error);
+                return null;
+            }
+        }
+
+        // Check if token was purchased
+        async function checkTokenPurchaseHistory(tokenId) {
+            try {
+                const provider = new window.ethers.providers.JsonRpcProvider(ALCHEMY_RPC_URL);
+                const contract = new window.ethers.Contract(PATIENTZERO_CONTRACT, getPatientZeroABIExtended(), provider);
+                
+                const wasPurchased = await contract.tokenWasPurchased(tokenId);
+                const purchasePrice = await contract.tokenPurchasePrice(tokenId);
+                const purchaser = await contract.tokenPurchaser(tokenId);
+                const purchaseProfileId = await contract.tokenPurchaseProfileId(tokenId);
+                
+                console.log(`Token ${tokenId} purchase history:`, {
+                    wasPurchased,
+                    purchasePrice: window.ethers.utils.formatEther(purchasePrice),
+                    purchaser,
+                    purchaseProfileId: purchaseProfileId.toString()
+                });
+                
+                return {
+                    wasPurchased,
+                    purchasePrice,
+                    purchaser,
+                    purchaseProfileId
+                };
+            } catch (error) {
+                console.error('Error checking token purchase history:', error);
+                return null;
             }
         }
 
