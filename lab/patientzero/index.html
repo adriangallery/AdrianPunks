@@ -824,7 +824,9 @@
 
             // Generate images for each profile
             profiles.forEach((profile, index) => {
-                generateProfileImage(profile, index);
+                setTimeout(() => {
+                    generateProfileImage(profile, index, 'profilesGrid');
+                }, 100 * index); // Small delay to ensure DOM is ready
             });
         }
 
@@ -896,7 +898,7 @@
             }
         }
 
-        async function generateProfileImage(profile, index) {
+        async function generateProfileImage(profile, index, containerId = null) {
             try {
                 console.log('Generating image for profile:', profile);
                 console.log('Profile traitIds:', profile.traitIds);
@@ -937,25 +939,22 @@
                 const imageUrl = `https://adrianlab.vercel.app/api/render/custom/1?${queryString}`;
                 console.log('Generated image URL:', imageUrl);
                 
-                // Update the image source
-                const profileCards = document.querySelectorAll('.profile-card');
+                // Select the correct container
+                let profileCards;
+                if (containerId) {
+                    const container = document.getElementById(containerId);
+                    console.log(`Container ${containerId} found:`, container);
+                    profileCards = container.querySelectorAll('.profile-card');
+                    console.log(`Found ${profileCards.length} profile cards in ${containerId}`);
+                } else {
+                    profileCards = document.querySelectorAll('.profile-card');
+                    console.log(`Found ${profileCards.length} profile cards globally`);
+                }
+                
                 if (profileCards[index]) {
                     const img = profileCards[index].querySelector('img');
                     if (img) {
-                        // Test the URL first
-                        console.log('Testing image URL:', imageUrl);
-                        try {
-                            const testResponse = await fetch(imageUrl, { method: 'HEAD' });
-                            console.log('Image URL test response:', testResponse.status, testResponse.statusText);
-                            if (testResponse.ok) {
-                                console.log('Image URL is accessible');
-                            } else {
-                                console.log('Image URL returned error:', testResponse.status);
-                            }
-                        } catch (fetchError) {
-                            console.log('Error testing image URL:', fetchError);
-                        }
-                        
+                        // Set the image source directly without the problematic fetch test
                         img.src = imageUrl;
                         console.log('Image source set for index:', index);
                         
@@ -1111,7 +1110,9 @@
                 console.log('About to generate images for', recoveryProfiles.length, 'profiles');
                 recoveryProfiles.forEach((rp, index) => {
                     console.log(`Generating image for profile ${index}:`, rp.name);
-                    generateProfileImage(rp, index);
+                    setTimeout(() => {
+                        generateProfileImage(rp, index, 'recoveryGrid');
+                    }, 100 * index); // Small delay to ensure DOM is ready
                 });
             } catch (e) {
                 document.getElementById('recoveryGrid').innerHTML = '<div class="error">Error loading recovered profiles</div>';
