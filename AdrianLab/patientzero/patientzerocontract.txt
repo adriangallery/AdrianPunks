@@ -1,0 +1,503 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+
+// =============== INTERFACES ===============
+
+interface IAdrianTraitsView {
+    function getAllEquippedTraits(uint256 tokenId) external view returns (string[] memory categories, uint256[] memory traitIds);
+}
+
+interface IAdrianLabCore {
+    function getTokenData(uint256 tokenId) external view returns (
+        uint256 tokenGeneration,
+        uint8 mutationLevelValue,
+        bool canReplicate,
+        uint256 replicationCount,
+        uint256 lastReplication,
+        bool tokenHasBeenModified
+    );
+    
+    function getTokenSkin(uint256 tokenId) external view returns (
+        uint256 skinId,
+        string memory name
+    );
+    
+    function ownerOf(uint256 tokenId) external view returns (address);
+}
+
+/**
+ * @title PatientZERO
+ * @dev Protocolo de recuperación multi-sujeto para Adrians con perfiles completos de estado y traits
+ */
+contract PatientZERO is Ownable, ReentrancyGuard, IERC721Receiver {
+
+    // =============== CONTRACT REFERENCES ===============
+    
+    IAdrianLabCore public adrianCore;
+    IAdrianTraitsView public traitsView;
+
+    // =============== TYPE DEFINITIONS ===============
+    
+    struct PatientProfile {
+        string profileName;
+        uint256[] traitIds;
+        uint256 reward;
+        bool active;
+        uint256 recovered;
+        
+        // Simplified filters
+        bool checkGeneration;
+        uint256 requiredGeneration;
+        
+        bool checkSkin;
+        string requiredSkin;
+    }
+
+    // =============== STATE VARIABLES ===============
+    
+    // Multi-profile system
+    mapping(uint256 => PatientProfile) public profiles;
+    mapping(uint256 => mapping(uint256 => bool)) public tokenRecoveredForProfile;
+    uint256 public nextProfileId = 1;
+    
+    // Deposited tokens system
+    mapping(uint256 => bool) public isTokenDeposited;
+    mapping(uint256 => address) public tokenDepositor;
+    mapping(uint256 => uint256) public tokenToProfile;
+    uint256[] public depositedTokens;
+    
+    // Recovery settings
+    uint256 public recoveryPercentage;
+    uint256 public constant PERCENTAGE_BASE = 100;
+    
+    // Protocol settings
+    IERC20 public rewardToken;
+    bool public protocolActive;
+    address public treasury;
+
+    // =============== EVENTS ===============
+    
+    event ProfileCreated(uint256 indexed profileId, string profileName, uint256[] traitIds, uint256 reward);
+    event ProfileUpdated(uint256 indexed profileId, string profileName, uint256[] traitIds, uint256 reward, bool active);
+    event AdrianRecovered(address indexed finder, uint256 indexed tokenId, uint256 indexed profileId, uint256 reward);
+    event TokenDeposited(uint256 indexed tokenId, uint256 indexed profileId, address indexed depositor);
+    event TokenPurchased(uint256 indexed tokenId, address indexed buyer, uint256 price);
+    event RecoveryPercentageUpdated(uint256 newPercentage);
+    event ProtocolActivated(bool active);
+    event RewardTokenUpdated(address indexed newToken);
+    event TreasuryUpdated(address indexed newTreasury);
+    event ContractFunded(address indexed funder, uint256 amount);
+    event FundsWithdrawn(address indexed owner, uint256 amount);
+    event EmergencyRecoveryERC20(address indexed token, uint256 amount);
+    event EmergencyRecoveryNFT(uint256 indexed tokenId);
+
+    // =============== MODIFIERS ===============
+    
+    modifier onlyWhenActive() {
+        require(protocolActive, "Protocol not active");
+        _;
+    }
+    
+    modifier validToken(uint256 tokenId) {
+        require(adrianCore.ownerOf(tokenId) != address(0), "Token does not exist");
+        _;
+    }
+    
+    modifier validProfile(uint256 profileId) {
+        require(profileId > 0 && profileId < nextProfileId, "Profile does not exist");
+        _;
+    }
+
+    // =============== CONSTRUCTOR ===============
+    
+    constructor(
+        address _adrianCore,
+        address _traitsView,
+        address _rewardToken,
+        address _treasury
+    ) Ownable(msg.sender) {
+        require(_adrianCore != address(0), "Invalid adrian core");
+        require(_traitsView != address(0), "Invalid traits view");
+        require(_rewardToken != address(0), "Invalid reward token");
+        require(_treasury != address(0), "Invalid treasury");
+        
+        adrianCore = IAdrianLabCore(_adrianCore);
+        traitsView = IAdrianTraitsView(_traitsView);
+        rewardToken = IERC20(_rewardToken);
+        treasury = _treasury;
+        
+        protocolActive = false;
+        recoveryPercentage = 100;
+    }
+
+    // =============== CORE LOGIC ===============
+    
+    function isPatientZERO(uint256 tokenId, uint256 profileId) public view validToken(tokenId) validProfile(profileId) returns (bool) {
+        if (!profiles[profileId].active || profiles[profileId].traitIds.length == 0) {
+            return false;
+        }
+        
+        // Verificar traits equipados
+        (, uint256[] memory equippedTraitIds) = traitsView.getAllEquippedTraits(tokenId);
+        
+        if (equippedTraitIds.length != profiles[profileId].traitIds.length) {
+            return false;
+        }
+        
+        for (uint256 i = 0; i < profiles[profileId].traitIds.length; i++) {
+            bool found = false;
+            for (uint256 j = 0; j < equippedTraitIds.length; j++) {
+                if (equippedTraitIds[j] == profiles[profileId].traitIds[i]) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return false;
+            }
+        }
+        
+        // Verificar generation
+        if (profiles[profileId].checkGeneration) {
+            (uint256 tokenGeneration,,,,,) = adrianCore.getTokenData(tokenId);
+            if (tokenGeneration != profiles[profileId].requiredGeneration) {
+                return false;
+            }
+        }
+        
+        // Verificar skin
+        if (profiles[profileId].checkSkin) {
+            (, string memory skinName) = adrianCore.getTokenSkin(tokenId);
+            if (keccak256(bytes(skinName)) != keccak256(bytes(profiles[profileId].requiredSkin))) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+
+    function claimBounty(uint256 tokenId, uint256 profileId) external nonReentrant onlyWhenActive validToken(tokenId) validProfile(profileId) {
+        require(adrianCore.ownerOf(tokenId) == msg.sender, "You must own this Adrian");
+        require(!tokenRecoveredForProfile[profileId][tokenId], "Token already recovered for this profile");
+        require(isPatientZERO(tokenId, profileId), "Token does not match profile");
+        require(profiles[profileId].active, "Profile not active");
+        require(profiles[profileId].reward > 0, "No reward set for profile");
+        require(rewardToken.balanceOf(address(this)) >= profiles[profileId].reward, "Insufficient reward funds");
+        
+        tokenRecoveredForProfile[profileId][tokenId] = true;
+        profiles[profileId].recovered++;
+        
+        IERC721(address(adrianCore)).safeTransferFrom(msg.sender, address(this), tokenId);
+        isTokenDeposited[tokenId] = true;
+        tokenDepositor[tokenId] = msg.sender;
+        tokenToProfile[tokenId] = profileId;
+        depositedTokens.push(tokenId);
+        
+        require(rewardToken.transfer(msg.sender, profiles[profileId].reward), "Reward transfer failed");
+        
+        emit AdrianRecovered(msg.sender, tokenId, profileId, profiles[profileId].reward);
+        emit TokenDeposited(tokenId, profileId, msg.sender);
+    }
+
+    function purchaseToken(uint256 tokenId) external nonReentrant onlyWhenActive {
+        require(isTokenDeposited[tokenId], "Token not deposited");
+        
+        uint256 profileId = tokenToProfile[tokenId];
+        uint256 price = (profiles[profileId].reward * (PERCENTAGE_BASE + recoveryPercentage)) / PERCENTAGE_BASE;
+        
+        require(rewardToken.transferFrom(msg.sender, treasury, price), "Payment transfer failed");
+        
+        IERC721(address(adrianCore)).safeTransferFrom(address(this), msg.sender, tokenId);
+        
+        _removeTokenFromDeposited(tokenId);
+        delete isTokenDeposited[tokenId];
+        delete tokenDepositor[tokenId];
+        delete tokenToProfile[tokenId];
+        
+        emit TokenPurchased(tokenId, msg.sender, price);
+    }
+
+    // =============== FUNDING SYSTEM ===============
+    
+    function fundContract(uint256 amount) external nonReentrant {
+        require(amount > 0, "Invalid amount");
+        require(rewardToken.transferFrom(msg.sender, address(this), amount), "Transfer failed");
+        
+        emit ContractFunded(msg.sender, amount);
+    }
+
+    function withdrawFunds(uint256 amount) external onlyOwner nonReentrant {
+        require(amount > 0, "Invalid amount");
+        require(rewardToken.balanceOf(address(this)) >= amount, "Insufficient balance");
+        
+        require(rewardToken.transfer(owner(), amount), "Transfer failed");
+        
+        emit FundsWithdrawn(owner(), amount);
+    }
+
+    function withdrawAllFunds() external onlyOwner nonReentrant {
+        uint256 balance = rewardToken.balanceOf(address(this));
+        require(balance > 0, "No funds to withdraw");
+        
+        require(rewardToken.transfer(owner(), balance), "Transfer failed");
+        
+        emit FundsWithdrawn(owner(), balance);
+    }
+
+    // =============== PROFILE MANAGEMENT ===============
+    
+    function createProfile(
+        string calldata profileName,
+        uint256[] calldata traitIds,
+        uint256 reward
+    ) external onlyOwner returns (uint256 profileId) {
+        require(bytes(profileName).length > 0, "Empty profile name");
+        require(traitIds.length > 0, "Empty traits array");
+        require(reward > 0, "Invalid reward amount");
+        
+        profileId = nextProfileId++;
+        
+        profiles[profileId].profileName = profileName;
+        profiles[profileId].reward = reward;
+        profiles[profileId].active = true;
+        profiles[profileId].recovered = 0;
+        
+        // Default: no filters
+        profiles[profileId].checkGeneration = false;
+        profiles[profileId].requiredGeneration = 0;
+        profiles[profileId].checkSkin = false;
+        profiles[profileId].requiredSkin = "";
+        
+        for (uint256 i = 0; i < traitIds.length; i++) {
+            profiles[profileId].traitIds.push(traitIds[i]);
+        }
+        
+        emit ProfileCreated(profileId, profileName, traitIds, reward);
+    }
+
+    // =============== FILTER SETTERS (SIMPLIFICADOS) ===============
+    
+    function setGenerationFilter(uint256 profileId, bool enabled, uint256 requiredGeneration) external onlyOwner validProfile(profileId) {
+        profiles[profileId].checkGeneration = enabled;
+        profiles[profileId].requiredGeneration = requiredGeneration;
+    }
+    
+    function setSkinFilter(uint256 profileId, bool enabled, string calldata requiredSkin) external onlyOwner validProfile(profileId) {
+        profiles[profileId].checkSkin = enabled;
+        profiles[profileId].requiredSkin = requiredSkin;
+    }
+
+    function updateProfile(
+        uint256 profileId,
+        string calldata profileName,
+        uint256[] calldata traitIds,
+        uint256 reward,
+        bool active
+    ) external onlyOwner validProfile(profileId) {
+        require(bytes(profileName).length > 0, "Empty profile name");
+        require(traitIds.length > 0, "Empty traits array");
+        require(reward > 0, "Invalid reward amount");
+        
+        profiles[profileId].profileName = profileName;
+        profiles[profileId].reward = reward;
+        profiles[profileId].active = active;
+        
+        delete profiles[profileId].traitIds;
+        for (uint256 i = 0; i < traitIds.length; i++) {
+            profiles[profileId].traitIds.push(traitIds[i]);
+        }
+        
+        emit ProfileUpdated(profileId, profileName, traitIds, reward, active);
+    }
+
+    function setProfileActive(uint256 profileId, bool active) external onlyOwner validProfile(profileId) {
+        profiles[profileId].active = active;
+        
+        PatientProfile storage profile = profiles[profileId];
+        emit ProfileUpdated(profileId, profile.profileName, profile.traitIds, profile.reward, active);
+    }
+
+    // =============== ADMIN FUNCTIONS ===============
+    
+    function setRecoveryPercentage(uint256 percentage) external onlyOwner {
+        recoveryPercentage = percentage;
+        emit RecoveryPercentageUpdated(percentage);
+    }
+    
+    function setAdrianCore(address _core) external onlyOwner {
+        require(_core != address(0), "Invalid core address");
+        adrianCore = IAdrianLabCore(_core);
+    }
+    
+    function setTraitsView(address _traits) external onlyOwner {
+        require(_traits != address(0), "Invalid traits address");
+        traitsView = IAdrianTraitsView(_traits);
+    }
+    
+    function setRewardToken(address _rewardToken) external onlyOwner {
+        require(_rewardToken != address(0), "Invalid reward token");
+        rewardToken = IERC20(_rewardToken);
+        emit RewardTokenUpdated(_rewardToken);
+    }
+    
+    function setTreasury(address _treasury) external onlyOwner {
+        require(_treasury != address(0), "Invalid treasury");
+        treasury = _treasury;
+        emit TreasuryUpdated(_treasury);
+    }
+    
+    function setProtocolActive(bool _active) external onlyOwner {
+        protocolActive = _active;
+        emit ProtocolActivated(_active);
+    }
+
+    // =============== EMERGENCY FUNCTIONS ===============
+    
+    function emergencyRecoverERC20(address token, uint256 amount) external onlyOwner {
+        require(token != address(0), "Invalid token");
+        require(amount > 0, "Invalid amount");
+        
+        IERC20(token).transfer(owner(), amount);
+        emit EmergencyRecoveryERC20(token, amount);
+    }
+    
+    function emergencyRecoverNFT(uint256 tokenId) external onlyOwner {
+        require(isTokenDeposited[tokenId], "Token not in contract");
+        
+        IERC721(address(adrianCore)).safeTransferFrom(address(this), owner(), tokenId);
+        
+        _removeTokenFromDeposited(tokenId);
+        delete isTokenDeposited[tokenId];
+        delete tokenDepositor[tokenId];
+        delete tokenToProfile[tokenId];
+        
+        emit EmergencyRecoveryNFT(tokenId);
+    }
+
+    // =============== VIEW FUNCTIONS ===============
+    
+    function getProfile(uint256 profileId) external view validProfile(profileId) returns (
+        string memory profileName,
+        uint256[] memory traitIds,
+        uint256 reward,
+        bool active,
+        uint256 recovered
+    ) {
+        return (
+            profiles[profileId].profileName,
+            profiles[profileId].traitIds,
+            profiles[profileId].reward,
+            profiles[profileId].active,
+            profiles[profileId].recovered
+        );
+    }
+    
+    // =============== FILTER GETTERS (SIMPLIFICADOS) ===============
+    
+    function getGenerationFilter(uint256 profileId) external view validProfile(profileId) returns (bool, uint256) {
+        return (profiles[profileId].checkGeneration, profiles[profileId].requiredGeneration);
+    }
+    
+    function getSkinFilter(uint256 profileId) external view validProfile(profileId) returns (bool, string memory) {
+        return (profiles[profileId].checkSkin, profiles[profileId].requiredSkin);
+    }
+    
+    function getActiveProfiles() external view returns (uint256[] memory activeProfileIds) {
+        uint256 count = 0;
+        
+        // Count active profiles
+        for (uint256 i = 1; i < nextProfileId; i++) {
+            if (profiles[i].active) {
+                count++;
+            }
+        }
+        
+        // Fill array
+        activeProfileIds = new uint256[](count);
+        uint256 idx = 0;
+        
+        for (uint256 i = 1; i < nextProfileId; i++) {
+            if (profiles[i].active) {
+                activeProfileIds[idx] = i;
+                idx++;
+            }
+        }
+    }
+    
+    function getTokenPrice(uint256 tokenId) external view returns (uint256) {
+        require(isTokenDeposited[tokenId], "Token not deposited");
+        
+        uint256 profileId = tokenToProfile[tokenId];
+        uint256 baseReward = profiles[profileId].reward;
+        return (baseReward * (PERCENTAGE_BASE + recoveryPercentage)) / PERCENTAGE_BASE;
+    }
+    
+    function getProtocolInfo() external view returns (
+        bool active,
+        address token,
+        uint256 recoveryPercent,
+        uint256 totalProfiles
+    ) {
+        return (
+            protocolActive,
+            address(rewardToken),
+            recoveryPercentage,
+            nextProfileId - 1
+        );
+    }
+    
+    function getContractStats() external view returns (
+        uint256 depositedCount,
+        uint256 availableFunds
+    ) {
+        return (
+            depositedTokens.length,
+            rewardToken.balanceOf(address(this))
+        );
+    }
+    
+    function getDepositedTokens() external view returns (uint256[] memory) {
+        return depositedTokens;
+    }
+    
+    function hasEnoughFunds(uint256 profileId) external view validProfile(profileId) returns (bool) {
+        return rewardToken.balanceOf(address(this)) >= profiles[profileId].reward;
+    }
+
+    function getAvailableFunds() external view returns (uint256) {
+        return rewardToken.balanceOf(address(this));
+    }
+
+    function hasOperationalFunds() external view returns (bool) {
+        return rewardToken.balanceOf(address(this)) > 0;
+    }
+
+    // =============== INTERNAL FUNCTIONS ===============
+    
+    function _removeTokenFromDeposited(uint256 tokenId) internal {
+        for (uint256 i = 0; i < depositedTokens.length; i++) {
+            if (depositedTokens[i] == tokenId) {
+                depositedTokens[i] = depositedTokens[depositedTokens.length - 1];
+                depositedTokens.pop();
+                break;
+            }
+        }
+    }
+
+    // =============== ERC721 RECEIVER ===============
+    
+    function onERC721Received(
+        address, // operator
+        address, // from
+        uint256, // tokenId
+        bytes calldata // data
+    ) external pure override returns (bytes4) {
+        return this.onERC721Received.selector;
+    }
+}

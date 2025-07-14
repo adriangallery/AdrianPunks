@@ -714,60 +714,61 @@ function handlePointAndClick(event) {
     console.log(`Point & click at: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
     
     // Define clickable areas (hotspots) based on basement.png layout
+    // Expanded margins from 15% to 20% for better clickability
     const hotspots = [
         {
             name: 'Desk Area',
-            x: [40, 55],
-            y: [80, 95],
+            x: [35, 60],
+            y: [75, 100],
             action: 'inspect_desk_area',
             message: "💬 You feel a sudden urge to write a thread on Twitter."
         },
         {
             name: 'Boxes Area',
-            x: [71, 86],
-            y: [65, 80],
+            x: [66, 91],
+            y: [60, 85],
             action: 'inspect_boxes',
             message: "💬 Boxes full of failed NFT projects... and one unopened Bored Ape piñata."
         },
         {
             name: 'Armchair Area',
-            x: [80, 95],
-            y: [79, 94],
+            x: [75, 100],
+            y: [74, 99],
             action: 'inspect_armchair',
             message: "💬 Sits like a throne. Probably where the DAO founder disappeared."
         },
         {
             name: 'Washing Machine Area',
-            x: [63, 78],
-            y: [64, 79],
+            x: [58, 83],
+            y: [59, 84],
             action: 'inspect_washing_machine',
             message: "💬 Perfect for laundering… socks. Only socks."
         },
         {
             name: 'Stairs Area',
-            x: [0, 15],
-            y: [34, 49],
+            x: [0, 20],
+            y: [29, 54],
             action: 'inspect_stairs',
             message: "💬 Do you really want to go upstairs? That's where the fiat lives."
         },
         {
             name: 'Computer Area',
-            x: [18, 33],
-            y: [44, 59],
+            x: [13, 38],
+            y: [39, 64],
             action: 'inspect_computer',
             message: "💬 Someone mined 6 BTC on this in 2010… then rage quit and sold at $12."
         },
         {
             name: 'Light Bulb Area',
-            x: [43, 58],
-            y: [0, 15],
+            x: [38, 63],
+            y: [0, 20],
             action: 'inspect_light_bulb',
             message: "💬 It's lit... unlike your portfolio."
         },
         {
             name: 'Windows Area',
-            x: [46, 61],
-            y: [32, 47],
+            x: [41, 66],
+            y: [27, 52],
             action: 'inspect_windows',
             message: "💬 Outside: darkness. Inside: DeFi."
         }
