@@ -488,7 +488,7 @@ function createUpstairsScreen() {
                         <button class="command-btn">TALK</button>
                         <button class="command-btn">MOVE</button>
                         <button class="command-btn">OPEN</button>
-                        <button class="command-btn">CLOSE</button>
+                        <button class="command-btn">TEST</button>
                     </div>
                 </div>
                 
@@ -842,19 +842,27 @@ function handleBasementClick(event) {
     
     console.log(`Clicked at: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
     
-    // Check if click is in center area (for mint popup) - original functionality
+    // Check if click is in center area (for mint popup) - only with USE command
     if (xPercent >= 40 && xPercent <= 60 && yPercent >= 40 && yPercent <= 60) {
-        console.log('Center area clicked - opening mint popup');
-        if (!isWalletConnected) {
-            showNotification('Connect your wallet first', 'warning');
+        const currentCommand = getCurrentCommand();
+        
+        if (currentCommand === 'use') {
+            console.log('Center area clicked with USE command - opening mint popup');
+            if (!isWalletConnected) {
+                showNotification('Connect your wallet first', 'warning');
+                return;
+            }
+            
+            mintPopup.classList.add('active');
+            setTimeout(() => {
+                notifyIframeWalletConnected();
+            }, 100);
+            return;
+        } else if (currentCommand === 'explore') {
+            console.log('Center area clicked with EXPLORE command - showing computer message');
+            showFloatingText('💬 This is the computer. Use the USE command to access the mint interface.', xPercent, yPercent);
             return;
         }
-        
-        mintPopup.classList.add('active');
-        setTimeout(() => {
-            notifyIframeWalletConnected();
-        }, 100);
-        return;
     }
     
     // If not center area, check for hotspots
@@ -1108,8 +1116,8 @@ function handleHotspotClick(hotspot, x, y) {
             handleOpenCommand(hotspot, x, y);
             break;
             
-        case 'close':
-            handleCloseCommand(hotspot, x, y);
+        case 'test':
+            handleTestCommand(hotspot, x, y);
             break;
             
         default:
@@ -1147,22 +1155,11 @@ function handleUseCommand(hotspot, x, y) {
             break;
             
         case 'Stairs Area':
-            // Check if click is in the top 5% of stairs area
-            const rect = clickArea.getBoundingClientRect();
-            const clickY = (y / 100) * rect.height;
-            const stairsTopY = (hotspot.y[0] / 100) * rect.height;
-            const stairsHeight = ((hotspot.y[1] - hotspot.y[0]) / 100) * rect.height;
-            const top5Percent = stairsHeight * 0.05;
-            
-            if (clickY <= stairsTopY + top5Percent) {
-                // Navigate to upstairs
-                showFloatingText('💬 Going upstairs...', x, y);
-                setTimeout(() => {
-                    goToUpstairs();
-                }, 1000);
-            } else {
-                showFloatingText('💬 You need to click higher on the stairs to go up', x, y);
-            }
+            // Navigate to upstairs (anywhere in stairs area with USE command)
+            showFloatingText('💬 Going upstairs...', x, y);
+            setTimeout(() => {
+                goToUpstairs();
+            }, 1000);
             break;
             
         default:
@@ -1266,22 +1263,12 @@ function handleOpenCommand(hotspot, x, y) {
     showFloatingText(message, x, y);
 }
 
-// Handle CLOSE command
-function handleCloseCommand(hotspot, x, y) {
-    console.log(`CLOSE command on: ${hotspot.name}`);
+// Handle TEST command (for development)
+function handleTestCommand(hotspot, x, y) {
+    console.log(`TEST command on: ${hotspot.name}`);
     
-    const closeResponses = {
-        'Desk Area': '💬 You close the desk drawer.',
-        'Boxes Area': '💬 You close the box lid.',
-        'Armchair Area': '💬 You can\'t close the armchair, it\'s not open.',
-        'Washing Machine Area': '💬 You close the washing machine door.',
-        'Stairs Area': '💬 You can\'t close the stairs, they\'re not open.',
-        'Computer Area': '💬 You close the computer case.',
-        'Light Bulb Area': '💬 You can\'t close the light bulb, it\'s not open.',
-        'Windows Area': '💬 You try to close the windows but they\'re already closed.'
-    };
-    
-    const message = closeResponses[hotspot.name] || `💬 You can\'t close ${hotspot.name}`;
+    // Show coordinates and hotspot information for development
+    const message = `🔧 TEST MODE\nHotspot: ${hotspot.name}\nCoordinates: ${x.toFixed(1)}%, ${y.toFixed(1)}%\nAction: ${hotspot.action || 'none'}`;
     showFloatingText(message, x, y);
 }
 
