@@ -434,13 +434,20 @@ function goToUpstairs() {
     floppyScreen.style.display = 'none';
     
     // Show upstairs screen
-    const upstairsScreen = document.getElementById('upstairs-screen');
+    let upstairsScreen = document.getElementById('upstairs-screen');
     if (upstairsScreen) {
         upstairsScreen.style.display = 'block';
+        upstairsScreen.classList.add('active');
     } else {
         // Create upstairs screen if it doesn't exist
         createUpstairsScreen();
+        upstairsScreen = document.getElementById('upstairs-screen');
+        upstairsScreen.style.display = 'block';
+        upstairsScreen.classList.add('active');
     }
+    
+    // Update wallet UI for upstairs
+    updateWalletUI();
 }
 
 function createUpstairsScreen() {
@@ -543,6 +550,29 @@ function setupUpstairsEventListeners() {
     if (upstairsConnectWalletBtn) {
         upstairsConnectWalletBtn.addEventListener('click', connectWallet);
     }
+    
+    // Update mute button state
+    if (upstairsMuteButton) {
+        if (isMuted) {
+            upstairsMuteButton.textContent = '🔇';
+        } else {
+            upstairsMuteButton.textContent = '🔊';
+        }
+    }
+    
+    // Update wallet button state
+    if (upstairsConnectWalletBtn) {
+        if (isWalletConnected) {
+            const shortAddress = window.ethereum.selectedAddress.slice(0, 6) + '...' + window.ethereum.selectedAddress.slice(-4);
+            upstairsConnectWalletBtn.textContent = shortAddress;
+            upstairsConnectWalletBtn.style.background = '#00ff00';
+            upstairsConnectWalletBtn.style.color = '#000';
+        } else {
+            upstairsConnectWalletBtn.textContent = 'Connect Wallet';
+            upstairsConnectWalletBtn.style.background = '#000';
+            upstairsConnectWalletBtn.style.color = '#00ff00';
+        }
+    }
 }
 
 function initializeUpstairsCommandSystem() {
@@ -558,8 +588,19 @@ function initializeUpstairsCommandSystem() {
         btn.addEventListener('click', () => selectCommand(command));
     });
     
-    // Set default command (explore)
+    // Set default command (explore) and update visual state
     selectCommand('explore');
+    
+    // Update command buttons visual state
+    Object.values(commandButtons).forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Add active class to explore button
+    const exploreBtn = document.querySelector('#upstairs-screen .command-btn');
+    if (exploreBtn && exploreBtn.textContent === 'EXPLORE') {
+        exploreBtn.classList.add('active');
+    }
 }
 
 function handleUpstairsClick(event) {
