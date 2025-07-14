@@ -1949,6 +1949,17 @@
                         let errorMessage = 'Failed to use serum.';
                         if (error.code === 4001) {
                             errorMessage = 'Transaction was rejected by user.';
+                        } else if (error.code === 'UNPREDICTABLE_GAS_LIMIT') {
+                            // Check for specific serum-related errors
+                            if (error.reason && error.reason.includes('Serum already used on this token')) {
+                                errorMessage = '❌ This AdrianZERO has already consumed a serum. Each token can only use one serum.';
+                            } else if (error.reason && error.reason.includes('Serum not owned')) {
+                                errorMessage = '❌ You do not own this serum. Please make sure you have the serum in your wallet.';
+                            } else if (error.reason && error.reason.includes('Token not owned')) {
+                                errorMessage = '❌ You do not own this AdrianZERO. Please make sure you have the token in your wallet.';
+                            } else {
+                                errorMessage = '❌ Transaction failed. This might be due to insufficient permissions or the serum/token requirements not being met.';
+                            }
                         } else if (error.message) {
                             errorMessage = `Error: ${error.message}`;
                         }
