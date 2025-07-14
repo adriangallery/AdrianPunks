@@ -520,6 +520,9 @@
                 <button class="contract-btn" data-contract="0x90546848474fb3c9fda3fdad887969bb244e7e58" data-filter="floppy">
                     Floppy Discs
                 </button>
+                <button class="contract-btn" data-contract="0x90546848474fb3c9fda3fdad887969bb244e7e58" data-filter="serum">
+                    Serums
+                </button>
             </div>
 
             <div id="selection-info" class="selection-info" style="display: none;">
@@ -546,6 +549,10 @@
                 <div id="open-floppy-section" style="display: none; margin-top: 20px; text-align: center;">
                     <button id="openFloppyBtn" class="apply-traits-btn">Open Floppy</button>
                     <div id="open-floppy-status" class="apply-status" style="display: none;"></div>
+                </div>
+                <div id="use-serum-section" style="display: none; margin-top: 20px; text-align: center;">
+                    <button id="useSerumBtn" class="apply-traits-btn">Use Serum</button>
+                    <div id="use-serum-status" class="apply-status" style="display: none;"></div>
                 </div>
             </div>
 
@@ -604,6 +611,7 @@
         let selectedERC721 = null;
         let selectedERC1155 = [];
         let selectedFloppy = null; // For single floppy selection
+        let selectedSerum = null; // For single serum selection
 
         // DOM Elements
         const connectSection = document.getElementById('connect-section');
@@ -632,6 +640,9 @@
         const openFloppySection = document.getElementById('open-floppy-section');
         const openFloppyBtn = document.getElementById('openFloppyBtn');
         const openFloppyStatus = document.getElementById('open-floppy-status');
+        const useSerumSection = document.getElementById('use-serum-section');
+        const useSerumBtn = document.getElementById('useSerumBtn');
+        const useSerumStatus = document.getElementById('use-serum-status');
         const activateTokenSection = document.getElementById('activate-token-section');
         const activateTokenBtn = document.getElementById('activateTokenBtn');
         const activateTokenStatus = document.getElementById('activate-token-status');
@@ -643,6 +654,7 @@
             applyTraitsBtn.addEventListener('click', applyTraitsToNFT);
             refreshMetadataBtn.addEventListener('click', refreshMetadata);
             openFloppyBtn.addEventListener('click', openFloppy);
+            useSerumBtn.addEventListener('click', useSerum);
             activateTokenBtn.addEventListener('click', activateToken);
             
             // Listen for messages from parent window (AdrianLab)
@@ -657,7 +669,7 @@
                     currentFilter = btn.dataset.filter || null; // Set filter type
                     
                     // Update mobile grid layout based on current tab
-                    if (currentFilter === 'floppy') {
+                    if (currentFilter === 'floppy' || currentFilter === 'serum') {
                         tokensGrid.classList.remove('adrianlab-mobile');
                     } else {
                         tokensGrid.classList.add('adrianlab-mobile');
@@ -669,9 +681,16 @@
                         selectedERC721 = null;
                         selectedERC1155 = [];
                         selectedFloppy = null;
-                    } else {
-                        // Switching to AdrianLAB tab - clear floppy selection but keep ERC721 if it exists
+                        selectedSerum = null;
+                    } else if (currentFilter === 'serum') {
+                        // Switching to Serums tab - clear other selections
                         selectedFloppy = null;
+                        selectedSerum = null;
+                        // Keep selectedERC721 for AdrianZERO selection
+                    } else {
+                        // Switching to AdrianLAB tab - clear floppy and serum selection but keep ERC721 if it exists
+                        selectedFloppy = null;
+                        selectedSerum = null;
                         // Don't clear selectedERC721 and selectedERC1155 to maintain AdrianLAB functionality
                     }
                     
@@ -1041,11 +1060,21 @@
                                     console.log(`Filtering out ERC1155 token ${token.tokenId} from floppy discs`);
                                     return false;
                                 }
+                            } else if (currentFilter === 'serum') {
+                                // Serums filter: show only token 262144
+                                if (token.tokenId === 262144) {
+                                    console.log(`Including ERC1155 token ${token.tokenId} in serums`);
+                                    return true;
+                                } else {
+                                    console.log(`Filtering out ERC1155 token ${token.tokenId} from serums`);
+                                    return false;
+                                }
                             } else {
-                                // Normal filter: exclude tokens 10000, 10001, 10002, 15000, 15001, 15002, 15003, 15004, 15005
+                                // Normal filter: exclude tokens 10000, 10001, 10002, 15000, 15001, 15002, 15003, 15004, 15005, 262144
                                 if (token.tokenId === 10000 || token.tokenId === 10001 || token.tokenId === 10002 || 
                                     token.tokenId === 15000 || token.tokenId === 15001 || token.tokenId === 15002 || 
-                                    token.tokenId === 15003 || token.tokenId === 15004 || token.tokenId === 15005) {
+                                    token.tokenId === 15003 || token.tokenId === 15004 || token.tokenId === 15005 ||
+                                    token.tokenId === 262144) {
                                     console.log(`Filtering out ERC1155 token ${token.tokenId}`);
                                     return false;
                                 }
@@ -1196,6 +1225,19 @@
                                 selectedFloppy = token;
                                 tokenCard.classList.add('selected');
                             }
+                        } else if (currentFilter === 'serum') {
+                            // Single selection for Serums
+                            if (selectedSerum && selectedSerum.tokenId === token.tokenId) {
+                                selectedSerum = null;
+                                tokenCard.classList.remove('selected');
+                            } else {
+                                // Deselect previous serum
+                                const prevSelected = tokensGrid.querySelector('.token-card.selected');
+                                if (prevSelected) prevSelected.classList.remove('selected');
+                                
+                                selectedSerum = token;
+                                tokenCard.classList.add('selected');
+                            }
                         } else {
                             // Multiple selection for AdrianLAB
                             const index = selectedERC1155.findIndex(t => t.tokenId === token.tokenId);
@@ -1255,6 +1297,50 @@
                     generatedImage.style.display = 'none';
                     applyTraitsSection.style.display = 'none';
                     refreshMetadataSection.style.display = 'none'; // Hide refresh metadata in floppy tab
+                }
+            } else if (currentFilter === 'serum') {
+                // Handle Serums tab
+                if (selectedSerum && selectedERC721) {
+                    infoText = `Selected Serum: ${selectedSerum.title} (ID: ${selectedSerum.tokenId})<br>Selected AdrianZERO: ${selectedERC721.title} (ID: ${selectedERC721.tokenId})`;
+                    selectionText.innerHTML = infoText;
+                    selectionInfo.style.display = 'block';
+                    useSerumSection.style.display = 'block';
+                    generatedImage.style.display = 'none';
+                    applyTraitsSection.style.display = 'none';
+                    refreshMetadataSection.style.display = 'none';
+                    openFloppySection.style.display = 'none';
+                    activateTokenSection.style.display = 'none';
+                    
+                    useSerumBtn.textContent = 'Use Serum';
+                    useSerumBtn.disabled = false;
+                } else if (selectedSerum) {
+                    infoText = `Selected Serum: ${selectedSerum.title} (ID: ${selectedSerum.tokenId})<br>Please select an AdrianZERO to use the serum on`;
+                    selectionText.innerHTML = infoText;
+                    selectionInfo.style.display = 'block';
+                    useSerumSection.style.display = 'none';
+                    generatedImage.style.display = 'none';
+                    applyTraitsSection.style.display = 'none';
+                    refreshMetadataSection.style.display = 'none';
+                    openFloppySection.style.display = 'none';
+                    activateTokenSection.style.display = 'none';
+                } else if (selectedERC721) {
+                    infoText = `Selected AdrianZERO: ${selectedERC721.title} (ID: ${selectedERC721.tokenId})<br>Please select a serum to use`;
+                    selectionText.innerHTML = infoText;
+                    selectionInfo.style.display = 'block';
+                    useSerumSection.style.display = 'none';
+                    generatedImage.style.display = 'none';
+                    applyTraitsSection.style.display = 'none';
+                    refreshMetadataSection.style.display = 'none';
+                    openFloppySection.style.display = 'none';
+                    activateTokenSection.style.display = 'none';
+                } else {
+                    selectionInfo.style.display = 'none';
+                    useSerumSection.style.display = 'none';
+                    generatedImage.style.display = 'none';
+                    applyTraitsSection.style.display = 'none';
+                    refreshMetadataSection.style.display = 'none';
+                    openFloppySection.style.display = 'none';
+                    activateTokenSection.style.display = 'none';
                 }
             } else {
                 // Handle AdrianLAB tab
@@ -1323,6 +1409,7 @@
                 
                 // Hide floppy section in AdrianLAB tab
                 openFloppySection.style.display = 'none';
+                useSerumSection.style.display = 'none';
             }
         }
 
@@ -1552,6 +1639,20 @@
             }
         }
 
+        // Helper function to show use serum status
+        function showUseSerumStatus(message, type) {
+            useSerumStatus.textContent = message;
+            useSerumStatus.className = `apply-status ${type}`;
+            useSerumStatus.style.display = 'block';
+            
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    useSerumStatus.style.display = 'none';
+                }, 5000);
+            }
+        }
+
         // Refresh metadata by calling Vercel endpoints
         async function refreshMetadata() {
             console.log('refreshMetadata called');
@@ -1724,6 +1825,144 @@
                 console.error('Error opening floppy:', error);
                 showOpenFloppyStatus('Failed to load ethers library. Please refresh the page.', 'error');
                 openFloppyBtn.disabled = false;
+            }
+        }
+
+        // Use Serum function
+        async function useSerum() {
+            console.log('useSerum called');
+            
+            if (!selectedSerum) {
+                showUseSerumStatus('Please select a serum first.', 'error');
+                return;
+            }
+
+            if (!selectedERC721) {
+                showUseSerumStatus('Please select an AdrianZERO token first.', 'error');
+                return;
+            }
+
+            if (!currentAccount) {
+                showUseSerumStatus('Please connect your wallet first.', 'error');
+                return;
+            }
+
+            try {
+                // Show loading state
+                showUseSerumStatus('Loading ethers library...', 'loading');
+                useSerumBtn.disabled = true;
+
+                // Load ethers dynamically only when needed
+                let ethers;
+                if (typeof window.ethers === 'undefined') {
+                    // Load ethers from CDN
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+                    script.onload = () => {
+                        ethers = window.ethers;
+                        console.log('Ethers loaded successfully');
+                        executeTransaction();
+                    };
+                    script.onerror = () => {
+                        showUseSerumStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                        useSerumBtn.disabled = false;
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    ethers = window.ethers;
+                    executeTransaction();
+                }
+
+                async function executeTransaction() {
+                    try {
+                        showUseSerumStatus('Preparing transaction...', 'loading');
+
+                        // Get provider and signer
+                        const provider = new ethers.providers.Web3Provider(window.ethereum);
+                        const signer = provider.getSigner();
+
+                        // SerumModule contract address
+                        const SERUM_MODULE_CONTRACT = "0xEb84a51F8d59d1C55cACFd15074AeB104D82B2ec";
+
+                        // Contract ABI for useSerum function
+                        const contractABI = [
+                            {
+                                "inputs": [
+                                    {
+                                        "internalType": "uint256",
+                                        "name": "serumId",
+                                        "type": "uint256"
+                                    },
+                                    {
+                                        "internalType": "uint256",
+                                        "name": "tokenId",
+                                        "type": "uint256"
+                                    },
+                                    {
+                                        "internalType": "string",
+                                        "name": "narrativeText",
+                                        "type": "string"
+                                    }
+                                ],
+                                "name": "useSerum",
+                                "outputs": [],
+                                "stateMutability": "nonpayable",
+                                "type": "function"
+                            }
+                        ];
+
+                        // Create contract instance
+                        const contract = new ethers.Contract(SERUM_MODULE_CONTRACT, contractABI, signer);
+
+                        // Prepare parameters
+                        const serumId = selectedSerum.tokenId;
+                        const tokenId = selectedERC721.tokenId;
+                        const narrativeText = "Drank Serum";
+
+                        console.log('Contract address:', SERUM_MODULE_CONTRACT);
+                        console.log('Serum ID:', serumId);
+                        console.log('Token ID:', tokenId);
+                        console.log('Narrative Text:', narrativeText);
+
+                        showUseSerumStatus('Confirming transaction in your wallet...', 'loading');
+
+                        // Call the contract function
+                        const tx = await contract.useSerum(serumId, tokenId, narrativeText);
+                        
+                        showUseSerumStatus('Transaction sent! Waiting for confirmation...', 'loading');
+                        console.log('Transaction hash:', tx.hash);
+
+                        // Wait for transaction confirmation
+                        const receipt = await tx.wait();
+                        
+                        showUseSerumStatus(`✅ Serum used successfully! Transaction: ${receipt.transactionHash}`, 'success');
+                        console.log('Transaction confirmed:', receipt);
+
+                        // Refresh tokens after successful use
+                        setTimeout(() => {
+                            loadTokens(currentAccount, currentContract);
+                        }, 2000);
+
+                    } catch (error) {
+                        console.error('Error in transaction:', error);
+                        
+                        let errorMessage = 'Failed to use serum.';
+                        if (error.code === 4001) {
+                            errorMessage = 'Transaction was rejected by user.';
+                        } else if (error.message) {
+                            errorMessage = `Error: ${error.message}`;
+                        }
+                        
+                        showUseSerumStatus(errorMessage, 'error');
+                    } finally {
+                        useSerumBtn.disabled = false;
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error using serum:', error);
+                showUseSerumStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                useSerumBtn.disabled = false;
             }
         }
 
