@@ -24,6 +24,10 @@ let ethersLoaded = false;
 let progressInterval;
 let isMobile = false;
 
+// Command system variables
+let currentCommand = 'explore'; // Default command
+let commandButtons = {};
+
 // Inventory variables
 let currentAccount = null;
 let inventoryItems = [];
@@ -163,11 +167,61 @@ function setupEventListeners() {
     buyFloppyBtn.addEventListener('click', handleBuyFloppy);
     backToMainBtn.addEventListener('click', goToMainScreen);
     
+    // Initialize command system
+    initializeCommandSystem();
+    
     // MetaMask events
     if (window.ethereum) {
         window.ethereum.on('accountsChanged', handleAccountsChanged);
         window.ethereum.on('chainChanged', handleChainChanged);
     }
+}
+
+// ===== COMMAND SYSTEM =====
+
+// Initialize command system
+function initializeCommandSystem() {
+    console.log('Initializing command system...');
+    
+    // Get all command buttons
+    const commandBtns = document.querySelectorAll('.command-btn');
+    
+    commandBtns.forEach(btn => {
+        const command = btn.textContent.toLowerCase();
+        commandButtons[command] = btn;
+        
+        // Add click event listener
+        btn.addEventListener('click', () => selectCommand(command));
+    });
+    
+    // Set default command (explore)
+    selectCommand('explore');
+}
+
+// Select a command
+function selectCommand(command) {
+    console.log(`Command selected: ${command}`);
+    
+    // Remove active class from all buttons
+    Object.values(commandButtons).forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Add active class to selected button
+    if (commandButtons[command]) {
+        commandButtons[command].classList.add('active');
+    }
+    
+    // Update current command
+    currentCommand = command;
+    
+    // Show notification
+    showNotification(`Command: ${command.toUpperCase()}`, 'info');
+}
+
+// Get current command
+function getCurrentCommand() {
+    return currentCommand;
 }
 
 function startIntro() {
@@ -369,6 +423,229 @@ function goToFloppyScreen() {
             floppyScreen.style.opacity = '1';
         }, 100);
     }, 2000);
+}
+
+function goToUpstairs() {
+    console.log('Going to upstairs');
+    
+    // Hide all screens
+    introScreen.style.display = 'none';
+    mainScreen.style.display = 'none';
+    floppyScreen.style.display = 'none';
+    
+    // Show upstairs screen
+    const upstairsScreen = document.getElementById('upstairs-screen');
+    if (upstairsScreen) {
+        upstairsScreen.style.display = 'block';
+    } else {
+        // Create upstairs screen if it doesn't exist
+        createUpstairsScreen();
+    }
+}
+
+function createUpstairsScreen() {
+    console.log('Creating upstairs screen');
+    
+    // Create upstairs screen element
+    const upstairsScreen = document.createElement('div');
+    upstairsScreen.id = 'upstairs-screen';
+    upstairsScreen.className = 'screen';
+    
+    upstairsScreen.innerHTML = `
+        <div class="background-container">
+            <img src="upstairs.png" alt="Upstairs" id="upstairs-bg" style="width: 100%; height: 100%; object-fit: cover;">
+        </div>
+        
+        <!-- Header with wallet -->
+        <header class="retro-header">
+            <div class="logo">AdrianLAB - Upstairs</div>
+            <button id="connect-wallet-upstairs" class="retro-button">Connect Wallet</button>
+            <button id="mute-button-upstairs" class="retro-button small">🔊</button>
+        </header>
+
+        <!-- Main clickable area -->
+        <div id="click-area-upstairs" class="click-area">
+            <div class="pixel-cursor"></div>
+        </div>
+
+        <!-- Overlay text for upstairs -->
+        <div class="upstairs-overlay">
+            <h1 class="retro-title">Upstairs</h1>
+            <p class="retro-subtitle">Welcome to the fiat zone...</p>
+        </div>
+
+        <!-- Footer with Inventory -->
+        <footer class="retro-footer">
+            <div class="footer-sections">
+                <!-- Left section: Commands -->
+                <div class="footer-section commands-section">
+                    <div class="section-header">Commands</div>
+                    <div class="commands-grid">
+                        <button class="command-btn">EXPLORE</button>
+                        <button class="command-btn">INSPECT</button>
+                        <button class="command-btn">USE</button>
+                        <button class="command-btn">TAKE</button>
+                        <button class="command-btn">TALK</button>
+                        <button class="command-btn">MOVE</button>
+                        <button class="command-btn">OPEN</button>
+                        <button class="command-btn">CLOSE</button>
+                    </div>
+                </div>
+                
+                <!-- Middle section: Inventory Left -->
+                <div class="footer-section inventory-section-left">
+                    <div class="section-header">Inventory</div>
+                    <div id="inventory-grid-left-upstairs" class="inventory-grid">
+                        <div class="no-items">Connect wallet to load inventory.</div>
+                    </div>
+                </div>
+                
+                <!-- Right section: Inventory Right -->
+                <div class="footer-section inventory-section-right">
+                    <div class="section-header">Items</div>
+                    <div id="inventory-grid-right-upstairs" class="inventory-grid">
+                        <div class="no-items">No items found.</div>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    `;
+    
+    // Add to app container
+    document.getElementById('app').appendChild(upstairsScreen);
+    
+    // Setup event listeners for upstairs
+    setupUpstairsEventListeners();
+    
+    // Initialize command system for upstairs
+    initializeUpstairsCommandSystem();
+}
+
+function setupUpstairsEventListeners() {
+    console.log('Setting up upstairs event listeners');
+    
+    // Get upstairs elements
+    const upstairsClickArea = document.getElementById('click-area-upstairs');
+    const upstairsMuteButton = document.getElementById('mute-button-upstairs');
+    const upstairsConnectWalletBtn = document.getElementById('connect-wallet-upstairs');
+    
+    // Setup click area for upstairs
+    if (upstairsClickArea) {
+        upstairsClickArea.addEventListener('click', handleUpstairsClick);
+    }
+    
+    // Setup mute button for upstairs
+    if (upstairsMuteButton) {
+        upstairsMuteButton.addEventListener('click', toggleMute);
+    }
+    
+    // Setup wallet connection for upstairs
+    if (upstairsConnectWalletBtn) {
+        upstairsConnectWalletBtn.addEventListener('click', connectWallet);
+    }
+}
+
+function initializeUpstairsCommandSystem() {
+    console.log('Initializing upstairs command system');
+    
+    // Get all command buttons in upstairs screen
+    const upstairsCommandBtns = document.querySelectorAll('#upstairs-screen .command-btn');
+    
+    upstairsCommandBtns.forEach(btn => {
+        const command = btn.textContent.toLowerCase();
+        
+        // Add click event listener
+        btn.addEventListener('click', () => selectCommand(command));
+    });
+    
+    // Set default command (explore)
+    selectCommand('explore');
+}
+
+function handleUpstairsClick(event) {
+    console.log('Upstairs clicked');
+    
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    // Convert to percentage
+    const xPercent = (x / rect.width) * 100;
+    const yPercent = (y / rect.height) * 100;
+    
+    console.log(`Upstairs click at: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
+    
+    // Define upstairs hotspots
+    const upstairsHotspots = [
+        {
+            name: 'Stairs Down',
+            x: [0, 20],
+            y: [70, 100],
+            action: 'go_downstairs',
+            message: "💬 Going back downstairs..."
+        },
+        {
+            name: 'Fiat Zone',
+            x: [40, 80],
+            y: [30, 70],
+            action: 'inspect_fiat',
+            message: "💬 This is where the fiat money lives. It's very quiet here."
+        }
+    ];
+    
+    // Check if click is in any hotspot
+    for (const hotspot of upstairsHotspots) {
+        if (xPercent >= hotspot.x[0] && xPercent <= hotspot.x[1] &&
+            yPercent >= hotspot.y[0] && yPercent <= hotspot.y[1]) {
+            
+            handleUpstairsHotspotClick(hotspot, xPercent, yPercent);
+            return;
+        }
+    }
+    
+    // General area click - only show coordinates if explore command is active
+    if (getCurrentCommand() === 'explore') {
+        showNotification(`You clicked at ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
+    }
+}
+
+function handleUpstairsHotspotClick(hotspot, x, y) {
+    console.log(`Upstairs hotspot clicked: ${hotspot.name} with command: ${getCurrentCommand()}`);
+    
+    const command = getCurrentCommand();
+    
+    switch (command) {
+        case 'explore':
+            if (hotspot.message) {
+                showFloatingText(hotspot.message, x, y);
+            }
+            break;
+            
+        case 'use':
+            if (hotspot.name === 'Stairs Down') {
+                showFloatingText('💬 Going back downstairs...', x, y);
+                setTimeout(() => {
+                    goToMainScreen();
+                }, 1000);
+            } else {
+                showFloatingText(`💬 You can't use ${hotspot.name}`, x, y);
+            }
+            break;
+            
+        case 'inspect':
+            const inspectionMessages = {
+                'Stairs Down': '💬 Wooden stairs leading back down to the basement. They look safer going down.',
+                'Fiat Zone': '💬 A clean, well-lit area with expensive furniture. Everything here costs real money.'
+            };
+            const message = inspectionMessages[hotspot.name] || `💬 You carefully examine ${hotspot.name}`;
+            showFloatingText(message, x, y);
+            break;
+            
+        default:
+            if (hotspot.message) {
+                showFloatingText(hotspot.message, x, y);
+            }
+    }
 }
 
 function toggleMute() {
@@ -784,25 +1061,228 @@ function handlePointAndClick(event) {
         }
     }
     
-    // General area click - show coordinates
-    showNotification(`You clicked at ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
+    // General area click - only show coordinates if explore command is active
+    if (getCurrentCommand() === 'explore') {
+        showNotification(`You clicked at ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
+    }
 }
 
 // Handle hotspot clicks
 function handleHotspotClick(hotspot, x, y) {
-    console.log(`Hotspot clicked: ${hotspot.name}`);
+    console.log(`Hotspot clicked: ${hotspot.name} with command: ${getCurrentCommand()}`);
     
-    // Show the specific message for each hotspot as floating text
-    if (hotspot.message) {
-        showFloatingText(hotspot.message, x, y);
-    } else {
-        showFloatingText(`💬 You interact with ${hotspot.name}`, x, y);
+    const command = getCurrentCommand();
+    
+    // Handle different commands
+    switch (command) {
+        case 'explore':
+            // Show the specific message for each hotspot as floating text
+            if (hotspot.message) {
+                showFloatingText(hotspot.message, x, y);
+            } else {
+                showFloatingText(`💬 You interact with ${hotspot.name}`, x, y);
+            }
+            break;
+            
+        case 'use':
+            handleUseCommand(hotspot, x, y);
+            break;
+            
+        case 'inspect':
+            handleInspectCommand(hotspot, x, y);
+            break;
+            
+        case 'take':
+            handleTakeCommand(hotspot, x, y);
+            break;
+            
+        case 'talk':
+            handleTalkCommand(hotspot, x, y);
+            break;
+            
+        case 'move':
+            handleMoveCommand(hotspot, x, y);
+            break;
+            
+        case 'open':
+            handleOpenCommand(hotspot, x, y);
+            break;
+            
+        case 'close':
+            handleCloseCommand(hotspot, x, y);
+            break;
+            
+        default:
+            // Default to explore behavior
+            if (hotspot.message) {
+                showFloatingText(hotspot.message, x, y);
+            }
     }
     
     // Add to discovered items if not already found
     if (!gameState.discoveredItems.includes(hotspot.name)) {
         gameState.discoveredItems.push(hotspot.name);
     }
+}
+
+// ===== COMMAND HANDLERS =====
+
+// Handle USE command
+function handleUseCommand(hotspot, x, y) {
+    console.log(`USE command on: ${hotspot.name}`);
+    
+    switch (hotspot.name) {
+        case 'Computer Area':
+            // Open mint popup (existing functionality)
+            if (!isWalletConnected) {
+                showNotification('Connect your wallet first', 'warning');
+                return;
+            }
+            
+            mintPopup.classList.add('active');
+            setTimeout(() => {
+                notifyIframeWalletConnected();
+            }, 100);
+            showFloatingText('💬 Opening mint interface...', x, y);
+            break;
+            
+        case 'Stairs Area':
+            // Check if click is in the top 5% of stairs area
+            const rect = clickArea.getBoundingClientRect();
+            const clickY = (y / 100) * rect.height;
+            const stairsTopY = (hotspot.y[0] / 100) * rect.height;
+            const stairsHeight = ((hotspot.y[1] - hotspot.y[0]) / 100) * rect.height;
+            const top5Percent = stairsHeight * 0.05;
+            
+            if (clickY <= stairsTopY + top5Percent) {
+                // Navigate to upstairs
+                showFloatingText('💬 Going upstairs...', x, y);
+                setTimeout(() => {
+                    goToUpstairs();
+                }, 1000);
+            } else {
+                showFloatingText('💬 You need to click higher on the stairs to go up', x, y);
+            }
+            break;
+            
+        default:
+            showFloatingText(`💬 You can't use ${hotspot.name}`, x, y);
+    }
+}
+
+// Handle INSPECT command
+function handleInspectCommand(hotspot, x, y) {
+    console.log(`INSPECT command on: ${hotspot.name}`);
+    
+    // Show detailed inspection message
+    const inspectionMessages = {
+        'Desk Area': '💬 A cluttered desk with papers, coffee stains, and a broken keyboard. The monitor shows a terminal with scrolling text.',
+        'Boxes Area': '💬 Cardboard boxes stacked haphazardly. One is labeled "Failed Projects 2021" and another "Bored Ape Piñata - DO NOT OPEN".',
+        'Armchair Area': '💬 A worn leather armchair with suspicious stains. There\'s a wallet on the seat with $12 in it.',
+        'Washing Machine Area': '💬 An old washing machine with a "Socks Only" sign. The drum is spinning slowly.',
+        'Stairs Area': '💬 Wooden stairs leading up. They creak ominously. The top 5% seems to be the trigger point.',
+        'Computer Area': '💬 An ancient computer with a CRT monitor. The screen shows a terminal with "BTC: $12" and "Status: Rage Quit".',
+        'Light Bulb Area': '💬 A single light bulb hanging from the ceiling. It flickers occasionally.',
+        'Windows Area': '💬 Dirty windows showing the dark outside. You can see your reflection in the glass.'
+    };
+    
+    const message = inspectionMessages[hotspot.name] || `💬 You carefully examine ${hotspot.name}`;
+    showFloatingText(message, x, y);
+}
+
+// Handle TAKE command
+function handleTakeCommand(hotspot, x, y) {
+    console.log(`TAKE command on: ${hotspot.name}`);
+    
+    const takeableItems = {
+        'Desk Area': '💬 You can\'t take the desk, but you find a USB drive with "Important Stuff" written on it.',
+        'Boxes Area': '💬 The boxes are too heavy to carry, but you find a small key in one of them.',
+        'Armchair Area': '💬 You can\'t take the armchair, but you find $12 in the wallet.',
+        'Washing Machine Area': '💬 You can\'t take the washing machine, but you find a sock with a hole in it.',
+        'Stairs Area': '💬 You can\'t take the stairs, but you find a loose nail.',
+        'Computer Area': '💬 You can\'t take the computer, but you find a floppy disk.',
+        'Light Bulb Area': '💬 You can\'t take the light bulb, but you find a dead fly.',
+        'Windows Area': '💬 You can\'t take the windows, but you find a spider web.'
+    };
+    
+    const message = takeableItems[hotspot.name] || `💬 You can\'t take ${hotspot.name}`;
+    showFloatingText(message, x, y);
+}
+
+// Handle TALK command
+function handleTalkCommand(hotspot, x, y) {
+    console.log(`TALK command on: ${hotspot.name}`);
+    
+    const talkResponses = {
+        'Desk Area': '💬 "Hello desk!" - No response. It\'s just a desk.',
+        'Boxes Area': '💬 "Hello boxes!" - You hear a faint rustling sound.',
+        'Armchair Area': '💬 "Hello chair!" - The chair remains silent.',
+        'Washing Machine Area': '💬 "Hello washing machine!" - It continues spinning.',
+        'Stairs Area': '💬 "Hello stairs!" - They creak in response.',
+        'Computer Area': '💬 "Hello computer!" - The terminal beeps.',
+        'Light Bulb Area': '💬 "Hello light bulb!" - It flickers.',
+        'Windows Area': '💬 "Hello windows!" - Your echo bounces back.'
+    };
+    
+    const message = talkResponses[hotspot.name] || `💬 You talk to ${hotspot.name} but get no response`;
+    showFloatingText(message, x, y);
+}
+
+// Handle MOVE command
+function handleMoveCommand(hotspot, x, y) {
+    console.log(`MOVE command on: ${hotspot.name}`);
+    
+    const moveResponses = {
+        'Desk Area': '💬 The desk is too heavy to move.',
+        'Boxes Area': '💬 You try to move the boxes but they\'re stuck.',
+        'Armchair Area': '💬 You move the armchair slightly. It makes a scraping sound.',
+        'Washing Machine Area': '💬 The washing machine is bolted to the floor.',
+        'Stairs Area': '💬 You can\'t move the stairs, but you can climb them.',
+        'Computer Area': '💬 The computer is too heavy to move.',
+        'Light Bulb Area': '💬 You can\'t move the light bulb, it\'s attached to the ceiling.',
+        'Windows Area': '💬 You can\'t move the windows, they\'re part of the wall.'
+    };
+    
+    const message = moveResponses[hotspot.name] || `💬 You can\'t move ${hotspot.name}`;
+    showFloatingText(message, x, y);
+}
+
+// Handle OPEN command
+function handleOpenCommand(hotspot, x, y) {
+    console.log(`OPEN command on: ${hotspot.name}`);
+    
+    const openResponses = {
+        'Desk Area': '💬 You open the desk drawer and find some old receipts.',
+        'Boxes Area': '💬 You open one of the boxes and find failed NFT projects.',
+        'Armchair Area': '💬 You can\'t open the armchair, it\'s not a container.',
+        'Washing Machine Area': '💬 You open the washing machine door. It\'s full of socks.',
+        'Stairs Area': '💬 You can\'t open the stairs, they\'re not a container.',
+        'Computer Area': '💬 You open the computer case and find dust.',
+        'Light Bulb Area': '💬 You can\'t open the light bulb, it\'s not a container.',
+        'Windows Area': '💬 You try to open the windows but they\'re stuck.'
+    };
+    
+    const message = openResponses[hotspot.name] || `💬 You can\'t open ${hotspot.name}`;
+    showFloatingText(message, x, y);
+}
+
+// Handle CLOSE command
+function handleCloseCommand(hotspot, x, y) {
+    console.log(`CLOSE command on: ${hotspot.name}`);
+    
+    const closeResponses = {
+        'Desk Area': '💬 You close the desk drawer.',
+        'Boxes Area': '💬 You close the box lid.',
+        'Armchair Area': '💬 You can\'t close the armchair, it\'s not open.',
+        'Washing Machine Area': '💬 You close the washing machine door.',
+        'Stairs Area': '💬 You can\'t close the stairs, they\'re not open.',
+        'Computer Area': '💬 You close the computer case.',
+        'Light Bulb Area': '💬 You can\'t close the light bulb, it\'s not open.',
+        'Windows Area': '💬 You try to close the windows but they\'re already closed.'
+    };
+    
+    const message = closeResponses[hotspot.name] || `💬 You can\'t close ${hotspot.name}`;
+    showFloatingText(message, x, y);
 }
 
 // Show floating text over the image
