@@ -323,6 +323,15 @@ class MenuManager {
             console.log('Found leftGrid, clearing content...');
             leftGrid.innerHTML = '';
             
+            // Forzar estilos inline en el grid para debug
+            leftGrid.style.display = 'grid';
+            leftGrid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+            leftGrid.style.gap = '8px';
+            leftGrid.style.visibility = 'visible';
+            leftGrid.style.opacity = '1';
+            leftGrid.style.minHeight = '100px';
+            leftGrid.style.border = '1px solid red'; // Debug border
+            
             if (this.inventoryItems.length === 0) {
                 leftGrid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
                 console.log('No inventory items to display');
@@ -369,6 +378,17 @@ class MenuManager {
             
             // Forzar reflow para asegurar que los elementos se muestren
             leftGrid.offsetHeight;
+            
+            // Log dimensiones del grid
+            const gridRect = leftGrid.getBoundingClientRect();
+            console.log('Grid dimensions:', {
+                width: gridRect.width,
+                height: gridRect.height,
+                top: gridRect.top,
+                left: gridRect.left,
+                bottom: gridRect.bottom,
+                right: gridRect.right
+            });
         }
         
         if (rightGrid) {
