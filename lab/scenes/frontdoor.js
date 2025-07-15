@@ -69,8 +69,8 @@ class FrontDoorScene extends BaseScene {
                 showFloatingText('💬 You exit AdrianLAB and return to the outside...', x, y);
                 setTimeout(() => {
                     // Volver a la escena outside
-                    if (window.sceneManager) {
-                        window.sceneManager.loadScene('outside');
+                    if (typeof sceneManager !== 'undefined') {
+                        sceneManager.loadScene('outside');
                     }
                 }, 1500);
                 break;
