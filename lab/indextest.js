@@ -341,11 +341,20 @@ class MenuManager {
                         const itemElement = this.createInventoryItemElement(item);
                         leftGrid.appendChild(itemElement);
                         console.log('Added inventory item:', item.title);
+                        console.log('Item element created:', itemElement);
+                        console.log('Item element HTML:', itemElement.outerHTML);
+                        console.log('Left grid children count:', leftGrid.children.length);
                     });
                 }
             }
         } else {
             console.error('inventory-grid-left not found!');
+        }
+        
+        // Log final state
+        if (leftGrid) {
+            console.log('Final left grid HTML:', leftGrid.innerHTML);
+            console.log('Final left grid children:', leftGrid.children.length);
         }
         
         if (rightGrid) {
