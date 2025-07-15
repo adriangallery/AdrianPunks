@@ -320,6 +320,7 @@ class MenuManager {
         }
         
         if (leftGrid) {
+            console.log('Found leftGrid, clearing content...');
             leftGrid.innerHTML = '';
             
             if (this.inventoryItems.length === 0) {
@@ -337,6 +338,7 @@ class MenuManager {
                     leftGrid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
                     console.log('No compatible tokens found');
                 } else {
+                    console.log('About to add', inventoryTokens.length, 'items to inventory grid');
                     inventoryTokens.forEach(item => {
                         const itemElement = this.createInventoryItemElement(item);
                         leftGrid.appendChild(itemElement);
