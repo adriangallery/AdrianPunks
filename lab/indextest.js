@@ -427,8 +427,37 @@ class MenuManager {
 // Instancia global del MenuManager
 const menuManager = new MenuManager();
 
+// Load scene manager and scenes
+async function loadSceneManager() {
+    try {
+        console.log('Loading scene manager...');
+        
+        // Load scene manager script
+        await loadScript('scenes/scene-manager.js');
+        
+        // Load all scenes
+        await sceneManager.loadScenes();
+        
+        console.log('Scene manager loaded successfully');
+        
+    } catch (error) {
+        console.error('Error loading scene manager:', error);
+    }
+}
+
+// Helper function to load scripts
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
+}
+
 // Initialization
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     console.log('DOM loaded, initializing indextest.js...');
     
     // Initialize DOM elements
@@ -437,6 +466,10 @@ document.addEventListener('DOMContentLoaded', function() {
     detectMobile();
     initializeApp();
     setupEventListeners();
+    
+    // Load scene manager and scenes
+    await loadSceneManager();
+    
     startIntro();
 });
 
@@ -560,8 +593,8 @@ function setupEventListeners() {
         window.ethereum.on('chainChanged', handleChainChanged);
     }
     
-    // Setup menu manager for initial state
-    menuManager.setupSceneEventListeners('main-screen');
+    // Scene manager will handle scene-specific event listeners
+    console.log('Event listeners setup complete');
 }
 
 // ===== COMMAND SYSTEM =====
@@ -680,7 +713,7 @@ function handleIntroClick(event) {
 }
 
 function goToMainScreenFromIntro() {
-    console.log('Starting transition to main screen from intro');
+    console.log('Starting transition to outside scene from intro');
     
     // Fade out intro (7 seconds - changed from 5)
     introScreen.style.opacity = '0';
@@ -690,56 +723,47 @@ function goToMainScreenFromIntro() {
         introScreen.classList.remove('active');
         introScreen.style.display = 'none';
         
-        // Ensure progress bar is hidden when basement appears
+        // Ensure progress bar is hidden when outside appears
         const progressContainer = document.querySelector('.progress-container');
         if (progressContainer) {
             progressContainer.style.display = 'none';
-            console.log('Progress bar hidden on basement transition');
+            console.log('Progress bar hidden on outside transition');
         }
         
-        // Fade in main screen
-        mainScreen.style.display = 'block';
-        mainScreen.style.opacity = '0';
-        mainScreen.style.transition = 'opacity 2s ease-in-out';
+        // Load ethers.js when entering outside scene
+        if (!ethersLoaded) {
+            loadEthersWhenNeeded();
+        }
         
-        setTimeout(() => {
-            mainScreen.classList.add('active');
-            mainScreen.style.opacity = '1';
-            
-            // Load ethers.js when entering main screen
-            if (!ethersLoaded) {
-                loadEthersWhenNeeded();
-            }
-            
-            // Initialize point & click system
-            setTimeout(() => {
-                initializePointAndClickSystem();
-            }, 100);
-        }, 100);
+        // Change to outside scene (first scene)
+        if (sceneManager) {
+            sceneManager.changeScene('outside');
+        } else {
+            console.error('Scene manager not loaded');
+        }
     }, 7000);
 }
 
 function goToMainScreen() {
-    floppyScreen.classList.remove('active');
-    floppyScreen.style.opacity = '0';
-    floppyScreen.style.transition = 'opacity 2s ease-in-out';
+    console.log('Going to main screen (basement)');
     
-    setTimeout(() => {
-        floppyScreen.style.display = 'none';
-        mainScreen.style.display = 'block';
-        mainScreen.style.opacity = '0';
-        mainScreen.style.transition = 'opacity 2s ease-in-out';
+    // Hide floppy screen if it's active
+    if (floppyScreen.classList.contains('active')) {
+        floppyScreen.classList.remove('active');
+        floppyScreen.style.opacity = '0';
+        floppyScreen.style.transition = 'opacity 2s ease-in-out';
         
         setTimeout(() => {
-            mainScreen.classList.add('active');
-            mainScreen.style.opacity = '1';
-            
-            // Initialize point & click system when returning from floppy screen
-            setTimeout(() => {
-                initializePointAndClickSystem();
-            }, 100);
-        }, 100);
-    }, 2000);
+            floppyScreen.style.display = 'none';
+        }, 2000);
+    }
+    
+    // Change to basement scene (main scene)
+    if (sceneManager) {
+        sceneManager.changeScene('basement');
+    } else {
+        console.error('Scene manager not loaded');
+    }
 }
 
 async function loadEthersWhenNeeded() {
@@ -786,26 +810,12 @@ function goToFloppyScreen() {
 function goToUpstairs() {
     console.log('Going to upstairs');
     
-    // Hide all screens
-    introScreen.style.display = 'none';
-    mainScreen.style.display = 'none';
-    floppyScreen.style.display = 'none';
-    
-    // Show upstairs screen
-    let upstairsScreen = document.getElementById('upstairs-screen');
-    if (upstairsScreen) {
-        upstairsScreen.style.display = 'block';
-        upstairsScreen.classList.add('active');
+    // Change to upstairs scene using scene manager
+    if (sceneManager) {
+        sceneManager.changeScene('upstairs');
     } else {
-        // Create upstairs screen if it doesn't exist
-        createUpstairsScreen();
-        upstairsScreen = document.getElementById('upstairs-screen');
-        upstairsScreen.style.display = 'block';
-        upstairsScreen.classList.add('active');
+        console.error('Scene manager not loaded');
     }
-    
-    // Update wallet UI for upstairs
-    updateWalletUI();
 }
 
 function createUpstairsScreen() {
@@ -1727,10 +1737,6 @@ function updateWalletForInventory() {
 function initializePointAndClickSystem() {
     console.log('Initializing point & click system');
     initializePointAndClick();
-    
-    // Setup menu manager for main screen
-    menuManager.setupSceneEventListeners('main-screen');
-    menuManager.initializeCommandSystem('main-screen');
     
     // Check if wallet is already connected
     if (window.ethereum && window.ethereum.selectedAddress) {
