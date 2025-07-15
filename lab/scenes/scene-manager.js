@@ -19,9 +19,6 @@ class SceneManager {
         console.log('Loading all scenes...');
         
         try {
-            // Cargar MenuManager primero
-            await this.loadScript('scenes/menu-manager.js');
-            
             // Cargar la clase base
             await this.loadScript('scenes/base-scene.js');
             
