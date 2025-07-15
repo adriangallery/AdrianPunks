@@ -1416,6 +1416,85 @@ function showNotification(message, type = 'info') {
     }, 5000);
 }
 
+// Show error message
+function showError(message) {
+    showNotification(message, 'error');
+}
+
+// Show success message
+function showSuccess(message) {
+    showNotification(message, 'success');
+}
+
+// Hide all messages
+function hideMessages() {
+    const notifications = document.querySelectorAll('.notification');
+    notifications.forEach(notification => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    });
+}
+
+// Disconnect wallet
+function disconnectWallet() {
+    currentAccount = null;
+    inventoryItems = [];
+    selectedInventoryItem = null;
+    isWalletConnected = false;
+    
+    // Update UI
+    if (connectWalletBtn) {
+        connectWalletBtn.textContent = 'Connect Wallet';
+        connectWalletBtn.style.background = '#000';
+        connectWalletBtn.style.color = '#00ff00';
+    }
+    
+    // Update MenuManager
+    if (menuManager) {
+        menuManager.updateWalletState(false);
+    }
+    
+    // Clear inventory display
+    const inventoryGrid = document.querySelector('.inventory-grid');
+    if (inventoryGrid) {
+        inventoryGrid.innerHTML = '<div class="no-items">No items found. Connect wallet to load inventory.</div>';
+    }
+    
+    hideMessages();
+    showSuccess("Wallet disconnected successfully!");
+}
+
+// Check if wallet is connected
+async function checkConnection() {
+    if (window.ethereum) {
+        try {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            if (accounts.length > 0) {
+                await connectWallet();
+            }
+        } catch (error) {
+            console.error("Failed to check connection:", error);
+        }
+    }
+}
+
+// Show loading indicator
+function showLoading() {
+    const loadingElement = document.querySelector('.loading');
+    if (loadingElement) {
+        loadingElement.style.display = 'block';
+    }
+}
+
+// Hide loading indicator
+function hideLoading() {
+    const loadingElement = document.querySelector('.loading');
+    if (loadingElement) {
+        loadingElement.style.display = 'none';
+    }
+}
+
 // Prevent right-click context menu
 document.addEventListener('contextmenu', e => e.preventDefault());
 
