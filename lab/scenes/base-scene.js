@@ -193,7 +193,7 @@ class BaseScene {
                     <!-- Middle section: Inventory Left -->
                     <div class="footer-section inventory-section-left">
                         <div class="section-header">Inventory</div>
-                        <div id="inventory-grid-left-${this.sceneId}" class="inventory-grid">
+                        <div id="inventory-grid-left" class="inventory-grid">
                             <div class="no-items">Connect wallet to load inventory.</div>
                         </div>
                     </div>
@@ -201,7 +201,7 @@ class BaseScene {
                     <!-- Right section: Inventory Right -->
                     <div class="footer-section inventory-section-right">
                         <div class="section-header">Items</div>
-                        <div id="inventory-grid-right-${this.sceneId}" class="inventory-grid">
+                        <div id="inventory-grid-right" class="inventory-grid">
                             <div class="no-items">No items found.</div>
                         </div>
                     </div>
@@ -248,6 +248,12 @@ class BaseScene {
         // Configurar MenuManager para esta escena
         menuManager.setupSceneEventListeners(this.sceneId);
         menuManager.initializeCommandSystem(this.sceneId);
+        
+        // Actualizar inventario en la nueva escena
+        if (menuManager.inventoryItems.length > 0) {
+            console.log('Updating inventory for new scene');
+            menuManager.displayInventory();
+        }
     }
 
     // Ocultar la escena

@@ -303,31 +303,37 @@ class MenuManager {
     displayInventory() {
         console.log('Displaying inventory items:', this.inventoryItems);
         
-        // Obtener todos los grids de inventario en todas las escenas
-        const inventoryGrids = document.querySelectorAll('[id*="inventory-grid"]');
+        // Update common inventory grids (left and right)
+        const leftGrid = document.getElementById('inventory-grid-left');
+        const rightGrid = document.getElementById('inventory-grid-right');
         
-        inventoryGrids.forEach(grid => {
-            grid.innerHTML = "";
+        console.log('Found inventory grids - Left:', !!leftGrid, 'Right:', !!rightGrid);
+        
+        if (leftGrid) {
+            leftGrid.innerHTML = '';
             
             if (this.inventoryItems.length === 0) {
-                grid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
-                return;
-            }
-            
-            // Filtrar tokens para esta escena específica
-            const inventoryTokens = this.inventoryItems.filter(item => 
-                item.tokenId === 10000 || item.tokenId === 10001 || item.tokenId === 10002
-            );
-            
-            if (inventoryTokens.length === 0) {
-                grid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
+                leftGrid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
             } else {
-                inventoryTokens.forEach(item => {
-                    const itemElement = this.createInventoryItemElement(item);
-                    grid.appendChild(itemElement);
-                });
+                // Filtrar tokens para esta escena específica
+                const inventoryTokens = this.inventoryItems.filter(item => 
+                    item.tokenId === 10000 || item.tokenId === 10001 || item.tokenId === 10002
+                );
+                
+                if (inventoryTokens.length === 0) {
+                    leftGrid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
+                } else {
+                    inventoryTokens.forEach(item => {
+                        const itemElement = this.createInventoryItemElement(item);
+                        leftGrid.appendChild(itemElement);
+                    });
+                }
             }
-        });
+        }
+        
+        if (rightGrid) {
+            rightGrid.innerHTML = '<div class="no-items">No items found.</div>';
+        }
     }
 
     // Crear elemento de inventario
@@ -368,15 +374,20 @@ class MenuManager {
 
     // Mostrar mensaje de no items
     showNoItems() {
-        const inventoryGrids = document.querySelectorAll('[id*="inventory-grid"]');
-        inventoryGrids.forEach(grid => {
-            grid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
-        });
+        const leftGrid = document.getElementById('inventory-grid-left');
+        const rightGrid = document.getElementById('inventory-grid-right');
+        
+        if (leftGrid) {
+            leftGrid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
+        }
+        if (rightGrid) {
+            rightGrid.innerHTML = '<div class="no-items">No items found.</div>';
+        }
     }
 
     // Mostrar/ocultar loading de inventario
     showInventoryLoading() {
-        const inventoryGrids = document.querySelectorAll('[id*="inventory-grid"]');
+        const leftGrid = document.getElementById('inventory-grid-left');
         const loadingHTML = `
             <div class="loading">
                 <div class="spinner"></div>
@@ -384,9 +395,9 @@ class MenuManager {
             </div>
         `;
         
-        inventoryGrids.forEach(grid => {
-            grid.innerHTML = loadingHTML;
-        });
+        if (leftGrid) {
+            leftGrid.innerHTML = loadingHTML;
+        }
     }
 
     hideInventoryLoading() {
@@ -1813,8 +1824,23 @@ function showFloatingText(message, x, y) {
     floatingText.className = 'floating-text';
     floatingText.textContent = message;
     
-    // Position the text near the click but ensure it's visible
-    const gameArea = document.querySelector('.background-container');
+    // Find the active scene's background container
+    let gameArea = null;
+    
+    // Check for active scene first
+    const activeScene = document.querySelector('.screen.active .background-container');
+    if (activeScene) {
+        gameArea = activeScene;
+    } else {
+        // Fallback to any background container
+        gameArea = document.querySelector('.background-container');
+    }
+    
+    if (!gameArea) {
+        console.error('No background container found for floating text');
+        return;
+    }
+    
     const rect = gameArea.getBoundingClientRect();
     
     // Convert percentage to pixels
