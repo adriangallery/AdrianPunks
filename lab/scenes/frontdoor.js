@@ -87,20 +87,6 @@ class FrontDoorScene extends BaseScene {
         }
     }
 
-    handleInspectCommand(hotspot, x, y) {
-        console.log(`INSPECT command on: ${hotspot.name}`);
-        
-        const inspectionMessages = {
-            'Main Hall': '💬 A spacious hall with high ceilings. The walls are covered with scientific posters and schematics. You can hear the hum of machinery from below.',
-            'Reception Desk': '💬 The desk has an old CRT monitor displaying a login screen. There\'s a guest book and some brochures about AdrianLAB\'s research.',
-            'Exit Door': '💬 A heavy metal door with security features. There\'s a sign that reads "Authorized Personnel Only" but it\'s crossed out.',
-            'Stairs Down': '💬 Metal stairs leading down to the basement. You can see flickering lights and hear strange sounds coming from below.'
-        };
-        
-        const message = inspectionMessages[hotspot.name] || `💬 You carefully examine ${hotspot.name}`;
-        showFloatingText(message, x, y);
-    }
-
     handleTakeCommand(hotspot, x, y) {
         console.log(`TAKE command on: ${hotspot.name}`);
         
@@ -115,45 +101,17 @@ class FrontDoorScene extends BaseScene {
         showFloatingText(message, x, y);
     }
 
-    handleTalkCommand(hotspot, x, y) {
-        console.log(`TALK command on: ${hotspot.name}`);
+    handleCloseCommand(hotspot, x, y) {
+        console.log(`CLOSE command on: ${hotspot.name}`);
         
-        const talkResponses = {
-            'Main Hall': '💬 "Hello hall!" - Your voice echoes through the empty space.',
-            'Reception Desk': '💬 "Hello desk!" - The computer terminal beeps in response.',
-            'Exit Door': '💬 "Hello door!" - The door remains silent.',
-            'Stairs Down': '💬 "Hello stairs!" - You hear a distant echo from below.'
+        const closeResponses = {
+            'Main Hall': '💬 You can\'t close the hall, it\'s an open space.',
+            'Reception Desk': '💬 You close the desk drawer.',
+            'Exit Door': '💬 The exit door is already closed.',
+            'Stairs Down': '💬 You can\'t close the stairs, they\'re always open.'
         };
         
-        const message = talkResponses[hotspot.name] || `💬 You talk to ${hotspot.name} but get no response`;
-        showFloatingText(message, x, y);
-    }
-
-    handleMoveCommand(hotspot, x, y) {
-        console.log(`MOVE command on: ${hotspot.name}`);
-        
-        const moveResponses = {
-            'Main Hall': '💬 You can\'t move the hall, it\'s part of the building.',
-            'Reception Desk': '💬 The desk is bolted to the floor and too heavy to move.',
-            'Exit Door': '💬 The door is too heavy to move.',
-            'Stairs Down': '💬 You can\'t move the stairs, they\'re part of the building structure.'
-        };
-        
-        const message = moveResponses[hotspot.name] || `💬 You can\'t move ${hotspot.name}`;
-        showFloatingText(message, x, y);
-    }
-
-    handleOpenCommand(hotspot, x, y) {
-        console.log(`OPEN command on: ${hotspot.name}`);
-        
-        const openResponses = {
-            'Main Hall': '💬 You can\'t open the hall, it\'s not a container.',
-            'Reception Desk': '💬 You open the desk drawer and find some office supplies.',
-            'Exit Door': '💬 You try to open the exit door but it\'s locked from the outside.',
-            'Stairs Down': '💬 You can\'t open the stairs, they\'re not a container.'
-        };
-        
-        const message = openResponses[hotspot.name] || `💬 You can\'t open ${hotspot.name}`;
+        const message = closeResponses[hotspot.name] || `💬 You can\'t close ${hotspot.name}`;
         showFloatingText(message, x, y);
     }
 }

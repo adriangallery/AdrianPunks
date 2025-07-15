@@ -71,23 +71,11 @@ class BaseScene {
             case 'use':
                 this.handleUseCommand(hotspot, x, y);
                 break;
-            case 'inspect':
-                this.handleInspectCommand(hotspot, x, y);
-                break;
             case 'take':
                 this.handleTakeCommand(hotspot, x, y);
                 break;
-            case 'talk':
-                this.handleTalkCommand(hotspot, x, y);
-                break;
-            case 'move':
-                this.handleMoveCommand(hotspot, x, y);
-                break;
-            case 'open':
-                this.handleOpenCommand(hotspot, x, y);
-                break;
-            case 'test':
-                this.handleTestCommand(hotspot, x, y);
+            case 'close':
+                this.handleCloseCommand(hotspot, x, y);
                 break;
             default:
                 this.handleExploreCommand(hotspot, x, y);
@@ -100,8 +88,8 @@ class BaseScene {
         
         if (command === 'explore') {
             showNotification(`You clicked at ${x.toFixed(1)}%, ${y.toFixed(1)}%`);
-        } else if (command === 'test') {
-            showFloatingText(`🔧 TEST MODE\nCoordinates: ${x.toFixed(1)}%, ${y.toFixed(1)}%\n\nClick anywhere to see coordinates!`, x, y);
+        } else if (command === 'close') {
+            showFloatingText(`💬 Nothing to close here`, x, y);
         }
     }
 
@@ -118,29 +106,12 @@ class BaseScene {
         showFloatingText(`💬 You can't use ${hotspot.name}`, x, y);
     }
 
-    handleInspectCommand(hotspot, x, y) {
-        showFloatingText(`💬 You carefully examine ${hotspot.name}`, x, y);
-    }
-
     handleTakeCommand(hotspot, x, y) {
         showFloatingText(`💬 You can't take ${hotspot.name}`, x, y);
     }
 
-    handleTalkCommand(hotspot, x, y) {
-        showFloatingText(`💬 You talk to ${hotspot.name} but get no response`, x, y);
-    }
-
-    handleMoveCommand(hotspot, x, y) {
-        showFloatingText(`💬 You can't move ${hotspot.name}`, x, y);
-    }
-
-    handleOpenCommand(hotspot, x, y) {
-        showFloatingText(`💬 You can't open ${hotspot.name}`, x, y);
-    }
-
-    handleTestCommand(hotspot, x, y) {
-        const message = `🔧 TEST MODE\nHotspot: ${hotspot.name}\nCoordinates: ${x.toFixed(1)}%, ${y.toFixed(1)}%\nAction: ${hotspot.action || 'none'}\n\nClick anywhere to see coordinates!`;
-        showFloatingText(message, x, y);
+    handleCloseCommand(hotspot, x, y) {
+        showFloatingText(`💬 You can't close ${hotspot.name}`, x, y);
     }
 
     // Crear elemento HTML de la escena
@@ -180,13 +151,9 @@ class BaseScene {
                         <div class="section-header">Commands</div>
                         <div class="commands-grid">
                             <button class="command-btn">EXPLORE</button>
-                            <button class="command-btn">INSPECT</button>
                             <button class="command-btn">USE</button>
                             <button class="command-btn">TAKE</button>
-                            <button class="command-btn">TALK</button>
-                            <button class="command-btn">MOVE</button>
-                            <button class="command-btn">OPEN</button>
-                            <button class="command-btn">TEST</button>
+                            <button class="command-btn">CLOSE</button>
                         </div>
                     </div>
                     
