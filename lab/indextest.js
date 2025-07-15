@@ -323,15 +323,6 @@ class MenuManager {
             console.log('Found leftGrid, clearing content...');
             leftGrid.innerHTML = '';
             
-            // Forzar estilos inline en el grid para debug
-            leftGrid.style.display = 'grid';
-            leftGrid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-            leftGrid.style.gap = '8px';
-            leftGrid.style.visibility = 'visible';
-            leftGrid.style.opacity = '1';
-            leftGrid.style.minHeight = '100px';
-            leftGrid.style.border = '1px solid red'; // Debug border
-            
             if (this.inventoryItems.length === 0) {
                 leftGrid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
                 console.log('No inventory items to display');
@@ -347,20 +338,10 @@ class MenuManager {
                     leftGrid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
                     console.log('No compatible tokens found');
                 } else {
-                    console.log('About to add', inventoryTokens.length, 'items to inventory grid');
                     inventoryTokens.forEach(item => {
                         const itemElement = this.createInventoryItemElement(item);
                         leftGrid.appendChild(itemElement);
                         console.log('Added inventory item:', item.title);
-                        console.log('Item element created:', itemElement);
-                        console.log('Item element HTML:', itemElement.outerHTML);
-                        console.log('Left grid children count:', leftGrid.children.length);
-                        
-                        // Verificar estilos del elemento agregado
-                        const computedStyle = window.getComputedStyle(itemElement);
-                        console.log('Item element display:', computedStyle.display);
-                        console.log('Item element visibility:', computedStyle.visibility);
-                        console.log('Item element opacity:', computedStyle.opacity);
                     });
                 }
             }
@@ -368,28 +349,7 @@ class MenuManager {
             console.error('inventory-grid-left not found!');
         }
         
-        // Log final state
-        if (leftGrid) {
-            console.log('Final left grid HTML:', leftGrid.innerHTML);
-            console.log('Final left grid children:', leftGrid.children.length);
-            console.log('Left grid computed style display:', window.getComputedStyle(leftGrid).display);
-            console.log('Left grid computed style visibility:', window.getComputedStyle(leftGrid).visibility);
-            console.log('Left grid computed style opacity:', window.getComputedStyle(leftGrid).opacity);
-            
-            // Forzar reflow para asegurar que los elementos se muestren
-            leftGrid.offsetHeight;
-            
-            // Log dimensiones del grid
-            const gridRect = leftGrid.getBoundingClientRect();
-            console.log('Grid dimensions:', {
-                width: gridRect.width,
-                height: gridRect.height,
-                top: gridRect.top,
-                left: gridRect.left,
-                bottom: gridRect.bottom,
-                right: gridRect.right
-            });
-        }
+
         
         if (rightGrid) {
             rightGrid.innerHTML = '<div class="no-items">No items found.</div>';
@@ -400,27 +360,13 @@ class MenuManager {
     createInventoryItemElement(item) {
         const itemElement = document.createElement('div');
         itemElement.className = 'inventory-item';
-        // Forzar estilos inline para debug
-        itemElement.style.display = 'flex';
-        itemElement.style.visibility = 'visible';
-        itemElement.style.opacity = '1';
-        itemElement.style.background = 'rgba(255, 255, 255, 0.1)';
-        itemElement.style.border = '1px solid #00ff00';
-        itemElement.style.borderRadius = '6px';
-        itemElement.style.padding = '8px';
-        itemElement.style.textAlign = 'center';
-        itemElement.style.cursor = 'pointer';
-        itemElement.style.aspectRatio = '1';
-        itemElement.style.flexDirection = 'column';
-        itemElement.style.justifyContent = 'center';
-        itemElement.style.alignItems = 'center';
         
         const imageUrl = item.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjIwIiB5PSIyMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+';
         
         itemElement.innerHTML = `
-            <img src="${imageUrl}" alt="${item.title}" class="inventory-img" style="width: 40px; height: 40px; object-fit: contain; margin-bottom: 4px; border-radius: 4px;" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjIwIiB5PSIyMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+">
-            <div class="item-name" style="color: #00ff00; font-size: 0.7rem; font-weight: bold; line-height: 1.1; margin-bottom: 2px;">${item.title}</div>
-            <div class="item-id" style="color: #888; font-size: 0.6rem; line-height: 1;">ID: ${item.tokenId}</div>
+            <img src="${imageUrl}" alt="${item.title}" class="inventory-img" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjIwIiB5PSIyMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+">
+            <div class="item-name">${item.title}</div>
+            <div class="item-id">ID: ${item.tokenId}</div>
         `;
         
         // Agregar evento click para selección de item
