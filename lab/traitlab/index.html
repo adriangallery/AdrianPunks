@@ -940,30 +940,38 @@
                             // Extract image URL
                             let mediaUrl = "";
                             
-                            // Try multiple locations for image URL
-                            if (nft.raw && nft.raw.metadata && nft.raw.metadata.image) {
-                                mediaUrl = nft.raw.metadata.image;
-                            } else if (nft.media && Array.isArray(nft.media) && nft.media.length > 0) {
-                                const mediaSources = ['gateway', 'raw', 'thumbnail', 'format'];
-                                for (const source of mediaSources) {
-                                    if (nft.media[0][source] && typeof nft.media[0][source] === 'string') {
-                                        mediaUrl = nft.media[0][source];
-                                        break;
+                            // For ERC721 tokens (AdrianZERO), use the specific render API format
+                            if (isERC721) {
+                                // Use the working format for AdrianZERO tokens
+                                const timestamp = Date.now();
+                                mediaUrl = `https://adrianlab.vercel.app/api/render/${tokenIdInt}.png?v=${timestamp}`;
+                            } else {
+                                // For ERC1155 tokens, use the original logic
+                                // Try multiple locations for image URL
+                                if (nft.raw && nft.raw.metadata && nft.raw.metadata.image) {
+                                    mediaUrl = nft.raw.metadata.image;
+                                } else if (nft.media && Array.isArray(nft.media) && nft.media.length > 0) {
+                                    const mediaSources = ['gateway', 'raw', 'thumbnail', 'format'];
+                                    for (const source of mediaSources) {
+                                        if (nft.media[0][source] && typeof nft.media[0][source] === 'string') {
+                                            mediaUrl = nft.media[0][source];
+                                            break;
+                                        }
+                                    }
+                                } else if (nft.metadata) {
+                                    const imageProps = ['image', 'image_url', 'imageUrl', 'imageURI', 'image_uri', 'imageData'];
+                                    for (const prop of imageProps) {
+                                        if (nft.metadata[prop] && typeof nft.metadata[prop] === 'string') {
+                                            mediaUrl = nft.metadata[prop];
+                                            break;
+                                        }
                                     }
                                 }
-                            } else if (nft.metadata) {
-                                const imageProps = ['image', 'image_url', 'imageUrl', 'imageURI', 'image_uri', 'imageData'];
-                                for (const prop of imageProps) {
-                                    if (nft.metadata[prop] && typeof nft.metadata[prop] === 'string') {
-                                        mediaUrl = nft.metadata[prop];
-                                        break;
-                                    }
+                                
+                                // Clean up IPFS URLs
+                                if (mediaUrl && mediaUrl.startsWith('ipfs://')) {
+                                    mediaUrl = mediaUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
                                 }
-                            }
-                            
-                            // Clean up IPFS URLs
-                            if (mediaUrl && mediaUrl.startsWith('ipfs://')) {
-                                mediaUrl = mediaUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
                             }
                             
                             // Extract category from metadata for ERC1155 tokens
