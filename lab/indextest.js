@@ -43,6 +43,390 @@ let introScreen, mainScreen, floppyScreen, introImage, backgroundMusic, muteButt
 let connectWalletBtn, clickArea, mintPopup, closePopupBtn, buyFloppyBtn, backToMainBtn;
 let progressFill, progressText;
 
+// Menu Manager - Sistema modular para manejar menús en todas las escenas
+class MenuManager {
+    constructor() {
+        this.currentCommand = 'explore';
+        this.commandButtons = {};
+        this.currentAccount = null;
+        this.inventoryItems = [];
+        this.selectedInventoryItem = null;
+        this.isWalletConnected = false;
+    }
+
+    // Inicializar el sistema de comandos para cualquier escena
+    initializeCommandSystem(screenId = null) {
+        console.log(`Initializing command system for screen: ${screenId || 'all'}`);
+        
+        // Obtener botones de comando del contexto especificado
+        const selector = screenId ? `#${screenId} .command-btn` : '.command-btn';
+        const commandBtns = document.querySelectorAll(selector);
+        
+        commandBtns.forEach(btn => {
+            const command = btn.textContent.toLowerCase();
+            this.commandButtons[command] = btn;
+            
+            // Remover listeners existentes para evitar duplicados
+            btn.removeEventListener('click', this.handleCommandClick);
+            
+            // Agregar nuevo listener
+            btn.addEventListener('click', this.handleCommandClick.bind(this));
+        });
+        
+        // Establecer comando por defecto
+        this.selectCommand('explore');
+    }
+
+    // Manejar clicks en botones de comando
+    handleCommandClick(event) {
+        const command = event.target.textContent.toLowerCase();
+        this.selectCommand(command);
+    }
+
+    // Seleccionar comando
+    selectCommand(command) {
+        console.log(`Command selected: ${command}`);
+        
+        // Remover clase active de todos los botones
+        Object.values(this.commandButtons).forEach(btn => {
+            if (btn) btn.classList.remove('active');
+        });
+        
+        // Agregar clase active al botón seleccionado
+        if (this.commandButtons[command]) {
+            this.commandButtons[command].classList.add('active');
+        }
+        
+        // Actualizar comando actual
+        this.currentCommand = command;
+        
+        // Mostrar notificación
+        showNotification(`Command: ${command.toUpperCase()}`, 'info');
+    }
+
+    // Obtener comando actual
+    getCurrentCommand() {
+        return this.currentCommand;
+    }
+
+    // Actualizar estado de wallet
+    updateWalletState(connected, address = null) {
+        this.isWalletConnected = connected;
+        this.currentAccount = address;
+        
+        // Actualizar botones de wallet en todas las escenas
+        this.updateWalletButtons();
+        
+        // Cargar inventario si está conectado
+        if (connected && address) {
+            this.loadInventory();
+        } else {
+            this.clearInventory();
+        }
+    }
+
+    // Actualizar botones de wallet en todas las escenas
+    updateWalletButtons() {
+        const walletButtons = document.querySelectorAll('[id*="connect-wallet"]');
+        const shortAddress = this.isWalletConnected && window.ethereum?.selectedAddress ? 
+            window.ethereum.selectedAddress.slice(0, 6) + '...' + window.ethereum.selectedAddress.slice(-4) : 
+            'Connect Wallet';
+
+        walletButtons.forEach(btn => {
+            if (this.isWalletConnected) {
+                btn.textContent = shortAddress;
+                btn.style.background = '#00ff00';
+                btn.style.color = '#000';
+            } else {
+                btn.textContent = 'Connect Wallet';
+                btn.style.background = '#000';
+                btn.style.color = '#00ff00';
+            }
+        });
+    }
+
+    // Actualizar botones de mute en todas las escenas
+    updateMuteButtons() {
+        const muteButtons = document.querySelectorAll('[id*="mute-button"]');
+        muteButtons.forEach(btn => {
+            if (isMuted) {
+                btn.textContent = isMobile ? 'Music OFF' : '🔇';
+            } else {
+                btn.textContent = isMobile ? 'Music ON' : '🔊';
+            }
+        });
+    }
+
+    // Cargar inventario
+    async loadInventory() {
+        if (!this.currentAccount) {
+            console.log('No current account, skipping inventory load');
+            return;
+        }
+        
+        console.log('Loading inventory for account:', this.currentAccount);
+        this.showInventoryLoading();
+        
+        try {
+            const contractAddress = CONTRACTS.ERC1155;
+            const tokenType = "ERC1155";
+            
+            console.log(`Loading ${tokenType} tokens from contract: ${contractAddress}`);
+            
+            // Usar Alchemy REST API directamente
+            let alchemyUrl = `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${this.currentAccount}&contractAddresses[]=${contractAddress}&withMetadata=true&pageSize=50&tokenType=${tokenType}`;
+            
+            console.log(`Requesting NFTs with URL: ${alchemyUrl}`);
+            
+            const alchemyResponse = await fetch(alchemyUrl);
+            
+            if (!alchemyResponse.ok) {
+                throw new Error(`Error getting NFTs from Alchemy API: ${alchemyResponse.status}`);
+            }
+            
+            const nftsData = await alchemyResponse.json();
+            console.log(`NFT data received:`, nftsData);
+            
+            // Procesar NFTs y filtrar para tokens 10000, 10001, y 10002
+            if (nftsData.ownedNfts && nftsData.ownedNfts.length > 0) {
+                const tokens = nftsData.ownedNfts.map(nft => {
+                    try {
+                        // Extraer tokenId
+                        let tokenId;
+                        if (nft.tokenId) {
+                            tokenId = nft.tokenId;
+                        } else if (nft.id && nft.id.tokenId) {
+                            tokenId = nft.id.tokenId;
+                        } else {
+                            console.error("No tokenId found in NFT:", nft);
+                            return null;
+                        }
+                        
+                        // Convertir tokenId a entero
+                        let tokenIdInt;
+                        if (typeof tokenId === 'number') {
+                            tokenIdInt = tokenId;
+                        } else if (tokenId.startsWith('0x')) {
+                            tokenIdInt = parseInt(tokenId, 16);
+                        } else {
+                            tokenIdInt = parseInt(tokenId, 10);
+                        }
+                        
+                        if (isNaN(tokenIdInt)) {
+                            console.error("Invalid tokenId format:", tokenId);
+                            return null;
+                        }
+                        
+                        // Filtrar para tokens 10000, 10001, y 10002 solo
+                        if (tokenIdInt !== 10000 && tokenIdInt !== 10001 && tokenIdInt !== 10002) {
+                            return null;
+                        }
+                        
+                        // Extraer título/nombre
+                        let title = `Token #${tokenIdInt}`;
+                        
+                        if (nft.title) {
+                            title = nft.title;
+                        } else if (nft.name) {
+                            title = nft.name;
+                        } else if (nft.metadata && nft.metadata.name) {
+                            title = nft.metadata.name;
+                        } else if (nft.contract && nft.contract.name) {
+                            title = `${nft.contract.name} #${tokenIdInt}`;
+                        }
+                        
+                        // Extraer URL de imagen
+                        let mediaUrl = "";
+                        
+                        if (nft.raw && nft.raw.metadata && nft.raw.metadata.image) {
+                            mediaUrl = nft.raw.metadata.image;
+                        } else if (nft.media && Array.isArray(nft.media) && nft.media.length > 0) {
+                            const mediaSources = ['gateway', 'raw', 'thumbnail', 'format'];
+                            for (const source of mediaSources) {
+                                if (nft.media[0][source] && typeof nft.media[0][source] === 'string') {
+                                    mediaUrl = nft.media[0][source];
+                                    break;
+                                }
+                            }
+                        } else if (nft.metadata) {
+                            const imageProps = ['image', 'image_url', 'imageUrl', 'imageURI', 'image_uri', 'imageData'];
+                            for (const prop of imageProps) {
+                                if (nft.metadata[prop] && typeof nft.metadata[prop] === 'string') {
+                                    mediaUrl = nft.metadata[prop];
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Limpiar URLs de IPFS
+                        if (mediaUrl && mediaUrl.startsWith('ipfs://')) {
+                            mediaUrl = mediaUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
+                        }
+                        
+                        return {
+                            tokenId: tokenIdInt,
+                            title: title,
+                            imageUrl: mediaUrl,
+                            contract: nft.contract.address,
+                            contractName: nft.contract.name || 'Unknown Contract',
+                            tokenType: tokenType,
+                            metadata: nft.metadata || {}
+                        };
+                        
+                    } catch (err) {
+                        console.error("Error processing NFT:", err, nft);
+                        return null;
+                    }
+                }).filter(token => token !== null);
+                
+                console.log(`Filtered tokens:`, tokens);
+                this.inventoryItems = tokens;
+                this.displayInventory();
+                
+            } else {
+                this.showNoItems();
+            }
+            
+        } catch (error) {
+            console.error("Error loading inventory:", error);
+            showNotification(`Error loading inventory: ${error.message}`, 'error');
+        } finally {
+            this.hideInventoryLoading();
+        }
+    }
+
+    // Mostrar inventario
+    displayInventory() {
+        console.log('Displaying inventory items:', this.inventoryItems);
+        
+        // Obtener todos los grids de inventario en todas las escenas
+        const inventoryGrids = document.querySelectorAll('[id*="inventory-grid"]');
+        
+        inventoryGrids.forEach(grid => {
+            grid.innerHTML = "";
+            
+            if (this.inventoryItems.length === 0) {
+                grid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
+                return;
+            }
+            
+            // Filtrar tokens para esta escena específica
+            const inventoryTokens = this.inventoryItems.filter(item => 
+                item.tokenId === 10000 || item.tokenId === 10001 || item.tokenId === 10002
+            );
+            
+            if (inventoryTokens.length === 0) {
+                grid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
+            } else {
+                inventoryTokens.forEach(item => {
+                    const itemElement = this.createInventoryItemElement(item);
+                    grid.appendChild(itemElement);
+                });
+            }
+        });
+    }
+
+    // Crear elemento de inventario
+    createInventoryItemElement(item) {
+        const itemElement = document.createElement('div');
+        itemElement.className = 'inventory-item';
+        
+        const imageUrl = item.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjIwIiB5PSIyMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+';
+        
+        itemElement.innerHTML = `
+            <img src="${imageUrl}" alt="${item.title}" class="inventory-img" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjIwIiB5PSIyMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+">
+            <div class="item-name">${item.title}</div>
+            <div class="item-id">ID: ${item.tokenId}</div>
+        `;
+        
+        // Agregar evento click para selección de item
+        itemElement.addEventListener('click', () => {
+            this.selectInventoryItem(item);
+        });
+        
+        return itemElement;
+    }
+
+    // Seleccionar item de inventario
+    selectInventoryItem(item) {
+        console.log('Selected inventory item:', item);
+        this.selectedInventoryItem = item;
+        showNotification(`Selected: ${item.title} (ID: ${item.tokenId})`, 'success');
+        
+        // Actualizar feedback visual para item seleccionado
+        document.querySelectorAll('.inventory-item').forEach(el => {
+            el.classList.remove('selected');
+        });
+        
+        // Resaltar item seleccionado
+        event.target.closest('.inventory-item').classList.add('selected');
+    }
+
+    // Mostrar mensaje de no items
+    showNoItems() {
+        const inventoryGrids = document.querySelectorAll('[id*="inventory-grid"]');
+        inventoryGrids.forEach(grid => {
+            grid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
+        });
+    }
+
+    // Mostrar/ocultar loading de inventario
+    showInventoryLoading() {
+        const inventoryGrids = document.querySelectorAll('[id*="inventory-grid"]');
+        const loadingHTML = `
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Loading...</p>
+            </div>
+        `;
+        
+        inventoryGrids.forEach(grid => {
+            grid.innerHTML = loadingHTML;
+        });
+    }
+
+    hideInventoryLoading() {
+        // El estado de loading se maneja por displayInventory o showNoItems
+    }
+
+    // Limpiar inventario
+    clearInventory() {
+        this.inventoryItems = [];
+        this.selectedInventoryItem = null;
+        this.showNoItems();
+    }
+
+    // Configurar event listeners para una escena específica
+    setupSceneEventListeners(screenId) {
+        console.log(`Setting up event listeners for screen: ${screenId}`);
+        
+        // Obtener elementos de la escena
+        const screen = document.getElementById(screenId);
+        if (!screen) return;
+        
+        // Botón de mute
+        const muteButton = screen.querySelector('[id*="mute-button"]');
+        if (muteButton) {
+            muteButton.removeEventListener('click', toggleMute);
+            muteButton.addEventListener('click', toggleMute);
+        }
+        
+        // Botón de wallet
+        const walletButton = screen.querySelector('[id*="connect-wallet"]');
+        if (walletButton) {
+            walletButton.removeEventListener('click', connectWallet);
+            walletButton.addEventListener('click', connectWallet);
+        }
+        
+        // Actualizar estado visual de botones
+        this.updateWalletButtons();
+        this.updateMuteButtons();
+    }
+}
+
+// Instancia global del MenuManager
+const menuManager = new MenuManager();
+
 // Initialization
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing indextest.js...');
@@ -175,6 +559,9 @@ function setupEventListeners() {
         window.ethereum.on('accountsChanged', handleAccountsChanged);
         window.ethereum.on('chainChanged', handleChainChanged);
     }
+    
+    // Setup menu manager for initial state
+    menuManager.setupSceneEventListeners('main-screen');
 }
 
 // ===== COMMAND SYSTEM =====
@@ -182,46 +569,17 @@ function setupEventListeners() {
 // Initialize command system
 function initializeCommandSystem() {
     console.log('Initializing command system...');
-    
-    // Get all command buttons
-    const commandBtns = document.querySelectorAll('.command-btn');
-    
-    commandBtns.forEach(btn => {
-        const command = btn.textContent.toLowerCase();
-        commandButtons[command] = btn;
-        
-        // Add click event listener
-        btn.addEventListener('click', () => selectCommand(command));
-    });
-    
-    // Set default command (explore)
-    selectCommand('explore');
+    menuManager.initializeCommandSystem();
 }
 
 // Select a command
 function selectCommand(command) {
-    console.log(`Command selected: ${command}`);
-    
-    // Remove active class from all buttons
-    Object.values(commandButtons).forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    // Add active class to selected button
-    if (commandButtons[command]) {
-        commandButtons[command].classList.add('active');
-    }
-    
-    // Update current command
-    currentCommand = command;
-    
-    // Show notification
-    showNotification(`Command: ${command.toUpperCase()}`, 'info');
+    menuManager.selectCommand(command);
 }
 
 // Get current command
 function getCurrentCommand() {
-    return currentCommand;
+    return menuManager.getCurrentCommand();
 }
 
 function startIntro() {
@@ -533,74 +891,20 @@ function setupUpstairsEventListeners() {
     
     // Get upstairs elements
     const upstairsClickArea = document.getElementById('click-area-upstairs');
-    const upstairsMuteButton = document.getElementById('mute-button-upstairs');
-    const upstairsConnectWalletBtn = document.getElementById('connect-wallet-upstairs');
     
     // Setup click area for upstairs
     if (upstairsClickArea) {
         upstairsClickArea.addEventListener('click', handleUpstairsClick);
     }
     
-    // Setup mute button for upstairs
-    if (upstairsMuteButton) {
-        upstairsMuteButton.addEventListener('click', toggleMute);
-    }
-    
-    // Setup wallet connection for upstairs
-    if (upstairsConnectWalletBtn) {
-        upstairsConnectWalletBtn.addEventListener('click', connectWallet);
-    }
-    
-    // Update mute button state
-    if (upstairsMuteButton) {
-        if (isMuted) {
-            upstairsMuteButton.textContent = '🔇';
-        } else {
-            upstairsMuteButton.textContent = '🔊';
-        }
-    }
-    
-    // Update wallet button state
-    if (upstairsConnectWalletBtn) {
-        if (isWalletConnected) {
-            const shortAddress = window.ethereum.selectedAddress.slice(0, 6) + '...' + window.ethereum.selectedAddress.slice(-4);
-            upstairsConnectWalletBtn.textContent = shortAddress;
-            upstairsConnectWalletBtn.style.background = '#00ff00';
-            upstairsConnectWalletBtn.style.color = '#000';
-        } else {
-            upstairsConnectWalletBtn.textContent = 'Connect Wallet';
-            upstairsConnectWalletBtn.style.background = '#000';
-            upstairsConnectWalletBtn.style.color = '#00ff00';
-        }
-    }
+    // Setup menu manager for upstairs screen
+    menuManager.setupSceneEventListeners('upstairs-screen');
+    menuManager.initializeCommandSystem('upstairs-screen');
 }
 
 function initializeUpstairsCommandSystem() {
-    console.log('Initializing upstairs command system');
-    
-    // Get all command buttons in upstairs screen
-    const upstairsCommandBtns = document.querySelectorAll('#upstairs-screen .command-btn');
-    
-    upstairsCommandBtns.forEach(btn => {
-        const command = btn.textContent.toLowerCase();
-        
-        // Add click event listener
-        btn.addEventListener('click', () => selectCommand(command));
-    });
-    
-    // Set default command (explore) and update visual state
-    selectCommand('explore');
-    
-    // Update command buttons visual state
-    Object.values(commandButtons).forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    // Add active class to explore button
-    const exploreBtn = document.querySelector('#upstairs-screen .command-btn');
-    if (exploreBtn && exploreBtn.textContent === 'EXPLORE') {
-        exploreBtn.classList.add('active');
-    }
+    // This is now handled by the MenuManager
+    console.log('Upstairs command system initialization handled by MenuManager');
 }
 
 function handleUpstairsClick(event) {
@@ -694,21 +998,14 @@ function toggleMute() {
     
     if (isMuted) {
         backgroundMusic.pause();
-        if (isMobile) {
-            muteButton.textContent = 'Music OFF';
-        } else {
-            muteButton.textContent = '🔇';
-        }
     } else {
         if (musicInitialized) {
             backgroundMusic.play().catch(e => console.log('Audio play failed'));
         }
-        if (isMobile) {
-            muteButton.textContent = 'Music ON';
-        } else {
-            muteButton.textContent = '🔊';
-        }
     }
+    
+    // Update all mute buttons through menu manager
+    menuManager.updateMuteButtons();
 }
 
 async function connectWallet() {
@@ -818,26 +1115,17 @@ function checkWalletConnection() {
 
 function updateWalletUI() {
     if (isWalletConnected) {
-        const shortAddress = window.ethereum.selectedAddress.slice(0, 6) + '...' + window.ethereum.selectedAddress.slice(-4);
-        connectWalletBtn.textContent = shortAddress;
-        connectWalletBtn.style.background = '#00ff00';
-        connectWalletBtn.style.color = '#000';
-        
         // Notify iframe about wallet connection
         notifyIframeWalletConnected();
         
-        // Update inventory for connected wallet
-        updateWalletForInventory();
+        // Update menu manager with wallet state
+        menuManager.updateWalletState(true, window.ethereum.selectedAddress);
     } else {
-        connectWalletBtn.textContent = 'Connect Wallet';
-        connectWalletBtn.style.background = '#000';
-        connectWalletBtn.style.color = '#00ff00';
-        
         // Notify iframe about wallet disconnection
         notifyIframeWalletDisconnected();
         
-        // Clear inventory for disconnected wallet
-        updateWalletForInventory();
+        // Update menu manager with wallet state
+        menuManager.updateWalletState(false);
     }
 }
 
@@ -1375,240 +1663,36 @@ function handleMouseMove(event) {
 
 // Load inventory (ERC1155 tokens 10000 and 10001)
 async function loadInventory() {
-    if (!currentAccount) {
-        console.log('No current account, skipping inventory load');
-        return;
-    }
-    
-    console.log('Loading inventory for account:', currentAccount);
-    showInventoryLoading();
-    
-    try {
-        const contractAddress = CONTRACTS.ERC1155;
-        const tokenType = "ERC1155";
-        
-        console.log(`Loading ${tokenType} tokens from contract: ${contractAddress}`);
-        
-        // Use Alchemy's REST API directly
-        let alchemyUrl = `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${currentAccount}&contractAddresses[]=${contractAddress}&withMetadata=true&pageSize=50&tokenType=${tokenType}`;
-        
-        console.log(`Requesting NFTs with URL: ${alchemyUrl}`);
-        
-        const alchemyResponse = await fetch(alchemyUrl);
-        
-        if (!alchemyResponse.ok) {
-            throw new Error(`Error getting NFTs from Alchemy API: ${alchemyResponse.status}`);
-        }
-        
-        const nftsData = await alchemyResponse.json();
-        console.log(`NFT data received:`, nftsData);
-        
-        // Process NFTs and filter for tokens 10000, 10001, and 10002
-        if (nftsData.ownedNfts && nftsData.ownedNfts.length > 0) {
-            const tokens = nftsData.ownedNfts.map(nft => {
-                try {
-                    // Extract tokenId
-                    let tokenId;
-                    if (nft.tokenId) {
-                        tokenId = nft.tokenId;
-                    } else if (nft.id && nft.id.tokenId) {
-                        tokenId = nft.id.tokenId;
-                    } else {
-                        console.error("No tokenId found in NFT:", nft);
-                        return null;
-                    }
-                    
-                    // Convert tokenId to integer
-                    let tokenIdInt;
-                    if (typeof tokenId === 'number') {
-                        tokenIdInt = tokenId;
-                    } else if (tokenId.startsWith('0x')) {
-                        tokenIdInt = parseInt(tokenId, 16);
-                    } else {
-                        tokenIdInt = parseInt(tokenId, 10);
-                    }
-                    
-                    if (isNaN(tokenIdInt)) {
-                        console.error("Invalid tokenId format:", tokenId);
-                        return null;
-                    }
-                    
-                    // Filter for tokens 10000, 10001, and 10002 only
-                    if (tokenIdInt !== 10000 && tokenIdInt !== 10001 && tokenIdInt !== 10002) {
-                        return null;
-                    }
-                    
-                    // Extract title/name
-                    let title = `Token #${tokenIdInt}`;
-                    
-                    if (nft.title) {
-                        title = nft.title;
-                    } else if (nft.name) {
-                        title = nft.name;
-                    } else if (nft.metadata && nft.metadata.name) {
-                        title = nft.metadata.name;
-                    } else if (nft.contract && nft.contract.name) {
-                        title = `${nft.contract.name} #${tokenIdInt}`;
-                    }
-                    
-                    // Extract image URL
-                    let mediaUrl = "";
-                    
-                    if (nft.raw && nft.raw.metadata && nft.raw.metadata.image) {
-                        mediaUrl = nft.raw.metadata.image;
-                    } else if (nft.media && Array.isArray(nft.media) && nft.media.length > 0) {
-                        const mediaSources = ['gateway', 'raw', 'thumbnail', 'format'];
-                        for (const source of mediaSources) {
-                            if (nft.media[0][source] && typeof nft.media[0][source] === 'string') {
-                                mediaUrl = nft.media[0][source];
-                                break;
-                            }
-                        }
-                    } else if (nft.metadata) {
-                        const imageProps = ['image', 'image_url', 'imageUrl', 'imageURI', 'image_uri', 'imageData'];
-                        for (const prop of imageProps) {
-                            if (nft.metadata[prop] && typeof nft.metadata[prop] === 'string') {
-                                mediaUrl = nft.metadata[prop];
-                                break;
-                            }
-                        }
-                    }
-                    
-                    // Clean up IPFS URLs
-                    if (mediaUrl && mediaUrl.startsWith('ipfs://')) {
-                        mediaUrl = mediaUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
-                    }
-                    
-                    return {
-                        tokenId: tokenIdInt,
-                        title: title,
-                        imageUrl: mediaUrl,
-                        contract: nft.contract.address,
-                        contractName: nft.contract.name || 'Unknown Contract',
-                        tokenType: tokenType,
-                        metadata: nft.metadata || {}
-                    };
-                    
-                } catch (err) {
-                    console.error("Error processing NFT:", err, nft);
-                    return null;
-                }
-            }).filter(token => token !== null);
-            
-            console.log(`Filtered tokens:`, tokens);
-            inventoryItems = tokens;
-            displayInventory();
-            
-        } else {
-            showNoItems();
-        }
-        
-    } catch (error) {
-        console.error("Error loading inventory:", error);
-        showNotification(`Error loading inventory: ${error.message}`, 'error');
-    } finally {
-        hideInventoryLoading();
-    }
+    await menuManager.loadInventory();
 }
 
 // Display inventory items
 function displayInventory() {
-    console.log('Displaying inventory items:', inventoryItems);
-    
-    // Get both inventory grids
-    const inventoryGridLeft = document.getElementById('inventory-grid-left');
-    const inventoryGridRight = document.getElementById('inventory-grid-right');
-    
-    // Clear both grids
-    inventoryGridLeft.innerHTML = "";
-    inventoryGridRight.innerHTML = "";
-    
-    if (inventoryItems.length === 0) {
-        inventoryGridLeft.innerHTML = '<div class="no-items">No floppy discs found.</div>';
-        inventoryGridRight.innerHTML = '<div class="no-items">No items found.</div>';
-        return;
-    }
-    
-    // Todos los tokens van en Inventory (central)
-    const inventoryTokens = inventoryItems.filter(item => item.tokenId === 10000 || item.tokenId === 10001 || item.tokenId === 10002);
-    
-    // Mostrar en Inventory (central)
-    if (inventoryTokens.length === 0) {
-        inventoryGridLeft.innerHTML = '<div class="no-items">No floppy discs found.</div>';
-    } else {
-        inventoryTokens.forEach(item => {
-            const itemElement = createInventoryItemElement(item);
-            inventoryGridLeft.appendChild(itemElement);
-        });
-    }
-    
-    // Items (derecha) vacío
-    inventoryGridRight.innerHTML = '<div class="no-items">No items found.</div>';
+    menuManager.displayInventory();
 }
 
 // Helper function to create inventory item element
 function createInventoryItemElement(item) {
-    const itemElement = document.createElement('div');
-    itemElement.className = 'inventory-item';
-    
-    const imageUrl = item.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjIwIiB5PSIyMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+';
-    
-    itemElement.innerHTML = `
-        <img src="${imageUrl}" alt="${item.title}" class="inventory-img" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjIwIiB5PSIyMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjgiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+">
-        <div class="item-name">${item.title}</div>
-        <div class="item-id">ID: ${item.tokenId}</div>
-    `;
-    
-    // Add click event for item selection
-    itemElement.addEventListener('click', () => {
-        selectInventoryItem(item);
-    });
-    
-    return itemElement;
+    return menuManager.createInventoryItemElement(item);
 }
 
 // Handle inventory item selection
 function selectInventoryItem(item) {
-    console.log('Selected inventory item:', item);
-    selectedInventoryItem = item;
-    showNotification(`Selected: ${item.title} (ID: ${item.tokenId})`, 'success');
-    
-    // Update visual feedback for selected item
-    document.querySelectorAll('.inventory-item').forEach(el => {
-        el.classList.remove('selected');
-    });
-    
-    // Highlight selected item
-    event.target.closest('.inventory-item').classList.add('selected');
+    menuManager.selectInventoryItem(item);
 }
 
 // Show no items message
 function showNoItems() {
-    const inventoryGridLeft = document.getElementById('inventory-grid-left');
-    const inventoryGridRight = document.getElementById('inventory-grid-right');
-    
-    inventoryGridLeft.innerHTML = '<div class="no-items">No floppy discs found.</div>';
-    inventoryGridRight.innerHTML = '<div class="no-items">No items found.</div>';
+    menuManager.showNoItems();
 }
 
 // Show/hide inventory loading
 function showInventoryLoading() {
-    const inventoryGridLeft = document.getElementById('inventory-grid-left');
-    const inventoryGridRight = document.getElementById('inventory-grid-right');
-    
-    const loadingHTML = `
-        <div class="loading">
-            <div class="spinner"></div>
-            <p>Loading...</p>
-        </div>
-    `;
-    
-    inventoryGridLeft.innerHTML = loadingHTML;
-    inventoryGridRight.innerHTML = loadingHTML;
+    menuManager.showInventoryLoading();
 }
 
 function hideInventoryLoading() {
-    // Loading state is handled by displayInventory or showNoItems
+    menuManager.hideInventoryLoading();
 }
 
 // Toggle inventory modal
@@ -1627,14 +1711,9 @@ function toggleInventory() {
 function updateWalletForInventory() {
     console.log('Updating wallet for inventory, isWalletConnected:', isWalletConnected);
     if (isWalletConnected && window.ethereum.selectedAddress) {
-        currentAccount = window.ethereum.selectedAddress;
-        console.log('Setting current account:', currentAccount);
-        loadInventory();
+        menuManager.updateWalletState(true, window.ethereum.selectedAddress);
     } else {
-        currentAccount = null;
-        inventoryItems = [];
-        selectedInventoryItem = null;
-        showNoItems();
+        menuManager.updateWalletState(false);
     }
 }
 
@@ -1643,10 +1722,13 @@ function initializePointAndClickSystem() {
     console.log('Initializing point & click system');
     initializePointAndClick();
     
+    // Setup menu manager for main screen
+    menuManager.setupSceneEventListeners('main-screen');
+    menuManager.initializeCommandSystem('main-screen');
+    
     // Check if wallet is already connected
     if (window.ethereum && window.ethereum.selectedAddress) {
-        currentAccount = window.ethereum.selectedAddress;
         console.log('Wallet already connected, updating inventory');
-        updateWalletForInventory();
+        menuManager.updateWalletState(true, window.ethereum.selectedAddress);
     }
 } 
