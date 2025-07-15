@@ -216,9 +216,10 @@ class BaseScene {
     show() {
         console.log(`Showing scene: ${this.sceneName}`);
         
-        // Ocultar todas las escenas
-        document.querySelectorAll('.screen').forEach(screen => {
+        // Ocultar solo las escenas del juego (no intro, floppy, etc.)
+        document.querySelectorAll('#intro-screen, #main-screen, #floppy-screen, #outside, #basement, #upstairs').forEach(screen => {
             screen.style.display = 'none';
+            screen.classList.remove('active');
         });
         
         // Mostrar esta escena

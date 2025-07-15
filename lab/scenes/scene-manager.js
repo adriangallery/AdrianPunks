@@ -93,6 +93,9 @@ class SceneManager {
             this.currentScene.hide();
         }
         
+        // Crear elemento HTML si no existe
+        this.createSceneElement(sceneId);
+        
         // Mostrar nueva escena
         scene.show();
         this.currentScene = scene;
