@@ -52,7 +52,13 @@ class OutsideScene extends BaseScene {
             case 'Front Door':
                 showFloatingText('💬 You open the door and enter AdrianLAB...', x, y);
                 setTimeout(() => {
-                    goToMainScreen(); // Cambiar a basement (que será la escena principal)
+                    // Ir a la escena frontdoor en lugar del basement
+                    if (window.sceneManager) {
+                        window.sceneManager.loadScene('frontdoor');
+                    } else {
+                        // Fallback si no hay sceneManager
+                        goToMainScreen();
+                    }
                 }, 1500);
                 break;
                 

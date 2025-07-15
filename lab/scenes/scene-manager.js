@@ -27,6 +27,7 @@ class SceneManager {
             
             // Cargar escenas específicas
             await this.loadScript('scenes/outside.js');
+            await this.loadScript('scenes/frontdoor.js');
             await this.loadScript('scenes/basement.js');
             await this.loadScript('scenes/upstairs.js');
             
@@ -59,6 +60,13 @@ class SceneManager {
             const outsideScene = new OutsideScene();
             this.scenes.set('outside', outsideScene);
             console.log('Outside scene instance created');
+        }
+        
+        // Crear instancia de frontdoor
+        if (typeof FrontDoorScene !== 'undefined') {
+            const frontdoorScene = new FrontDoorScene();
+            this.scenes.set('frontdoor', frontdoorScene);
+            console.log('Frontdoor scene instance created');
         }
         
         // Crear instancia de basement
@@ -107,6 +115,11 @@ class SceneManager {
         scene.initialize();
         
         return true;
+    }
+
+    // Alias para changeScene para compatibilidad
+    loadScene(sceneId) {
+        return this.changeScene(sceneId);
     }
 
     // Crear elemento HTML para una escena si no existe
