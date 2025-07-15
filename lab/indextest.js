@@ -949,8 +949,11 @@ function handleUpstairsClick(event) {
     }
     
     // General area click - only show coordinates if explore command is active
-    if (getCurrentCommand() === 'explore') {
+    const currentCommand = getCurrentCommand();
+    if (currentCommand === 'explore') {
         showNotification(`You clicked at ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
+    } else if (currentCommand === 'test') {
+        showFloatingText(`🔧 TEST MODE\nCoordinates: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%\n\nClick anywhere to see coordinates!`, xPercent, yPercent);
     }
 }
 
@@ -1399,8 +1402,11 @@ function handlePointAndClick(event) {
     }
     
     // General area click - only show coordinates if explore command is active
-    if (getCurrentCommand() === 'explore') {
+    const currentCommand = getCurrentCommand();
+    if (currentCommand === 'explore') {
         showNotification(`You clicked at ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
+    } else if (currentCommand === 'test') {
+        showFloatingText(`🔧 TEST MODE\nCoordinates: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%\n\nClick anywhere to see coordinates!`, xPercent, yPercent);
     }
 }
 
@@ -1596,8 +1602,8 @@ function handleOpenCommand(hotspot, x, y) {
 function handleTestCommand(hotspot, x, y) {
     console.log(`TEST command on: ${hotspot.name}`);
     
-    // Show coordinates and hotspot information for development
-    const message = `🔧 TEST MODE\nHotspot: ${hotspot.name}\nCoordinates: ${x.toFixed(1)}%, ${y.toFixed(1)}%\nAction: ${hotspot.action || 'none'}`;
+    // Show detailed coordinates and hotspot information for development
+    const message = `🔧 TEST MODE\nHotspot: ${hotspot.name}\nCoordinates: ${x.toFixed(1)}%, ${y.toFixed(1)}%\nAction: ${hotspot.action || 'none'}\n\nClick anywhere to see coordinates!`;
     showFloatingText(message, x, y);
 }
 
