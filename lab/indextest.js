@@ -307,8 +307,6 @@ class MenuManager {
         const leftGrid = document.getElementById('inventory-grid-left');
         const rightGrid = document.getElementById('inventory-grid-right');
         
-        console.log('Found inventory grids - Left:', !!leftGrid, 'Right:', !!rightGrid);
-        
         if (leftGrid) {
             leftGrid.innerHTML = '';
             
@@ -326,6 +324,7 @@ class MenuManager {
                     inventoryTokens.forEach(item => {
                         const itemElement = this.createInventoryItemElement(item);
                         leftGrid.appendChild(itemElement);
+                        console.log('Added inventory item:', item.title);
                     });
                 }
             }
