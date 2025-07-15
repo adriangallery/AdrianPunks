@@ -309,26 +309,43 @@ class MenuManager {
         
         console.log('Found inventory grids - Left:', !!leftGrid, 'Right:', !!rightGrid);
         
+        // Si no encontramos los grids, buscar en cualquier lugar
+        if (!leftGrid) {
+            console.warn('inventory-grid-left not found, searching for any inventory grid...');
+            const allGrids = document.querySelectorAll('[id*="inventory-grid"]');
+            console.log('All inventory grids found:', allGrids.length);
+            allGrids.forEach((grid, index) => {
+                console.log(`Grid ${index}:`, grid.id);
+            });
+        }
+        
         if (leftGrid) {
             leftGrid.innerHTML = '';
             
             if (this.inventoryItems.length === 0) {
                 leftGrid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
+                console.log('No inventory items to display');
             } else {
                 // Filtrar tokens para esta escena específica
                 const inventoryTokens = this.inventoryItems.filter(item => 
                     item.tokenId === 10000 || item.tokenId === 10001 || item.tokenId === 10002
                 );
                 
+                console.log('Filtered inventory tokens:', inventoryTokens);
+                
                 if (inventoryTokens.length === 0) {
                     leftGrid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
+                    console.log('No compatible tokens found');
                 } else {
                     inventoryTokens.forEach(item => {
                         const itemElement = this.createInventoryItemElement(item);
                         leftGrid.appendChild(itemElement);
+                        console.log('Added inventory item:', item.title);
                     });
                 }
             }
+        } else {
+            console.error('inventory-grid-left not found!');
         }
         
         if (rightGrid) {

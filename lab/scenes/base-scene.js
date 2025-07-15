@@ -253,6 +253,9 @@ class BaseScene {
         if (menuManager.inventoryItems.length > 0) {
             console.log('Updating inventory for new scene');
             menuManager.displayInventory();
+        } else if (menuManager.isWalletConnected && menuManager.currentAccount) {
+            console.log('Wallet connected but no inventory, forcing reload...');
+            menuManager.loadInventory();
         }
     }
 
