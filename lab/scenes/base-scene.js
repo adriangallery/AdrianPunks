@@ -151,7 +151,7 @@ class BaseScene {
         
         sceneElement.innerHTML = `
             <div class="background-container">
-                <img src="${this.imagePath}" alt="${this.sceneName}" id="${this.sceneId}-bg" style="width: 100%; height: 100%; object-fit: cover;">
+                <img src="${this.imagePath}" alt="${this.sceneName}" id="${this.sceneId}-bg" style="width: 100%; height: 100%; object-fit: contain;">
             </div>
             
             <!-- Header with wallet -->

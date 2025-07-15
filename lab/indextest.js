@@ -932,7 +932,7 @@ function createUpstairsScreen() {
     
     upstairsScreen.innerHTML = `
         <div class="background-container">
-            <img src="upstairs.png" alt="Upstairs" id="upstairs-bg" style="width: 100%; height: 100%; object-fit: cover;">
+            <img src="upstairs.png" alt="Upstairs" id="upstairs-bg" style="width: 100%; height: 100%; object-fit: contain;">
         </div>
         
         <!-- Header with wallet -->
