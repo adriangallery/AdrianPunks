@@ -43,6 +43,10 @@ let introScreen, mainScreen, floppyScreen, introImage, backgroundMusic, muteButt
 let connectWalletBtn, clickArea, mintPopup, closePopupBtn, buyFloppyBtn, backToMainBtn;
 let progressFill, progressText;
 
+// Variables para orientación del dispositivo
+let landscapeModeEnabled = false;
+let rotateDeviceMessage = null;
+
 // Menu Manager - Sistema modular para manejar menús en todas las escenas
 class MenuManager {
     constructor() {
@@ -490,11 +494,15 @@ function initializeDOMElements() {
     progressFill = document.querySelector('.progress-fill');
     progressText = document.querySelector('.progress-text');
     
+    // Initialize rotation message element
+    rotateDeviceMessage = document.getElementById('rotate-device-message');
+    
     // New inventory elements
     console.log('DOM elements initialized:', {
         introScreen: !!introScreen,
         mainScreen: !!mainScreen,
-        clickArea: !!clickArea
+        clickArea: !!clickArea,
+        rotateDeviceMessage: !!rotateDeviceMessage
     });
 }
 
@@ -503,6 +511,86 @@ function detectMobile() {
     isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
                window.innerWidth <= 768;
     console.log('Mobile device detected:', isMobile);
+}
+
+// Función para detectar orientación del dispositivo
+function detectOrientation() {
+    return window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+}
+
+// Función para forzar modo panorámico en móviles
+function enableLandscapeMode() {
+    if (!isMobile) return;
+    
+    console.log('Enabling landscape mode for mobile device');
+    landscapeModeEnabled = true;
+    
+    // Agregar clase al body
+    document.body.classList.add('landscape-mode');
+    
+    // Ocultar mensaje de rotación si está visible
+    if (rotateDeviceMessage) {
+        rotateDeviceMessage.classList.remove('show');
+    }
+    
+    // Ajustar viewport para modo panorámico
+    const viewport = document.querySelector('meta[name="viewport"]');
+    if (viewport) {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+    }
+}
+
+// Función para deshabilitar modo panorámico
+function disableLandscapeMode() {
+    if (!isMobile) return;
+    
+    console.log('Disabling landscape mode');
+    landscapeModeEnabled = false;
+    
+    // Remover clase del body
+    document.body.classList.remove('landscape-mode');
+    
+    // Restaurar viewport normal
+    const viewport = document.querySelector('meta[name="viewport"]');
+    if (viewport) {
+        viewport.setAttribute('content', 'width=device-width, initial-scale=1.0');
+    }
+}
+
+// Función para mostrar mensaje de rotación
+function showRotateMessage() {
+    if (!isMobile || landscapeModeEnabled) return;
+    
+    console.log('Showing rotate device message');
+    if (rotateDeviceMessage) {
+        rotateDeviceMessage.classList.add('show');
+    }
+}
+
+// Función para ocultar mensaje de rotación
+function hideRotateMessage() {
+    if (rotateDeviceMessage) {
+        rotateDeviceMessage.classList.remove('show');
+    }
+}
+
+// Función para manejar cambios de orientación
+function handleOrientationChange() {
+    if (!isMobile) return;
+    
+    const orientation = detectOrientation();
+    console.log(`Orientation changed to: ${orientation}`);
+    
+    if (orientation === 'landscape') {
+        hideRotateMessage();
+        if (landscapeModeEnabled) {
+            enableLandscapeMode();
+        }
+    } else {
+        if (landscapeModeEnabled) {
+            showRotateMessage();
+        }
+    }
 }
 
 function initializeApp() {
@@ -592,6 +680,10 @@ function setupEventListeners() {
         window.ethereum.on('accountsChanged', handleAccountsChanged);
         window.ethereum.on('chainChanged', handleChainChanged);
     }
+    
+    // Orientation change events for mobile
+    window.addEventListener('orientationchange', handleOrientationChange);
+    window.addEventListener('resize', handleOrientationChange);
     
     // Scene manager will handle scene-specific event listeners
     console.log('Event listeners setup complete');
@@ -728,6 +820,18 @@ function goToMainScreenFromIntro() {
         if (progressContainer) {
             progressContainer.style.display = 'none';
             console.log('Progress bar hidden on outside transition');
+        }
+        
+        // Enable landscape mode for mobile devices after intro
+        if (isMobile) {
+            console.log('Enabling landscape mode after intro for mobile device');
+            enableLandscapeMode();
+            
+            // Check current orientation and show message if needed
+            const orientation = detectOrientation();
+            if (orientation === 'portrait') {
+                showRotateMessage();
+            }
         }
         
         // Load ethers.js when entering outside scene

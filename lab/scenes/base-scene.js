@@ -215,18 +215,34 @@ class BaseScene {
     // Mostrar la escena
     show() {
         console.log(`Showing scene: ${this.sceneName}`);
+        console.log(`Scene ID: ${this.sceneId}`);
         
         // Ocultar solo las escenas del juego (no intro, floppy, etc.)
         document.querySelectorAll('#intro-screen, #main-screen, #floppy-screen, #outside, #basement, #upstairs').forEach(screen => {
             screen.style.display = 'none';
             screen.classList.remove('active');
+            console.log(`Hidden screen: ${screen.id}`);
         });
         
         // Mostrar esta escena
         const sceneElement = document.getElementById(this.sceneId);
+        console.log(`Looking for scene element with ID: ${this.sceneId}`);
+        console.log(`Scene element found:`, sceneElement);
+        
         if (sceneElement) {
             sceneElement.style.display = 'block';
             sceneElement.classList.add('active');
+            console.log(`Scene element display set to: ${sceneElement.style.display}`);
+            console.log(`Scene element classes: ${sceneElement.className}`);
+            
+            // Verificar que la imagen de fondo existe
+            const bgImage = sceneElement.querySelector(`#${this.sceneId}-bg`);
+            console.log(`Background image element:`, bgImage);
+            if (bgImage) {
+                console.log(`Background image src: ${bgImage.src}`);
+            }
+        } else {
+            console.error(`Scene element not found for ID: ${this.sceneId}`);
         }
         
         // Configurar MenuManager para esta escena

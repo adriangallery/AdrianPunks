@@ -19,6 +19,9 @@ class SceneManager {
         console.log('Loading all scenes...');
         
         try {
+            // Cargar MenuManager primero
+            await this.loadScript('scenes/menu-manager.js');
+            
             // Cargar la clase base
             await this.loadScript('scenes/base-scene.js');
             
@@ -123,9 +126,19 @@ class SceneManager {
         
         // Crear nuevo elemento
         sceneElement = scene.createSceneElement();
-        document.getElementById('app').appendChild(sceneElement);
+        console.log(`Created scene element:`, sceneElement);
+        console.log(`Scene element HTML:`, sceneElement.outerHTML);
         
-        console.log(`Scene element created: ${sceneId}`);
+        const appContainer = document.getElementById('app');
+        console.log(`App container:`, appContainer);
+        
+        if (appContainer) {
+            appContainer.appendChild(sceneElement);
+            console.log(`Scene element appended to app container: ${sceneId}`);
+        } else {
+            console.error('App container not found!');
+        }
+        
         return sceneElement;
     }
 
