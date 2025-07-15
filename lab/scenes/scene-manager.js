@@ -23,6 +23,7 @@ class SceneManager {
             await this.loadScript('scenes/base-scene.js');
             
             // Cargar escenas específicas
+            await this.loadScript('scenes/outside.js');
             await this.loadScript('scenes/basement.js');
             await this.loadScript('scenes/upstairs.js');
             
@@ -50,6 +51,13 @@ class SceneManager {
 
     // Crear instancias de las escenas
     createSceneInstances() {
+        // Crear instancia de outside (primera escena)
+        if (typeof OutsideScene !== 'undefined') {
+            const outsideScene = new OutsideScene();
+            this.scenes.set('outside', outsideScene);
+            console.log('Outside scene instance created');
+        }
+        
         // Crear instancia de basement
         if (typeof BasementScene !== 'undefined') {
             const basementScene = new BasementScene();

@@ -9,9 +9,14 @@ lab/scenes/
 ├── README.md                 # Esta documentación
 ├── base-scene.js            # Clase base para todas las escenas
 ├── scene-manager.js         # Gestor de todas las escenas
+├── outside.js               # Escena exterior (primera escena)
 ├── basement.js              # Escena del sótano
 ├── upstairs.js              # Escena del piso superior
 └── images/                  # Imágenes de las escenas
+    ├── outside.png
+    ├── frontdoor.png
+    ├── mountain.png
+    ├── rehabfrontdoor.png
     ├── basement.png
     ├── upstairs.png
     └── (futuras imágenes...)
@@ -134,6 +139,12 @@ El comando TEST muestra coordenadas exactas para ayudar a configurar hotspots:
 
 ## Escenas Actuales
 
+### Outside (Primera Escena)
+- **ID**: `outside`
+- **Imagen**: `outside.png`
+- **Hotspots**: 3 áreas interactivas
+- **Funcionalidad especial**: Punto de entrada al juego, navegación al basement
+
 ### Basement
 - **ID**: `basement`
 - **Imagen**: `basement.png`
@@ -148,6 +159,9 @@ El comando TEST muestra coordenadas exactas para ayudar a configurar hotspots:
 
 ## Próximas Escenas Sugeridas
 
+- `frontdoor.js` - Puerta principal (usando `frontdoor.png`)
+- `mountain.js` - Montaña (usando `mountain.png`)
+- `rehabfrontdoor.js` - Puerta de rehabilitación (usando `rehabfrontdoor.png`)
 - `kitchen.js` - Cocina
 - `roof.js` - Techo
 - `garden.js` - Jardín
