@@ -2336,22 +2336,14 @@
                             throw new Error('Contract not found at specified address');
                         }
                         
-                        // AdrianNameRegistry contract ABI for namePrice function
-                        const contractABI = [
-                            {
-                                "inputs": [],
-                                "name": "namePrice",
-                                "outputs": [
-                                    {
-                                        "internalType": "uint256",
-                                        "name": "",
-                                        "type": "uint256"
-                                    }
-                                ],
-                                "stateMutability": "view",
-                                "type": "function"
-                            }
-                        ];
+                        // Load the full contract ABI
+                        console.log('Loading ABI from file...');
+                        const response = await fetch('./adrian-name-registry-abi.json');
+                        if (!response.ok) {
+                            throw new Error(`Failed to load ABI: ${response.status} ${response.statusText}`);
+                        }
+                        const contractABI = await response.json();
+                        console.log('ABI loaded successfully, functions:', contractABI.filter(f => f.type === 'function').map(f => f.name));
 
                         // Create contract instance
                         const contract = new ethers.Contract(ADRIAN_NAME_REGISTRY_CONTRACT, contractABI, provider);
