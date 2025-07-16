@@ -2546,12 +2546,15 @@
 
                         // Check if user can set name for this token
                         showRenameStatus('Checking permissions...', 'info');
+                        console.log('Checking canSetName for:', currentAccount, 'token:', tokenId);
                         const canSetResult = await contract.canSetName(currentAccount, tokenId);
                         console.log('Can set name result:', canSetResult);
                         
                         if (!canSetResult.canSet) {
                             throw new Error(`Cannot set name: ${canSetResult.reason}`);
                         }
+                        
+                        console.log('✅ Permission check passed');
 
                         // Check ADRIAN token balance
                         const ADRIAN_TOKEN = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
@@ -2572,11 +2575,38 @@
                             throw new Error(`Insufficient ADRIAN balance. You have ${ethers.utils.formatEther(balance)} but need ${ethers.utils.formatEther(namePrice)}`);
                         }
                         
+                        console.log('✅ Balance check passed');
+                        
                         if (allowance.lt(namePrice)) {
                             throw new Error(`Insufficient ADRIAN allowance. Please approve ${ethers.utils.formatEther(namePrice)} ADRIAN tokens first.`);
                         }
+                        
+                        console.log('✅ Allowance check passed');
+
+                        // Check if name is already taken
+                        showRenameStatus('Checking if name is available...', 'info');
+                        try {
+                            // Try to get current name for this token
+                            const currentName = await contract.getTokenName(tokenId);
+                            console.log('Current name for token', tokenId, ':', currentName);
+                            
+                            if (currentName.toLowerCase() === newName.toLowerCase()) {
+                                throw new Error('Token already has this name');
+                            }
+                        } catch (error) {
+                            console.log('Could not get current name (might be first time setting):', error.message);
+                        }
 
                         showRenameStatus('Confirming transaction in your wallet...', 'loading');
+
+                        // Try to estimate gas first to get better error information
+                        try {
+                            const gasEstimate = await contract.estimateGas.setTokenName(tokenId, newName);
+                            console.log('Gas estimate:', gasEstimate.toString());
+                        } catch (gasError) {
+                            console.error('Gas estimation failed:', gasError);
+                            throw new Error(`Transaction will fail: ${gasError.message}`);
+                        }
 
                         const tx = await contract.setTokenName(tokenId, newName);
                         
