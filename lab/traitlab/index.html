@@ -2319,6 +2319,23 @@
                     try {
                         const provider = new ethers.providers.Web3Provider(window.ethereum);
                         
+                        // Check if we're on the correct network (Base)
+                        const network = await provider.getNetwork();
+                        console.log('Current network:', network);
+                        
+                        if (network.chainId !== 8453) { // Base mainnet
+                            showRenameStatus('Please switch to Base network to use this feature.', 'error');
+                            return;
+                        }
+                        
+                        console.log('Contract address:', ADRIAN_NAME_REGISTRY_CONTRACT);
+                        
+                        // Check if contract exists
+                        const code = await provider.getCode(ADRIAN_NAME_REGISTRY_CONTRACT);
+                        if (code === '0x') {
+                            throw new Error('Contract not found at specified address');
+                        }
+                        
                         // AdrianNameRegistry contract ABI for namePrice function
                         const contractABI = [
                             {
@@ -2336,10 +2353,11 @@
                             }
                         ];
 
-                        // Create contract instance (using a placeholder address for now)
+                        // Create contract instance
                         const contract = new ethers.Contract(ADRIAN_NAME_REGISTRY_CONTRACT, contractABI, provider);
                         
                         // Get the name price
+                        console.log('Calling namePrice()...');
                         const price = await contract.namePrice();
                         namePrice = price;
                         
@@ -2351,8 +2369,8 @@
                     } catch (error) {
                         console.error('Error loading name price:', error);
                         // Use default price if contract call fails
-                        namePrice = ethers.utils.parseEther("10"); // 10 ADRIAN default
-                        showRenameStatus(`Using default price: 10 $ADRIAN`, 'info');
+                        namePrice = ethers.utils.parseEther("10000"); // 10000 ADRIAN default
+                        showRenameStatus(`Using default price: 10000 $ADRIAN (contract call failed)`, 'info');
                     }
                 }
             } catch (error) {
