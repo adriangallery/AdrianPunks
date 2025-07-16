@@ -2529,27 +2529,12 @@
                         const provider = new ethers.providers.Web3Provider(window.ethereum);
                         const signer = provider.getSigner();
 
-                        // AdrianNameRegistry contract ABI for setTokenName function
-                        const contractABI = [
-                            {
-                                "inputs": [
-                                    {
-                                        "internalType": "uint256",
-                                        "name": "tokenId",
-                                        "type": "uint256"
-                                    },
-                                    {
-                                        "internalType": "string",
-                                        "name": "name",
-                                        "type": "string"
-                                    }
-                                ],
-                                "name": "setTokenName",
-                                "outputs": [],
-                                "stateMutability": "nonpayable",
-                                "type": "function"
-                            }
-                        ];
+                        // Load the full contract ABI
+                        const response = await fetch('./adrian-name-registry-abi.json');
+                        if (!response.ok) {
+                            throw new Error(`Failed to load ABI: ${response.status} ${response.statusText}`);
+                        }
+                        const contractABI = await response.json();
 
                         const contract = new ethers.Contract(ADRIAN_NAME_REGISTRY_CONTRACT, contractABI, signer);
 
@@ -2558,6 +2543,38 @@
                         console.log('Contract address:', ADRIAN_NAME_REGISTRY_CONTRACT);
                         console.log('Token ID:', tokenId);
                         console.log('New name:', newName);
+
+                        // Check if user can set name for this token
+                        showRenameStatus('Checking permissions...', 'info');
+                        const canSetResult = await contract.canSetName(currentAccount, tokenId);
+                        console.log('Can set name result:', canSetResult);
+                        
+                        if (!canSetResult.canSet) {
+                            throw new Error(`Cannot set name: ${canSetResult.reason}`);
+                        }
+
+                        // Check ADRIAN token balance
+                        const ADRIAN_TOKEN = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+                        const erc20ABI = [
+                            "function balanceOf(address owner) view returns (uint256)",
+                            "function allowance(address owner, address spender) view returns (uint256)"
+                        ];
+                        const adrianToken = new ethers.Contract(ADRIAN_TOKEN, erc20ABI, provider);
+                        
+                        const balance = await adrianToken.balanceOf(currentAccount);
+                        const allowance = await adrianToken.allowance(currentAccount, ADRIAN_NAME_REGISTRY_CONTRACT);
+                        
+                        console.log('ADRIAN balance:', ethers.utils.formatEther(balance));
+                        console.log('ADRIAN allowance:', ethers.utils.formatEther(allowance));
+                        console.log('Required price:', ethers.utils.formatEther(namePrice));
+                        
+                        if (balance.lt(namePrice)) {
+                            throw new Error(`Insufficient ADRIAN balance. You have ${ethers.utils.formatEther(balance)} but need ${ethers.utils.formatEther(namePrice)}`);
+                        }
+                        
+                        if (allowance.lt(namePrice)) {
+                            throw new Error(`Insufficient ADRIAN allowance. Please approve ${ethers.utils.formatEther(namePrice)} ADRIAN tokens first.`);
+                        }
 
                         showRenameStatus('Confirming transaction in your wallet...', 'loading');
 
