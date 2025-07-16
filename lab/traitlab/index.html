@@ -523,6 +523,9 @@
                 <button class="contract-btn" data-contract="0x90546848474fb3c9fda3fdad887969bb244e7e58" data-filter="serum">
                     Serums
                 </button>
+                <button class="contract-btn" data-contract="0x6e369bf0e4e0c106192d606fb6d85836d684da75" data-filter="rename">
+                    RENAME
+                </button>
             </div>
 
             <div id="selection-info" class="selection-info" style="display: none;">
@@ -553,6 +556,14 @@
                 <div id="use-serum-section" style="display: none; margin-top: 20px; text-align: center;">
                     <button id="useSerumBtn" class="apply-traits-btn">Use Serum</button>
                     <div id="use-serum-status" class="apply-status" style="display: none;"></div>
+                </div>
+                <div id="rename-section" style="display: none; margin-top: 20px; text-align: center;">
+                    <div style="margin-bottom: 15px;">
+                        <input type="text" id="newTokenName" placeholder="Enter new name for your AdrianZERO" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px;">
+                    </div>
+                    <button id="approveRenameBtn" class="apply-traits-btn" style="margin-right: 10px;">Approve $ADRIAN</button>
+                    <button id="renameTokenBtn" class="apply-traits-btn">Rename Token</button>
+                    <div id="rename-status" class="apply-status" style="display: none;"></div>
                 </div>
             </div>
 
@@ -603,6 +614,9 @@
         
         // PackTokenMinter contract
         const PACK_TOKEN_MINTER_CONTRACT = "0x673bE1968A12470F93BE374AAB529a89d5D607d5";
+        
+        // AdrianNameRegistry contract
+        const ADRIAN_NAME_REGISTRY_CONTRACT = "0xcdb0e89e"; // TODO: Replace with actual contract address
 
         // App state
         let currentAccount = null;
@@ -612,6 +626,8 @@
         let selectedERC1155 = [];
         let selectedFloppy = null; // For single floppy selection
         let selectedSerum = null; // For single serum selection
+        let selectedTokenForRename = null; // For token selected for rename
+        let namePrice = null; // Price for renaming
 
         // DOM Elements
         const connectSection = document.getElementById('connect-section');
@@ -646,6 +662,11 @@
         const activateTokenSection = document.getElementById('activate-token-section');
         const activateTokenBtn = document.getElementById('activateTokenBtn');
         const activateTokenStatus = document.getElementById('activate-token-status');
+        const renameSection = document.getElementById('rename-section');
+        const newTokenNameInput = document.getElementById('newTokenName');
+        const approveRenameBtn = document.getElementById('approveRenameBtn');
+        const renameTokenBtn = document.getElementById('renameTokenBtn');
+        const renameStatus = document.getElementById('rename-status');
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -656,6 +677,8 @@
             openFloppyBtn.addEventListener('click', openFloppy);
             useSerumBtn.addEventListener('click', useSerum);
             activateTokenBtn.addEventListener('click', activateToken);
+            approveRenameBtn.addEventListener('click', approveRename);
+            renameTokenBtn.addEventListener('click', renameToken);
             
             // Listen for messages from parent window (AdrianLab)
             window.addEventListener('message', handleParentMessage);
@@ -686,11 +709,20 @@
                         // Switching to Serums tab - clear other selections
                         selectedFloppy = null;
                         selectedSerum = null;
+                        selectedTokenForRename = null;
                         // Keep selectedERC721 for AdrianZERO selection
+                    } else if (currentFilter === 'rename') {
+                        // Switching to RENAME tab - clear other selections
+                        selectedFloppy = null;
+                        selectedSerum = null;
+                        selectedERC1155 = [];
+                        // Keep selectedERC721 for AdrianZERO selection
+                        selectedTokenForRename = selectedERC721;
                     } else {
                         // Switching to AdrianLAB tab - clear floppy and serum selection but keep ERC721 if it exists
                         selectedFloppy = null;
                         selectedSerum = null;
+                        selectedTokenForRename = null;
                         // Don't clear selectedERC721 and selectedERC1155 to maintain AdrianLAB functionality
                     }
                     
@@ -1382,6 +1414,34 @@
                     applyTraitsSection.style.display = 'none';
                     refreshMetadataSection.style.display = 'none';
                     openFloppySection.style.display = 'none';
+                    activateTokenSection.style.display = 'none';
+                }
+            } else if (currentFilter === 'rename') {
+                // Handle RENAME tab
+                if (selectedERC721) {
+                    infoText = `Selected AdrianZERO: ${selectedERC721.title} (ID: ${selectedERC721.tokenId})`;
+                    selectionText.innerHTML = infoText;
+                    selectionInfo.style.display = 'block';
+                    renameSection.style.display = 'block';
+                    generatedImage.style.display = 'none';
+                    applyTraitsSection.style.display = 'none';
+                    refreshMetadataSection.style.display = 'none';
+                    openFloppySection.style.display = 'none';
+                    useSerumSection.style.display = 'none';
+                    activateTokenSection.style.display = 'none';
+                    
+                    // Load name price if not already loaded
+                    if (namePrice === null) {
+                        loadNamePrice();
+                    }
+                } else {
+                    selectionInfo.style.display = 'none';
+                    renameSection.style.display = 'none';
+                    generatedImage.style.display = 'none';
+                    applyTraitsSection.style.display = 'none';
+                    refreshMetadataSection.style.display = 'none';
+                    openFloppySection.style.display = 'none';
+                    useSerumSection.style.display = 'none';
                     activateTokenSection.style.display = 'none';
                 }
             } else {
@@ -2231,6 +2291,315 @@
                 setTimeout(() => {
                     activateTokenStatus.innerHTML = message + '<br><small>💡 You can try again by clicking the button.</small>';
                 }, 2000);
+            }
+        }
+
+        // Load name price from AdrianNameRegistry contract
+        async function loadNamePrice() {
+            try {
+                // Load ethers dynamically only when needed
+                let ethers;
+                if (typeof window.ethers === 'undefined') {
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+                    script.onload = () => {
+                        ethers = window.ethers;
+                        executeLoadPrice();
+                    };
+                    script.onerror = () => {
+                        console.error('Failed to load ethers library');
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    ethers = window.ethers;
+                    executeLoadPrice();
+                }
+
+                async function executeLoadPrice() {
+                    try {
+                        const provider = new ethers.providers.Web3Provider(window.ethereum);
+                        
+                        // AdrianNameRegistry contract ABI for namePrice function
+                        const contractABI = [
+                            {
+                                "inputs": [],
+                                "name": "namePrice",
+                                "outputs": [
+                                    {
+                                        "internalType": "uint256",
+                                        "name": "",
+                                        "type": "uint256"
+                                    }
+                                ],
+                                "stateMutability": "view",
+                                "type": "function"
+                            }
+                        ];
+
+                        // Create contract instance (using a placeholder address for now)
+                        const contract = new ethers.Contract(ADRIAN_NAME_REGISTRY_CONTRACT, contractABI, provider);
+                        
+                        // Get the name price
+                        const price = await contract.namePrice();
+                        namePrice = price;
+                        
+                        console.log('Name price loaded:', ethers.utils.formatEther(price), 'ADRIAN');
+                        
+                        // Update UI to show price
+                        showRenameStatus(`Name change price: ${ethers.utils.formatEther(price)} $ADRIAN`, 'info');
+                        
+                    } catch (error) {
+                        console.error('Error loading name price:', error);
+                        // Use default price if contract call fails
+                        namePrice = ethers.utils.parseEther("10"); // 10 ADRIAN default
+                        showRenameStatus(`Using default price: 10 $ADRIAN`, 'info');
+                    }
+                }
+            } catch (error) {
+                console.error('Error in loadNamePrice:', error);
+            }
+        }
+
+        // Approve $ADRIAN tokens for rename
+        async function approveRename() {
+            console.log('approveRename called');
+            
+            if (!selectedERC721) {
+                showRenameStatus('Please select an AdrianZERO token first.', 'error');
+                return;
+            }
+
+            if (!currentAccount) {
+                showRenameStatus('Please connect your wallet first.', 'error');
+                return;
+            }
+
+            if (!namePrice) {
+                showRenameStatus('Loading name price...', 'info');
+                await loadNamePrice();
+                return;
+            }
+
+            try {
+                // Show loading state
+                showRenameStatus('Loading ethers library...', 'loading');
+                approveRenameBtn.disabled = true;
+
+                // Load ethers dynamically only when needed
+                let ethers;
+                if (typeof window.ethers === 'undefined') {
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+                    script.onload = () => {
+                        ethers = window.ethers;
+                        console.log('Ethers loaded successfully');
+                        executeApproval();
+                    };
+                    script.onerror = () => {
+                        showRenameStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                        approveRenameBtn.disabled = false;
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    ethers = window.ethers;
+                    executeApproval();
+                }
+
+                async function executeApproval() {
+                    try {
+                        showRenameStatus('Checking allowance...', 'info');
+                        
+                        const provider = new ethers.providers.Web3Provider(window.ethereum);
+                        const signer = provider.getSigner();
+
+                        // ADRIAN token contract
+                        const ADRIAN_TOKEN = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+                        
+                        // ERC20 ABI for approve function
+                        const erc20ABI = [
+                            "function approve(address spender, uint256 amount) returns (bool)",
+                            "function allowance(address owner, address spender) view returns (uint256)"
+                        ];
+
+                        const adrianToken = new ethers.Contract(ADRIAN_TOKEN, erc20ABI, signer);
+                        
+                        // Check current allowance
+                        const allowance = await adrianToken.allowance(currentAccount, ADRIAN_NAME_REGISTRY_CONTRACT);
+                        
+                        if (allowance.gte(namePrice)) {
+                            showRenameStatus('Allowance already sufficient!', 'success');
+                            return;
+                        }
+
+                        showRenameStatus('Approving $ADRIAN tokens...', 'info');
+                        
+                        const tx = await adrianToken.approve(ADRIAN_NAME_REGISTRY_CONTRACT, namePrice);
+                        showRenameStatus(`Approving... <a href="https://basescan.org/tx/${tx.hash}" target="_blank" class="tx-link">View TX</a>`, 'info');
+                        
+                        await tx.wait();
+                        showRenameStatus('Approval successful!', 'success');
+                        
+                    } catch (error) {
+                        console.error('Error in approval:', error);
+                        
+                        let errorMessage = 'Failed to approve $ADRIAN tokens.';
+                        if (error.code === 4001) {
+                            errorMessage = 'Transaction was rejected by user.';
+                        } else if (error.message) {
+                            errorMessage = `Error: ${error.message}`;
+                        }
+                        
+                        showRenameStatus(errorMessage, 'error');
+                    } finally {
+                        approveRenameBtn.disabled = false;
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error approving rename:', error);
+                showRenameStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                approveRenameBtn.disabled = false;
+            }
+        }
+
+        // Rename AdrianZERO token
+        async function renameToken() {
+            console.log('renameToken called');
+            
+            if (!selectedERC721) {
+                showRenameStatus('Please select an AdrianZERO token first.', 'error');
+                return;
+            }
+
+            if (!currentAccount) {
+                showRenameStatus('Please connect your wallet first.', 'error');
+                return;
+            }
+
+            const newName = newTokenNameInput.value.trim();
+            if (!newName) {
+                showRenameStatus('Please enter a new name for your AdrianZERO.', 'error');
+                return;
+            }
+
+            if (newName.length > 32) {
+                showRenameStatus('Name must be 32 characters or less.', 'error');
+                return;
+            }
+
+            try {
+                // Show loading state
+                showRenameStatus('Loading ethers library...', 'loading');
+                renameTokenBtn.disabled = true;
+
+                // Load ethers dynamically only when needed
+                let ethers;
+                if (typeof window.ethers === 'undefined') {
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+                    script.onload = () => {
+                        ethers = window.ethers;
+                        console.log('Ethers loaded successfully');
+                        executeRename();
+                    };
+                    script.onerror = () => {
+                        showRenameStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                        renameTokenBtn.disabled = false;
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    ethers = window.ethers;
+                    executeRename();
+                }
+
+                async function executeRename() {
+                    try {
+                        showRenameStatus('Preparing transaction...', 'loading');
+
+                        const provider = new ethers.providers.Web3Provider(window.ethereum);
+                        const signer = provider.getSigner();
+
+                        // AdrianNameRegistry contract ABI for setTokenName function
+                        const contractABI = [
+                            {
+                                "inputs": [
+                                    {
+                                        "internalType": "uint256",
+                                        "name": "tokenId",
+                                        "type": "uint256"
+                                    },
+                                    {
+                                        "internalType": "string",
+                                        "name": "name",
+                                        "type": "string"
+                                    }
+                                ],
+                                "name": "setTokenName",
+                                "outputs": [],
+                                "stateMutability": "nonpayable",
+                                "type": "function"
+                            }
+                        ];
+
+                        const contract = new ethers.Contract(ADRIAN_NAME_REGISTRY_CONTRACT, contractABI, signer);
+
+                        const tokenId = selectedERC721.tokenId;
+
+                        console.log('Contract address:', ADRIAN_NAME_REGISTRY_CONTRACT);
+                        console.log('Token ID:', tokenId);
+                        console.log('New name:', newName);
+
+                        showRenameStatus('Confirming transaction in your wallet...', 'loading');
+
+                        const tx = await contract.setTokenName(tokenId, newName);
+                        
+                        showRenameStatus('Transaction sent! Waiting for confirmation...', 'loading');
+                        console.log('Transaction hash:', tx.hash);
+
+                        const receipt = await tx.wait();
+                        
+                        showRenameStatus(`✅ Token renamed successfully to "${newName}"! Transaction: ${receipt.transactionHash}`, 'success');
+                        console.log('Transaction confirmed:', receipt);
+
+                        // Clear input and refresh tokens
+                        newTokenNameInput.value = '';
+                        setTimeout(() => {
+                            loadTokens(currentAccount, currentContract);
+                        }, 2000);
+
+                    } catch (error) {
+                        console.error('Error in rename transaction:', error);
+                        
+                        let errorMessage = 'Failed to rename token.';
+                        if (error.code === 4001) {
+                            errorMessage = 'Transaction was rejected by user.';
+                        } else if (error.message) {
+                            errorMessage = `Error: ${error.message}`;
+                        }
+                        
+                        showRenameStatus(errorMessage, 'error');
+                    } finally {
+                        renameTokenBtn.disabled = false;
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error renaming token:', error);
+                showRenameStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                renameTokenBtn.disabled = false;
+            }
+        }
+
+        // Helper function to show rename status
+        function showRenameStatus(message, type) {
+            renameStatus.textContent = message;
+            renameStatus.className = `apply-status ${type}`;
+            renameStatus.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    renameStatus.style.display = 'none';
+                }, 5000);
             }
         }
     </script>
