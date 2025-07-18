@@ -450,6 +450,14 @@
         .purchased {
             background-color: #00ff00;
         }
+        
+        .active {
+            background-color: #2196F3;
+        }
+        
+        .inactive {
+            background-color: #FF9800;
+        }
 
         .card-image {
             width: 100%;
@@ -1557,7 +1565,7 @@
             });
         }
 
-        // Load recovered tokens (PURCHASED status) - ULTRA OPTIMIZED VERSION
+        // Load recovered tokens (PURCHASED status) - CORRECTED VERSION
         async function loadRecoveredTokens() {
             try {
                 showStatus('Loading recovered tokens...', 'loading');
@@ -1570,35 +1578,22 @@
                 const provider = new window.ethers.providers.JsonRpcProvider(ALCHEMY_RPC_URL);
                 const contract = new window.ethers.Contract(PATIENTZERO_CONTRACT, getPatientZeroABIExtended(), provider);
                 
-                // Get all active profile IDs first (much more efficient)
-                const activeProfileIds = await contract.getActiveProfiles();
-                console.log(`Found ${activeProfileIds.length} active profiles to check`);
-                
                 const recoveredTokens = [];
                 
-                // Get all deposited tokens once
+                // Get all deposited tokens first
                 const depositedTokens = await contract.getDepositedTokens();
                 console.log(`Found ${depositedTokens.length} deposited tokens`);
+                
+                if (depositedTokens.length === 0) {
+                    displayRecoveredTokens([]);
+                    showStatus('No deposited tokens found', 'info');
+                    return;
+                }
                 
                 // Create a map of profile data to avoid repeated calls
                 const profileData = new Map();
                 
-                // Pre-load profile data for profiles that have recovered tokens
-                for (const profileId of activeProfileIds) {
-                    try {
-                        const profile = await contract.getProfile(profileId);
-                        if (profile.recovered > 0) {
-                            profileData.set(profileId.toString(), {
-                                name: profile.profileName,
-                                recovered: profile.recovered
-                            });
-                        }
-                    } catch (error) {
-                        console.warn(`Error loading profile ${profileId}:`, error);
-                    }
-                }
-                
-                // Now check only deposited tokens for purchase history
+                // Check each deposited token for purchase history
                 for (const tokenId of depositedTokens) {
                     try {
                         // Check if this token was purchased
@@ -1606,10 +1601,21 @@
                         
                         if (wasPurchased) {
                             const purchaseProfileId = await contract.tokenPurchaseProfileId(tokenId);
-                            const profileInfo = profileData.get(purchaseProfileId.toString());
                             
-                            if (profileInfo) {
-                                // This token was purchased for an active profile
+                            // Get profile data (cache it to avoid repeated calls)
+                            let profileInfo = profileData.get(purchaseProfileId.toString());
+                            if (!profileInfo) {
+                                const profile = await contract.getProfile(purchaseProfileId);
+                                profileInfo = {
+                                    name: profile.profileName,
+                                    recovered: profile.recovered,
+                                    active: profile.active
+                                };
+                                profileData.set(purchaseProfileId.toString(), profileInfo);
+                            }
+                            
+                            // Only show tokens from profiles that have recovered tokens
+                            if (profileInfo.recovered > 0) {
                                 const purchasePrice = await contract.tokenPurchasePrice(tokenId);
                                 const purchaser = await contract.tokenPurchaser(tokenId);
                                 
@@ -1623,7 +1629,8 @@
                                         profileId: purchaseProfileId,
                                         profileName: profileInfo.name,
                                         purchasePrice: purchasePrice,
-                                        purchaser: purchaser
+                                        purchaser: purchaser,
+                                        profileActive: profileInfo.active
                                     });
                                 } else {
                                     // If not in myAdrians, create basic token info
@@ -1635,7 +1642,8 @@
                                         profileId: purchaseProfileId,
                                         profileName: profileInfo.name,
                                         purchasePrice: purchasePrice,
-                                        purchaser: purchaser
+                                        purchaser: purchaser,
+                                        profileActive: profileInfo.active
                                     });
                                 }
                             }
@@ -1645,6 +1653,7 @@
                     }
                 }
                 
+                console.log(`Found ${recoveredTokens.length} purchased tokens from profiles with recovered tokens`);
                 displayRecoveredTokens(recoveredTokens);
                 showStatus(`Found ${recoveredTokens.length} recovered tokens`, 'success');
                 
@@ -1666,6 +1675,7 @@
                     <div class="card-header">
                         <h3>${token.title}</h3>
                         <span class="status-badge purchased">RECOVERED</span>
+                        ${token.profileActive ? '<span class="status-badge active">ACTIVE</span>' : '<span class="status-badge inactive">INACTIVE</span>'}
                     </div>
                     <div class="card-image">
                         <img src="${token.imageUrl}" alt="${token.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMzMzIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBmb3VuZDwvdGV4dD48L3N2Zz4='">
@@ -1675,6 +1685,7 @@
                             <p><strong>Profile:</strong> ${token.profileName}</p>
                             <p><strong>Purchase Price:</strong> ${window.ethers.utils.formatEther(token.purchasePrice)} $ADRIAN</p>
                             <p><strong>Purchaser:</strong> ${token.purchaser.slice(0, 6)}...${token.purchaser.slice(-4)}</p>
+                            <p><strong>Profile Status:</strong> ${token.profileActive ? 'Active' : 'Inactive'}</p>
                         </div>
                         <div class="card-actions">
                             <button class="action-btn view-btn" onclick="viewTokenDetails(${token.tokenId})">
