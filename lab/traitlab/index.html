@@ -1212,6 +1212,16 @@
                 // Use specific image URLs for different token types
                 let imageUrl = token.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+';
                 
+                // Hardcode names for specific floppy discs
+                let displayTitle = token.title;
+                if (currentFilter === 'floppy') {
+                    if (token.tokenId === 10003) {
+                        displayTitle = 'GLITCH Floppy';
+                    } else if (token.tokenId === 10004) {
+                        displayTitle = 'GF Floppy';
+                    }
+                }
+                
                 // Override image URL for specific token types
                 if (currentFilter === 'serum' && token.tokenId === 262144) {
                     imageUrl = 'https://adrianlab-dhnfmyura-adrianlab.vercel.app/labimages/262144.gif';
@@ -1268,35 +1278,19 @@
                     console.log(`Token ${token.tokenId} - Balance: ${token.balance}, Will show tag: ${token.balance > 1}`);
                 }
                 
-                // --- CAMBIO: nombre dinámico para floppy discs ---
-                let tokenName = token.title;
-                
                 tokenCard.innerHTML = `
                     <div style="position: relative;">
-                        <img src="${imageUrl}" alt="${tokenName}" class="token-image" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+'>
+                        <img src="${imageUrl}" alt="${displayTitle}" class="token-image" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+">
                         ${quantityTag}
                     </div>
                     <div class="token-info">
-                        <div class="token-name">${tokenName}</div>
+                        <div class="token-name">${displayTitle}</div>
                         <div class="token-id">ID: ${token.tokenId}</div>
                         ${categoryDisplay}
                         <div class="token-contract">${token.contractName}</div>
                         <div class="token-contract">${token.contract.slice(0,6)}...${token.contract.slice(-4)}</div>
                     </div>
                 `;
-                
-                // Si es floppy, obtener el nombre real desde la API y actualizar el DOM
-                if (currentFilter === 'floppy') {
-                    fetch(`https://adrianlab.vercel.app/api/metadata/floppy/${token.tokenId}`)
-                        .then(res => res.ok ? res.json() : null)
-                        .then(data => {
-                            if (data && data.name) {
-                                const nameDiv = tokenCard.querySelector('.token-name');
-                                if (nameDiv) nameDiv.textContent = data.name;
-                            }
-                        })
-                        .catch(() => {});
-                }
                 
                 // Add click event for selection
                 tokenCard.addEventListener('click', () => {
@@ -1376,7 +1370,14 @@
             if (currentFilter === 'floppy') {
                 // Handle Floppy Discs tab
                 if (selectedFloppy) {
-                    infoText = `Selected Floppy: ${selectedFloppy.title} (ID: ${selectedFloppy.tokenId})`;
+                    // Use hardcoded names for specific floppy discs
+                    let floppyDisplayName = selectedFloppy.title;
+                    if (selectedFloppy.tokenId === 10003) {
+                        floppyDisplayName = 'GLITCH Floppy';
+                    } else if (selectedFloppy.tokenId === 10004) {
+                        floppyDisplayName = 'GF Floppy';
+                    }
+                    infoText = `Selected Floppy: ${floppyDisplayName} (ID: ${selectedFloppy.tokenId})`;
                     selectionText.innerHTML = infoText;
                     selectionInfo.style.display = 'block';
                     openFloppySection.style.display = 'block';
