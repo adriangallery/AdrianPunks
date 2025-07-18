@@ -1557,7 +1557,7 @@
             });
         }
 
-        // Load recovered tokens (PURCHASED status)
+        // Load recovered tokens (PURCHASED status) - ULTRA OPTIMIZED VERSION
         async function loadRecoveredTokens() {
             try {
                 showStatus('Loading recovered tokens...', 'loading');
@@ -1570,33 +1570,78 @@
                 const provider = new window.ethers.providers.JsonRpcProvider(ALCHEMY_RPC_URL);
                 const contract = new window.ethers.Contract(PATIENTZERO_CONTRACT, getPatientZeroABIExtended(), provider);
                 
-                // Use the existing myAdrians array instead of calling a non-existent function
-                if (!myAdrians || myAdrians.length === 0) {
-                    showStatus('No AdrianZERO tokens found. Please load your tokens first.', 'error');
-                    return;
-                }
+                // Get all active profile IDs first (much more efficient)
+                const activeProfileIds = await contract.getActiveProfiles();
+                console.log(`Found ${activeProfileIds.length} active profiles to check`);
                 
                 const recoveredTokens = [];
                 
-                // Check each token's status
-                for (const token of myAdrians) {
+                // Get all deposited tokens once
+                const depositedTokens = await contract.getDepositedTokens();
+                console.log(`Found ${depositedTokens.length} deposited tokens`);
+                
+                // Create a map of profile data to avoid repeated calls
+                const profileData = new Map();
+                
+                // Pre-load profile data for profiles that have recovered tokens
+                for (const profileId of activeProfileIds) {
                     try {
-                        const tokenStatus = await contract.getTokenStatus(token.tokenId);
-                        
-                        // Only show tokens with PURCHASED status
-                        if (tokenStatus.tokenStatus === "PURCHASED") {
-                            const profile = await contract.getProfile(tokenStatus.profileId);
-                            recoveredTokens.push({
-                                ...token,
-                                status: tokenStatus.tokenStatus,
-                                profileId: tokenStatus.profileId,
-                                profileName: profile.profileName,
-                                purchasePrice: tokenStatus.purchasePrice,
-                                purchaser: tokenStatus.depositor // This is the purchaser address
+                        const profile = await contract.getProfile(profileId);
+                        if (profile.recovered > 0) {
+                            profileData.set(profileId.toString(), {
+                                name: profile.profileName,
+                                recovered: profile.recovered
                             });
                         }
                     } catch (error) {
-                        console.warn(`Error checking status for token ${token.tokenId}:`, error);
+                        console.warn(`Error loading profile ${profileId}:`, error);
+                    }
+                }
+                
+                // Now check only deposited tokens for purchase history
+                for (const tokenId of depositedTokens) {
+                    try {
+                        // Check if this token was purchased
+                        const wasPurchased = await contract.tokenWasPurchased(tokenId);
+                        
+                        if (wasPurchased) {
+                            const purchaseProfileId = await contract.tokenPurchaseProfileId(tokenId);
+                            const profileInfo = profileData.get(purchaseProfileId.toString());
+                            
+                            if (profileInfo) {
+                                // This token was purchased for an active profile
+                                const purchasePrice = await contract.tokenPurchasePrice(tokenId);
+                                const purchaser = await contract.tokenPurchaser(tokenId);
+                                
+                                // Get token metadata from myAdrians if available
+                                const userToken = myAdrians.find(t => t.tokenId.toString() === tokenId.toString());
+                                
+                                if (userToken) {
+                                    recoveredTokens.push({
+                                        ...userToken,
+                                        status: "PURCHASED",
+                                        profileId: purchaseProfileId,
+                                        profileName: profileInfo.name,
+                                        purchasePrice: purchasePrice,
+                                        purchaser: purchaser
+                                    });
+                                } else {
+                                    // If not in myAdrians, create basic token info
+                                    recoveredTokens.push({
+                                        tokenId: tokenId,
+                                        title: `Adrian #${tokenId}`,
+                                        imageUrl: `https://api.adrianpunks.com/api/nfts/${tokenId}`,
+                                        status: "PURCHASED",
+                                        profileId: purchaseProfileId,
+                                        profileName: profileInfo.name,
+                                        purchasePrice: purchasePrice,
+                                        purchaser: purchaser
+                                    });
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.warn(`Error checking token ${tokenId} purchase status:`, error);
                     }
                 }
                 
