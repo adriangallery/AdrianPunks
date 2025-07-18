@@ -418,6 +418,94 @@
             border: 1px solid #0088ff;
         }
 
+        .no-tokens {
+            text-align: center;
+            padding: 40px;
+            color: #cccccc;
+            font-size: 1.2rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .card-header h3 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: #ff4444;
+        }
+
+        .status-badge {
+            background-color: #ff4444;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .purchased {
+            background-color: #00ff00;
+        }
+
+        .card-image {
+            width: 100%;
+            height: 150px;
+            background: #2a2a2a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        .card-image img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .card-content {
+            padding: 10px 15px;
+        }
+
+        .token-info p {
+            margin-bottom: 5px;
+            color: #cccccc;
+        }
+
+        .card-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .action-btn {
+            background: #333;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'VT323', monospace;
+            font-size: 0.9rem;
+        }
+
+        .action-btn:hover {
+            background: #444;
+        }
+
+        .action-btn.view-btn {
+            background: #0088ff;
+        }
+
+        .action-btn.view-btn:hover {
+            background: #0077cc;
+        }
+
         @media (max-width: 768px) {
             .header h1 {
                 font-size: 3rem;
@@ -462,6 +550,7 @@
                 <button class="tab-btn active" data-tab="bounties">Active Bounties</button>
                 <button class="tab-btn" data-tab="my-adrians">My Adrians</button>
                 <button class="tab-btn" data-tab="recovery">Recovery Center</button>
+                <button class="tab-btn" data-tab="recovered">RECOVERED FROM REHAB</button>
             </div>
 
             <div class="tab-content active" id="bounties-tab">
@@ -482,6 +571,13 @@
                 <div class="section-title">Recovery Center</div>
                 <div id="recoveryGrid" class="profiles-grid">
                     <div class="loading">Loading recovered profiles...</div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="recovered-tab">
+                <div class="section-title">RECOVERED FROM REHAB</div>
+                <div id="recoveredGrid" class="profiles-grid">
+                    <div class="loading">Loading recovered tokens...</div>
                 </div>
             </div>
         </div>
@@ -528,6 +624,7 @@
         const walletAddress = document.getElementById('walletAddress');
         const profilesGrid = document.getElementById('profilesGrid');
         const adriansGrid = document.getElementById('adriansGrid');
+        const recoveredGrid = document.getElementById('recoveredGrid');
         const statusMessage = document.getElementById('statusMessage');
 
         // Initialize
@@ -550,6 +647,7 @@
                     const tabId = btn.getAttribute('data-tab') + '-tab';
                     document.getElementById(tabId).classList.add('active');
                     if (tabId === 'recovery-tab') loadRecoveryProfiles();
+                    if (tabId === 'recovered-tab') loadRecoveredTokens();
                 });
             });
         }
@@ -847,7 +945,7 @@
             adriansGrid.innerHTML = adrians.map(adrian => `
                 <div class="adrian-card" onclick="selectAdrian('${adrian.tokenId}')">
                     <div class="adrian-image">
-                        <img src="${adrian.imageUrl}" alt="${adrian.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjMkEyQTJBIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+'" id="adrian-img-${adrian.tokenId}">
+                        <img src="${adrian.imageUrl}" alt="${adrian.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMzMzIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBmb3VuZDwvdGV4dD48L3N2Zz4='">
                     </div>
                     <div class="adrian-info">
                         <div class="adrian-name">${adrian.title}</div>
@@ -1459,6 +1557,93 @@
                 }
             });
         }
+
+        // Load recovered tokens (PURCHASED status)
+        async function loadRecoveredTokens() {
+            try {
+                showStatus('Loading recovered tokens...', 'loading');
+                
+                // Load ethers if not available
+                if (typeof window.ethers === 'undefined') {
+                    await loadEthers();
+                }
+
+                const provider = new window.ethers.providers.JsonRpcProvider(ALCHEMY_RPC_URL);
+                const contract = new window.ethers.Contract(PATIENTZERO_CONTRACT, getPatientZeroABI(), provider);
+                
+                // Get all user's AdrianZERO tokens
+                const userTokens = await getUserAdrianTokens();
+                const recoveredTokens = [];
+                
+                // Check each token's status
+                for (const token of userTokens) {
+                    try {
+                        const tokenStatus = await contract.getTokenStatus(token.tokenId);
+                        
+                        // Only show tokens with PURCHASED status
+                        if (tokenStatus.tokenStatus === "PURCHASED") {
+                            const profile = await contract.getProfile(tokenStatus.profileId);
+                            recoveredTokens.push({
+                                ...token,
+                                status: tokenStatus.tokenStatus,
+                                profileId: tokenStatus.profileId,
+                                profileName: profile.profileName,
+                                purchasePrice: tokenStatus.purchasePrice,
+                                purchaser: tokenStatus.depositor // This is the purchaser address
+                            });
+                        }
+                    } catch (error) {
+                        console.warn(`Error checking status for token ${token.tokenId}:`, error);
+                    }
+                }
+                
+                displayRecoveredTokens(recoveredTokens);
+                showStatus(`Found ${recoveredTokens.length} recovered tokens`, 'success');
+                
+            } catch (error) {
+                console.error('Error loading recovered tokens:', error);
+                showStatus('Error loading recovered tokens: ' + error.message, 'error');
+            }
+        }
+
+        // Display recovered tokens
+        function displayRecoveredTokens(tokens) {
+            if (tokens.length === 0) {
+                recoveredGrid.innerHTML = '<div class="no-tokens">No recovered tokens found</div>';
+                return;
+            }
+            
+            recoveredGrid.innerHTML = tokens.map(token => `
+                <div class="profile-card recovered-token">
+                    <div class="card-header">
+                        <h3>${token.title}</h3>
+                        <span class="status-badge purchased">RECOVERED</span>
+                    </div>
+                    <div class="card-image">
+                        <img src="${token.imageUrl}" alt="${token.title}" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMzMzIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBmb3VuZDwvdGV4dD48L3N2Zz4='">
+                    </div>
+                    <div class="card-content">
+                        <div class="token-info">
+                            <p><strong>Profile:</strong> ${token.profileName}</p>
+                            <p><strong>Purchase Price:</strong> ${window.ethers.utils.formatEther(token.purchasePrice)} $ADRIAN</p>
+                            <p><strong>Purchaser:</strong> ${token.purchaser.slice(0, 6)}...${token.purchaser.slice(-4)}</p>
+                        </div>
+                        <div class="card-actions">
+                            <button class="action-btn view-btn" onclick="viewTokenDetails(${token.tokenId})">
+                                View Details
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // View token details (placeholder function)
+        function viewTokenDetails(tokenId) {
+            showStatus(`Viewing details for token ${tokenId}...`, 'info');
+            // TODO: Implement detailed view or link to external viewer
+        }
+
     </script>
 </body>
 </html> 
