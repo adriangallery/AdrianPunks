@@ -1590,40 +1590,18 @@
                         const profile = await contract.getProfile(profileId);
                         console.log(`Profile ${profileId}: ${profile.profileName}, recovered: ${profile.recovered}, active: ${profile.active}`);
                         
-                        // If this profile has recovered tokens, check for purchased tokens
+                        // If this profile has recovered tokens, show it as recovered
                         if (profile.recovered > 0) {
-                            // Get all deposited tokens to find which ones were purchased for this profile
-                            const depositedTokens = await contract.getDepositedTokens();
-                            
-                            for (const tokenId of depositedTokens) {
-                                try {
-                                    const wasPurchased = await contract.tokenWasPurchased(tokenId);
-                                    const purchaseProfileId = await contract.tokenPurchaseProfileId(tokenId);
-                                    
-                                    if (wasPurchased && purchaseProfileId.toString() === profileId.toString()) {
-                                        // Found a purchased token for this profile
-                                        const purchasePrice = await contract.tokenPurchasePrice(tokenId);
-                                        const purchaser = await contract.tokenPurchaser(tokenId);
-                                        
-                                        recoveredProfiles.push({
-                                            id: profileId,
-                                            name: profile.profileName,
-                                            traitIds: profile.traitIds,
-                                            reward: profile.reward,
-                                            active: profile.active,
-                                            recovered: profile.recovered,
-                                            tokenId: tokenId,
-                                            purchasePrice: purchasePrice,
-                                            purchaser: purchaser
-                                        });
-                                        
-                                        // Only show the first purchased token per profile for now
-                                        break;
-                                    }
-                                } catch (error) {
-                                    console.warn(`Error checking token ${tokenId} for profile ${profileId}:`, error);
-                                }
-                            }
+                            // This profile has been successfully recovered - show it
+                            recoveredProfiles.push({
+                                id: profileId,
+                                name: profile.profileName,
+                                traitIds: profile.traitIds,
+                                reward: profile.reward,
+                                active: profile.active,
+                                recovered: profile.recovered,
+                                status: 'RECOVERED'
+                            });
                         }
                         
                         profileId++;
@@ -1651,10 +1629,10 @@
                         </div>
                         <div class="profile-info">
                             <div class="profile-name">${rp.name}</div>
-                            <div class="profile-reward">Purchase Price: ${window.ethers.utils.formatEther(rp.purchasePrice)} $ADRIAN</div>
+                            <div class="profile-reward">Original Reward: ${window.ethers.utils.formatEther(rp.reward)} $ADRIAN</div>
                             <div class="profile-stats">
                                 <span>Profile ID: ${rp.id}</span>
-                                <span>Token ID: ${rp.tokenId}</span>
+                                <span>Recovered: ${rp.recovered} token(s)</span>
                                 <span>Status: ${rp.active ? 'ACTIVE' : 'INACTIVE'}</span>
                             </div>
                             <div class="profile-traits">
@@ -1663,8 +1641,8 @@
                                     ${rp.traitIds.map(traitId => `<span class="trait-tag">${traitId}</span>`).join('')}
                                 </div>
                             </div>
-                            <div class="purchaser-info">
-                                <strong>Purchaser:</strong> ${rp.purchaser.slice(0, 6)}...${rp.purchaser.slice(-4)}
+                            <div class="recovery-info">
+                                <strong>Status:</strong> <span class="status-badge purchased">RECOVERED</span>
                             </div>
                         </div>
                     </div>
