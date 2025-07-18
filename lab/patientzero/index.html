@@ -1202,7 +1202,6 @@
                 ...getPatientZeroABI(),
                 "function getDepositedTokens() view returns (uint256[] memory)",
                 "function tokenToProfile(uint256) view returns (uint256)",
-                "function getProfile(uint256) view returns (string,uint256[],uint256,bool,uint256)",
                 "function getTokenPrice(uint256) view returns (uint256)",
                 "function purchaseToken(uint256) payable",
                 // ✅ NUEVOS - Historial de compras
@@ -1569,14 +1568,18 @@
                 }
 
                 const provider = new window.ethers.providers.JsonRpcProvider(ALCHEMY_RPC_URL);
-                const contract = new window.ethers.Contract(PATIENTZERO_CONTRACT, getPatientZeroABI(), provider);
+                const contract = new window.ethers.Contract(PATIENTZERO_CONTRACT, getPatientZeroABIExtended(), provider);
                 
-                // Get all user's AdrianZERO tokens
-                const userTokens = await getUserAdrianTokens();
+                // Use the existing myAdrians array instead of calling a non-existent function
+                if (!myAdrians || myAdrians.length === 0) {
+                    showStatus('No AdrianZERO tokens found. Please load your tokens first.', 'error');
+                    return;
+                }
+                
                 const recoveredTokens = [];
                 
                 // Check each token's status
-                for (const token of userTokens) {
+                for (const token of myAdrians) {
                     try {
                         const tokenStatus = await contract.getTokenStatus(token.tokenId);
                         
