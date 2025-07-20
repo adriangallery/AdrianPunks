@@ -64,7 +64,7 @@ const baseSceneStyles = `
 .background-container {
     position: absolute;
     top: 60px;        /* Altura del header */
-    bottom: 200px;    /* Altura del footer */
+    bottom: 232px;    /* Altura del footer: 200px + 32px padding */
     left: 0;
     right: 0;
     z-index: 1;
@@ -155,7 +155,7 @@ const baseSceneStyles = `
 @media (max-width: 768px) {
     .background-container {
         top: 50px;        /* Header más pequeño en móvil */
-        bottom: 150px;    /* Footer más pequeño en móvil */
+        bottom: 166px;    /* Footer: 150px + 16px padding */
     }
     
     .commands-grid {
@@ -203,7 +203,7 @@ const baseSceneStyles = `
 @media (min-width: 769px) {
     .background-container {
         top: 60px;        /* Header estándar en desktop */
-        bottom: 200px;    /* Footer estándar en desktop */
+        bottom: 232px;    /* Footer: 200px + 32px padding */
     }
     
     .inventory-grid {
@@ -237,7 +237,7 @@ const baseSceneStyles = `
 @media (max-width: 480px) {
     .background-container {
         top: 40px;        /* Header muy pequeño */
-        bottom: 120px;    /* Footer muy pequeño */
+        bottom: 136px;    /* Footer: 120px + 16px padding */
     }
 }
 </style>
