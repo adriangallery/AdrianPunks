@@ -1141,9 +1141,9 @@ function handleUpstairsClick(event) {
     
     // General area click - only show coordinates if explore command is active
     const currentCommand = getCurrentCommand();
-    if (currentCommand === 'explore') {
+    // if (currentCommand === 'explore') {
         // showNotification(`You clicked at ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
-    } else if (currentCommand === 'test') {
+    if (currentCommand === 'test') {
         showFloatingText(`🔧 TEST MODE\nCoordinates: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%\n\nClick anywhere to see coordinates!`, xPercent, yPercent);
     }
 }
@@ -1673,9 +1673,9 @@ function handlePointAndClick(event) {
     
     // General area click - only show coordinates if explore command is active
     const currentCommand = getCurrentCommand();
-    if (currentCommand === 'explore') {
+    // if (currentCommand === 'explore') {
         // showNotification(`You clicked at ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
-    } else if (currentCommand === 'test') {
+    if (currentCommand === 'test') {
         showFloatingText(`🔧 TEST MODE\nCoordinates: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%\n\nClick anywhere to see coordinates!`, xPercent, yPercent);
     }
 }
