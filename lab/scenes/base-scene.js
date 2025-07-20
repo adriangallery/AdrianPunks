@@ -63,10 +63,10 @@ const baseSceneStyles = `
 /* Scene background image - Responsive */
 .background-container {
     position: absolute;
-    top: 0;
+    top: 60px;        /* Altura del header */
+    bottom: 200px;    /* Altura del footer */
     left: 0;
-    width: 100%;
-    height: 100%;
+    right: 0;
     z-index: 1;
     display: flex;
     align-items: center;
@@ -153,6 +153,11 @@ const baseSceneStyles = `
 
 /* Mobile responsive adjustments */
 @media (max-width: 768px) {
+    .background-container {
+        top: 50px;        /* Header más pequeño en móvil */
+        bottom: 150px;    /* Footer más pequeño en móvil */
+    }
+    
     .commands-grid {
         gap: 2px;
     }
@@ -196,6 +201,11 @@ const baseSceneStyles = `
 
 /* Desktop responsive adjustments */
 @media (min-width: 769px) {
+    .background-container {
+        top: 60px;        /* Header estándar en desktop */
+        bottom: 200px;    /* Footer estándar en desktop */
+    }
+    
     .inventory-grid {
         grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
         gap: 6px;
@@ -220,6 +230,14 @@ const baseSceneStyles = `
     
     .inventory-item .item-id {
         font-size: 0.45rem;
+    }
+}
+
+/* Extra small mobile adjustments */
+@media (max-width: 480px) {
+    .background-container {
+        top: 40px;        /* Header muy pequeño */
+        bottom: 120px;    /* Footer muy pequeño */
     }
 }
 </style>
