@@ -1554,9 +1554,7 @@ document.addEventListener('gestureend', e => e.preventDefault());
 
 // Handle TAKE command
 
-// Handle TALK command
 
-// Handle MOVE command
 
 // Handle OPEN command
 
