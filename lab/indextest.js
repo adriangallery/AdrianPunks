@@ -23,6 +23,7 @@ let musicInitialized = false;
 let ethersLoaded = false;
 let progressInterval;
 let isMobile = false;
+let sceneManager; // Scene manager instance
 
 // Command system variables
 let currentCommand = 'explore'; // Default command
@@ -516,10 +517,16 @@ async function loadSceneManager() {
         // Load scene manager script
         await loadScript('scenes/scene-manager.js');
         
-        // Load all scenes
-        await sceneManager.loadScenes();
+        // Wait a moment for sceneManager to be available
+        await new Promise(resolve => setTimeout(resolve, 100));
         
-        console.log('Scene manager loaded successfully');
+        // Load all scenes
+        if (typeof sceneManager !== 'undefined') {
+            await sceneManager.loadScenes();
+            console.log('Scene manager loaded successfully');
+        } else {
+            console.error('SceneManager not available after loading script');
+        }
         
     } catch (error) {
         console.error('Error loading scene manager:', error);
@@ -743,8 +750,8 @@ function setupEventListeners() {
     // Wallet
     connectWalletBtn.addEventListener('click', connectWallet);
     
-    // Navigation - Use the original handleBasementClick for basic functionality
-    clickArea.addEventListener('click', handleBasementClick);
+    // Navigation - Scene manager will handle click events
+    // clickArea.addEventListener('click', handleBasementClick); // Removed - now handled by scene manager
     closePopupBtn.addEventListener('click', closeMintPopup);
     buyFloppyBtn.addEventListener('click', handleBuyFloppy);
     backToMainBtn.addEventListener('click', goToMainScreen);
@@ -1083,10 +1090,10 @@ function setupUpstairsEventListeners() {
     // Get upstairs elements
     const upstairsClickArea = document.getElementById('click-area-upstairs');
     
-    // Setup click area for upstairs
-    if (upstairsClickArea) {
-        upstairsClickArea.addEventListener('click', handleUpstairsClick);
-    }
+    // Setup click area for upstairs - now handled by scene manager
+    // if (upstairsClickArea) {
+    //     upstairsClickArea.addEventListener('click', handleUpstairsClick);
+    // }
     
     // Setup menu manager for upstairs screen
     menuManager.setupSceneEventListeners('upstairs-screen');
