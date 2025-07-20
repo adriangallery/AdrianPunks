@@ -1,6 +1,9 @@
 // Scene Manager - Gestor de todas las escenas del juego
+console.log('SceneManager script starting execution...');
+
 class SceneManager {
     constructor() {
+        console.log('SceneManager constructor called');
         this.scenes = new Map();
         this.currentScene = null;
         this.scenesLoaded = false;
