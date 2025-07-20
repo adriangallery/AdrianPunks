@@ -382,8 +382,13 @@ class MenuManager {
         }
         
         if (rightGrid) {
-            // Filtrar tokens para el grid derecho (items): 262144
-            const itemTokens = this.inventoryItems.filter(item => item.tokenId === 262144);
+            rightGrid.innerHTML = '';
+            
+            // Filtrar tokens para el grid derecho (todos los que no sean floppy discs)
+            const itemTokens = this.inventoryItems.filter(item => 
+                item.tokenId !== 10000 && item.tokenId !== 10001 && item.tokenId !== 10002 &&
+                item.tokenId !== 10003 && item.tokenId !== 10004 && item.tokenId !== 10005
+            );
             
             if (itemTokens.length === 0) {
                 rightGrid.innerHTML = '<div class="no-items">No items found.</div>';
@@ -985,12 +990,12 @@ function goToMainScreenFromIntro() {
             loadEthersWhenNeeded();
         }
         
-        // Change to main screen (basement) - fallback to existing HTML structure
+        // Change to outside scene (first scene) - fallback to existing HTML structure
         if (sceneManager) {
             sceneManager.changeScene('outside');
         } else {
-            console.log('Scene manager not loaded, using fallback to main-screen');
-            // Show main screen (basement) as fallback
+            console.log('Scene manager not loaded, using fallback to main-screen as outside');
+            // Show main screen (basement) as fallback for outside
             mainScreen.style.display = 'block';
             mainScreen.style.opacity = '0';
             mainScreen.style.transition = 'opacity 2s ease-in-out';
