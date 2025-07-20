@@ -1883,42 +1883,6 @@ function handleMouseMove(event) {
     // This could be used to show different cursors for different areas
 }
 
-// ===== INVENTORY SYSTEM =====
-
-// Load inventory (ERC1155 tokens 10000 and 10001)
-async function loadInventory() {
-    await menuManager.loadInventory();
-}
-
-// Display inventory items
-function displayInventory() {
-    menuManager.displayInventory();
-}
-
-// Helper function to create inventory item element
-function createInventoryItemElement(item) {
-    return menuManager.createInventoryItemElement(item);
-}
-
-// Handle inventory item selection
-function selectInventoryItem(item) {
-    menuManager.selectInventoryItem(item);
-}
-
-// Show no items message
-function showNoItems() {
-    menuManager.showNoItems();
-}
-
-// Show/hide inventory loading
-function showInventoryLoading() {
-    menuManager.showInventoryLoading();
-}
-
-function hideInventoryLoading() {
-    menuManager.hideInventoryLoading();
-}
-
 // Toggle inventory modal
 function toggleInventory() {
     console.log('Toggling inventory modal');
@@ -1951,4 +1915,4 @@ function initializePointAndClickSystem() {
         console.log('Wallet already connected, updating inventory');
         menuManager.updateWalletState(true, window.ethereum.selectedAddress);
     }
-} 
+}
