@@ -148,41 +148,7 @@ class BasementScene extends BaseScene {
         showFloatingText(message, x, y);
     }
 
-    handleTalkCommand(hotspot, x, y) {
-        console.log(`TALK command on: ${hotspot.name}`);
-        
-        const talkResponses = {
-            'Desk Area': '💬 "Hello desk!" - No response. It\'s just a desk.',
-            'Boxes Area': '💬 "Hello boxes!" - You hear a faint rustling sound.',
-            'Armchair Area': '💬 "Hello chair!" - The chair remains silent.',
-            'Washing Machine Area': '💬 "Hello washing machine!" - It continues spinning.',
-            'Stairs Area': '💬 "Hello stairs!" - They creak in response.',
-            'Computer Area': '💬 "Hello computer!" - The terminal beeps.',
-            'Light Bulb Area': '💬 "Hello light bulb!" - It flickers.',
-            'Windows Area': '💬 "Hello windows!" - Your echo bounces back.'
-        };
-        
-        const message = talkResponses[hotspot.name] || `💬 You talk to ${hotspot.name} but get no response`;
-        showFloatingText(message, x, y);
-    }
 
-    handleMoveCommand(hotspot, x, y) {
-        console.log(`MOVE command on: ${hotspot.name}`);
-        
-        const moveResponses = {
-            'Desk Area': '💬 The desk is too heavy to move.',
-            'Boxes Area': '💬 You try to move the boxes but they\'re stuck.',
-            'Armchair Area': '💬 You move the armchair slightly. It makes a scraping sound.',
-            'Washing Machine Area': '💬 The washing machine is bolted to the floor.',
-            'Stairs Area': '💬 You can\'t move the stairs, but you can climb them.',
-            'Computer Area': '💬 The computer is too heavy to move.',
-            'Light Bulb Area': '💬 You can\'t move the light bulb, it\'s attached to the ceiling.',
-            'Windows Area': '💬 You can\'t move the windows, they\'re part of the wall.'
-        };
-        
-        const message = moveResponses[hotspot.name] || `💬 You can\'t move ${hotspot.name}`;
-        showFloatingText(message, x, y);
-    }
 
     handleOpenCommand(hotspot, x, y) {
         console.log(`OPEN command on: ${hotspot.name}`);

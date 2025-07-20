@@ -77,29 +77,7 @@ class UpstairsScene extends BaseScene {
         showFloatingText(message, x, y);
     }
 
-    handleTalkCommand(hotspot, x, y) {
-        console.log(`TALK command on: ${hotspot.name}`);
-        
-        const talkResponses = {
-            'Stairs Down': '💬 "Hello stairs!" - They creak in response.',
-            'Fiat Zone': '💬 "Hello fiat zone!" - The silence is deafening.'
-        };
-        
-        const message = talkResponses[hotspot.name] || `💬 You talk to ${hotspot.name} but get no response`;
-        showFloatingText(message, x, y);
-    }
 
-    handleMoveCommand(hotspot, x, y) {
-        console.log(`MOVE command on: ${hotspot.name}`);
-        
-        const moveResponses = {
-            'Stairs Down': '💬 You can\'t move the stairs, but you can climb them.',
-            'Fiat Zone': '💬 The fiat zone is too expensive to move.'
-        };
-        
-        const message = moveResponses[hotspot.name] || `💬 You can\'t move ${hotspot.name}`;
-        showFloatingText(message, x, y);
-    }
 
     handleOpenCommand(hotspot, x, y) {
         console.log(`OPEN command on: ${hotspot.name}`);

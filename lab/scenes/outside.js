@@ -111,35 +111,7 @@ class OutsideScene extends BaseScene {
         showFloatingText(message, x, y);
     }
 
-    handleTalkCommand(hotspot, x, y) {
-        console.log(`TALK command on: ${hotspot.name}`);
-        
-        const talkResponses = {
-            'Front Door': '💬 "Hello door!" - The door remains silent, but you hear faint music from inside.',
-            'Street Light': '💬 "Hello light!" - The street light buzzes softly in response.',
-            'Window': '💬 "Hello window!" - You hear muffled voices from inside.',
-            'Sky': '💬 "Hello sky!" - The stars twinkle as if responding to your greeting.',
-            'Path': '💬 "Hello path!" - The path doesn\'t respond, but you hear rustling in the bushes.'
-        };
-        
-        const message = talkResponses[hotspot.name] || `💬 You talk to ${hotspot.name} but get no response`;
-        showFloatingText(message, x, y);
-    }
 
-    handleMoveCommand(hotspot, x, y) {
-        console.log(`MOVE command on: ${hotspot.name}`);
-        
-        const moveResponses = {
-            'Front Door': '💬 The door is too heavy to move.',
-            'Street Light': '💬 The street light is firmly planted in the ground and won\'t budge.',
-            'Window': '💬 You can\'t move the window, it\'s part of the building.',
-            'Sky': '💬 You can\'t move the sky, it\'s too vast.',
-            'Path': '💬 You can\'t move the path, it\'s part of the ground.'
-        };
-        
-        const message = moveResponses[hotspot.name] || `💬 You can\'t move ${hotspot.name}`;
-        showFloatingText(message, x, y);
-    }
 
     handleOpenCommand(hotspot, x, y) {
         console.log(`OPEN command on: ${hotspot.name}`);
