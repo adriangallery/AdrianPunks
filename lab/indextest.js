@@ -48,6 +48,9 @@ let progressFill, progressText;
 let landscapeModeEnabled = false;
 let rotateDeviceMessage = null;
 
+// Contract constants for OpenPack functionality
+const PACK_TOKEN_MINTER_CONTRACT = "0x673bE1968A12470F93BE374AAB529a89d5D607d5";
+
 // Menu Manager - Sistema modular para manejar menús en todas las escenas
 class MenuManager {
     constructor() {
@@ -106,6 +109,17 @@ class MenuManager {
         
         // Actualizar comando actual
         this.currentCommand = command;
+        
+        // Check if OPEN command is selected and there's a selected floppy disc
+        if (command === 'open' && this.selectedInventoryItem) {
+            const tokenId = parseInt(this.selectedInventoryItem.tokenId);
+            if (tokenId >= 10000 && tokenId <= 10005) {
+                console.log('OPEN command selected and floppy disc already selected, triggering openPack');
+                openPack(this.selectedInventoryItem);
+            } else {
+                showNotification('Please select a floppy disc to use the OPEN command.', 'info');
+            }
+        }
     }
 
     // Obtener comando actual
@@ -436,6 +450,17 @@ class MenuManager {
         
         // Resaltar item seleccionado
         event.target.closest('.inventory-item').classList.add('selected');
+        
+        // Check if OPEN command is active and item is a floppy disc
+        if (this.currentCommand === 'open') {
+            const tokenId = parseInt(item.tokenId);
+            if (tokenId >= 10000 && tokenId <= 10005) {
+                console.log('OPEN command active and floppy disc selected, triggering openPack');
+                openPack(item);
+            } else {
+                showNotification('OPEN command is only available for floppy discs.', 'error');
+            }
+        }
     }
 
     // ✅ ACTUALIZAR: Función showNoItems también debe usar escena activa
@@ -1683,6 +1708,104 @@ function updateWalletForInventory() {
         menuManager.updateWalletState(true, window.ethereum.selectedAddress);
     } else {
         menuManager.updateWalletState(false);
+    }
+}
+
+// OpenPack functionality for floppy discs
+async function openPack(selectedItem) {
+    console.log('openPack called for item:', selectedItem);
+    
+    if (!selectedItem) {
+        showNotification('Please select a floppy disc first.', 'error');
+        return;
+    }
+
+    // Check if it's a floppy disc (tokens 10000-10005)
+    const tokenId = parseInt(selectedItem.tokenId);
+    if (tokenId < 10000 || tokenId > 10005) {
+        showNotification('This function is only available for floppy discs.', 'error');
+        return;
+    }
+
+    if (!currentAccount) {
+        showNotification('Please connect your wallet first.', 'error');
+        return;
+    }
+
+    try {
+        showNotification('Loading ethers library...', 'loading');
+
+        let ethers;
+        if (typeof window.ethers === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+            script.onload = () => {
+                ethers = window.ethers;
+                console.log('Ethers loaded successfully');
+                executeOpenPack(selectedItem);
+            };
+            script.onerror = () => {
+                showNotification('Failed to load ethers library. Please refresh the page.', 'error');
+            };
+            document.head.appendChild(script);
+        } else {
+            ethers = window.ethers;
+            executeOpenPack(selectedItem);
+        }
+
+        async function executeOpenPack(selectedItem) {
+            try {
+                showNotification('Preparing transaction...', 'loading');
+
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const signer = provider.getSigner();
+
+                // PackTokenMinter contract ABI (simplified for openPack function)
+                const packMinterABI = [
+                    "function openPack(uint256 tokenId) external"
+                ];
+
+                const contract = new ethers.Contract(PACK_TOKEN_MINTER_CONTRACT, packMinterABI, signer);
+                const tokenId = selectedItem.tokenId;
+
+                console.log('Opening pack for token ID:', tokenId);
+
+                showNotification('Confirming transaction in your wallet...', 'loading');
+
+                const tx = await contract.openPack(tokenId);
+                
+                showNotification('Transaction sent! Waiting for confirmation...', 'loading');
+                console.log('Transaction hash:', tx.hash);
+
+                const receipt = await tx.wait();
+                
+                showNotification(`✅ Pack opened successfully! Transaction: ${receipt.transactionHash}`, 'success');
+                console.log('Transaction confirmed:', receipt);
+
+                // Refresh inventory after successful pack opening
+                setTimeout(() => {
+                    if (menuManager) {
+                        menuManager.loadInventory();
+                    }
+                }, 2000);
+
+            } catch (error) {
+                console.error('Error opening pack:', error);
+                
+                let errorMessage = 'Failed to open pack.';
+                if (error.code === 4001) {
+                    errorMessage = 'Transaction was rejected by user.';
+                } else if (error.message) {
+                    errorMessage = `Error: ${error.message}`;
+                }
+                
+                showNotification(errorMessage, 'error');
+            }
+        }
+
+    } catch (error) {
+        console.error('Error opening pack:', error);
+        showNotification('Failed to load ethers library. Please refresh the page.', 'error');
     }
 }
 
