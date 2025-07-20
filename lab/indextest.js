@@ -34,7 +34,7 @@ let currentAccount = null;
 let inventoryItems = [];
 let selectedInventoryItem = null;
 let gameState = {
-    currentLocation: 'basement',
+            currentLocation: 'outside',
     discoveredItems: [],
     interactions: []
 };
@@ -995,7 +995,7 @@ function goToMainScreenFromIntro() {
             sceneManager.changeScene('outside');
         } else {
             console.log('Scene manager not loaded, using fallback to main-screen as outside');
-            // Show main screen (basement) as fallback for outside
+            // Show main screen (outside) as fallback for outside
             mainScreen.style.display = 'block';
             mainScreen.style.opacity = '0';
             mainScreen.style.transition = 'opacity 2s ease-in-out';
@@ -1013,7 +1013,7 @@ function goToMainScreenFromIntro() {
 }
 
 function goToMainScreen() {
-    console.log('Going to main screen (basement)');
+                console.log('Going to main screen (outside)');
     
     // Hide floppy screen if it's active
     if (floppyScreen.classList.contains('active')) {
@@ -1026,9 +1026,9 @@ function goToMainScreen() {
         }, 2000);
     }
     
-    // Change to basement scene (main scene)
+    // Change to outside scene (main scene)
     if (sceneManager) {
-        sceneManager.changeScene('basement');
+        sceneManager.changeScene('outside');
     } else {
         console.error('Scene manager not loaded');
     }
@@ -1348,7 +1348,7 @@ function notifyIframeWalletDisconnected() {
     }
 }
 
-// Original handleBasementClick function - this is the key fix
+    // Original handleOutsideClick function - this is the key fix
 
 function closeMintPopup() {
     mintPopup.classList.remove('active');
