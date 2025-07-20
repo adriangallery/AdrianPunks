@@ -56,6 +56,8 @@ class MenuManager {
         this.inventoryItems = [];
         this.selectedInventoryItem = null;
         this.isWalletConnected = false;
+        this.lastLoadedAccount = null; // ✅ NUEVA VARIABLE
+        this.isLoadingInventory = false; // ✅ NUEVA VARIABLE
     }
 
     // Inicializar el sistema de comandos para cualquier escena
@@ -121,10 +123,12 @@ class MenuManager {
         // Actualizar botones de wallet en todas las escenas
         this.updateWalletButtons();
         
-        // Cargar inventario si está conectado
-        if (connected && address) {
+        // ✅ CAMBIO: Solo cargar inventario si realmente cambió el estado
+        if (connected && address && address !== this.lastLoadedAccount) {
+            this.lastLoadedAccount = address;
             this.loadInventory();
-        } else {
+        } else if (!connected) {
+            this.lastLoadedAccount = null;
             this.clearInventory();
         }
     }
@@ -168,6 +172,13 @@ class MenuManager {
             return;
         }
         
+        // ✅ Prevenir múltiples cargas simultáneas
+        if (this.isLoadingInventory) {
+            console.log('Inventory already loading, skipping...');
+            return;
+        }
+        
+        this.isLoadingInventory = true;
         console.log('Loading inventory for account:', this.currentAccount);
         this.showInventoryLoading();
         
@@ -295,17 +306,54 @@ class MenuManager {
             console.error("Error loading inventory:", error);
             showNotification(`Error loading inventory: ${error.message}`, 'error');
         } finally {
+            this.isLoadingInventory = false; // ✅ Limpiar flag
             this.hideInventoryLoading();
         }
     }
 
-    // Mostrar inventario
+    // ✅ Método auxiliar para encontrar la escena activa
+    getActiveScene() {
+        // Prioridad 1: Escena con clase 'active'
+        let activeScene = document.querySelector('.screen.active');
+        
+        // Prioridad 2: Escena con display block
+        if (!activeScene) {
+            activeScene = document.querySelector('.screen[style*="block"]');
+        }
+        
+        // Prioridad 3: Escena que no tiene display none
+        if (!activeScene) {
+            const screens = document.querySelectorAll('.screen');
+            for (const screen of screens) {
+                const style = window.getComputedStyle(screen);
+                if (style.display !== 'none') {
+                    activeScene = screen;
+                    break;
+                }
+            }
+        }
+        
+        return activeScene;
+    }
+
+    // ✅ SOLUCIÓN: Buscar dentro de la escena activa, no globalmente
     displayInventory() {
         console.log('Displaying inventory items:', this.inventoryItems);
         
-        // Update common inventory grids (left and right)
-        const leftGrid = document.getElementById('inventory-grid-left');
-        const rightGrid = document.getElementById('inventory-grid-right');
+        // ✅ SOLUCIÓN: Buscar dentro de la escena activa, no globalmente
+        const activeScene = this.getActiveScene();
+        if (!activeScene) {
+            console.warn('No active scene found for inventory display');
+            return;
+        }
+
+        // Buscar grids de inventario dentro de la escena activa específicamente
+        const leftGrid = activeScene.querySelector('#inventory-grid-left');
+        const rightGrid = activeScene.querySelector('#inventory-grid-right');
+        
+        console.log('Active scene:', activeScene.id || 'unknown');
+        console.log('Left grid found:', !!leftGrid);
+        console.log('Right grid found:', !!rightGrid);
         
         if (leftGrid) {
             leftGrid.innerHTML = '';
@@ -324,10 +372,12 @@ class MenuManager {
                     inventoryTokens.forEach(item => {
                         const itemElement = this.createInventoryItemElement(item);
                         leftGrid.appendChild(itemElement);
-                        console.log('Added inventory item:', item.title);
+                        console.log('Added inventory item to active scene:', item.title);
                     });
                 }
             }
+        } else {
+            console.warn('Left grid not found in active scene');
         }
         
         if (rightGrid) {
@@ -371,10 +421,13 @@ class MenuManager {
         event.target.closest('.inventory-item').classList.add('selected');
     }
 
-    // Mostrar mensaje de no items
+    // ✅ ACTUALIZAR: Función showNoItems también debe usar escena activa
     showNoItems() {
-        const leftGrid = document.getElementById('inventory-grid-left');
-        const rightGrid = document.getElementById('inventory-grid-right');
+        const activeScene = this.getActiveScene();
+        if (!activeScene) return;
+        
+        const leftGrid = activeScene.querySelector('#inventory-grid-left');
+        const rightGrid = activeScene.querySelector('#inventory-grid-right');
         
         if (leftGrid) {
             leftGrid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
@@ -384,9 +437,12 @@ class MenuManager {
         }
     }
 
-    // Mostrar/ocultar loading de inventario
+    // ✅ ACTUALIZAR: Función showInventoryLoading también debe usar escena activa
     showInventoryLoading() {
-        const leftGrid = document.getElementById('inventory-grid-left');
+        const activeScene = this.getActiveScene();
+        if (!activeScene) return;
+        
+        const leftGrid = activeScene.querySelector('#inventory-grid-left');
         const loadingHTML = `
             <div class="loading">
                 <div class="spinner"></div>

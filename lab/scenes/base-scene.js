@@ -216,14 +216,16 @@ class BaseScene {
         menuManager.setupSceneEventListeners(this.sceneId);
         menuManager.initializeCommandSystem(this.sceneId);
         
-        // Actualizar inventario en la nueva escena con delay para asegurar que el DOM esté listo
+        // ✅ Solo actualizar display si ya hay items cargados, no recargar
         setTimeout(() => {
-            if (menuManager.inventoryItems.length > 0) {
-                console.log('Updating inventory for new scene');
+            console.log('Updating inventory for new scene');
+            
+            // ✅ Solo actualizar display si ya hay items cargados, no recargar
+            if (menuManager.inventoryItems && menuManager.inventoryItems.length > 0) {
                 menuManager.displayInventory();
-            } else if (menuManager.isWalletConnected && menuManager.currentAccount) {
-                console.log('Wallet connected but no inventory, forcing reload...');
-                menuManager.loadInventory();
+            } else if (menuManager.isWalletConnected) {
+                // Solo mostrar loading si no hay items pero hay wallet conectado
+                menuManager.showInventoryLoading();
             }
         }, 100);
     }
