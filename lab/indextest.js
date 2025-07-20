@@ -1918,12 +1918,12 @@ function showFloatingText(message, x, y) {
     // Add to game area
     gameArea.appendChild(floatingText);
     
-    // Remove after animation completes
+    // Remove after animation completes (reduced to 2 seconds)
     setTimeout(() => {
         if (floatingText.parentNode) {
             floatingText.remove();
         }
-    }, 4000);
+    }, 2000);
 }
 
 // Handle mouse movement for cursor feedback
