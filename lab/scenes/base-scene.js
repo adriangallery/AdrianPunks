@@ -292,6 +292,12 @@ class BaseScene {
         // Obtener las dimensiones reales de la imagen
         const imageRect = backgroundImage.getBoundingClientRect();
         
+        // Validar que las dimensiones sean válidas
+        if (!imageRect.width || !imageRect.height || imageRect.width <= 0 || imageRect.height <= 0) {
+            console.error('Invalid image dimensions:', imageRect);
+            return;
+        }
+        
         // Calcular coordenadas relativas a la imagen
         const x = event.clientX - imageRect.left;
         const y = event.clientY - imageRect.top;
