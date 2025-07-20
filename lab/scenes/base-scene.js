@@ -280,15 +280,31 @@ class BaseScene {
         throw new Error('setupEventListeners must be implemented by subclass');
     }
 
-    // Manejar click en la escena
+    // Manejar click en la escena - Solución limpia y responsiva
     handleClick(event) {
-        const rect = event.currentTarget.getBoundingClientRect();
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
+        // Obtener la imagen directamente
+        const backgroundImage = document.querySelector(`#${this.sceneId}-bg`);
+        if (!backgroundImage) {
+            console.error('Background image not found');
+            return;
+        }
         
-        // Convertir a porcentaje
-        const xPercent = (x / rect.width) * 100;
-        const yPercent = (y / rect.height) * 100;
+        // Obtener las dimensiones reales de la imagen
+        const imageRect = backgroundImage.getBoundingClientRect();
+        
+        // Calcular coordenadas relativas a la imagen
+        const x = event.clientX - imageRect.left;
+        const y = event.clientY - imageRect.top;
+        
+        // Convertir a porcentajes relativos a la imagen
+        const xPercent = (x / imageRect.width) * 100;
+        const yPercent = (y / imageRect.height) * 100;
+        
+        // Verificar que el click esté dentro de los límites de la imagen
+        if (xPercent < 0 || xPercent > 100 || yPercent < 0 || yPercent > 100) {
+            console.log(`Click outside image bounds: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
+            return;
+        }
         
         console.log(`${this.sceneName} click at: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
         
@@ -302,53 +318,12 @@ class BaseScene {
         }
     }
 
-    // Obtener hotspot en las coordenadas especificadas - Responsive
+    // Obtener hotspot en las coordenadas especificadas - Solución limpia
     getHotspotAt(x, y) {
-        // Obtener el contenedor de la imagen para calcular el offset real
-        const sceneElement = document.getElementById(this.sceneId);
-        if (!sceneElement) return null;
-        
-        const backgroundContainer = sceneElement.querySelector('.background-container');
-        const backgroundImage = sceneElement.querySelector(`#${this.sceneId}-bg`);
-        
-        if (!backgroundContainer || !backgroundImage) {
-            // Fallback al método original si no encontramos los elementos
-            return this.hotspots.find(hotspot => 
-                x >= hotspot.x[0] && x <= hotspot.x[1] &&
-                y >= hotspot.y[0] && y <= hotspot.y[1]
-            );
-        }
-        
-        // Obtener las dimensiones del contenedor y la imagen
-        const containerRect = backgroundContainer.getBoundingClientRect();
-        const imageRect = backgroundImage.getBoundingClientRect();
-        
-        // Calcular las coordenadas relativas a la imagen
-        const imageLeft = imageRect.left - containerRect.left;
-        const imageTop = imageRect.top - containerRect.top;
-        const imageWidth = imageRect.width;
-        const imageHeight = imageRect.height;
-        
-        // Convertir coordenadas del click a porcentajes relativos a la imagen
-        const clickX = (x / 100) * containerRect.width;
-        const clickY = (y / 100) * containerRect.height;
-        
-        // Verificar si el click está dentro de los límites de la imagen
-        if (clickX < imageLeft || clickX > imageLeft + imageWidth ||
-            clickY < imageTop || clickY > imageTop + imageHeight) {
-            return null; // Click fuera de la imagen
-        }
-        
-        // Convertir a porcentajes relativos a la imagen
-        const adjustedX = ((clickX - imageLeft) / imageWidth) * 100;
-        const adjustedY = ((clickY - imageTop) / imageHeight) * 100;
-        
-        console.log(`Original: ${x}%, ${y}% -> Adjusted: ${adjustedX.toFixed(1)}%, ${adjustedY.toFixed(1)}%`);
-        
-        // Buscar hotspot con las coordenadas ajustadas
+        // Búsqueda directa sin conversiones - las coordenadas ya son porcentajes de la imagen
         return this.hotspots.find(hotspot => 
-            adjustedX >= hotspot.x[0] && adjustedX <= hotspot.x[1] &&
-            adjustedY >= hotspot.y[0] && adjustedY <= hotspot.y[1]
+            x >= hotspot.x[0] && x <= hotspot.x[1] &&
+            y >= hotspot.y[0] && y <= hotspot.y[1]
         );
     }
 
