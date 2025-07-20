@@ -48,16 +48,37 @@ const baseSceneStyles = `
     flex: 1;
 }
 
-/* Inventory grid layout */
+/* Inventory grid layout - Responsive */
 .inventory-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
     gap: 4px;
     flex: 1;
     overflow-y: auto;
     min-height: 0;
     padding: 4px;
     align-items: start;
+}
+
+/* Scene background image - Responsive */
+.background-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.background-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    max-width: 100%;
+    max-height: 100%;
 }
 
 /* Inventory item styling */
@@ -142,6 +163,7 @@ const baseSceneStyles = `
     }
     
     .inventory-grid {
+        grid-template-columns: repeat(3, 1fr);
         gap: 2px;
         padding: 2px;
     }
@@ -169,6 +191,35 @@ const baseSceneStyles = `
     .no-items {
         font-size: 0.5rem;
         padding: 5px;
+    }
+}
+
+/* Desktop responsive adjustments */
+@media (min-width: 769px) {
+    .inventory-grid {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 6px;
+        padding: 6px;
+    }
+    
+    .inventory-item {
+        height: 70px;
+        padding: 8px 4px;
+    }
+    
+    .inventory-item img {
+        width: 32px;
+        height: 32px;
+        margin-bottom: 4px;
+    }
+    
+    .inventory-item .item-name {
+        font-size: 0.55rem;
+        margin-bottom: 3px;
+    }
+    
+    .inventory-item .item-id {
+        font-size: 0.45rem;
     }
 }
 </style>
@@ -233,11 +284,41 @@ class BaseScene {
         }
     }
 
-    // Obtener hotspot en las coordenadas especificadas
+    // Obtener hotspot en las coordenadas especificadas - Responsive
     getHotspotAt(x, y) {
+        // Obtener el contenedor de la imagen para calcular el offset real
+        const sceneElement = document.getElementById(this.sceneId);
+        if (!sceneElement) return null;
+        
+        const backgroundContainer = sceneElement.querySelector('.background-container');
+        const backgroundImage = sceneElement.querySelector(`#${this.sceneId}-bg`);
+        
+        if (!backgroundContainer || !backgroundImage) {
+            // Fallback al método original si no encontramos los elementos
+            return this.hotspots.find(hotspot => 
+                x >= hotspot.x[0] && x <= hotspot.x[1] &&
+                y >= hotspot.y[0] && y <= hotspot.y[1]
+            );
+        }
+        
+        // Calcular el offset real de la imagen dentro del contenedor
+        const containerRect = backgroundContainer.getBoundingClientRect();
+        const imageRect = backgroundImage.getBoundingClientRect();
+        
+        // Calcular el offset de la imagen respecto al contenedor
+        const imageOffsetX = (imageRect.left - containerRect.left) / containerRect.width * 100;
+        const imageOffsetY = (imageRect.top - containerRect.top) / containerRect.height * 100;
+        const imageWidthPercent = (imageRect.width / containerRect.width) * 100;
+        const imageHeightPercent = (imageRect.height / containerRect.height) * 100;
+        
+        // Ajustar las coordenadas del click para que sean relativas a la imagen
+        const adjustedX = ((x - imageOffsetX) / imageWidthPercent) * 100;
+        const adjustedY = ((y - imageOffsetY) / imageHeightPercent) * 100;
+        
+        // Buscar hotspot con las coordenadas ajustadas
         return this.hotspots.find(hotspot => 
-            x >= hotspot.x[0] && x <= hotspot.x[1] &&
-            y >= hotspot.y[0] && y <= hotspot.y[1]
+            adjustedX >= hotspot.x[0] && adjustedX <= hotspot.x[1] &&
+            adjustedY >= hotspot.y[0] && adjustedY <= hotspot.y[1]
         );
     }
 
