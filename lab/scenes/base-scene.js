@@ -301,19 +301,31 @@ class BaseScene {
             );
         }
         
-        // Calcular el offset real de la imagen dentro del contenedor
+        // Obtener las dimensiones del contenedor y la imagen
         const containerRect = backgroundContainer.getBoundingClientRect();
         const imageRect = backgroundImage.getBoundingClientRect();
         
-        // Calcular el offset de la imagen respecto al contenedor
-        const imageOffsetX = (imageRect.left - containerRect.left) / containerRect.width * 100;
-        const imageOffsetY = (imageRect.top - containerRect.top) / containerRect.height * 100;
-        const imageWidthPercent = (imageRect.width / containerRect.width) * 100;
-        const imageHeightPercent = (imageRect.height / containerRect.height) * 100;
+        // Calcular las coordenadas relativas a la imagen
+        const imageLeft = imageRect.left - containerRect.left;
+        const imageTop = imageRect.top - containerRect.top;
+        const imageWidth = imageRect.width;
+        const imageHeight = imageRect.height;
         
-        // Ajustar las coordenadas del click para que sean relativas a la imagen
-        const adjustedX = ((x - imageOffsetX) / imageWidthPercent) * 100;
-        const adjustedY = ((y - imageOffsetY) / imageHeightPercent) * 100;
+        // Convertir coordenadas del click a porcentajes relativos a la imagen
+        const clickX = (x / 100) * containerRect.width;
+        const clickY = (y / 100) * containerRect.height;
+        
+        // Verificar si el click está dentro de los límites de la imagen
+        if (clickX < imageLeft || clickX > imageLeft + imageWidth ||
+            clickY < imageTop || clickY > imageTop + imageHeight) {
+            return null; // Click fuera de la imagen
+        }
+        
+        // Convertir a porcentajes relativos a la imagen
+        const adjustedX = ((clickX - imageLeft) / imageWidth) * 100;
+        const adjustedY = ((clickY - imageTop) / imageHeight) * 100;
+        
+        console.log(`Original: ${x}%, ${y}% -> Adjusted: ${adjustedX.toFixed(1)}%, ${adjustedY.toFixed(1)}%`);
         
         // Buscar hotspot con las coordenadas ajustadas
         return this.hotspots.find(hotspot => 
