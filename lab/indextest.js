@@ -48,8 +48,7 @@ let progressFill, progressText;
 let landscapeModeEnabled = false;
 let rotateDeviceMessage = null;
 
-// Contract constants for OpenPack functionality
-const PACK_TOKEN_MINTER_CONTRACT = "0x673bE1968A12470F93BE374AAB529a89d5D607d5";
+
 
 // Menu Manager - Sistema modular para manejar menús en todas las escenas
 class MenuManager {
@@ -115,11 +114,16 @@ class MenuManager {
             const tokenId = parseInt(this.selectedInventoryItem.tokenId);
             if (tokenId >= 10000 && tokenId <= 10005) {
                 console.log('OPEN command selected and floppy disc already selected, triggering openPack');
-                openPack(this.selectedInventoryItem);
+                if (window.openPack) {
+                    window.openPack(this.selectedInventoryItem);
+                } else {
+                    showNotification('OpenPack functionality not available.', 'error');
+                }
             } else {
                 showNotification('Please select a floppy disc to use the OPEN command.', 'info');
             }
         }
+
     }
 
     // Obtener comando actual
@@ -456,7 +460,11 @@ class MenuManager {
             const tokenId = parseInt(item.tokenId);
             if (tokenId >= 10000 && tokenId <= 10005) {
                 console.log('OPEN command active and floppy disc selected, triggering openPack');
-                openPack(item);
+                if (window.openPack) {
+                    window.openPack(item);
+                } else {
+                    showNotification('OpenPack functionality not available.', 'error');
+                }
             } else {
                 showNotification('OPEN command is only available for floppy discs.', 'error');
             }
@@ -1142,101 +1150,9 @@ function goToUpstairs() {
     }
 }
 
-function createUpstairsScreen() {
-    console.log('Creating upstairs screen');
-    
-    // Create upstairs screen element
-    const upstairsScreen = document.createElement('div');
-    upstairsScreen.id = 'upstairs-screen';
-    upstairsScreen.className = 'screen';
-    
-    upstairsScreen.innerHTML = `
-        <div class="background-container">
-            <img src="upstairs.png" alt="Upstairs" id="upstairs-bg" style="width: 100%; height: 100%; object-fit: contain;">
-        </div>
-        
-        <!-- Header with wallet -->
-        <header class="retro-header">
-            <div class="logo">AdrianLAB - Upstairs</div>
-            <button id="connect-wallet-upstairs" class="retro-button">Connect Wallet</button>
-            <button id="mute-button-upstairs" class="retro-button small">🔊</button>
-        </header>
 
-        <!-- Main clickable area -->
-        <div id="click-area-upstairs" class="click-area">
-            <div class="pixel-cursor"></div>
-        </div>
 
-        <!-- Overlay text for upstairs -->
-        <div class="upstairs-overlay">
-            <h1 class="retro-title">Upstairs</h1>
-            <p class="retro-subtitle">Welcome to the fiat zone...</p>
-        </div>
 
-        <!-- Footer with Inventory -->
-        <footer class="retro-footer">
-            <div class="footer-sections">
-                <!-- Left section: Commands -->
-                <div class="footer-section commands-section">
-                    <div class="section-header">Commands</div>
-                    <div class="commands-grid">
-                        <button class="command-btn">EXPLORE</button>
-                        <button class="command-btn">INSPECT</button>
-                        <button class="command-btn">USE</button>
-                        <button class="command-btn">TAKE</button>
-                        <button class="command-btn">TEST</button>
-                    </div>
-                </div>
-                
-                <!-- Middle section: Inventory Left -->
-                <div class="footer-section inventory-section-left">
-                    <div class="section-header">Inventory</div>
-                    <div id="inventory-grid-left-upstairs" class="inventory-grid">
-                        <div class="no-items">Connect wallet to load inventory.</div>
-                    </div>
-                </div>
-                
-                <!-- Right section: Inventory Right -->
-                <div class="footer-section inventory-section-right">
-                    <div class="section-header">Items</div>
-                    <div id="inventory-grid-right-upstairs" class="inventory-grid">
-                        <div class="no-items">No items found.</div>
-                    </div>
-                </div>
-            </div>
-        </footer>
-    `;
-    
-    // Add to app container
-    document.getElementById('app').appendChild(upstairsScreen);
-    
-    // Setup event listeners for upstairs
-    setupUpstairsEventListeners();
-    
-    // Initialize command system for upstairs
-    initializeUpstairsCommandSystem();
-}
-
-function setupUpstairsEventListeners() {
-    console.log('Setting up upstairs event listeners');
-    
-    // Get upstairs elements
-    const upstairsClickArea = document.getElementById('click-area-upstairs');
-    
-    // Setup click area for upstairs - now handled by scene manager
-    // if (upstairsClickArea) {
-    //     upstairsClickArea.addEventListener('click', handleUpstairsClick);
-    // }
-    
-    // Setup menu manager for upstairs screen
-    menuManager.setupSceneEventListeners('upstairs-screen');
-    menuManager.initializeCommandSystem('upstairs-screen');
-}
-
-function initializeUpstairsCommandSystem() {
-    // This is now handled by the MenuManager
-    console.log('Upstairs command system initialization handled by MenuManager');
-}
 
 
 
@@ -1612,7 +1528,7 @@ document.addEventListener('gestureend', e => e.preventDefault());
 
 
 
-// Handle OPEN command
+
 
 // Handle TEST command (for development)
 
@@ -1711,102 +1627,6 @@ function updateWalletForInventory() {
     }
 }
 
-// OpenPack functionality for floppy discs
-async function openPack(selectedItem) {
-    console.log('openPack called for item:', selectedItem);
-    
-    if (!selectedItem) {
-        showNotification('Please select a floppy disc first.', 'error');
-        return;
-    }
 
-    // Check if it's a floppy disc (tokens 10000-10005)
-    const tokenId = parseInt(selectedItem.tokenId);
-    if (tokenId < 10000 || tokenId > 10005) {
-        showNotification('This function is only available for floppy discs.', 'error');
-        return;
-    }
-
-    if (!currentAccount) {
-        showNotification('Please connect your wallet first.', 'error');
-        return;
-    }
-
-    try {
-        showNotification('Loading ethers library...', 'loading');
-
-        let ethers;
-        if (typeof window.ethers === 'undefined') {
-            const script = document.createElement('script');
-            script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
-            script.onload = () => {
-                ethers = window.ethers;
-                console.log('Ethers loaded successfully');
-                executeOpenPack(selectedItem);
-            };
-            script.onerror = () => {
-                showNotification('Failed to load ethers library. Please refresh the page.', 'error');
-            };
-            document.head.appendChild(script);
-        } else {
-            ethers = window.ethers;
-            executeOpenPack(selectedItem);
-        }
-
-        async function executeOpenPack(selectedItem) {
-            try {
-                showNotification('Preparing transaction...', 'loading');
-
-                const provider = new ethers.providers.Web3Provider(window.ethereum);
-                const signer = provider.getSigner();
-
-                // PackTokenMinter contract ABI (simplified for openPack function)
-                const packMinterABI = [
-                    "function openPack(uint256 tokenId) external"
-                ];
-
-                const contract = new ethers.Contract(PACK_TOKEN_MINTER_CONTRACT, packMinterABI, signer);
-                const tokenId = selectedItem.tokenId;
-
-                console.log('Opening pack for token ID:', tokenId);
-
-                showNotification('Confirming transaction in your wallet...', 'loading');
-
-                const tx = await contract.openPack(tokenId);
-                
-                showNotification('Transaction sent! Waiting for confirmation...', 'loading');
-                console.log('Transaction hash:', tx.hash);
-
-                const receipt = await tx.wait();
-                
-                showNotification(`✅ Pack opened successfully! Transaction: ${receipt.transactionHash}`, 'success');
-                console.log('Transaction confirmed:', receipt);
-
-                // Refresh inventory after successful pack opening
-                setTimeout(() => {
-                    if (menuManager) {
-                        menuManager.loadInventory();
-                    }
-                }, 2000);
-
-            } catch (error) {
-                console.error('Error opening pack:', error);
-                
-                let errorMessage = 'Failed to open pack.';
-                if (error.code === 4001) {
-                    errorMessage = 'Transaction was rejected by user.';
-                } else if (error.message) {
-                    errorMessage = `Error: ${error.message}`;
-                }
-                
-                showNotification(errorMessage, 'error');
-            }
-        }
-
-    } catch (error) {
-        console.error('Error opening pack:', error);
-        showNotification('Failed to load ethers library. Please refresh the page.', 'error');
-    }
-}
 
 // Initialize point & click system when main screen is shown
