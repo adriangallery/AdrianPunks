@@ -750,8 +750,70 @@ function setupEventListeners() {
     // Wallet
     connectWalletBtn.addEventListener('click', connectWallet);
     
-    // Navigation - Scene manager will handle click events
-    // clickArea.addEventListener('click', handleBasementClick); // Removed - now handled by scene manager
+    // Navigation - Basic click handling for main screen
+    clickArea.addEventListener('click', function(event) {
+        // Get click coordinates relative to click area
+        const rect = clickArea.getBoundingClientRect();
+        const x = ((event.clientX - rect.left) / rect.width) * 100;
+        const y = ((event.clientY - rect.top) / rect.height) * 100;
+        
+        console.log(`Click at ${x.toFixed(1)}%, ${y.toFixed(1)}%`);
+        
+        // Get current command
+        const command = menuManager.getCurrentCommand();
+        
+        // Check for hotspots (basic implementation)
+        const hotspots = [
+            { name: 'Computer', x: 20, y: 30, width: 15, height: 20, action: 'use', message: '💻 You turn on the computer...' },
+            { name: 'Desk', x: 50, y: 60, width: 20, height: 15, action: 'inspect', message: '🪑 A sturdy desk with some papers...' },
+            { name: 'Door', x: 80, y: 40, width: 10, height: 30, action: 'use', message: '🚪 The door leads to upstairs...' }
+        ];
+        
+        // Check if click is in any hotspot
+        for (const hotspot of hotspots) {
+            if (x >= hotspot.x && x <= hotspot.x + hotspot.width &&
+                y >= hotspot.y && y <= hotspot.y + hotspot.height) {
+                
+                console.log(`Hotspot clicked: ${hotspot.name}`);
+                
+                // Handle different commands
+                switch (command) {
+                    case 'explore':
+                        showFloatingText(hotspot.message, x, y);
+                        break;
+                    case 'use':
+                        if (hotspot.name === 'Door') {
+                            goToUpstairs();
+                        } else {
+                            showFloatingText(`💬 You use ${hotspot.name}`, x, y);
+                        }
+                        break;
+                    case 'inspect':
+                        showFloatingText(`🔍 You carefully examine ${hotspot.name}`, x, y);
+                        break;
+                    case 'take':
+                        showFloatingText(`💬 You can't take ${hotspot.name}`, x, y);
+                        break;
+                    case 'test':
+                        const message = `🔧 TEST MODE\nHotspot: ${hotspot.name}\nCoordinates: ${x.toFixed(1)}%, ${y.toFixed(1)}%\nAction: ${hotspot.action}\n\nClick anywhere to see coordinates!`;
+                        showFloatingText(message, x, y);
+                        break;
+                    default:
+                        showFloatingText(`💬 You interact with ${hotspot.name}`, x, y);
+                }
+                return;
+            }
+        }
+        
+        // No hotspot clicked - handle general click
+        if (command === 'explore') {
+            // No popup for explore mode
+        } else if (command === 'test') {
+            showFloatingText(`🔧 TEST MODE\nCoordinates: ${x.toFixed(1)}%, ${y.toFixed(1)}%\n\nClick anywhere to see coordinates!`, x, y);
+        } else {
+            showFloatingText(`💬 Nothing interesting here`, x, y);
+        }
+    });
     closePopupBtn.addEventListener('click', closeMintPopup);
     buyFloppyBtn.addEventListener('click', handleBuyFloppy);
     backToMainBtn.addEventListener('click', goToMainScreen);
@@ -923,11 +985,24 @@ function goToMainScreenFromIntro() {
             loadEthersWhenNeeded();
         }
         
-        // Change to outside scene (first scene)
+        // Change to main screen (basement) - fallback to existing HTML structure
         if (sceneManager) {
             sceneManager.changeScene('outside');
         } else {
-            console.error('Scene manager not loaded');
+            console.log('Scene manager not loaded, using fallback to main-screen');
+            // Show main screen (basement) as fallback
+            mainScreen.style.display = 'block';
+            mainScreen.style.opacity = '0';
+            mainScreen.style.transition = 'opacity 2s ease-in-out';
+            
+            setTimeout(() => {
+                mainScreen.classList.add('active');
+                mainScreen.style.opacity = '1';
+                
+                // Setup event listeners for main screen
+                menuManager.setupSceneEventListeners('main-screen');
+                menuManager.initializeCommandSystem('main-screen');
+            }, 100);
         }
     }, 7000);
 }
