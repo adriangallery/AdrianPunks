@@ -280,16 +280,20 @@ class BaseScene {
         throw new Error('setupEventListeners must be implemented by subclass');
     }
 
-    // Manejar click en la escena - Solución limpia y responsiva
+    // Manejar click en la escena - Solución mejorada
     handleClick(event) {
-        // Obtener la imagen directamente
+        // Obtener el contenedor del click (click-area)
+        const clickArea = event.currentTarget;
+        const clickRect = clickArea.getBoundingClientRect();
+        
+        // Obtener la imagen de fondo
         const backgroundImage = document.querySelector(`#${this.sceneId}-bg`);
         if (!backgroundImage) {
             console.error('Background image not found');
             return;
         }
         
-        // Obtener las dimensiones reales de la imagen
+        // Obtener las dimensiones de la imagen
         const imageRect = backgroundImage.getBoundingClientRect();
         
         // Validar que las dimensiones sean válidas
@@ -298,19 +302,23 @@ class BaseScene {
             return;
         }
         
-        // Calcular coordenadas relativas a la imagen
-        const x = event.clientX - imageRect.left;
-        const y = event.clientY - imageRect.top;
+        // Calcular coordenadas del click relativas al contenedor
+        const clickX = event.clientX - clickRect.left;
+        const clickY = event.clientY - clickRect.top;
         
-        // Convertir a porcentajes relativos a la imagen
-        const xPercent = (x / imageRect.width) * 100;
-        const yPercent = (y / imageRect.height) * 100;
+        // Calcular coordenadas del click relativas a la imagen
+        const imageX = event.clientX - imageRect.left;
+        const imageY = event.clientY - imageRect.top;
         
         // Verificar que el click esté dentro de los límites de la imagen
-        if (xPercent < 0 || xPercent > 100 || yPercent < 0 || yPercent > 100) {
-            console.log(`Click outside image bounds: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
+        if (imageX < 0 || imageX > imageRect.width || imageY < 0 || imageY > imageRect.height) {
+            console.log(`Click outside image bounds: ${imageX.toFixed(1)}, ${imageY.toFixed(1)}`);
             return;
         }
+        
+        // Convertir a porcentajes relativos a la imagen
+        const xPercent = (imageX / imageRect.width) * 100;
+        const yPercent = (imageY / imageRect.height) * 100;
         
         console.log(`${this.sceneName} click at: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
         
