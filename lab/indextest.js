@@ -1098,94 +1098,7 @@ function initializeUpstairsCommandSystem() {
     console.log('Upstairs command system initialization handled by MenuManager');
 }
 
-function handleUpstairsClick(event) {
-    console.log('Upstairs clicked');
-    
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    
-    // Convert to percentage
-    const xPercent = (x / rect.width) * 100;
-    const yPercent = (y / rect.height) * 100;
-    
-    console.log(`Upstairs click at: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
-    
-    // Define upstairs hotspots
-    const upstairsHotspots = [
-        {
-            name: 'Stairs Down',
-            x: [0, 20],
-            y: [70, 100],
-            action: 'go_downstairs',
-            message: "💬 Going back downstairs..."
-        },
-        {
-            name: 'Fiat Zone',
-            x: [40, 80],
-            y: [30, 70],
-            action: 'inspect_fiat',
-            message: "💬 This is where the fiat money lives. It's very quiet here."
-        }
-    ];
-    
-    // Check if click is in any hotspot
-    for (const hotspot of upstairsHotspots) {
-        if (xPercent >= hotspot.x[0] && xPercent <= hotspot.x[1] &&
-            yPercent >= hotspot.y[0] && yPercent <= hotspot.y[1]) {
-            
-            handleUpstairsHotspotClick(hotspot, xPercent, yPercent);
-            return;
-        }
-    }
-    
-    // General area click - only show coordinates if explore command is active
-    const currentCommand = getCurrentCommand();
-    // if (currentCommand === 'explore') {
-        // showNotification(`You clicked at ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
-    if (currentCommand === 'test') {
-        showFloatingText(`🔧 TEST MODE\nCoordinates: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%\n\nClick anywhere to see coordinates!`, xPercent, yPercent);
-    }
-}
 
-function handleUpstairsHotspotClick(hotspot, x, y) {
-    console.log(`Upstairs hotspot clicked: ${hotspot.name} with command: ${getCurrentCommand()}`);
-    
-    const command = getCurrentCommand();
-    
-    switch (command) {
-        case 'explore':
-            if (hotspot.message) {
-                showFloatingText(hotspot.message, x, y);
-            }
-            break;
-            
-        case 'use':
-            if (hotspot.name === 'Stairs Down') {
-                showFloatingText('💬 Going back downstairs...', x, y);
-                setTimeout(() => {
-                    goToMainScreen();
-                }, 1000);
-            } else {
-                showFloatingText(`💬 You can't use ${hotspot.name}`, x, y);
-            }
-            break;
-            
-        case 'inspect':
-            const inspectionMessages = {
-                'Stairs Down': '💬 Wooden stairs leading back down to the basement. They look safer going down.',
-                'Fiat Zone': '💬 A clean, well-lit area with expensive furniture. Everything here costs real money.'
-            };
-            const message = inspectionMessages[hotspot.name] || `💬 You carefully examine ${hotspot.name}`;
-            showFloatingText(message, x, y);
-            break;
-            
-        default:
-            if (hotspot.message) {
-                showFloatingText(hotspot.message, x, y);
-            }
-    }
-}
 
 function toggleMute() {
     isMuted = !isMuted;
@@ -1352,45 +1265,6 @@ function notifyIframeWalletDisconnected() {
 }
 
 // Original handleBasementClick function - this is the key fix
-function handleBasementClick(event) {
-    console.log('Basement clicked - checking for point & click or mint popup');
-    
-    const rect = clickArea.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    
-    // Convert to percentage for responsive design
-    const xPercent = (x / rect.width) * 100;
-    const yPercent = (y / rect.height) * 100;
-    
-    console.log(`Clicked at: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
-    
-    // Check if click is in center area (for mint popup) - only with USE command
-    if (xPercent >= 40 && xPercent <= 60 && yPercent >= 40 && yPercent <= 60) {
-        const currentCommand = getCurrentCommand();
-        
-        if (currentCommand === 'use') {
-            console.log('Center area clicked with USE command - opening mint popup');
-            if (!isWalletConnected) {
-                showNotification('Connect your wallet first', 'warning');
-                return;
-            }
-            
-            mintPopup.classList.add('active');
-            setTimeout(() => {
-                notifyIframeWalletConnected();
-            }, 100);
-            return;
-        } else if (currentCommand === 'explore') {
-            console.log('Center area clicked with EXPLORE command - showing computer message');
-            showFloatingText('💬 This is the computer. Use the USE command to access the mint interface.', xPercent, yPercent);
-            return;
-        }
-    }
-    
-    // If not center area, check for hotspots
-    handlePointAndClick(event);
-}
 
 function closeMintPopup() {
     mintPopup.classList.remove('active');
@@ -1583,299 +1457,26 @@ document.addEventListener('gestureend', e => e.preventDefault());
 // ===== POINT & CLICK AND INVENTORY SYSTEM =====
 
 // Initialize point & click system
-function initializePointAndClick() {
-    console.log('Initializing point & click system');
-    // The click handling is now done in handleBasementClick
-}
 
 // Handle point & click interactions for hotspots only
-function handlePointAndClick(event) {
-    const rect = clickArea.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    
-    // Convert to percentage for responsive design
-    const xPercent = (x / rect.width) * 100;
-    const yPercent = (y / rect.height) * 100;
-    
-    console.log(`Point & click at: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
-    
-    // Define clickable areas (hotspots) based on basement.png layout
-    // Expanded margins from 15% to 20% for better clickability
-    const hotspots = [
-        {
-            name: 'Desk Area',
-            x: [35, 60],
-            y: [75, 100],
-            action: 'inspect_desk_area',
-            message: "💬 You feel a sudden urge to write a thread on Twitter."
-        },
-        {
-            name: 'Boxes Area',
-            x: [66, 91],
-            y: [60, 85],
-            action: 'inspect_boxes',
-            message: "💬 Boxes full of failed NFT projects... and one unopened Bored Ape piñata."
-        },
-        {
-            name: 'Armchair Area',
-            x: [75, 100],
-            y: [74, 99],
-            action: 'inspect_armchair',
-            message: "💬 Sits like a throne. Probably where the DAO founder disappeared."
-        },
-        {
-            name: 'Washing Machine Area',
-            x: [58, 83],
-            y: [59, 84],
-            action: 'inspect_washing_machine',
-            message: "💬 Perfect for laundering… socks. Only socks."
-        },
-        {
-            name: 'Stairs Area',
-            x: [0, 20],
-            y: [29, 54],
-            action: 'inspect_stairs',
-            message: "💬 Do you really want to go upstairs? That's where the fiat lives."
-        },
-        {
-            name: 'Computer Area',
-            x: [13, 38],
-            y: [39, 64],
-            action: 'inspect_computer',
-            message: "💬 Someone mined 6 BTC on this in 2010… then rage quit and sold at $12."
-        },
-        {
-            name: 'Light Bulb Area',
-            x: [38, 63],
-            y: [0, 20],
-            action: 'inspect_light_bulb',
-            message: "💬 It's lit... unlike your portfolio."
-        },
-        {
-            name: 'Windows Area',
-            x: [41, 66],
-            y: [27, 52],
-            action: 'inspect_windows',
-            message: "💬 Outside: darkness. Inside: DeFi."
-        }
-    ];
-    
-    // Check if click is in any hotspot
-    for (const hotspot of hotspots) {
-        if (xPercent >= hotspot.x[0] && xPercent <= hotspot.x[1] &&
-            yPercent >= hotspot.y[0] && yPercent <= hotspot.y[1]) {
-            
-            handleHotspotClick(hotspot, xPercent, yPercent);
-            return;
-        }
-    }
-    
-    // General area click - only show coordinates if explore command is active
-    const currentCommand = getCurrentCommand();
-    // if (currentCommand === 'explore') {
-        // showNotification(`You clicked at ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
-    if (currentCommand === 'test') {
-        showFloatingText(`🔧 TEST MODE\nCoordinates: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%\n\nClick anywhere to see coordinates!`, xPercent, yPercent);
-    }
-}
 
 // Handle hotspot clicks
-function handleHotspotClick(hotspot, x, y) {
-    console.log(`Hotspot clicked: ${hotspot.name} with command: ${getCurrentCommand()}`);
-    
-    const command = getCurrentCommand();
-    
-    // Handle different commands
-    switch (command) {
-        case 'explore':
-            // Show the specific message for each hotspot as floating text
-            if (hotspot.message) {
-                showFloatingText(hotspot.message, x, y);
-            } else {
-                showFloatingText(`💬 You interact with ${hotspot.name}`, x, y);
-            }
-            break;
-            
-        case 'use':
-            handleUseCommand(hotspot, x, y);
-            break;
-            
-        case 'inspect':
-            handleInspectCommand(hotspot, x, y);
-            break;
-            
-        case 'take':
-            handleTakeCommand(hotspot, x, y);
-            break;
-            
-        case 'talk':
-            handleTalkCommand(hotspot, x, y);
-            break;
-            
-        case 'move':
-            handleMoveCommand(hotspot, x, y);
-            break;
-            
-        case 'open':
-            handleOpenCommand(hotspot, x, y);
-            break;
-            
-        case 'test':
-            handleTestCommand(hotspot, x, y);
-            break;
-            
-        default:
-            // Default to explore behavior
-            if (hotspot.message) {
-                showFloatingText(hotspot.message, x, y);
-            }
-    }
-    
-    // Add to discovered items if not already found
-    if (!gameState.discoveredItems.includes(hotspot.name)) {
-        gameState.discoveredItems.push(hotspot.name);
-    }
-}
 
 // ===== COMMAND HANDLERS =====
 
 // Handle USE command
-function handleUseCommand(hotspot, x, y) {
-    console.log(`USE command on: ${hotspot.name}`);
-    
-    switch (hotspot.name) {
-        case 'Computer Area':
-            // Open mint popup (existing functionality)
-            if (!isWalletConnected) {
-                showNotification('Connect your wallet first', 'warning');
-                return;
-            }
-            
-            mintPopup.classList.add('active');
-            setTimeout(() => {
-                notifyIframeWalletConnected();
-            }, 100);
-            showFloatingText('💬 Opening mint interface...', x, y);
-            break;
-            
-        case 'Stairs Area':
-            // Navigate to upstairs (anywhere in stairs area with USE command)
-            showFloatingText('💬 Going upstairs...', x, y);
-            setTimeout(() => {
-                goToUpstairs();
-            }, 1000);
-            break;
-            
-        default:
-            showFloatingText(`💬 You can't use ${hotspot.name}`, x, y);
-    }
-}
 
 // Handle INSPECT command
-function handleInspectCommand(hotspot, x, y) {
-    console.log(`INSPECT command on: ${hotspot.name}`);
-    
-    // Show detailed inspection message
-    const inspectionMessages = {
-        'Desk Area': '💬 A cluttered desk with papers, coffee stains, and a broken keyboard. The monitor shows a terminal with scrolling text.',
-        'Boxes Area': '💬 Cardboard boxes stacked haphazardly. One is labeled "Failed Projects 2021" and another "Bored Ape Piñata - DO NOT OPEN".',
-        'Armchair Area': '💬 A worn leather armchair with suspicious stains. There\'s a wallet on the seat with $12 in it.',
-        'Washing Machine Area': '💬 An old washing machine with a "Socks Only" sign. The drum is spinning slowly.',
-        'Stairs Area': '💬 Wooden stairs leading up. They creak ominously. The top 5% seems to be the trigger point.',
-        'Computer Area': '💬 An ancient computer with a CRT monitor. The screen shows a terminal with "BTC: $12" and "Status: Rage Quit".',
-        'Light Bulb Area': '💬 A single light bulb hanging from the ceiling. It flickers occasionally.',
-        'Windows Area': '💬 Dirty windows showing the dark outside. You can see your reflection in the glass.'
-    };
-    
-    const message = inspectionMessages[hotspot.name] || `💬 You carefully examine ${hotspot.name}`;
-    showFloatingText(message, x, y);
-}
 
 // Handle TAKE command
-function handleTakeCommand(hotspot, x, y) {
-    console.log(`TAKE command on: ${hotspot.name}`);
-    
-    const takeableItems = {
-        'Desk Area': '💬 You can\'t take the desk, but you find a USB drive with "Important Stuff" written on it.',
-        'Boxes Area': '💬 The boxes are too heavy to carry, but you find a small key in one of them.',
-        'Armchair Area': '💬 You can\'t take the armchair, but you find $12 in the wallet.',
-        'Washing Machine Area': '💬 You can\'t take the washing machine, but you find a sock with a hole in it.',
-        'Stairs Area': '💬 You can\'t take the stairs, but you find a loose nail.',
-        'Computer Area': '💬 You can\'t take the computer, but you find a floppy disk.',
-        'Light Bulb Area': '💬 You can\'t take the light bulb, but you find a dead fly.',
-        'Windows Area': '💬 You can\'t take the windows, but you find a spider web.'
-    };
-    
-    const message = takeableItems[hotspot.name] || `💬 You can\'t take ${hotspot.name}`;
-    showFloatingText(message, x, y);
-}
 
 // Handle TALK command
-function handleTalkCommand(hotspot, x, y) {
-    console.log(`TALK command on: ${hotspot.name}`);
-    
-    const talkResponses = {
-        'Desk Area': '💬 "Hello desk!" - No response. It\'s just a desk.',
-        'Boxes Area': '💬 "Hello boxes!" - You hear a faint rustling sound.',
-        'Armchair Area': '💬 "Hello chair!" - The chair remains silent.',
-        'Washing Machine Area': '💬 "Hello washing machine!" - It continues spinning.',
-        'Stairs Area': '💬 "Hello stairs!" - They creak in response.',
-        'Computer Area': '💬 "Hello computer!" - The terminal beeps.',
-        'Light Bulb Area': '💬 "Hello light bulb!" - It flickers.',
-        'Windows Area': '💬 "Hello windows!" - Your echo bounces back.'
-    };
-    
-    const message = talkResponses[hotspot.name] || `💬 You talk to ${hotspot.name} but get no response`;
-    showFloatingText(message, x, y);
-}
 
 // Handle MOVE command
-function handleMoveCommand(hotspot, x, y) {
-    console.log(`MOVE command on: ${hotspot.name}`);
-    
-    const moveResponses = {
-        'Desk Area': '💬 The desk is too heavy to move.',
-        'Boxes Area': '💬 You try to move the boxes but they\'re stuck.',
-        'Armchair Area': '💬 You move the armchair slightly. It makes a scraping sound.',
-        'Washing Machine Area': '💬 The washing machine is bolted to the floor.',
-        'Stairs Area': '💬 You can\'t move the stairs, but you can climb them.',
-        'Computer Area': '💬 The computer is too heavy to move.',
-        'Light Bulb Area': '💬 You can\'t move the light bulb, it\'s attached to the ceiling.',
-        'Windows Area': '💬 You can\'t move the windows, they\'re part of the wall.'
-    };
-    
-    const message = moveResponses[hotspot.name] || `💬 You can\'t move ${hotspot.name}`;
-    showFloatingText(message, x, y);
-}
 
 // Handle OPEN command
-function handleOpenCommand(hotspot, x, y) {
-    console.log(`OPEN command on: ${hotspot.name}`);
-    
-    const openResponses = {
-        'Desk Area': '💬 You open the desk drawer and find some old receipts.',
-        'Boxes Area': '💬 You open one of the boxes and find failed NFT projects.',
-        'Armchair Area': '💬 You can\'t open the armchair, it\'s not a container.',
-        'Washing Machine Area': '💬 You open the washing machine door. It\'s full of socks.',
-        'Stairs Area': '💬 You can\'t open the stairs, they\'re not a container.',
-        'Computer Area': '💬 You open the computer case and find dust.',
-        'Light Bulb Area': '💬 You can\'t open the light bulb, it\'s not a container.',
-        'Windows Area': '💬 You try to open the windows but they\'re stuck.'
-    };
-    
-    const message = openResponses[hotspot.name] || `💬 You can\'t open ${hotspot.name}`;
-    showFloatingText(message, x, y);
-}
 
 // Handle TEST command (for development)
-function handleTestCommand(hotspot, x, y) {
-    console.log(`TEST command on: ${hotspot.name}`);
-    
-    // Show detailed coordinates and hotspot information for development
-    const message = `🔧 TEST MODE\nHotspot: ${hotspot.name}\nCoordinates: ${x.toFixed(1)}%, ${y.toFixed(1)}%\nAction: ${hotspot.action || 'none'}\n\nClick anywhere to see coordinates!`;
-    showFloatingText(message, x, y);
-}
 
 // Show floating text over the image
 function showFloatingText(message, x, y) {
@@ -1973,13 +1574,3 @@ function updateWalletForInventory() {
 }
 
 // Initialize point & click system when main screen is shown
-function initializePointAndClickSystem() {
-    console.log('Initializing point & click system');
-    initializePointAndClick();
-    
-    // Check if wallet is already connected
-    if (window.ethereum && window.ethereum.selectedAddress) {
-        console.log('Wallet already connected, updating inventory');
-        menuManager.updateWalletState(true, window.ethereum.selectedAddress);
-    }
-}

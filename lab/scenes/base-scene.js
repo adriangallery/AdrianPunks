@@ -86,9 +86,9 @@ class BaseScene {
     handleGeneralClick(x, y) {
         const command = getCurrentCommand();
         
-        if (command === 'explore') {
-            showNotification(`You clicked at ${x.toFixed(1)}%, ${y.toFixed(1)}%`);
-        } else if (command === 'close') {
+        // if (command === 'explore') {
+            // showNotification(`You clicked at ${x.toFixed(1)}%, ${y.toFixed(1)}%`);
+        if (command === 'close') {
             showFloatingText(`💬 Nothing to close here`, x, y);
         }
     }
