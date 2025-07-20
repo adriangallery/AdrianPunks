@@ -183,6 +183,11 @@ class SceneManager {
 // Instancia global del SceneManager
 const sceneManager = new SceneManager();
 
+// Hacer disponible globalmente
+window.sceneManager = sceneManager;
+
+console.log('SceneManager created and made global:', sceneManager);
+
 // Exportar la clase
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = SceneManager;

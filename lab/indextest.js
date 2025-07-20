@@ -522,8 +522,15 @@ async function loadSceneManager() {
         // Load scene manager script
         await loadScript('scenes/scene-manager.js');
         
-        // Wait a moment for sceneManager to be available
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Wait for sceneManager to be available
+        let attempts = 0;
+        const maxAttempts = 10;
+        
+        while (typeof sceneManager === 'undefined' && attempts < maxAttempts) {
+            console.log(`Waiting for SceneManager... attempt ${attempts + 1}/${maxAttempts}`);
+            await new Promise(resolve => setTimeout(resolve, 200));
+            attempts++;
+        }
         
         // Load all scenes
         if (typeof sceneManager !== 'undefined') {
