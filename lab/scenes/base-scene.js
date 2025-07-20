@@ -1,4 +1,75 @@
 // Base Scene Class - Clase base para todas las escenas
+
+// CSS Styles for command buttons
+const commandButtonStyles = `
+<style>
+/* Command buttons grid layout */
+.commands-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Command button styling */
+.command-btn {
+    background: rgba(0, 255, 0, 0.1);
+    border: 1px solid #00ff00;
+    color: #00ff00;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'VT323', monospace;
+    font-size: 0.7rem;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.command-btn:hover {
+    background: rgba(0, 255, 0, 0.2);
+    transform: translateY(-1px);
+}
+
+.command-btn:active {
+    transform: translateY(0);
+}
+
+.command-btn.active {
+    background: rgba(0, 255, 0, 0.3);
+    border: 2px solid #ffff00;
+    color: #ffff00;
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
+}
+
+/* Commands section styling */
+.commands-section {
+    flex: 1;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+    .commands-grid {
+        gap: 2px;
+    }
+    
+    .command-btn {
+        padding: 4px 6px;
+        font-size: 0.5rem;
+    }
+}
+</style>
+`;
+
+// Inject styles into document head
+if (!document.querySelector('#base-scene-styles')) {
+    const styleElement = document.createElement('div');
+    styleElement.id = 'base-scene-styles';
+    styleElement.innerHTML = commandButtonStyles;
+    document.head.appendChild(styleElement);
+}
+
 class BaseScene {
     constructor(sceneId, sceneName) {
         this.sceneId = sceneId;
