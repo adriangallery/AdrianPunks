@@ -67,10 +67,15 @@ class OutsideScene extends BaseScene {
                 showFloatingText('💬 You open the door and enter AdrianLAB...', x, y);
                 setTimeout(() => {
                     // Ir a la escena frontdoor en lugar del basement
-                    if (typeof sceneManager !== 'undefined') {
+                    if (typeof sceneManager !== 'undefined' && typeof sceneManager.loadScene === 'function') {
+                        console.log('Using SceneManager to load frontdoor scene');
                         sceneManager.loadScene('frontdoor');
+                    } else if (typeof sceneManagerV2 !== 'undefined' && typeof sceneManagerV2.loadScene === 'function') {
+                        console.log('Using SceneManagerV2 to load frontdoor scene');
+                        sceneManagerV2.loadScene('frontdoor');
                     } else {
                         // Fallback si no hay sceneManager
+                        console.log('No scene manager available, using fallback');
                         goToMainScreen();
                     }
                 }, 1500);
