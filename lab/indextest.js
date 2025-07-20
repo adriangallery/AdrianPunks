@@ -232,8 +232,10 @@ class MenuManager {
                             return null;
                         }
                         
-                        // Filtrar para tokens 10000, 10001, y 10002 solo
-                        if (tokenIdInt !== 10000 && tokenIdInt !== 10001 && tokenIdInt !== 10002) {
+                        // Filtrar para tokens 10000, 10001, 10002, 10003, 10004, 10005, y 262144
+                        if (tokenIdInt !== 10000 && tokenIdInt !== 10001 && tokenIdInt !== 10002 && 
+                            tokenIdInt !== 10003 && tokenIdInt !== 10004 && tokenIdInt !== 10005 && 
+                            tokenIdInt !== 262144) {
                             return null;
                         }
                         
@@ -361,18 +363,19 @@ class MenuManager {
             if (this.inventoryItems.length === 0) {
                 leftGrid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
             } else {
-                // Filtrar tokens para esta escena específica
-                const inventoryTokens = this.inventoryItems.filter(item => 
-                    item.tokenId === 10000 || item.tokenId === 10001 || item.tokenId === 10002
+                // Filtrar tokens para el grid izquierdo (floppy discs): 10000, 10001, 10002, 10003, 10004, 10005
+                const floppyTokens = this.inventoryItems.filter(item => 
+                    item.tokenId === 10000 || item.tokenId === 10001 || item.tokenId === 10002 ||
+                    item.tokenId === 10003 || item.tokenId === 10004 || item.tokenId === 10005
                 );
                 
-                if (inventoryTokens.length === 0) {
+                if (floppyTokens.length === 0) {
                     leftGrid.innerHTML = '<div class="no-items">No floppy discs found.</div>';
                 } else {
-                    inventoryTokens.forEach(item => {
+                    floppyTokens.forEach(item => {
                         const itemElement = this.createInventoryItemElement(item);
                         leftGrid.appendChild(itemElement);
-                        console.log('Added inventory item to active scene:', item.title);
+                        console.log('Added floppy disc to inventory:', item.title);
                     });
                 }
             }
@@ -381,7 +384,18 @@ class MenuManager {
         }
         
         if (rightGrid) {
-            rightGrid.innerHTML = '<div class="no-items">No items found.</div>';
+            // Filtrar tokens para el grid derecho (items): 262144
+            const itemTokens = this.inventoryItems.filter(item => item.tokenId === 262144);
+            
+            if (itemTokens.length === 0) {
+                rightGrid.innerHTML = '<div class="no-items">No items found.</div>';
+            } else {
+                itemTokens.forEach(item => {
+                    const itemElement = this.createInventoryItemElement(item);
+                    rightGrid.appendChild(itemElement);
+                    console.log('Added item to right grid:', item.title);
+                });
+            }
         }
     }
 
