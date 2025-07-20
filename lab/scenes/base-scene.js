@@ -1,7 +1,7 @@
 // Base Scene Class - Clase base para todas las escenas
 
-// CSS Styles for command buttons
-const commandButtonStyles = `
+// CSS Styles for command buttons and inventory
+const baseSceneStyles = `
 <style>
 /* Command buttons grid layout */
 .commands-grid {
@@ -48,6 +48,88 @@ const commandButtonStyles = `
     flex: 1;
 }
 
+/* Inventory grid layout */
+.inventory-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding: 4px;
+    align-items: start;
+}
+
+/* Inventory item styling */
+.inventory-item {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid #00ff00;
+    border-radius: 6px;
+    padding: 6px 4px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    height: 65px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.inventory-item:hover {
+    background: rgba(0, 255, 0, 0.2);
+    transform: scale(1.05);
+}
+
+.inventory-item.selected {
+    border: 2px solid #ffff00;
+}
+
+.inventory-item img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    margin-bottom: 3px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.inventory-item .item-name {
+    color: #00ff00;
+    font-size: 0.5rem;
+    font-weight: bold;
+    line-height: 1.1;
+    margin-bottom: 2px;
+    font-family: 'VT323', monospace;
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+    width: 100%;
+}
+
+.inventory-item .item-id {
+    color: #888;
+    font-size: 0.4rem;
+    line-height: 1;
+    font-family: 'VT323', monospace;
+    flex-shrink: 0;
+    width: 100%;
+}
+
+.no-items {
+    color: #888;
+    text-align: center;
+    font-style: italic;
+    padding: 10px;
+    font-family: 'VT323', monospace;
+    font-size: 0.6rem;
+    grid-column: 1 / -1;
+}
+
 /* Mobile responsive adjustments */
 @media (max-width: 768px) {
     .commands-grid {
@@ -58,6 +140,36 @@ const commandButtonStyles = `
         padding: 4px 6px;
         font-size: 0.5rem;
     }
+    
+    .inventory-grid {
+        gap: 2px;
+        padding: 2px;
+    }
+    
+    .inventory-item {
+        height: 40px;
+        padding: 3px 2px;
+    }
+    
+    .inventory-item img {
+        width: 20px;
+        height: 20px;
+        margin-bottom: 2px;
+    }
+    
+    .inventory-item .item-name {
+        font-size: 0.35rem;
+        margin-bottom: 1px;
+    }
+    
+    .inventory-item .item-id {
+        font-size: 0.25rem;
+    }
+    
+    .no-items {
+        font-size: 0.5rem;
+        padding: 5px;
+    }
 }
 </style>
 `;
@@ -66,7 +178,7 @@ const commandButtonStyles = `
 if (!document.querySelector('#base-scene-styles')) {
     const styleElement = document.createElement('div');
     styleElement.id = 'base-scene-styles';
-    styleElement.innerHTML = commandButtonStyles;
+    styleElement.innerHTML = baseSceneStyles;
     document.head.appendChild(styleElement);
 }
 
