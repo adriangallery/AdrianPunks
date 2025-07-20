@@ -105,9 +105,6 @@ class MenuManager {
         
         // Actualizar comando actual
         this.currentCommand = command;
-        
-        // Mostrar notificación
-        showNotification(`Command: ${command.toUpperCase()}`, 'info');
     }
 
     // Obtener comando actual
