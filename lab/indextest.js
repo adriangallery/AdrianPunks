@@ -520,7 +520,13 @@ async function loadSceneManager() {
         console.log('Loading scene manager...');
         
         // Load scene manager script
-        await loadScript('scenes/scene-manager.js');
+        console.log('Loading scene manager script: scenes/scene-manager.js');
+        try {
+            await loadScript('scenes/scene-manager.js');
+            console.log('Scene manager script loaded successfully');
+        } catch (error) {
+            console.error('Failed to load scene manager script:', error);
+        }
         
         // Wait for sceneManager to be available
         let attempts = 0;

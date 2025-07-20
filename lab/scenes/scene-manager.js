@@ -187,6 +187,7 @@ const sceneManager = new SceneManager();
 window.sceneManager = sceneManager;
 
 console.log('SceneManager created and made global:', sceneManager);
+console.log('SceneManager script execution completed');
 
 // Exportar la clase
 if (typeof module !== 'undefined' && module.exports) {
