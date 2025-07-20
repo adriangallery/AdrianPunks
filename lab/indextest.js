@@ -532,8 +532,10 @@ async function loadSceneManager() {
         let attempts = 0;
         const maxAttempts = 10;
         
-        while (typeof sceneManager === 'undefined' && attempts < maxAttempts) {
+        while (typeof sceneManager === 'undefined' && typeof sceneManagerV2 === 'undefined' && attempts < maxAttempts) {
             console.log(`Waiting for SceneManager... attempt ${attempts + 1}/${maxAttempts}`);
+            console.log('sceneManager available:', typeof sceneManager !== 'undefined');
+            console.log('sceneManagerV2 available:', typeof sceneManagerV2 !== 'undefined');
             await new Promise(resolve => setTimeout(resolve, 200));
             attempts++;
         }
@@ -542,6 +544,10 @@ async function loadSceneManager() {
         if (typeof sceneManager !== 'undefined') {
             console.log('SceneManager found, loading scenes...');
             await sceneManager.loadScenes();
+            console.log('Scene manager loaded successfully');
+        } else if (typeof sceneManagerV2 !== 'undefined') {
+            console.log('SceneManagerV2 found, loading scenes...');
+            await sceneManagerV2.loadScenes();
             console.log('Scene manager loaded successfully');
         } else {
             console.error('SceneManager not available after loading script');
@@ -1006,9 +1012,15 @@ function goToMainScreenFromIntro() {
         
         // Change to outside scene (first scene) - fallback to existing HTML structure
         console.log('SceneManager status:', typeof sceneManager, sceneManager);
+        console.log('SceneManagerV2 status:', typeof sceneManagerV2, sceneManagerV2);
+        
         if (sceneManager && typeof sceneManager.changeScene === 'function') {
-            console.log('Attempting to change to outside scene...');
+            console.log('Attempting to change to outside scene with SceneManager...');
             const result = sceneManager.changeScene('outside');
+            console.log('Scene change result:', result);
+        } else if (sceneManagerV2 && typeof sceneManagerV2.changeScene === 'function') {
+            console.log('Attempting to change to outside scene with SceneManagerV2...');
+            const result = sceneManagerV2.changeScene('outside');
             console.log('Scene change result:', result);
         } else {
             console.log('Scene manager not loaded or changeScene not available, using fallback to main-screen as outside');
@@ -1046,6 +1058,8 @@ function goToMainScreen() {
     // Change to outside scene (main scene)
     if (sceneManager) {
         sceneManager.changeScene('outside');
+    } else if (sceneManagerV2) {
+        sceneManagerV2.changeScene('outside');
     } else {
         console.error('Scene manager not loaded');
     }
