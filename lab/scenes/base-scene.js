@@ -280,7 +280,7 @@ class BaseScene {
         throw new Error('setupEventListeners must be implemented by subclass');
     }
 
-    // Manejar click en la escena - Solución robusta
+    // Manejar click en la escena - Solución optimizada
     handleClick(event) {
         console.log(`handleClick called for scene: ${this.sceneId}`);
         
@@ -304,7 +304,6 @@ class BaseScene {
         
         if (!backgroundImage) {
             console.error('Background image not found with any method');
-            console.log('Available images in document:', document.querySelectorAll('img'));
             return;
         }
         
@@ -313,84 +312,55 @@ class BaseScene {
         console.log('Image complete:', backgroundImage.complete);
         console.log('Image natural dimensions:', backgroundImage.naturalWidth, 'x', backgroundImage.naturalHeight);
         
-        // Obtener las dimensiones de la imagen
-        const imageRect = backgroundImage.getBoundingClientRect();
-        console.log('Image rect:', imageRect);
-        
-        // Validar que las dimensiones sean válidas
-        if (!imageRect.width || !imageRect.height || imageRect.width <= 0 || imageRect.height <= 0) {
-            console.error('Invalid image dimensions:', imageRect);
-            console.log('Image style:', backgroundImage.style.cssText);
-            console.log('Image computed style:', window.getComputedStyle(backgroundImage));
-            
-            // Intentar usar las dimensiones naturales si están disponibles
-            if (backgroundImage.naturalWidth > 0 && backgroundImage.naturalHeight > 0) {
-                console.log('Using natural dimensions as fallback');
-                const naturalAspectRatio = backgroundImage.naturalWidth / backgroundImage.naturalHeight;
-                const containerWidth = clickRect.width;
-                const containerHeight = clickRect.height;
-                
-                // Calcular dimensiones basadas en el contenedor y aspect ratio
-                let imageWidth, imageHeight;
-                if (containerWidth / containerHeight > naturalAspectRatio) {
-                    imageHeight = containerHeight;
-                    imageWidth = containerHeight * naturalAspectRatio;
-                } else {
-                    imageWidth = containerWidth;
-                    imageHeight = containerWidth / naturalAspectRatio;
-                }
-                
-                // Calcular offset para centrar la imagen
-                const imageLeft = clickRect.left + (containerWidth - imageWidth) / 2;
-                const imageTop = clickRect.top + (containerHeight - imageHeight) / 2;
-                
-                // Calcular coordenadas del click relativas a la imagen
-                const imageX = event.clientX - imageLeft;
-                const imageY = event.clientY - imageTop;
-                
-                // Verificar que el click esté dentro de los límites de la imagen
-                if (imageX < 0 || imageX > imageWidth || imageY < 0 || imageY > imageHeight) {
-                    console.log(`Click outside image bounds: ${imageX.toFixed(1)}, ${imageY.toFixed(1)}`);
-                    return;
-                }
-                
-                // Convertir a porcentajes relativos a la imagen
-                const xPercent = (imageX / imageWidth) * 100;
-                const yPercent = (imageY / imageHeight) * 100;
-                
-                console.log(`${this.sceneName} click at: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
-                
-                // Verificar si el click está en algún hotspot
-                const hotspot = this.getHotspotAt(xPercent, yPercent);
-                
-                if (hotspot) {
-                    this.handleHotspotClick(hotspot, xPercent, yPercent);
-                } else {
-                    this.handleGeneralClick(xPercent, yPercent);
-                }
-                return;
-            }
-            
+        // Verificar que la imagen esté cargada y tenga dimensiones naturales
+        if (!backgroundImage.complete || backgroundImage.naturalWidth <= 0 || backgroundImage.naturalHeight <= 0) {
+            console.error('Image not fully loaded or has invalid natural dimensions');
             return;
         }
         
-        // Calcular coordenadas del click relativas al contenedor
-        const clickX = event.clientX - clickRect.left;
-        const clickY = event.clientY - clickRect.top;
+        // Usar dimensiones naturales como método principal (más confiable)
+        const naturalAspectRatio = backgroundImage.naturalWidth / backgroundImage.naturalHeight;
+        const containerWidth = clickRect.width;
+        const containerHeight = clickRect.height;
+        
+        console.log('Container dimensions:', containerWidth, 'x', containerHeight);
+        console.log('Natural aspect ratio:', naturalAspectRatio);
+        
+        // Calcular dimensiones de la imagen basadas en el contenedor y aspect ratio
+        let imageWidth, imageHeight;
+        if (containerWidth / containerHeight > naturalAspectRatio) {
+            // Contenedor más ancho que la imagen - ajustar por altura
+            imageHeight = containerHeight;
+            imageWidth = containerHeight * naturalAspectRatio;
+        } else {
+            // Contenedor más alto que la imagen - ajustar por ancho
+            imageWidth = containerWidth;
+            imageHeight = containerWidth / naturalAspectRatio;
+        }
+        
+        console.log('Calculated image dimensions:', imageWidth, 'x', imageHeight);
+        
+        // Calcular offset para centrar la imagen
+        const imageLeft = clickRect.left + (containerWidth - imageWidth) / 2;
+        const imageTop = clickRect.top + (containerHeight - imageHeight) / 2;
+        
+        console.log('Image offset:', imageLeft, imageTop);
         
         // Calcular coordenadas del click relativas a la imagen
-        const imageX = event.clientX - imageRect.left;
-        const imageY = event.clientY - imageRect.top;
+        const imageX = event.clientX - imageLeft;
+        const imageY = event.clientY - imageTop;
+        
+        console.log('Click coordinates relative to image:', imageX, imageY);
         
         // Verificar que el click esté dentro de los límites de la imagen
-        if (imageX < 0 || imageX > imageRect.width || imageY < 0 || imageY > imageRect.height) {
+        if (imageX < 0 || imageX > imageWidth || imageY < 0 || imageY > imageHeight) {
             console.log(`Click outside image bounds: ${imageX.toFixed(1)}, ${imageY.toFixed(1)}`);
             return;
         }
         
         // Convertir a porcentajes relativos a la imagen
-        const xPercent = (imageX / imageRect.width) * 100;
-        const yPercent = (imageY / imageRect.height) * 100;
+        const xPercent = (imageX / imageWidth) * 100;
+        const yPercent = (imageY / imageHeight) * 100;
         
         console.log(`${this.sceneName} click at: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
         
