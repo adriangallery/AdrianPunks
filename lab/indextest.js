@@ -523,10 +523,11 @@ async function loadSceneManager() {
         await loadScript('scenes/scene-manager.js');
         
         // Wait a moment for sceneManager to be available
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Load all scenes
         if (typeof sceneManager !== 'undefined') {
+            console.log('SceneManager found, loading scenes...');
             await sceneManager.loadScenes();
             console.log('Scene manager loaded successfully');
         } else {
@@ -991,10 +992,13 @@ function goToMainScreenFromIntro() {
         }
         
         // Change to outside scene (first scene) - fallback to existing HTML structure
-        if (sceneManager) {
-            sceneManager.changeScene('outside');
+        console.log('SceneManager status:', typeof sceneManager, sceneManager);
+        if (sceneManager && typeof sceneManager.changeScene === 'function') {
+            console.log('Attempting to change to outside scene...');
+            const result = sceneManager.changeScene('outside');
+            console.log('Scene change result:', result);
         } else {
-            console.log('Scene manager not loaded, using fallback to main-screen as outside');
+            console.log('Scene manager not loaded or changeScene not available, using fallback to main-screen as outside');
             // Show main screen (outside) as fallback for outside
             mainScreen.style.display = 'block';
             mainScreen.style.opacity = '0';
