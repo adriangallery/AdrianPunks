@@ -15,17 +15,31 @@ class OutsideScene extends BaseScene {
         this.hotspots = [
             {
                 name: 'Front Door',
-                x: [40, 60],
-                y: [60, 80],
+                x: [50, 56],  // Moved to 53.1%, 57.2%
+                y: [55, 60],
                 action: 'enter_building',
                 message: "💬 The main entrance to AdrianLAB. The door looks inviting."
             },
             {
-                name: 'Mountain View',
-                x: [70, 90],
-                y: [20, 40],
-                action: 'inspect_mountain',
-                message: "💬 Majestic mountains in the distance. They seem to hold secrets."
+                name: 'Street Light',
+                x: [68, 88],  // Changed from Mountain View to Street Light
+                y: [18, 38],
+                action: 'inspect_streetlight',
+                message: "💬 A tall street light illuminates the area. It flickers occasionally."
+            },
+            {
+                name: 'Window',
+                x: [35, 40],  // New hotspot at 37.3%, 56.4%
+                y: [54, 59],
+                action: 'inspect_window',
+                message: "💬 A window with drawn curtains. You can see a faint light inside."
+            },
+            {
+                name: 'Sky',
+                x: [44, 49],  // New hotspot at 46.5%, 38.0%
+                y: [36, 41],
+                action: 'inspect_sky',
+                message: "💬 The sky is dark with scattered stars. A full moon casts shadows."
             },
             {
                 name: 'Path',
@@ -72,7 +86,9 @@ class OutsideScene extends BaseScene {
         
         const inspectionMessages = {
             'Front Door': '💬 A solid wooden door with a brass handle. There\'s a small sign that reads "AdrianLAB - Enter at your own risk".',
-            'Mountain View': '💬 The mountains are covered in snow and seem to stretch forever. You can see some strange lights in the distance.',
+            'Street Light': '💬 The street light is made of metal and has a bright bulb. It provides good illumination for the area.',
+            'Window': '💬 The window has thick curtains that block most of the view inside. You can see a faint glow.',
+            'Sky': '💬 The night sky is clear with many stars visible. The moon provides a soft, eerie light.',
             'Path': '💬 The path is made of old cobblestones and leads into the forest. It looks well-traveled.'
         };
         
@@ -85,7 +101,9 @@ class OutsideScene extends BaseScene {
         
         const takeableItems = {
             'Front Door': '💬 You can\'t take the door, but you find a key under the doormat.',
-            'Mountain View': '💬 You can\'t take the mountains, but you find a small rock with strange markings.',
+            'Street Light': '💬 You can\'t take the street light, but you find a broken light bulb on the ground.',
+            'Window': '💬 You can\'t take the window, but you find a small pebble that could break it.',
+            'Sky': '💬 You can\'t take the sky, but you find a fallen star (actually just a piece of glass).',
             'Path': '💬 You can\'t take the path, but you find an old coin on the ground.'
         };
         
@@ -98,7 +116,9 @@ class OutsideScene extends BaseScene {
         
         const talkResponses = {
             'Front Door': '💬 "Hello door!" - The door remains silent, but you hear faint music from inside.',
-            'Mountain View': '💬 "Hello mountains!" - Your voice echoes back from the peaks.',
+            'Street Light': '💬 "Hello light!" - The street light buzzes softly in response.',
+            'Window': '💬 "Hello window!" - You hear muffled voices from inside.',
+            'Sky': '💬 "Hello sky!" - The stars twinkle as if responding to your greeting.',
             'Path': '💬 "Hello path!" - The path doesn\'t respond, but you hear rustling in the bushes.'
         };
         
@@ -111,7 +131,9 @@ class OutsideScene extends BaseScene {
         
         const moveResponses = {
             'Front Door': '💬 The door is too heavy to move.',
-            'Mountain View': '💬 You can\'t move the mountains, they\'re too big.',
+            'Street Light': '💬 The street light is firmly planted in the ground and won\'t budge.',
+            'Window': '💬 You can\'t move the window, it\'s part of the building.',
+            'Sky': '💬 You can\'t move the sky, it\'s too vast.',
             'Path': '💬 You can\'t move the path, it\'s part of the ground.'
         };
         
@@ -124,7 +146,9 @@ class OutsideScene extends BaseScene {
         
         const openResponses = {
             'Front Door': '💬 You try to open the door but it\'s locked. Use the USE command instead.',
-            'Mountain View': '💬 You can\'t open the mountains, they\'re not a container.',
+            'Street Light': '💬 You can\'t open the street light, it\'s not a container.',
+            'Window': '💬 You try to open the window but it\'s locked from the inside.',
+            'Sky': '💬 You can\'t open the sky, it\'s not a container.',
             'Path': '💬 You can\'t open the path, it\'s not a container.'
         };
         
