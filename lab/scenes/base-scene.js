@@ -60,6 +60,14 @@ const baseSceneStyles = `
     align-items: start;
 }
 
+/* Force remove any borders from inventory items */
+#inventory-grid-left .inventory-item,
+#inventory-grid-right .inventory-item,
+.inventory-grid .inventory-item {
+    border: none !important;
+    outline: none !important;
+}
+
 /* Mobile inventory grid - 2 columns */
 @media (max-width: 768px) {
     .inventory-grid {
@@ -91,6 +99,7 @@ const baseSceneStyles = `
 /* Inventory item styling */
 .inventory-item {
     background: rgba(255, 255, 255, 0.1);
+    border: none !important;
     border-radius: 6px;
     padding: 6px 4px;
     text-align: center;
