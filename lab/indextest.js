@@ -1571,7 +1571,7 @@ function showFloatingText(message, x, y) {
         if (floatingText.parentNode) {
             floatingText.remove();
         }
-    }, 2000);
+    }, 4000);
 }
 
 // Handle mouse movement for cursor feedback
