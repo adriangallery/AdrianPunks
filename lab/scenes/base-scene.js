@@ -251,9 +251,33 @@ const baseSceneStyles = `
     pointer-events: none;
 }
 
-.retro-title, .retro-subtitle {
+/* Estilos completos para título y subtítulo - Mismo que indextest.html */
+.retro-title {
+    font-size: 2rem;
+    color: #00ff00;
+    text-shadow: 2px 2px 0px #000, 4px 4px 0px #003300;
+    margin-bottom: 1rem;
+    animation: glow 2s ease-in-out infinite alternate;
     transition: opacity 1s ease;
 }
+
+.retro-subtitle {
+    font-size: 0.8rem;
+    color: #ffff00;
+    animation: blink 1s infinite;
+    transition: opacity 1s ease;
+}
+
+@keyframes glow {
+    from { text-shadow: 2px 2px 0px #000, 4px 4px 0px #003300; }
+    to { text-shadow: 2px 2px 0px #000, 4px 4px 0px #003300, 0 0 10px #00ff00; }
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
 .fadeout-overlay .retro-title,
 .fadeout-overlay .retro-subtitle {
     opacity: 0;
