@@ -240,6 +240,24 @@ const baseSceneStyles = `
         bottom: 136px;    /* Footer: 120px + 16px padding */
     }
 }
+/* Overlays específicos para cada escena - Mismo estilo que indextest.html */
+.outside-overlay, .basement-overlay, .upstairs-overlay {
+    position: absolute;
+    bottom: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.retro-title, .retro-subtitle {
+    transition: opacity 1s ease;
+}
+.fadeout-overlay .retro-title,
+.fadeout-overlay .retro-subtitle {
+    opacity: 0;
+}
 </style>
 `;
 
@@ -561,6 +579,15 @@ class BaseScene {
                 menuManager.showInventoryLoading();
             }
         }, 100);
+
+        // Fadeout automático para título y subtítulo
+        const overlay = document.querySelector(`.${this.sceneId}-overlay`);
+        if (overlay) {
+            overlay.classList.remove('fadeout-overlay');
+            setTimeout(() => {
+                overlay.classList.add('fadeout-overlay');
+            }, 5000);
+        }
     }
 
     // Ocultar la escena
