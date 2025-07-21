@@ -610,7 +610,7 @@ class BaseScene {
             overlay.classList.remove('fadeout-overlay');
             setTimeout(() => {
                 overlay.classList.add('fadeout-overlay');
-            }, 5000);
+            }, 3000);
         }
     }
 
