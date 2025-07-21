@@ -91,7 +91,7 @@ class UpstairsScene extends BaseScene {
                 action: 'inspect_computer',
                 messages: {
                     explore: "💻 You examine the upstairs computer area. It's a high-end setup with multiple GPUs for mining and trading.",
-                    use: "🖥️ You use the computer. It's running advanced trading algorithms and yield farming strategies.",
+                    use: "🖥️ You use the computer. It can run trading algorithms or open floppy discs with the openPack program.",
                     take: "💻 You can't take the computer, but you find a USB drive with profitable trading strategies.",
                     inspect: "🔍 The computer has multiple monitors showing portfolio performance, mining stats, and DeFi protocol analytics.",
                     open: "🔧 You open the computer case. It's filled with high-end GPUs and cooling systems.",
@@ -154,17 +154,32 @@ class UpstairsScene extends BaseScene {
                 }
             }, 1500);
         } else if (hotspot.name === 'Computer Area') {
-            // Open mint popup (existing functionality)
-            if (!isWalletConnected) {
-                showNotification('Connect your wallet first', 'warning');
-                return;
+            // Check if there's a floppy disc selected for openPack functionality
+            if (menuManager && menuManager.hasFloppySelected()) {
+                const selectedFloppy = menuManager.getSelectedFloppy();
+                console.log('USE command on Computer with floppy selected, triggering openPack');
+                showFloatingText('💾 You insert the floppy disc into the computer and run the openPack program...', x, y);
+                
+                setTimeout(() => {
+                    if (window.openPack) {
+                        window.openPack(selectedFloppy);
+                    } else {
+                        showNotification('OpenPack functionality not available.', 'error');
+                    }
+                }, 2000);
+            } else {
+                // Regular computer use (mint popup)
+                if (!isWalletConnected) {
+                    showNotification('Connect your wallet first', 'warning');
+                    return;
+                }
+                
+                mintPopup.classList.add('active');
+                setTimeout(() => {
+                    notifyIframeWalletConnected();
+                }, 100);
+                showFloatingText('💬 Opening mint interface...', x, y);
             }
-            
-            mintPopup.classList.add('active');
-            setTimeout(() => {
-                notifyIframeWalletConnected();
-            }, 100);
-            showFloatingText('💬 Opening mint interface...', x, y);
         } else {
             showFloatingText(hotspot.messages?.use || `You use the ${hotspot.name}.`, x, y);
         }

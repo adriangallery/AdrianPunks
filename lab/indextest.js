@@ -109,26 +109,28 @@ class MenuManager {
         // Actualizar comando actual
         this.currentCommand = command;
         
-        // Check if OPEN command is selected and there's a selected floppy disc
-        if (command === 'open' && this.selectedInventoryItem) {
-            const tokenId = parseInt(this.selectedInventoryItem.tokenId);
-            if (tokenId >= 10000 && tokenId <= 10005) {
-                console.log('OPEN command selected and floppy disc already selected, triggering openPack');
-                if (window.openPack) {
-                    window.openPack(this.selectedInventoryItem);
-                } else {
-                    showNotification('OpenPack functionality not available.', 'error');
-                }
-            } else {
-                showNotification('Please select a floppy disc to use the OPEN command.', 'info');
-            }
-        }
+        // Removed OPEN command logic - now handled by USE + Computer in upstairs scene
 
     }
 
     // Obtener comando actual
     getCurrentCommand() {
         return this.currentCommand;
+    }
+
+    // Verificar si hay un floppy disc seleccionado
+    hasFloppySelected() {
+        if (!this.selectedInventoryItem) return false;
+        const tokenId = parseInt(this.selectedInventoryItem.tokenId);
+        return tokenId >= 10000 && tokenId <= 10005;
+    }
+
+    // Obtener el floppy seleccionado
+    getSelectedFloppy() {
+        if (this.hasFloppySelected()) {
+            return this.selectedInventoryItem;
+        }
+        return null;
     }
 
     // Actualizar estado de wallet
@@ -455,20 +457,7 @@ class MenuManager {
         // Resaltar item seleccionado
         event.target.closest('.inventory-item').classList.add('selected');
         
-        // Check if OPEN command is active and item is a floppy disc
-        if (this.currentCommand === 'open') {
-            const tokenId = parseInt(item.tokenId);
-            if (tokenId >= 10000 && tokenId <= 10005) {
-                console.log('OPEN command active and floppy disc selected, triggering openPack');
-                if (window.openPack) {
-                    window.openPack(item);
-                } else {
-                    showNotification('OpenPack functionality not available.', 'error');
-                }
-            } else {
-                showNotification('OPEN command is only available for floppy discs.', 'error');
-            }
-        }
+        // Removed OPEN command logic - now handled by USE + Computer in upstairs scene
     }
 
     // ✅ ACTUALIZAR: Función showNoItems también debe usar escena activa
