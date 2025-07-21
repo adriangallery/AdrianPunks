@@ -109,6 +109,15 @@ class SceneManagerV2 {
             console.warn('UpstairsScene class not available');
         }
         
+        // Crear instancia de upstairs
+        if (typeof UpstairsScene !== 'undefined') {
+            const upstairsScene = new UpstairsScene();
+            this.scenes.set('upstairs', upstairsScene);
+            console.log('Upstairs scene instance created');
+        } else {
+            console.warn('UpstairsScene class not available');
+        }
+        
         console.log('Available scenes:', Array.from(this.scenes.keys()));
     }
 
