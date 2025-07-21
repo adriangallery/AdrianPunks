@@ -265,7 +265,13 @@ const baseSceneStyles = `
     font-size: 0.8rem;
     color: #ffff00;
     animation: blink 1s infinite;
-    transition: opacity 1s ease;
+    transition: opacity 1s ease !important;
+}
+
+/* Sobrescribir la animación blink cuando hay fadeout */
+.fadeout-overlay .retro-subtitle {
+    animation: none !important;
+    opacity: 0 !important;
 }
 
 @keyframes glow {
