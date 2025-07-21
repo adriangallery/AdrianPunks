@@ -45,6 +45,7 @@ class SceneManagerV2 {
             // Cargar escenas específicas
             await this.loadScript('scenes/outside.js');
             await this.loadScript('scenes/frontdoor.js');
+            await this.loadScript('scenes/lobby.js');
             await this.loadScript('scenes/basement.js');
             await this.loadScript('scenes/upstairs.js');
             
@@ -79,6 +80,15 @@ class SceneManagerV2 {
             console.log('Frontdoor scene instance created');
         } else {
             console.warn('FrontDoorScene class not available');
+        }
+        
+        // Crear instancia de lobby
+        if (typeof LobbyScene !== 'undefined') {
+            const lobbyScene = new LobbyScene();
+            this.scenes.set('lobby', lobbyScene);
+            console.log('Lobby scene instance created');
+        } else {
+            console.warn('LobbyScene class not available');
         }
         
         // Crear instancia de basement
