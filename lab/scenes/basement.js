@@ -1,18 +1,18 @@
-// Upstairs Scene - Escena del piso superior
-class UpstairsScene extends BaseScene {
+// Basement Scene - Escena del sótano
+class BasementScene extends BaseScene {
     constructor() {
-        super('upstairs', 'Upstairs');
-        this.imagePath = 'scenes/images/upstairs.png';
+        super('basement', 'Basement');
+        this.imagePath = 'scenes/images/basement.png';
         this.overlayText = {
-            title: 'AdrianLAB Upstairs',
-            subtitle: 'The upper floor of the laboratory...'
+            title: 'AdrianLAB Basement',
+            subtitle: 'The underground laboratory...'
         };
     }
 
     setupHotspots() {
-        console.log('Setting up Upstairs hotspots...');
+        console.log('Setting up Basement hotspots...');
         
-        // Definir clickable areas (hotspots) basados en upstairs.png layout
+        // Definir clickable areas (hotspots) basados en basement.png layout
         this.hotspots = [
             {
                 name: 'Desk Area',
@@ -20,12 +20,12 @@ class UpstairsScene extends BaseScene {
                 y: [75, 100],
                 action: 'inspect_desk_area',
                 messages: {
-                    explore: "🖥️ You examine the upstairs desk area. It's cleaner than the basement, with multiple monitors showing various DeFi protocols.",
-                    use: "💻 You use the desk's main terminal. It's running a sophisticated trading bot with AI algorithms.",
-                    take: "📱 You can't take the desk, but you find a smartphone with crypto trading apps open.",
-                    inspect: "🔍 The desk has three monitors: one showing portfolio performance, another with yield farming stats, and a third with NFT marketplace analytics.",
-                    open: "🗄️ You open the desk drawer and find a hardware wallet with significant holdings.",
-                    close: "🔒 You close the desk drawer. The hardware wallet is safely stored."
+                    explore: "🖥️ You examine the basement desk area. It's cluttered with papers and coffee stains.",
+                    use: "💻 You use the desk's terminal. It shows a basic mining operation running.",
+                    take: "📱 You can't take the desk, but you find a broken keyboard and some old receipts.",
+                    inspect: "🔍 The desk has a single monitor showing a terminal with 'BTC: $12' and 'Status: Rage Quit'.",
+                    open: "🗄️ You open the desk drawer and find some old receipts and a floppy disk.",
+                    close: "🔒 You close the desk drawer. The old receipts are safely stored."
                 }
             },
             {
@@ -34,12 +34,12 @@ class UpstairsScene extends BaseScene {
                 y: [60, 85],
                 action: 'inspect_boxes',
                 messages: {
-                    explore: "📦 You explore the boxes area. These contain successful NFT projects and rare collectibles.",
-                    use: "🎁 You interact with the boxes. One contains a limited edition AdrianPunk NFT!",
-                    take: "💎 You can't take all the boxes, but you find a rare NFT trading card inside one.",
-                    inspect: "🔍 The boxes are labeled with project names: 'Moon Mission', 'Diamond Hands', 'Lambo Dreams'. All successful!",
-                    open: "📦 You open a box and find a collection of rare memecoins and governance tokens.",
-                    close: "🔒 You close the box. The valuable NFTs are safely stored."
+                    explore: "📦 You explore the boxes area. These contain failed NFT projects and old equipment.",
+                    use: "🎁 You interact with the boxes. One contains a 'Bored Ape Piñata - DO NOT OPEN'.",
+                    take: "💎 You can't take all the boxes, but you find a small key in one of them.",
+                    inspect: "🔍 The boxes are labeled with project names: 'Failed Projects 2021', 'Rug Pull Victims'.",
+                    open: "📦 You open a box and find failed NFT projects and broken dreams.",
+                    close: "🔒 You close the box. The failed projects remain hidden."
                 }
             },
             {
@@ -48,12 +48,12 @@ class UpstairsScene extends BaseScene {
                 y: [74, 99],
                 action: 'inspect_armchair',
                 messages: {
-                    explore: "🪑 You examine the premium armchair. It's where the successful traders sit and watch their portfolios grow.",
-                    use: "🪑 You sit in the armchair. It's incredibly comfortable and has built-in massage features.",
-                    take: "🪑 You can't take the armchair, but you find a luxury watch worth several ETH under the cushion.",
-                    inspect: "🔍 The armchair has integrated screens showing real-time crypto prices and portfolio performance.",
-                    open: "🪑 You can't open the armchair, but you discover it has hidden compartments for storing valuables.",
-                    close: "🔒 The armchair's compartments are already closed and secure."
+                    explore: "🪑 You examine the worn armchair. It has suspicious stains and looks like a throne.",
+                    use: "🪑 You sit in the armchair. It's uncomfortable and smells like regret.",
+                    take: "🪑 You can't take the armchair, but you find $12 in a wallet on the seat.",
+                    inspect: "🔍 The armchair has seen better days. There's a wallet with $12 in it.",
+                    open: "🪑 You can't open the armchair, but you discover it has hidden compartments.",
+                    close: "🔒 The armchair's compartments are already closed."
                 }
             },
             {
@@ -62,12 +62,12 @@ class UpstairsScene extends BaseScene {
                 y: [59, 84],
                 action: 'inspect_washing_machine',
                 messages: {
-                    explore: "🧺 You examine the upstairs washing machine. It's a smart appliance that accepts crypto payments.",
-                    use: "⚡ You use the smart washing machine. It's connected to a DeFi protocol for laundry token rewards.",
-                    take: "🧺 You can't take the washing machine, but you find some premium laundry tokens in the detergent compartment.",
-                    inspect: "🔍 The washing machine has a touchscreen interface showing laundry token prices and yield farming opportunities.",
-                    open: "🚪 You open the washing machine door. It's empty but ready for the next load.",
-                    close: "🔒 You close the washing machine door. It's ready for operation."
+                    explore: "🧺 You examine the old washing machine. It has a 'Socks Only' sign.",
+                    use: "⚡ You use the washing machine. It's spinning slowly with a load of socks.",
+                    take: "🧺 You can't take the washing machine, but you find a sock with a hole in it.",
+                    inspect: "🔍 The washing machine is old and basic. Perfect for laundering socks.",
+                    open: "🚪 You open the washing machine door. It's full of socks.",
+                    close: "🔒 You close the washing machine door. The socks continue washing."
                 }
             },
             {
@@ -76,11 +76,11 @@ class UpstairsScene extends BaseScene {
                 y: [29, 54],
                 action: 'inspect_stairs',
                 messages: {
-                    explore: "🪜 You examine the stairs leading down to the basement. They're well-maintained and have LED lighting.",
-                    use: "⬇️ You use the stairs to go down to the basement. The LED lights guide your way safely.",
-                    take: "🪜 You can't take the stairs, but you find a small LED light that fell off the railing.",
-                    inspect: "🔍 The stairs have smart lighting that adjusts based on time of day and energy prices.",
-                    open: "🪜 You can't open the stairs, but you notice a hidden storage compartment under one step.",
+                    explore: "🪜 You examine the stairs leading up. They creak ominously.",
+                    use: "⬆️ You use the stairs to go upstairs. The wooden steps guide your way up!",
+                    take: "🪜 You can't take the stairs, but you find a loose nail.",
+                    inspect: "🔍 The stairs are basic wooden steps. They creak when you walk on them.",
+                    open: "🪜 You can't open the stairs, but you notice they're well-worn.",
                     close: "🔒 The stairs are always open for access between floors."
                 }
             },
@@ -90,12 +90,12 @@ class UpstairsScene extends BaseScene {
                 y: [39, 64],
                 action: 'inspect_computer',
                 messages: {
-                    explore: "💻 You examine the upstairs computer area. It's a high-end setup with multiple GPUs for mining and trading.",
-                    use: "🖥️ You use the computer. It's running advanced trading algorithms and yield farming strategies.",
-                    take: "💻 You can't take the computer, but you find a USB drive with profitable trading strategies.",
-                    inspect: "🔍 The computer has multiple monitors showing portfolio performance, mining stats, and DeFi protocol analytics.",
-                    open: "🔧 You open the computer case. It's filled with high-end GPUs and cooling systems.",
-                    close: "🔒 You close the computer case. The mining operation continues uninterrupted."
+                    explore: "💻 You examine the basement computer. It's an ancient setup with a CRT monitor.",
+                    use: "🖥️ You use the computer. It's running a basic mining operation.",
+                    take: "💻 You can't take the computer, but you find a floppy disk.",
+                    inspect: "🔍 The computer has a CRT monitor showing 'BTC: $12' and 'Status: Rage Quit'.",
+                    open: "🔧 You open the computer case and find dust.",
+                    close: "🔒 You close the computer case. The mining operation continues."
                 }
             },
             {
@@ -104,12 +104,12 @@ class UpstairsScene extends BaseScene {
                 y: [0, 20],
                 action: 'inspect_light_bulb',
                 messages: {
-                    explore: "💡 You examine the upstairs lighting. It's a smart LED system that adjusts based on crypto market conditions.",
-                    use: "⚡ You use the smart lighting system. It changes color based on your portfolio performance.",
-                    take: "💡 You can't take the light fixtures, but you find a smart bulb that can be controlled via blockchain.",
-                    inspect: "🔍 The lighting system is connected to a DAO that votes on color schemes and brightness levels.",
-                    open: "🔧 You open the light fixture panel. It reveals the smart control system.",
-                    close: "🔒 You close the light fixture panel. The smart lighting continues its autonomous operation."
+                    explore: "💡 You examine the light bulb. It's a single bulb hanging from the ceiling.",
+                    use: "⚡ You use the light switch. The bulb flickers occasionally.",
+                    take: "💡 You can't take the light bulb, but you find a dead fly.",
+                    inspect: "🔍 The light bulb is basic and flickers. It's lit, unlike your portfolio.",
+                    open: "🔧 You can't open the light bulb, it's not designed for that.",
+                    close: "🔒 The light bulb continues to flicker and illuminate."
                 }
             },
             {
@@ -118,27 +118,27 @@ class UpstairsScene extends BaseScene {
                 y: [27, 52],
                 action: 'inspect_windows',
                 messages: {
-                    explore: "🪟 You examine the upstairs windows. They offer a great view of the crypto landscape outside.",
-                    use: "🪟 You use the smart windows. They adjust tint based on sunlight and energy prices.",
-                    take: "🪟 You can't take the windows, but you find a solar panel controller that fell behind the frame.",
-                    inspect: "🔍 The windows have smart tinting that generates solar power and sells it to the grid for crypto.",
-                    open: "🪟 You open the windows. Fresh air flows in, along with the sounds of the crypto world.",
-                    close: "🔒 You close the windows. The smart tinting system activates for energy efficiency."
+                    explore: "🪟 You examine the basement windows. They're dirty and show the dark outside.",
+                    use: "🪟 You try to use the windows. They're stuck and don't open easily.",
+                    take: "🪟 You can't take the windows, but you find a spider web.",
+                    inspect: "🔍 The windows are dirty and show the dark outside. You can see your reflection.",
+                    open: "🪟 You try to open the windows but they're stuck.",
+                    close: "🔒 The windows are already closed and stuck."
                 }
             }
         ];
         
-        console.log('Upstairs hotspots configured:', this.hotspots);
+        console.log('Basement hotspots configured:', this.hotspots);
     }
 
     setupEventListeners() {
-        const clickArea = document.getElementById('click-area-upstairs');
+        const clickArea = document.getElementById('click-area-basement');
         if (clickArea) {
             clickArea.addEventListener('click', (event) => this.handleClick(event));
         }
     }
 
-    // Comandos específicos del upstairs
+    // Comandos específicos del basement
     handleExploreCommand(hotspot, x, y) {
         showFloatingText(hotspot.messages?.explore || `You explore the ${hotspot.name}.`, x, y);
     }
@@ -148,9 +148,9 @@ class UpstairsScene extends BaseScene {
             showFloatingText(hotspot.messages?.use || `You use the ${hotspot.name}.`, x, y);
             setTimeout(() => {
                 if (typeof sceneManager !== 'undefined' && typeof sceneManager.loadScene === 'function') {
-                    sceneManager.loadScene('basement');
+                    sceneManager.loadScene('upstairs');
                 } else if (typeof sceneManagerV2 !== 'undefined' && typeof sceneManagerV2.loadScene === 'function') {
-                    sceneManagerV2.loadScene('basement');
+                    sceneManagerV2.loadScene('upstairs');
                 }
             }, 1500);
         } else if (hotspot.name === 'Computer Area') {
@@ -196,7 +196,7 @@ class UpstairsScene extends BaseScene {
         const xPercent = (x / rect.width) * 100;
         const yPercent = (y / rect.height) * 100;
         
-        console.log(`Upstairs click at: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
+        console.log(`Basement click at: ${xPercent.toFixed(1)}%, ${yPercent.toFixed(1)}%`);
         
         // Check if click is in center area (for mint popup) - only with USE command
         if (xPercent >= 40 && xPercent <= 60 && yPercent >= 40 && yPercent <= 60) {
@@ -228,5 +228,5 @@ class UpstairsScene extends BaseScene {
 
 // Exportar la clase
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = UpstairsScene;
+    module.exports = BasementScene;
 } 
