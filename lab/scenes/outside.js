@@ -12,46 +12,119 @@ class OutsideScene extends BaseScene {
 
     setupHotspots() {
         console.log('OutsideScene setupHotspots called');
-        // Definir clickable areas (hotspots) para outside
-        // Usar modo TEST para configurar coordenadas exactas
+        // Hotspots actualizados con mensajes en inglés, fun style, web3 themed
         this.hotspots = [
             {
                 name: 'Front Door',
-                x: [50, 56],  // Moved to 53.1%, 57.2%
-                y: [55, 60],
+                x: [51.1, 55.1],
+                y: [85.4, 89.4],
                 action: 'enter_building',
-                message: "💬 The main entrance to AdrianLAB. The door looks inviting."
+                messages: {
+                    explore: "🚪 You see the main entrance to AdrianLAB. Feels like the gateway to the metaverse!",
+                    use: "🔑 Unlocking the door... Welcome to the blockchain lair!",
+                    take: "🤔 You can't take the whole door, but you find a mysterious NFT key under the mat!",
+                    inspect: "🧐 It's a solid door with a QR code sticker. Maybe it opens more than just this building...",
+                    open: "🟢 The door swings open with a satisfying click. Enter if you dare!",
+                    close: "🔒 The door is already closed. Security is tight in web3!"
+                }
             },
+            // Sky - three points
             {
-                name: 'Street Light',
-                x: [68, 88],  // Changed from Mountain View to Street Light
-                y: [18, 38],
-                action: 'inspect_streetlight',
-                message: "💬 A tall street light illuminates the area. It flickers occasionally."
-            },
-            {
-                name: 'Window',
-                x: [35, 40],  // New hotspot at 37.3%, 56.4%
-                y: [54, 59],
-                action: 'inspect_window',
-                message: "💬 A window with drawn curtains. You can see a faint light inside."
+                name: 'Sky',
+                x: [16.3, 20.3],
+                y: [26.4, 30.4],
+                messages: {
+                    explore: "🌌 The sky is full of stars... and maybe some hidden tokens!",
+                    use: "🚀 You try to use the sky. You feel bullish!",
+                    take: "🌠 You try to grab a star. It turns into a pixelated NFT!",
+                    inspect: "🔭 You spot a constellation shaped like a crypto wallet.",
+                    open: "✨ You can't open the sky, but you can open your mind!",
+                    close: "☁️ The sky can't be closed. It's decentralized!"
+                }
             },
             {
                 name: 'Sky',
-                x: [44, 49],  // New hotspot at 46.5%, 38.0%
-                y: [36, 41],
-                action: 'inspect_sky',
-                message: "💬 The sky is dark with scattered stars. A full moon casts shadows."
+                x: [41.5, 45.5],
+                y: [28.9, 32.9],
+                messages: {
+                    explore: "🌌 The sky is full of stars... and maybe some hidden tokens!",
+                    use: "🚀 You try to use the sky. You feel bullish!",
+                    take: "🌠 You try to grab a star. It turns into a pixelated NFT!",
+                    inspect: "🔭 You spot a constellation shaped like a crypto wallet.",
+                    open: "✨ You can't open the sky, but you can open your mind!",
+                    close: "☁️ The sky can't be closed. It's decentralized!"
+                }
             },
             {
-                name: 'Path',
-                x: [20, 40],
-                y: [70, 90],
-                action: 'inspect_path',
-                message: "💬 A winding path leading somewhere mysterious."
+                name: 'Sky',
+                x: [3.5, 7.5],
+                y: [25.3, 29.3],
+                messages: {
+                    explore: "🌌 The sky is full of stars... and maybe some hidden tokens!",
+                    use: "🚀 You try to use the sky. You feel bullish!",
+                    take: "🌠 You try to grab a star. It turns into a pixelated NFT!",
+                    inspect: "🔭 You spot a constellation shaped like a crypto wallet.",
+                    open: "✨ You can't open the sky, but you can open your mind!",
+                    close: "☁️ The sky can't be closed. It's decentralized!"
+                }
+            },
+            // Street Light - two points
+            {
+                name: 'Street Light',
+                x: [87.3, 91.3],
+                y: [24.6, 28.6],
+                messages: {
+                    explore: "💡 A street light flickers, like ETH gas fees at rush hour.",
+                    use: "🔌 You try to use the street light. It flashes in Morse code: 'HODL'.",
+                    take: "🪙 You try to take the bulb. It airdrops a tiny amount of $LIGHT token!",
+                    inspect: "👀 The lamp post has a sticker: 'Not your keys, not your light.'",
+                    open: "🔦 You open the lamp cover. There's a QR code inside!",
+                    close: "💤 The light dims, but never truly goes off on-chain."
+                }
+            },
+            {
+                name: 'Street Light',
+                x: [87.6, 91.6],
+                y: [46.2, 50.2],
+                messages: {
+                    explore: "💡 A street light flickers, like ETH gas fees at rush hour.",
+                    use: "🔌 You try to use the street light. It flashes in Morse code: 'HODL'.",
+                    take: "🪙 You try to take the bulb. It airdrops a tiny amount of $LIGHT token!",
+                    inspect: "👀 The lamp post has a sticker: 'Not your keys, not your light.'",
+                    open: "🔦 You open the lamp cover. There's a QR code inside!",
+                    close: "💤 The light dims, but never truly goes off on-chain."
+                }
+            },
+            // Window
+            {
+                name: 'Window',
+                x: [35.5, 39.5],
+                y: [78.9, 82.9],
+                messages: {
+                    explore: "🪟 You peek through the window. Someone's minting NFTs inside!",
+                    use: "🖱️ You tap the window. It displays a 'Connect Wallet' prompt!",
+                    take: "💎 You try to take the window. It turns into a transparent NFT frame!",
+                    inspect: "🔍 The glass is covered in cryptic seed phrases.",
+                    open: "🪟 You slide the window open. A cool breeze brings the smell of fresh blocks.",
+                    close: "🪟 The window is already closed. Security first!"
+                }
+            },
+            // Garage Door
+            {
+                name: 'Garage Door',
+                x: [67.7, 71.7],
+                y: [86.5, 90.5],
+                messages: {
+                    explore: "🚗 A big garage door. Maybe there's a Lambo inside!",
+                    use: "🔑 You try to use the garage door. It asks for a multi-sig signature!",
+                    take: "🚙 You try to take the garage. That's not how NFTs work... yet!",
+                    inspect: "🔧 The door has a sticker: 'Mint or Die'.",
+                    open: "🚪 You open the garage door. It's full of pixelated Lambos!",
+                    close: "🚪 The garage door closes with a satisfying on-chain sound."
+                }
             }
         ];
-        console.log('OutsideScene hotspots configured:', this.hotspots);
+        console.log('OutsideScene hotspots configurados:', this.hotspots);
     }
 
     setupEventListeners() {
@@ -62,78 +135,39 @@ class OutsideScene extends BaseScene {
     }
 
     // Sobrescribir comandos específicos del outside
+    handleExploreCommand(hotspot, x, y) {
+        showFloatingText(hotspot.messages?.explore || `You explore the ${hotspot.name}.`, x, y);
+    }
+
     handleUseCommand(hotspot, x, y) {
-        console.log(`USE command on: ${hotspot.name}`);
-        
-        switch (hotspot.name) {
-            case 'Front Door':
-                showFloatingText('💬 You open the door and enter AdrianLAB...', x, y);
-                setTimeout(() => {
-                    // Ir a la escena frontdoor en lugar del basement
-                    if (typeof sceneManager !== 'undefined' && typeof sceneManager.loadScene === 'function') {
-                        console.log('Using SceneManager to load frontdoor scene');
-                        sceneManager.loadScene('frontdoor');
-                    } else if (typeof sceneManagerV2 !== 'undefined' && typeof sceneManagerV2.loadScene === 'function') {
-                        console.log('Using SceneManagerV2 to load frontdoor scene');
-                        sceneManagerV2.loadScene('frontdoor');
-                    } else {
-                        // Fallback si no hay sceneManager
-                        console.log('No scene manager available, using fallback');
-                        goToMainScreen();
-                    }
-                }, 1500);
-                break;
-                
-            default:
-                showFloatingText(`💬 You can't use ${hotspot.name}`, x, y);
+        if (hotspot.name === 'Front Door') {
+            showFloatingText(hotspot.messages?.use || `You use the ${hotspot.name}.`, x, y);
+            setTimeout(() => {
+                if (typeof sceneManager !== 'undefined' && typeof sceneManager.loadScene === 'function') {
+                    sceneManager.loadScene('frontdoor');
+                } else if (typeof sceneManagerV2 !== 'undefined' && typeof sceneManagerV2.loadScene === 'function') {
+                    sceneManagerV2.loadScene('frontdoor');
+                }
+            }, 1500);
+        } else {
+            showFloatingText(hotspot.messages?.use || `You use the ${hotspot.name}.`, x, y);
         }
     }
 
-    handleInspectCommand(hotspot, x, y) {
-        console.log(`INSPECT command on: ${hotspot.name}`);
-        
-        const inspectionMessages = {
-            'Front Door': '💬 A solid wooden door with a brass handle. There\'s a small sign that reads "AdrianLAB - Enter at your own risk".',
-            'Street Light': '💬 The street light is made of metal and has a bright bulb. It provides good illumination for the area.',
-            'Window': '💬 The window has thick curtains that block most of the view inside. You can see a faint glow.',
-            'Sky': '💬 The night sky is clear with many stars visible. The moon provides a soft, eerie light.',
-            'Path': '💬 The path is made of old cobblestones and leads into the forest. It looks well-traveled.'
-        };
-        
-        const message = inspectionMessages[hotspot.name] || `💬 You carefully examine ${hotspot.name}`;
-        showFloatingText(message, x, y);
-    }
-
     handleTakeCommand(hotspot, x, y) {
-        console.log(`TAKE command on: ${hotspot.name}`);
-        
-        const takeableItems = {
-            'Front Door': '💬 You can\'t take the door, but you find a key under the doormat.',
-            'Street Light': '💬 You can\'t take the street light, but you find a broken light bulb on the ground.',
-            'Window': '💬 You can\'t take the window, but you find a small pebble that could break it.',
-            'Sky': '💬 You can\'t take the sky, but you find a fallen star (actually just a piece of glass).',
-            'Path': '💬 You can\'t take the path, but you find an old coin on the ground.'
-        };
-        
-        const message = takeableItems[hotspot.name] || `💬 You can\'t take ${hotspot.name}`;
-        showFloatingText(message, x, y);
+        showFloatingText(hotspot.messages?.take || `You try to take the ${hotspot.name}.`, x, y);
     }
 
-
+    handleInspectCommand(hotspot, x, y) {
+        showFloatingText(hotspot.messages?.inspect || `You inspect the ${hotspot.name}.`, x, y);
+    }
 
     handleOpenCommand(hotspot, x, y) {
-        console.log(`OPEN command on: ${hotspot.name}`);
-        
-        const openResponses = {
-            'Front Door': '💬 You try to open the door but it\'s locked. Use the USE command instead.',
-            'Street Light': '💬 You can\'t open the street light, it\'s not a container.',
-            'Window': '💬 You try to open the window but it\'s locked from the inside.',
-            'Sky': '💬 You can\'t open the sky, it\'s not a container.',
-            'Path': '💬 You can\'t open the path, it\'s not a container.'
-        };
-        
-        const message = openResponses[hotspot.name] || `💬 You can\'t open ${hotspot.name}`;
-        showFloatingText(message, x, y);
+        showFloatingText(hotspot.messages?.open || `You try to open the ${hotspot.name}.`, x, y);
+    }
+
+    handleCloseCommand(hotspot, x, y) {
+        showFloatingText(hotspot.messages?.close || `You try to close the ${hotspot.name}.`, x, y);
     }
 }
 

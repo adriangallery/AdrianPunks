@@ -1470,7 +1470,7 @@ document.addEventListener('gestureend', e => e.preventDefault());
 
 // Handle TEST command (for development)
 
-// Show floating text over the image
+// Show floating text over the image - Improved positioning
 function showFloatingText(message, x, y) {
     // Remove any existing floating text
     const existingText = document.querySelector('.floating-text');
@@ -1506,15 +1506,48 @@ function showFloatingText(message, x, y) {
     const xPos = (x / 100) * rect.width;
     const yPos = (y / 100) * rect.height;
     
-    // Position text above the click point, but ensure it stays within bounds
-    let left = xPos - 150; // Center the text
-    let top = yPos - 80;   // Position above the click
+    // Get text dimensions (approximate)
+    const textWidth = 300; // Max width from CSS
+    const textHeight = 80; // Approximate height
     
-    // Ensure text stays within the game area bounds
-    if (left < 10) left = 10;
-    if (left > rect.width - 310) left = rect.width - 310;
-    if (top < 10) top = yPos + 20; // Show below if too close to top
-    if (top > rect.height - 100) top = rect.height - 100;
+    // Smart positioning: centered near click coordinates with random variation
+    let left, top;
+    
+    // Add small random variation to make it feel more natural
+    const randomOffsetX = (Math.random() - 0.5) * 40; // ±20px random
+    const randomOffsetY = (Math.random() - 0.5) * 30; // ±15px random
+    
+    // Horizontal positioning - center on click with small random offset
+    let targetX = xPos + randomOffsetX;
+    
+    if (targetX < textWidth / 2 + 10) {
+        // Near left edge - align to left with small margin
+        left = 10;
+    } else if (targetX > rect.width - textWidth / 2 - 10) {
+        // Near right edge - align to right with small margin
+        left = rect.width - textWidth - 10;
+    } else {
+        // Center on click point with random offset
+        left = targetX - textWidth / 2;
+    }
+    
+    // Vertical positioning - prefer above click with random variation
+    let targetY = yPos + randomOffsetY;
+    
+    if (targetY < textHeight + 20) {
+        // Near top - show below click
+        top = targetY + 10;
+    } else if (targetY > rect.height - textHeight - 20) {
+        // Near bottom - show above click
+        top = targetY - textHeight - 10;
+    } else {
+        // Show above click (preferred) with small offset
+        top = targetY - textHeight - 5;
+    }
+    
+    // Final bounds check to ensure visibility
+    left = Math.max(10, Math.min(left, rect.width - textWidth - 10));
+    top = Math.max(10, Math.min(top, rect.height - textHeight - 10));
     
     floatingText.style.left = left + 'px';
     floatingText.style.top = top + 'px';
@@ -1522,7 +1555,7 @@ function showFloatingText(message, x, y) {
     // Add to game area
     gameArea.appendChild(floatingText);
     
-    // Remove after animation completes (reduced to 2 seconds)
+    // Remove after animation completes
     setTimeout(() => {
         if (floatingText.parentNode) {
             floatingText.remove();
