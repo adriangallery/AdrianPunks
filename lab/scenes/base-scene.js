@@ -91,7 +91,6 @@ const baseSceneStyles = `
 /* Inventory item styling */
 .inventory-item {
     background: rgba(255, 255, 255, 0.1);
-    border: 1px solid #00ff00;
     border-radius: 6px;
     padding: 6px 4px;
     text-align: center;
