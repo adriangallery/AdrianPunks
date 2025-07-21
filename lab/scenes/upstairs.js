@@ -218,16 +218,31 @@ class UpstairsScene extends BaseScene {
             const currentCommand = getCurrentCommand();
             
             if (currentCommand === 'use') {
-                console.log('Center area clicked with USE command - opening mint popup');
-                if (!isWalletConnected) {
-                    showNotification('Connect your wallet first', 'warning');
-                    return;
+                // Check if there's a floppy disc selected for openPack functionality
+                if (menuManager && menuManager.hasFloppySelected()) {
+                    const selectedFloppy = menuManager.getSelectedFloppy();
+                    console.log('Center area clicked with USE command and floppy selected - triggering openPack');
+                    showFloatingText('💾 You insert the floppy disc into the computer and run the openPack program...', xPercent, yPercent);
+                    
+                    setTimeout(() => {
+                        if (window.openPack) {
+                            window.openPack(selectedFloppy);
+                        } else {
+                            showNotification('OpenPack functionality not available.', 'error');
+                        }
+                    }, 2000);
+                } else {
+                    console.log('Center area clicked with USE command - opening mint popup');
+                    if (!isWalletConnected) {
+                        showNotification('Connect your wallet first', 'warning');
+                        return;
+                    }
+                    
+                    mintPopup.classList.add('active');
+                    setTimeout(() => {
+                        notifyIframeWalletConnected();
+                    }, 100);
                 }
-                
-                mintPopup.classList.add('active');
-                setTimeout(() => {
-                    notifyIframeWalletConnected();
-                }, 100);
                 return;
             } else if (currentCommand === 'explore') {
                 console.log('Center area clicked with EXPLORE command - showing computer message');
