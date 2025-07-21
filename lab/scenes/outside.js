@@ -7,9 +7,11 @@ class OutsideScene extends BaseScene {
             title: 'Outside AdrianLAB',
             subtitle: 'The adventure begins...'
         };
+        console.log('OutsideScene constructor called with overlayText:', this.overlayText);
     }
 
     setupHotspots() {
+        console.log('OutsideScene setupHotspots called');
         // Definir clickable areas (hotspots) para outside
         // Usar modo TEST para configurar coordenadas exactas
         this.hotspots = [
@@ -49,6 +51,7 @@ class OutsideScene extends BaseScene {
                 message: "💬 A winding path leading somewhere mysterious."
             }
         ];
+        console.log('OutsideScene hotspots configured:', this.hotspots);
     }
 
     setupEventListeners() {
