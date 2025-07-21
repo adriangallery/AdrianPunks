@@ -51,13 +51,20 @@ const baseSceneStyles = `
 /* Inventory grid layout - Responsive */
 .inventory-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 4px;
     flex: 1;
     overflow-y: auto;
     min-height: 0;
     padding: 4px;
     align-items: start;
+}
+
+/* Mobile inventory grid - 2 columns */
+@media (max-width: 768px) {
+    .inventory-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 /* Scene background image - Responsive */
@@ -458,9 +465,6 @@ class BaseScene {
             case 'take':
                 this.handleTakeCommand(hotspot, x, y);
                 break;
-            case 'close':
-                this.handleCloseCommand(hotspot, x, y);
-                break;
             case 'open':
                 this.handleOpenCommand(hotspot, x, y);
                 break;
@@ -495,10 +499,6 @@ class BaseScene {
 
     handleTakeCommand(hotspot, x, y) {
         showFloatingText(`💬 You can't take ${hotspot.name}`, x, y);
-    }
-
-    handleCloseCommand(hotspot, x, y) {
-        showFloatingText(`💬 You can't close ${hotspot.name}`, x, y);
     }
 
     handleOpenCommand(hotspot, x, y) {
@@ -544,7 +544,6 @@ class BaseScene {
                             <button class="command-btn">EXPLORE</button>
                             <button class="command-btn">USE</button>
                             <button class="command-btn">TAKE</button>
-                            <button class="command-btn">CLOSE</button>
                             <button class="command-btn">OPEN</button>
                         </div>
                     </div>
