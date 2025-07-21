@@ -424,11 +424,22 @@ class BaseScene {
 
     // Obtener hotspot en las coordenadas especificadas - Solución limpia
     getHotspotAt(x, y) {
+        console.log(`Checking hotspots for coordinates: ${x.toFixed(1)}%, ${y.toFixed(1)}%`);
+        console.log('Available hotspots:', this.hotspots);
+        
         // Búsqueda directa sin conversiones - las coordenadas ya son porcentajes de la imagen
-        return this.hotspots.find(hotspot => 
+        const foundHotspot = this.hotspots.find(hotspot => 
             x >= hotspot.x[0] && x <= hotspot.x[1] &&
             y >= hotspot.y[0] && y <= hotspot.y[1]
         );
+        
+        if (foundHotspot) {
+            console.log(`Found hotspot: ${foundHotspot.name} at range x[${foundHotspot.x[0]}-${foundHotspot.x[1]}], y[${foundHotspot.y[0]}-${foundHotspot.y[1]}]`);
+        } else {
+            console.log('No hotspot found at these coordinates');
+        }
+        
+        return foundHotspot;
     }
 
     // Manejar click en hotspot
