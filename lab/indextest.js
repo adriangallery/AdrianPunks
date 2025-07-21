@@ -1510,16 +1510,29 @@ function showFloatingText(message, x, y) {
     const textWidth = 300; // Max width from CSS
     const textHeight = 80; // Approximate height
     
-    // Smart positioning: centered near click coordinates with random variation
+    // Smart positioning: centered near predefined coordinate areas
     let left, top;
     
-    // Add small random variation to make it feel more natural
-    const randomOffsetX = (Math.random() - 0.5) * 40; // ±20px random
-    const randomOffsetY = (Math.random() - 0.5) * 30; // ±15px random
+    // Predefined coordinate areas where messages should appear
+    const messageAreas = [
+        { x: 29.8, y: 76.3 }, // Area 1
+        { x: 63.4, y: 65.5 }, // Area 2  
+        { x: 41.3, y: 51.4 }, // Area 3
+        { x: 15.7, y: 28.37 } // Area 4 (converted from 157.0, 283.7 to percentages)
+    ];
     
-    // Horizontal positioning - center on click with small random offset
-    let targetX = xPos + randomOffsetX;
+    // Select a random area from the predefined coordinates
+    const selectedArea = messageAreas[Math.floor(Math.random() * messageAreas.length)];
     
+    // Add small random variation around the selected area (±5% of screen width/height)
+    const randomOffsetX = (Math.random() - 0.5) * (rect.width * 0.1); // ±5% of screen width
+    const randomOffsetY = (Math.random() - 0.5) * (rect.height * 0.1); // ±5% of screen height
+    
+    // Calculate target position based on selected area
+    const targetX = (selectedArea.x / 100) * rect.width + randomOffsetX;
+    const targetY = (selectedArea.y / 100) * rect.height + randomOffsetY;
+    
+    // Horizontal positioning - center on target area
     if (targetX < textWidth / 2 + 10) {
         // Near left edge - align to left with small margin
         left = 10;
@@ -1527,21 +1540,19 @@ function showFloatingText(message, x, y) {
         // Near right edge - align to right with small margin
         left = rect.width - textWidth - 10;
     } else {
-        // Center on click point with random offset
+        // Center on target area
         left = targetX - textWidth / 2;
     }
     
-    // Vertical positioning - prefer above click with random variation
-    let targetY = yPos + randomOffsetY;
-    
+    // Vertical positioning - prefer above target area
     if (targetY < textHeight + 20) {
-        // Near top - show below click
+        // Near top - show below target
         top = targetY + 10;
     } else if (targetY > rect.height - textHeight - 20) {
-        // Near bottom - show above click
+        // Near bottom - show above target
         top = targetY - textHeight - 10;
     } else {
-        // Show above click (preferred) with small offset
+        // Show above target area (preferred)
         top = targetY - textHeight - 5;
     }
     
