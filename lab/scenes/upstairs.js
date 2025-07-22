@@ -91,7 +91,7 @@ class UpstairsScene extends BaseScene {
                 action: 'inspect_computer',
                 messages: {
                     explore: "💻 You examine the upstairs computer area. It's a high-end setup with multiple GPUs for mining and trading.",
-                    use: "🖥️ You use the computer. It can run trading algorithms or open floppy discs with the openPack program.",
+                    use: "🖥️ You use the computer. It can run TraitLab or open floppy discs with the openPack program.",
                     take: "💻 You can't take the computer, but you find a USB drive with profitable trading strategies.",
                     inspect: "🔍 The computer has multiple monitors showing portfolio performance, mining stats, and DeFi protocol analytics.",
                     open: "🔧 You open the computer case. It's filled with high-end GPUs and cooling systems.",
@@ -190,17 +190,14 @@ class UpstairsScene extends BaseScene {
                     }
                 }, 2000);
             } else {
-                // Regular computer use (mint popup)
+                // Regular computer use (traitlab popup)
                 if (!isWalletConnected) {
                     showNotification('Connect your wallet first', 'warning');
                     return;
                 }
                 
-                mintPopup.classList.add('active');
-                setTimeout(() => {
-                    notifyIframeWalletConnected();
-                }, 100);
-                showFloatingText('💬 Opening mint interface...', x, y);
+                openTraitLabPopup();
+                showFloatingText('💬 Opening TraitLab interface...', x, y);
             }
         } else {
             showFloatingText(hotspot.messages?.use || `You use the ${hotspot.name}.`, x, y);
@@ -254,16 +251,13 @@ class UpstairsScene extends BaseScene {
                         }
                     }, 2000);
                 } else {
-                    console.log('Center area clicked with USE command - opening mint popup');
+                    console.log('Center area clicked with USE command - opening TraitLab popup');
                     if (!isWalletConnected) {
                         showNotification('Connect your wallet first', 'warning');
                         return;
                     }
                     
-                    mintPopup.classList.add('active');
-                    setTimeout(() => {
-                        notifyIframeWalletConnected();
-                    }, 100);
+                    openTraitLabPopup();
                 }
                 return;
             } else if (currentCommand === 'explore') {

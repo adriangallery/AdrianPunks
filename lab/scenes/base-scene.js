@@ -920,4 +920,65 @@ function closeMintPopup() {
 // Make functions globally available
 window.notifyIframeWalletConnected = notifyIframeWalletConnected;
 window.notifyIframeWalletDisconnected = notifyIframeWalletDisconnected;
-window.closeMintPopup = closeMintPopup; 
+window.closeMintPopup = closeMintPopup;
+
+// Nueva función para abrir popup de traitlab
+function openTraitLabPopup() {
+    console.log('Opening TraitLab popup...');
+    
+    // Crear popup si no existe
+    let traitLabPopup = document.getElementById('traitlab-popup');
+    
+    if (!traitLabPopup) {
+        console.log('Creating TraitLab popup...');
+        traitLabPopup = document.createElement('div');
+        traitLabPopup.id = 'traitlab-popup';
+        traitLabPopup.className = 'popup';
+        traitLabPopup.innerHTML = `
+            <div class="popup-content large">
+                <div class="popup-header">
+                    <h2>AdrianLAB - TraitLab</h2>
+                    <button id="close-traitlab-popup" class="close-btn">×</button>
+                </div>
+                <div class="popup-body">
+                    <iframe 
+                        src="traitlab/index.html" 
+                        frameborder="0" 
+                        width="100%" 
+                        height="600px"
+                        allow="clipboard-write"
+                        title="AdrianLAB TraitLab">
+                    </iframe>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(traitLabPopup);
+        
+        // Configurar event listener para cerrar popup
+        const closeBtn = traitLabPopup.querySelector('#close-traitlab-popup');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                traitLabPopup.classList.remove('active');
+            });
+        }
+        
+        console.log('TraitLab popup created and configured');
+    }
+    
+    // Mostrar el popup
+    traitLabPopup.classList.add('active');
+    console.log('TraitLab popup activated');
+}
+
+// Función para cerrar TraitLab popup
+function closeTraitLabPopup() {
+    const traitLabPopup = document.getElementById('traitlab-popup');
+    if (traitLabPopup) {
+        traitLabPopup.classList.remove('active');
+        console.log('TraitLab popup closed');
+    }
+}
+
+// Make new functions globally available
+window.openTraitLabPopup = openTraitLabPopup;
+window.closeTraitLabPopup = closeTraitLabPopup; 
