@@ -411,7 +411,7 @@ class MenuManager {
             );
             
             if (itemTokens.length === 0) {
-                rightGrid.innerHTML = '<div class="no-items">No items found.</div>';
+            rightGrid.innerHTML = '<div class="no-items">No items found.</div>';
             } else {
                 itemTokens.forEach(item => {
                     const itemElement = this.createInventoryItemElement(item);
@@ -445,7 +445,22 @@ class MenuManager {
 
     // Seleccionar item de inventario
     selectInventoryItem(item) {
-        console.log('Selected inventory item:', item);
+        console.log('Selecting inventory item:', item);
+        
+        // Si el item ya está seleccionado, deseleccionarlo
+        if (this.selectedInventoryItem && this.selectedInventoryItem.tokenId === item.tokenId) {
+            console.log('Deselecting inventory item:', item);
+            this.selectedInventoryItem = null;
+            showNotification(`Deselected: ${item.title}`, 'info');
+            
+            // Remover clase selected de todos los items
+            document.querySelectorAll('.inventory-item').forEach(el => {
+                el.classList.remove('selected');
+            });
+            return;
+        }
+        
+        // Seleccionar el nuevo item
         this.selectedInventoryItem = item;
         showNotification(`Selected: ${item.title} (ID: ${item.tokenId})`, 'success');
         
@@ -565,8 +580,8 @@ async function loadSceneManager() {
         // Load all scenes
         if (typeof sceneManager !== 'undefined') {
             console.log('SceneManager found, loading scenes...');
-            await sceneManager.loadScenes();
-            console.log('Scene manager loaded successfully');
+        await sceneManager.loadScenes();
+        console.log('Scene manager loaded successfully');
         } else if (typeof sceneManagerV2 !== 'undefined') {
             console.log('SceneManagerV2 found, loading scenes...');
             await sceneManagerV2.loadScenes();
@@ -1470,7 +1485,7 @@ function showFloatingText(message, x, y) {
         if (floatingText.parentNode) {
             floatingText.remove();
         }
-    }, 4000);
+    }, 2000);
 }
 
 // Handle mouse movement for cursor feedback

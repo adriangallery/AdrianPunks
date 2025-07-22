@@ -188,7 +188,7 @@ class UpstairsScene extends BaseScene {
                     } else {
                         showNotification('OpenPack functionality not available.', 'error');
                     }
-                }, 2000);
+                }, 1000);
             } else {
                 // Regular computer use (traitlab popup)
                 if (!isWalletConnected) {
@@ -249,7 +249,7 @@ class UpstairsScene extends BaseScene {
                         } else {
                             showNotification('OpenPack functionality not available.', 'error');
                         }
-                    }, 2000);
+                    }, 1000);
                 } else {
                     console.log('Center area clicked with USE command - opening TraitLab popup');
                     if (!isWalletConnected) {
