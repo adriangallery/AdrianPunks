@@ -28,6 +28,48 @@ class OutsideScene extends BaseScene {
                     close: "🔒 The door is already closed. Security is tight in web3!"
                 }
             },
+            {
+                name: 'Front Door',
+                x: [53.4, 55.4],
+                y: [95.3, 97.3],
+                action: 'enter_building',
+                messages: {
+                    explore: "🚪 You see the main entrance to AdrianLAB. Feels like the gateway to the metaverse!",
+                    use: "🔑 Unlocking the door... Welcome to the blockchain lair!",
+                    take: "🤔 You can't take the whole door, but you find a mysterious NFT key under the mat!",
+                    inspect: "🧐 It's a solid door with a QR code sticker. Maybe it opens more than just this building...",
+                    open: "🟢 The door swings open with a satisfying click. Enter if you dare!",
+                    close: "🔒 The door is already closed. Security is tight in web3!"
+                }
+            },
+            {
+                name: 'Front Door',
+                x: [52.8, 54.8],
+                y: [94.8, 96.8],
+                action: 'enter_building',
+                messages: {
+                    explore: "🚪 You see the main entrance to AdrianLAB. Feels like the gateway to the metaverse!",
+                    use: "🔑 Unlocking the door... Welcome to the blockchain lair!",
+                    take: "🤔 You can't take the whole door, but you find a mysterious NFT key under the mat!",
+                    inspect: "🧐 It's a solid door with a QR code sticker. Maybe it opens more than just this building...",
+                    open: "🟢 The door swings open with a satisfying click. Enter if you dare!",
+                    close: "🔒 The door is already closed. Security is tight in web3!"
+                }
+            },
+            {
+                name: 'Front Door',
+                x: [54.3, 56.3],
+                y: [81.4, 83.4],
+                action: 'enter_building',
+                messages: {
+                    explore: "🚪 You see the main entrance to AdrianLAB. Feels like the gateway to the metaverse!",
+                    use: "🔑 Unlocking the door... Welcome to the blockchain lair!",
+                    take: "🤔 You can't take the whole door, but you find a mysterious NFT key under the mat!",
+                    inspect: "🧐 It's a solid door with a QR code sticker. Maybe it opens more than just this building...",
+                    open: "🟢 The door swings open with a satisfying click. Enter if you dare!",
+                    close: "🔒 The door is already closed. Security is tight in web3!"
+                }
+            },
             // Sky - three points
             {
                 name: 'Sky',
@@ -142,13 +184,13 @@ class OutsideScene extends BaseScene {
     handleUseCommand(hotspot, x, y) {
         if (hotspot.name === 'Front Door') {
             showFloatingText(hotspot.messages?.use || `You use the ${hotspot.name}.`, x, y);
-            setTimeout(() => {
+                setTimeout(() => {
                 if (typeof sceneManager !== 'undefined' && typeof sceneManager.loadScene === 'function') {
-                    sceneManager.loadScene('frontdoor');
+                        sceneManager.loadScene('frontdoor');
                 } else if (typeof sceneManagerV2 !== 'undefined' && typeof sceneManagerV2.loadScene === 'function') {
                     sceneManagerV2.loadScene('frontdoor');
-                }
-            }, 1500);
+                    }
+                }, 1500);
         } else {
             showFloatingText(hotspot.messages?.use || `You use the ${hotspot.name}.`, x, y);
         }
