@@ -15,6 +15,20 @@ class FrontDoorScene extends BaseScene {
         // Definir clickable areas (hotspots) para frontdoor
         this.hotspots = [
             {
+                name: 'Left Side Exit',
+                x: [0, 25], // Todo el lateral izquierdo (0-25%)
+                y: [0, 100], // De arriba a abajo (0-100%)
+                action: 'exit_to_outside',
+                messages: {
+                    explore: "🚪 You look towards the left side. There's an exit leading back to the outside world.",
+                    use: "🚶 You use the exit and step back outside. The fresh air of the blockchain awaits!",
+                    take: "🤔 You can't take the exit, but you grab a souvenir on your way out!",
+                    inspect: "🔍 The exit leads back to the AdrianLAB exterior. It's always open for visitors.",
+                    open: "🚪 The exit is already open. You can leave anytime you want!",
+                    close: "🔒 You can't close this exit. It's a public access point."
+                }
+            },
+            {
                 name: 'Front Door',
                 x: [30, 70], // range x[30-70]
                 y: [40, 80], // range y[40-80]
@@ -109,6 +123,15 @@ class FrontDoorScene extends BaseScene {
                     sceneManager.loadScene('lobby');
                 } else if (typeof sceneManagerV2 !== 'undefined' && typeof sceneManagerV2.loadScene === 'function') {
                     sceneManagerV2.loadScene('lobby');
+                }
+            }, 1500); // Short delay before scene change
+        } else if (hotspot.name === 'Left Side Exit') {
+            showFloatingText(hotspot.messages?.use || `You use the ${hotspot.name}.`, x, y);
+            setTimeout(() => {
+                if (typeof sceneManager !== 'undefined' && typeof sceneManager.loadScene === 'function') {
+                    sceneManager.loadScene('outside');
+                } else if (typeof sceneManagerV2 !== 'undefined' && typeof sceneManagerV2.loadScene === 'function') {
+                    sceneManagerV2.loadScene('outside');
                 }
             }, 1500); // Short delay before scene change
         } else {
