@@ -68,6 +68,83 @@ const baseSceneStyles = `
     outline: none !important;
 }
 
+/* Popup styling */
+.popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.8);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.popup.active {
+    display: flex;
+}
+
+.popup-content {
+    background: #000;
+    border: 2px solid #00ff00;
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow: auto;
+    position: relative;
+}
+
+.popup-content.large {
+    width: 800px;
+    height: 700px;
+}
+
+.popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #00ff00;
+    padding-bottom: 10px;
+}
+
+.popup-header h2 {
+    color: #00ff00;
+    margin: 0;
+    font-family: 'VT323', monospace;
+    font-size: 1.5rem;
+}
+
+.close-btn {
+    background: none;
+    border: 1px solid #00ff00;
+    color: #00ff00;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.close-btn:hover {
+    background: #00ff00;
+    color: #000;
+}
+
+.popup-body {
+    flex: 1;
+    overflow: hidden;
+}
+
+.popup-body iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
 /* Mobile inventory grid - 2 columns */
 @media (max-width: 768px) {
     .inventory-grid {
@@ -576,6 +653,26 @@ class BaseScene {
                     </div>
                 </div>
             </footer>
+
+            <!-- Mint popup -->
+            <div id="mint-popup" class="popup">
+                <div class="popup-content large">
+                    <div class="popup-header">
+                        <h2>AdrianLAB - Starter Mint</h2>
+                        <button id="close-popup" class="close-btn">×</button>
+                    </div>
+                    <div class="popup-body">
+                        <iframe 
+                            src="startermint.html" 
+                            frameborder="0" 
+                            width="100%" 
+                            height="600px"
+                            allow="clipboard-write"
+                            title="AdrianLAB Starter Mint">
+                        </iframe>
+                    </div>
+                </div>
+            </div>
         `;
         
         return sceneElement;
