@@ -420,6 +420,47 @@ class BaseScene {
         throw new Error('setupEventListeners must be implemented by subclass');
     }
 
+    // Asegurar que el popup de mint existe
+    ensureMintPopupExists() {
+        let mintPopup = document.getElementById('mint-popup');
+        
+        if (!mintPopup) {
+            console.log('Creating mint popup...');
+            mintPopup = document.createElement('div');
+            mintPopup.id = 'mint-popup';
+            mintPopup.className = 'popup';
+            mintPopup.innerHTML = `
+                <div class="popup-content large">
+                    <div class="popup-header">
+                        <h2>AdrianLAB - Starter Mint</h2>
+                        <button id="close-popup" class="close-btn">×</button>
+                    </div>
+                    <div class="popup-body">
+                        <iframe 
+                            src="startermint.html" 
+                            frameborder="0" 
+                            width="100%" 
+                            height="600px"
+                            allow="clipboard-write"
+                            title="AdrianLAB Starter Mint">
+                        </iframe>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(mintPopup);
+            
+            // Configurar event listener para cerrar popup
+            const closeBtn = mintPopup.querySelector('#close-popup');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => {
+                    mintPopup.classList.remove('active');
+                });
+            }
+            
+            console.log('Mint popup created and configured');
+        }
+    }
+
     // Manejar click en la escena - Solución optimizada
     handleClick(event) {
         console.log(`handleClick called for scene: ${this.sceneId}`);
@@ -653,26 +694,6 @@ class BaseScene {
                     </div>
                 </div>
             </footer>
-
-            <!-- Mint popup -->
-            <div id="mint-popup" class="popup">
-                <div class="popup-content large">
-                    <div class="popup-header">
-                        <h2>AdrianLAB - Starter Mint</h2>
-                        <button id="close-popup" class="close-btn">×</button>
-                    </div>
-                    <div class="popup-body">
-                        <iframe 
-                            src="startermint.html" 
-                            frameborder="0" 
-                            width="100%" 
-                            height="600px"
-                            allow="clipboard-write"
-                            title="AdrianLAB Starter Mint">
-                        </iframe>
-                    </div>
-                </div>
-            </div>
         `;
         
         return sceneElement;
@@ -682,6 +703,9 @@ class BaseScene {
     show() {
         console.log(`Showing scene: ${this.sceneName}`);
         console.log(`Scene ID: ${this.sceneId}`);
+        
+        // Crear popup si no existe
+        this.ensureMintPopupExists();
         
         // Ocultar solo las escenas del juego (no intro, floppy, etc.)
         document.querySelectorAll('#intro-screen, #main-screen, #floppy-screen, #outside, #basement, #upstairs').forEach(screen => {
