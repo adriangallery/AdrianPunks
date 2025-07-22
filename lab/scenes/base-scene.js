@@ -94,7 +94,7 @@ const baseSceneStyles = `
     border-radius: 8px;
     padding: 20px;
     max-width: 90vw;
-    max-height: calc(90vh - 40px);
+    height: calc(100vh - 40px);
     overflow: auto;
     position: relative;
     margin: auto;
@@ -103,8 +103,7 @@ const baseSceneStyles = `
 
 .popup-content.large {
     width: 800px;
-    height: 700px;
-    max-height: calc(90vh - 40px);
+    height: calc(100vh - 40px);
 }
 
 .popup-header {
@@ -163,15 +162,14 @@ const baseSceneStyles = `
     
     .popup-content {
         max-width: 95vw;
-        max-height: calc(95vh - 20px);
+        height: calc(100vh - 20px);
         margin-top: 10px;
         padding: 15px;
     }
     
     .popup-content.large {
         width: 95vw;
-        height: auto;
-        max-height: calc(95vh - 20px);
+        height: calc(100vh - 20px);
     }
     
     .popup-header h2 {
