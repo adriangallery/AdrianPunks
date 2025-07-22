@@ -151,6 +151,20 @@ class OutsideScene extends BaseScene {
                     close: "🪟 The window is already closed. Security first!"
                 }
             },
+            // Secondary Window
+            {
+                name: 'Secondary Window',
+                x: [6.8, 8.8],
+                y: [78.3, 80.3],
+                messages: {
+                    explore: "🪟 You peek through the secondary window. There's a different kind of magic happening here!",
+                    use: "🖱️ You tap the secondary window. It shows a different DeFi protocol interface!",
+                    take: "💎 You try to take this window too. It's a rare NFT window frame!",
+                    inspect: "🔍 This window has different seed phrases. Maybe it's a backup wallet?",
+                    open: "🪟 You slide the secondary window open. A different blockchain breeze flows in.",
+                    close: "🪟 The secondary window is already closed. Double security!"
+                }
+            },
             // Garage Door
             {
                 name: 'Garage Door',
