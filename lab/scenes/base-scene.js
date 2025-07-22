@@ -78,8 +78,10 @@ const baseSceneStyles = `
     background: rgba(0, 0, 0, 0.8);
     display: none;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
     z-index: 1000;
+    overflow-y: auto;
+    padding: 20px;
 }
 
 .popup.active {
@@ -92,14 +94,17 @@ const baseSceneStyles = `
     border-radius: 8px;
     padding: 20px;
     max-width: 90vw;
-    max-height: 90vh;
+    max-height: calc(90vh - 40px);
     overflow: auto;
     position: relative;
+    margin: auto;
+    margin-top: 20px;
 }
 
 .popup-content.large {
     width: 800px;
     height: 700px;
+    max-height: calc(90vh - 40px);
 }
 
 .popup-header {
@@ -149,6 +154,33 @@ const baseSceneStyles = `
 @media (max-width: 768px) {
     .inventory-grid {
         grid-template-columns: repeat(2, 1fr);
+    }
+    
+    /* Mobile popup adjustments */
+    .popup {
+        padding: 10px;
+    }
+    
+    .popup-content {
+        max-width: 95vw;
+        max-height: calc(95vh - 20px);
+        margin-top: 10px;
+        padding: 15px;
+    }
+    
+    .popup-content.large {
+        width: 95vw;
+        height: auto;
+        max-height: calc(95vh - 20px);
+    }
+    
+    .popup-header h2 {
+        font-size: 1.2rem;
+    }
+    
+    .close-btn {
+        font-size: 1.2rem;
+        padding: 3px 8px;
     }
 }
 
