@@ -959,8 +959,33 @@ function openTraitLabPopup() {
         if (closeBtn) {
             closeBtn.addEventListener('click', () => {
                 traitLabPopup.classList.remove('active');
+                console.log('TraitLab popup closed via X button');
             });
         }
+        
+        // Cerrar popup al hacer click fuera del contenido
+        traitLabPopup.addEventListener('click', (e) => {
+            if (e.target === traitLabPopup) {
+                traitLabPopup.classList.remove('active');
+                console.log('TraitLab popup closed via outside click');
+            }
+        });
+        
+        // Cerrar popup con tecla ESC
+        const handleEscKey = (e) => {
+            if (e.key === 'Escape' && traitLabPopup.classList.contains('active')) {
+                traitLabPopup.classList.remove('active');
+                console.log('TraitLab popup closed via ESC key');
+            }
+        };
+        document.addEventListener('keydown', handleEscKey);
+        
+        // Limpiar event listener cuando se cierre el popup
+        traitLabPopup.addEventListener('transitionend', () => {
+            if (!traitLabPopup.classList.contains('active')) {
+                document.removeEventListener('keydown', handleEscKey);
+            }
+        });
         
         console.log('TraitLab popup created and configured');
     }
