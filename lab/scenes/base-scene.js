@@ -855,4 +855,45 @@ async function openPack(selectedItem) {
 }
 
 // Make openPack globally available
-window.openPack = openPack; 
+window.openPack = openPack;
+
+// Global functions for mint popup functionality
+function notifyIframeWalletConnected() {
+    const iframe = document.querySelector('#mint-popup iframe');
+    if (iframe && iframe.contentWindow) {
+        try {
+            iframe.contentWindow.postMessage({
+                type: 'WALLET_CONNECTED',
+                address: window.ethereum.selectedAddress,
+                chainId: window.ethereum.chainId
+            }, '*');
+        } catch (error) {
+            console.log('Could not notify iframe:', error);
+        }
+    }
+}
+
+function notifyIframeWalletDisconnected() {
+    const iframe = document.querySelector('#mint-popup iframe');
+    if (iframe && iframe.contentWindow) {
+        try {
+            iframe.contentWindow.postMessage({
+                type: 'WALLET_DISCONNECTED'
+            }, '*');
+        } catch (error) {
+            console.log('Could not notify iframe:', error);
+        }
+    }
+}
+
+function closeMintPopup() {
+    const mintPopup = document.getElementById('mint-popup');
+    if (mintPopup) {
+        mintPopup.classList.remove('active');
+    }
+}
+
+// Make functions globally available
+window.notifyIframeWalletConnected = notifyIframeWalletConnected;
+window.notifyIframeWalletDisconnected = notifyIframeWalletDisconnected;
+window.closeMintPopup = closeMintPopup; 

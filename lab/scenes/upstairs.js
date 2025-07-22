@@ -136,6 +136,28 @@ class UpstairsScene extends BaseScene {
         if (clickArea) {
             clickArea.addEventListener('click', (event) => this.handleClick(event));
         }
+
+        // Configurar botón de cerrar popup
+        const closePopupBtn = document.getElementById('close-popup');
+        if (closePopupBtn) {
+            closePopupBtn.addEventListener('click', () => {
+                const mintPopup = document.getElementById('mint-popup');
+                if (mintPopup) {
+                    mintPopup.classList.remove('active');
+                }
+            });
+        }
+
+        // Configurar botones de comando
+        const commandButtons = document.querySelectorAll('.command-btn');
+        commandButtons.forEach(button => {
+            button.addEventListener('click', (event) => {
+                const command = event.target.textContent.toLowerCase();
+                if (window.menuManager) {
+                    window.menuManager.selectCommand(command);
+                }
+            });
+        });
     }
 
     // Comandos específicos del upstairs
