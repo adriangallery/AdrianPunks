@@ -1239,10 +1239,34 @@
             console.log(`Loading custom names for ${adrianZeroTokens.length} AdrianZERO tokens...`);
             
             try {
-                // Load ethers if not available
-                if (typeof window.ethers === 'undefined') {
-                    console.log('Ethers not available, skipping custom names');
-                    return tokens;
+                // Load ethers dynamically if not available
+                let ethers = window.ethers;
+                if (typeof ethers === 'undefined') {
+                    console.log('Ethers not available, loading dynamically...');
+                    try {
+                        // Load ethers dynamically
+                        const script = document.createElement('script');
+                        script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+                        script.onload = () => {
+                            console.log('Ethers loaded successfully for custom names');
+                        };
+                        script.onerror = () => {
+                            console.log('Failed to load ethers for custom names');
+                        };
+                        document.head.appendChild(script);
+                        
+                        // Wait a bit for ethers to load
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        
+                        ethers = window.ethers;
+                        if (typeof ethers === 'undefined') {
+                            console.log('Ethers still not available after loading, skipping custom names');
+                            return tokens;
+                        }
+                    } catch (loadError) {
+                        console.log('Error loading ethers dynamically:', loadError.message);
+                        return tokens;
+                    }
                 }
                 
                 // Check if wallet is connected
