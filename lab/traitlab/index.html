@@ -1348,7 +1348,11 @@
                         });
                         
                         console.log(`🔄 Updating display with ${nameMap.size} custom names found so far...`);
-                        updateTokenNamesOnly(nameMap);
+                        // Small delay to ensure DOM is stable
+                        setTimeout(() => {
+                            updateTokenNamesOnly(nameMap);
+                        }, 100);
+                        // Don't call updateSelectionInfo here to avoid flickering
                     }
                     
                     // Add delay between batches (except for the last batch)
@@ -1385,18 +1389,29 @@
 
         // Function to update only token names without reloading the entire grid
         function updateTokenNamesOnly(nameMap) {
+            console.log(`🔄 Starting name update for ${nameMap.size} tokens...`);
+            
             nameMap.forEach((customName, tokenId) => {
                 // Find the token card by token ID
-                const tokenCard = document.querySelector(`[data-token-id="${tokenId}"][data-contract="${CONTRACTS.ERC721.toLowerCase()}"]`);
+                const selector = `[data-token-id="${tokenId}"][data-contract="${CONTRACTS.ERC721.toLowerCase()}"]`;
+                const tokenCard = document.querySelector(selector);
+                
                 if (tokenCard) {
                     // Find the title element within the card
                     const titleElement = tokenCard.querySelector('.token-title');
                     if (titleElement) {
+                        const oldName = titleElement.textContent;
                         titleElement.textContent = customName;
-                        console.log(`✨ Updated name for token ${tokenId} to: "${customName}"`);
+                        console.log(`✨ Updated name for token ${tokenId}: "${oldName}" → "${customName}"`);
+                    } else {
+                        console.log(`⚠️ Title element not found for token ${tokenId}`);
                     }
+                } else {
+                    console.log(`⚠️ Token card not found for token ${tokenId} with selector: ${selector}`);
                 }
             });
+            
+            console.log(`✅ Name update completed for ${nameMap.size} tokens`);
         }
 
         // Display tokens in grid
