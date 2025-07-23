@@ -1335,23 +1335,20 @@
                     
                     // Update display with any custom names found so far
                     if (nameMap.size > 0) {
-                        const updatedTokens = tokens.map(token => {
+                        // Update tokens array with new names
+                        tokens.forEach(token => {
                             if (token.tokenType === 'ERC721' && 
                                 token.contract.toLowerCase() === CONTRACTS.ERC721.toLowerCase() &&
                                 nameMap.has(token.tokenId)) {
                                 
                                 const customName = nameMap.get(token.tokenId);
-                                return {
-                                    ...token,
-                                    title: customName,
-                                    originalTitle: token.title // Keep original title as backup
-                                };
+                                token.title = customName;
+                                token.originalTitle = token.originalTitle || token.title; // Keep original title as backup
                             }
-                            return token;
                         });
                         
                         console.log(`🔄 Updating display with ${nameMap.size} custom names found so far...`);
-                        displayTokens(updatedTokens);
+                        updateTokenNamesOnly(nameMap);
                     }
                     
                     // Add delay between batches (except for the last batch)
@@ -1386,6 +1383,22 @@
             }
         }
 
+        // Function to update only token names without reloading the entire grid
+        function updateTokenNamesOnly(nameMap) {
+            nameMap.forEach((customName, tokenId) => {
+                // Find the token card by token ID
+                const tokenCard = document.querySelector(`[data-token-id="${tokenId}"][data-contract="${CONTRACTS.ERC721.toLowerCase()}"]`);
+                if (tokenCard) {
+                    // Find the title element within the card
+                    const titleElement = tokenCard.querySelector('.token-title');
+                    if (titleElement) {
+                        titleElement.textContent = customName;
+                        console.log(`✨ Updated name for token ${tokenId} to: "${customName}"`);
+                    }
+                }
+            });
+        }
+
         // Display tokens in grid
         function displayTokens(tokens) {
             tokensGrid.innerHTML = "";
@@ -1393,6 +1406,9 @@
             tokens.forEach(token => {
                 const tokenCard = document.createElement('div');
                 tokenCard.className = 'token-card';
+                // Add data attributes for easy identification
+                tokenCard.setAttribute('data-token-id', token.tokenId);
+                tokenCard.setAttribute('data-contract', token.contract.toLowerCase());
                 
                 // Use specific image URLs for different token types
                 let imageUrl = token.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+';
@@ -1469,7 +1485,7 @@
                         ${quantityTag}
                     </div>
                     <div class="token-info">
-                        <div class="token-name">${displayTitle}</div>
+                        <div class="token-name token-title">${displayTitle}</div>
                         <div class="token-id">ID: ${token.tokenId}</div>
                         ${categoryDisplay}
                         <div class="token-contract">${token.contractName}</div>
