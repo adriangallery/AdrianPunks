@@ -1203,9 +1203,11 @@
                         );
                         
                         console.log(`Tokens with metadata:`, tokensWithMetadata);
-                        displayTokens(tokensWithMetadata);
+                        const tokensWithNames = await loadCustomNames(tokensWithMetadata);
+                        displayTokens(tokensWithNames);
                     } else {
-                        displayTokens(filteredTokens);
+                        const tokensWithNames = await loadCustomNames(filteredTokens);
+                        displayTokens(tokensWithNames);
                     }
                     
                 } else {
@@ -1217,6 +1219,110 @@
                 showError(`Error loading tokens: ${error.message}`);
             } finally {
                 hideLoading();
+            }
+        }
+
+
+        // NUEVA FUNCIÓN: Get custom names from AdrianNameRegistry contract
+        async function loadCustomNames(tokens) {
+            // Only process AdrianZERO tokens (ERC721)
+            const adrianZeroTokens = tokens.filter(token => 
+                token.tokenType === 'ERC721' && 
+                token.contract.toLowerCase() === CONTRACTS.ERC721.toLowerCase()
+            );
+            
+            if (adrianZeroTokens.length === 0) {
+                console.log('No AdrianZERO tokens to process for custom names');
+                return tokens;
+            }
+            
+            console.log(`Loading custom names for ${adrianZeroTokens.length} AdrianZERO tokens...`);
+            
+            try {
+                // Load ethers if not available
+                if (typeof window.ethers === 'undefined') {
+                    console.log('Ethers not available, skipping custom names');
+                    return tokens;
+                }
+                
+                // Check if wallet is connected
+                if (!window.ethereum) {
+                    console.log('Wallet not connected, skipping custom names');
+                    return tokens;
+                }
+                
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const network = await provider.getNetwork();
+                
+                // Only proceed if on Base network
+                if (network.chainId !== 8453) {
+                    console.log('Not on Base network, skipping custom names');
+                    return tokens;
+                }
+                
+                // Load ABI
+                const response = await fetch('./adrian-name-registry-abi.json');
+                if (!response.ok) {
+                    console.log('Failed to load ABI, skipping custom names');
+                    return tokens;
+                }
+                const contractABI = await response.json();
+                
+                // Create contract instance
+                const nameRegistryContract = new ethers.Contract(ADRIAN_NAME_REGISTRY_CONTRACT, contractABI, provider);
+                
+                // Get custom names for all AdrianZERO tokens
+                const namePromises = adrianZeroTokens.map(async (token) => {
+                    try {
+                        const customName = await nameRegistryContract.getTokenName(token.tokenId);
+                        return {
+                            tokenId: token.tokenId,
+                            customName: customName && customName.trim() ? customName.trim() : null
+                        };
+                    } catch (error) {
+                        console.log(`No custom name for token ${token.tokenId}:`, error.message);
+                        return {
+                            tokenId: token.tokenId,
+                            customName: null
+                        };
+                    }
+                });
+                
+                const nameResults = await Promise.all(namePromises);
+                
+                // Create a map of tokenId -> customName
+                const nameMap = new Map();
+                nameResults.forEach(result => {
+                    if (result.customName) {
+                        nameMap.set(result.tokenId, result.customName);
+                        console.log(`✅ Custom name found for token ${result.tokenId}: "${result.customName}"`);
+                    }
+                });
+                
+                // Update tokens with custom names
+                const updatedTokens = tokens.map(token => {
+                    if (token.tokenType === 'ERC721' && 
+                        token.contract.toLowerCase() === CONTRACTS.ERC721.toLowerCase() &&
+                        nameMap.has(token.tokenId)) {
+                        
+                        const customName = nameMap.get(token.tokenId);
+                        console.log(`🔄 Updating token ${token.tokenId} name from "${token.title}" to "${customName}"`);
+                        
+                        return {
+                            ...token,
+                            title: customName,
+                            originalTitle: token.title // Keep original title as backup
+                        };
+                    }
+                    return token;
+                });
+                
+                console.log(`✅ Custom names loaded: ${nameMap.size} tokens updated`);
+                return updatedTokens;
+                
+            } catch (error) {
+                console.error('Error loading custom names:', error);
+                return tokens; // Return original tokens if there's an error
             }
         }
 
