@@ -653,6 +653,10 @@
         let selectedSerum = null; // For single serum selection
         let selectedTokenForRename = null; // For token selected for rename
         let namePrice = null; // Price for renaming
+        
+        // Traits database and category selection management
+        let traitsDatabase = null; // Will store the traits.json data
+        let selectedTraitsByCategory = new Map(); // Map to track selected traits by category
 
         // DOM Elements
         const connectSection = document.getElementById('connect-section');
@@ -711,6 +715,9 @@
             
             // Listen for messages from parent window (AdrianLab)
             window.addEventListener('message', handleParentMessage);
+            
+            // Load traits database on startup
+            loadTraitsDatabase();
             
             // Contract filter buttons
             contractBtns.forEach(btn => {
@@ -894,6 +901,84 @@
             // Reset button states
             contractBtns.forEach(btn => btn.classList.remove('active'));
             contractBtns[0].classList.add('active'); // Set AdrianZERO as active
+            
+            // Clear traits selection
+            selectedTraitsByCategory.clear();
+        }
+
+        // Load traits database from JSON
+        async function loadTraitsDatabase() {
+            try {
+                console.log('Loading traits database...');
+                const response = await fetch('https://adrianlab.vercel.app/labmetadata/traits.json');
+                if (!response.ok) {
+                    throw new Error(`Failed to load traits database: ${response.status}`);
+                }
+                const data = await response.json();
+                traitsDatabase = data;
+                console.log('Traits database loaded successfully:', data);
+                return data;
+            } catch (error) {
+                console.error('Error loading traits database:', error);
+                return null;
+            }
+        }
+
+        // Get trait category by token ID
+        function getTraitCategory(tokenId) {
+            if (!traitsDatabase || !traitsDatabase.traits) {
+                return null;
+            }
+            
+            const trait = traitsDatabase.traits.find(t => t.tokenId === tokenId);
+            return trait ? trait.category : null;
+        }
+
+        // Handle trait selection with category management
+        function handleTraitSelection(token) {
+            const category = getTraitCategory(token.tokenId);
+            
+            if (!category) {
+                console.log(`No category found for token ${token.tokenId}, treating as regular selection`);
+                // Fallback to regular selection logic
+                const index = selectedERC1155.findIndex(t => t.tokenId === token.tokenId);
+                if (index > -1) {
+                    selectedERC1155.splice(index, 1);
+                    return false; // Token was deselected
+                } else {
+                    selectedERC1155.push(token);
+                    return true; // Token was selected
+                }
+            }
+            
+            console.log(`Handling trait selection for token ${token.tokenId} in category ${category}`);
+            
+            // Check if we already have a trait selected for this category
+            const existingTrait = selectedTraitsByCategory.get(category);
+            
+            if (existingTrait && existingTrait.tokenId === token.tokenId) {
+                // Deselect the same trait
+                selectedTraitsByCategory.delete(category);
+                const index = selectedERC1155.findIndex(t => t.tokenId === token.tokenId);
+                if (index > -1) {
+                    selectedERC1155.splice(index, 1);
+                }
+                console.log(`Deselected trait ${token.tokenId} from category ${category}`);
+                return false;
+            } else if (existingTrait) {
+                // Remove the existing trait from the same category
+                const index = selectedERC1155.findIndex(t => t.tokenId === existingTrait.tokenId);
+                if (index > -1) {
+                    selectedERC1155.splice(index, 1);
+                }
+                console.log(`Replaced trait ${existingTrait.tokenId} with ${token.tokenId} in category ${category}`);
+            }
+            
+            // Add the new trait
+            selectedTraitsByCategory.set(category, token);
+            selectedERC1155.push(token);
+            console.log(`Selected trait ${token.tokenId} for category ${category}`);
+            return true;
         }
 
         // Load tokens for specific contract using direct API calls with pagination
@@ -1556,15 +1641,28 @@
                                 tokenCard.classList.add('selected');
                             }
                         } else {
-                            // Multiple selection for AdrianLAB
-                            const index = selectedERC1155.findIndex(t => t.tokenId === token.tokenId);
-                            if (index > -1) {
-                                selectedERC1155.splice(index, 1);
-                                tokenCard.classList.remove('selected');
-                            } else {
-                                selectedERC1155.push(token);
+                            // Handle selection for AdrianLAB (Traits tab) with category management
+                            const wasSelected = handleTraitSelection(token);
+                            
+                            // Update visual selection state
+                            if (wasSelected) {
                                 tokenCard.classList.add('selected');
+                            } else {
+                                tokenCard.classList.remove('selected');
                             }
+                            
+                            // Update all token cards to reflect current selection state
+                            const allTokenCards = tokensGrid.querySelectorAll('.token-card');
+                            allTokenCards.forEach(card => {
+                                const cardTokenId = parseInt(card.querySelector('.token-id').textContent.split(': ')[1]);
+                                const isCurrentlySelected = selectedERC1155.some(t => t.tokenId === cardTokenId);
+                                
+                                if (isCurrentlySelected) {
+                                    card.classList.add('selected');
+                                } else {
+                                    card.classList.remove('selected');
+                                }
+                            });
                         }
                     }
                     
@@ -1704,17 +1802,38 @@
                     activateTokenSection.style.display = 'none';
                 }
             } else {
-                // Handle AdrianLAB tab
+                // Handle AdrianLAB tab (Traits)
                 if (selectedERC721) {
                     infoText += `Selected ERC721: ${selectedERC721.title} (ID: ${selectedERC721.tokenId})`;
                 }
                 
                 if (selectedERC1155.length > 0) {
                     if (infoText) infoText += '<br>';
-                    infoText += `Selected ERC1155: ${selectedERC1155.length} token(s)`;
+                    
+                    // Group traits by category for better display
+                    const traitsByCategory = new Map();
                     selectedERC1155.forEach(token => {
-                        infoText += `<br>• ${token.title} (ID: ${token.tokenId})`;
+                        const category = getTraitCategory(token.tokenId);
+                        if (category) {
+                            if (!traitsByCategory.has(category)) {
+                                traitsByCategory.set(category, []);
+                            }
+                            traitsByCategory.get(category).push(token);
+                        }
                     });
+                    
+                    if (traitsByCategory.size > 0) {
+                        infoText += `Selected Traits by Category:`;
+                        traitsByCategory.forEach((tokens, category) => {
+                            infoText += `<br>• ${category}: ${tokens[0].title} (ID: ${tokens[0].tokenId})`;
+                        });
+                    } else {
+                        // Fallback for tokens without category
+                        infoText += `Selected ERC1155: ${selectedERC1155.length} token(s)`;
+                        selectedERC1155.forEach(token => {
+                            infoText += `<br>• ${token.title} (ID: ${token.tokenId})`;
+                        });
+                    }
                 }
                 
                 if (infoText) {
