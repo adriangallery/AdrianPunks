@@ -1223,7 +1223,7 @@
         }
 
 
-        // NUEVA FUNCIÓN: Get custom names from AdrianNameRegistry contract
+        // NUEVA FUNCIÓN: Get custom names from AdrianNameRegistry contract with cascading approach
         async function loadCustomNames(tokens) {
             // Only process AdrianZERO tokens (ERC721)
             const adrianZeroTokens = tokens.filter(token => 
@@ -1236,7 +1236,7 @@
                 return tokens;
             }
             
-            console.log(`Loading custom names for ${adrianZeroTokens.length} AdrianZERO tokens...`);
+            console.log(`Loading custom names for ${adrianZeroTokens.length} AdrianZERO tokens with cascading approach...`);
             
             try {
                 // Load ethers dynamically if not available
@@ -1295,43 +1295,79 @@
                 // Create contract instance
                 const nameRegistryContract = new ethers.Contract(ADRIAN_NAME_REGISTRY_CONTRACT, contractABI, provider);
                 
-                // Get custom names for all AdrianZERO tokens
-                const namePromises = adrianZeroTokens.map(async (token) => {
-                    try {
-                        const customName = await nameRegistryContract.getTokenName(token.tokenId);
-                        return {
-                            tokenId: token.tokenId,
-                            customName: customName && customName.trim() ? customName.trim() : null
-                        };
-                    } catch (error) {
-                        console.log(`No custom name for token ${token.tokenId}:`, error.message);
-                        return {
-                            tokenId: token.tokenId,
-                            customName: null
-                        };
-                    }
-                });
+                // First, display all tokens with Alchemy names immediately
+                console.log('🔄 Displaying tokens with Alchemy names first...');
+                displayTokens(tokens);
                 
-                const nameResults = await Promise.all(namePromises);
-                
-                // Create a map of tokenId -> customName
+                // Then, get custom names with delays to avoid rate limiting
                 const nameMap = new Map();
-                nameResults.forEach(result => {
-                    if (result.customName) {
-                        nameMap.set(result.tokenId, result.customName);
-                        console.log(`✅ Custom name found for token ${result.tokenId}: "${result.customName}"`);
-                    }
-                });
+                let processedCount = 0;
                 
-                // Update tokens with custom names
-                const updatedTokens = tokens.map(token => {
+                // Process tokens in batches with delays
+                const batchSize = 5; // Process 5 tokens at a time
+                const delayBetweenBatches = 2000; // 2 seconds between batches
+                
+                for (let i = 0; i < adrianZeroTokens.length; i += batchSize) {
+                    const batch = adrianZeroTokens.slice(i, i + batchSize);
+                    
+                    console.log(`📦 Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(adrianZeroTokens.length/batchSize)} (${batch.length} tokens)`);
+                    
+                    // Process batch with individual delays
+                    const batchPromises = batch.map(async (token, index) => {
+                        // Add delay between individual requests
+                        await new Promise(resolve => setTimeout(resolve, index * 500)); // 500ms between each request
+                        
+                        try {
+                            const customName = await nameRegistryContract.getTokenName(token.tokenId);
+                            if (customName && customName.trim()) {
+                                nameMap.set(token.tokenId, customName.trim());
+                                console.log(`✅ Custom name found for token ${token.tokenId}: "${customName.trim()}"`);
+                            }
+                        } catch (error) {
+                            console.log(`No custom name for token ${token.tokenId}:`, error.message);
+                        }
+                        
+                        processedCount++;
+                        console.log(`📊 Progress: ${processedCount}/${adrianZeroTokens.length} tokens processed`);
+                    });
+                    
+                    await Promise.all(batchPromises);
+                    
+                    // Update display with any custom names found so far
+                    if (nameMap.size > 0) {
+                        const updatedTokens = tokens.map(token => {
+                            if (token.tokenType === 'ERC721' && 
+                                token.contract.toLowerCase() === CONTRACTS.ERC721.toLowerCase() &&
+                                nameMap.has(token.tokenId)) {
+                                
+                                const customName = nameMap.get(token.tokenId);
+                                return {
+                                    ...token,
+                                    title: customName,
+                                    originalTitle: token.title // Keep original title as backup
+                                };
+                            }
+                            return token;
+                        });
+                        
+                        console.log(`🔄 Updating display with ${nameMap.size} custom names found so far...`);
+                        displayTokens(updatedTokens);
+                    }
+                    
+                    // Add delay between batches (except for the last batch)
+                    if (i + batchSize < adrianZeroTokens.length) {
+                        console.log(`⏳ Waiting ${delayBetweenBatches}ms before next batch...`);
+                        await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
+                    }
+                }
+                
+                // Final update with all custom names
+                const finalUpdatedTokens = tokens.map(token => {
                     if (token.tokenType === 'ERC721' && 
                         token.contract.toLowerCase() === CONTRACTS.ERC721.toLowerCase() &&
                         nameMap.has(token.tokenId)) {
                         
                         const customName = nameMap.get(token.tokenId);
-                        console.log(`🔄 Updating token ${token.tokenId} name from "${token.title}" to "${customName}"`);
-                        
                         return {
                             ...token,
                             title: customName,
@@ -1341,8 +1377,8 @@
                     return token;
                 });
                 
-                console.log(`✅ Custom names loaded: ${nameMap.size} tokens updated`);
-                return updatedTokens;
+                console.log(`✅ Custom names loading complete: ${nameMap.size} tokens updated`);
+                return finalUpdatedTokens;
                 
             } catch (error) {
                 console.error('Error loading custom names:', error);
