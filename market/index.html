@@ -587,6 +587,10 @@
     const ACTIVITY_LOGGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
     const OFFER_MANAGER_ADDRESS = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
 
+    // Alchemy API Configuration for faster token loading
+    const ALCHEMY_API_KEY = "5qIXA1UZxOAzi8b9l0nrYmsQBO9-W7Ot";
+    const ALCHEMY_RPC_URL = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+
     // Variables para manejar las rutas de imagen
     let currentImageCollection = 'adrianpunks'; // Por defecto
     // Array para rotar entre las colecciones disponibles en el orden correcto
@@ -1569,9 +1573,9 @@
           return;
         }
 
-        // Configurar el provider de Infura si aún no está configurado
+        // Configurar el provider de Alchemy para consultas más rápidas
         if (!readProvider) {
-          readProvider = new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+          readProvider = new ethers.providers.JsonRpcProvider(ALCHEMY_RPC_URL, {
             name: "base",
             chainId: 8453
           });
@@ -1582,52 +1586,76 @@
           newMarketplaceReadContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, readProvider);
         }
 
-        // Añadir retraso entre llamadas para evitar rate limit
-        function sleep(ms) {
-          return new Promise(resolve => setTimeout(resolve, ms));
+        // Cargar tokens usando Alchemy API para mayor velocidad
+        console.log('Loading tokens using Alchemy API...');
+        
+        // Construir URL de Alchemy API
+        const alchemyUrl = `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${userAccount}&contractAddresses[]=${NFT_ADDRESS}&withMetadata=true&pageSize=100&tokenType=ERC721`;
+        
+        console.log(`Requesting NFTs with URL: ${alchemyUrl}`);
+        
+        const alchemyResponse = await fetch(alchemyUrl);
+        
+        if (!alchemyResponse.ok) {
+          throw new Error(`Error getting NFTs from Alchemy API: ${alchemyResponse.status}`);
         }
-
-        // Usar el contrato de solo lectura para consultas
-        const balance = await nftReadContract.balanceOf(userAccount);
+        
+        const nftsData = await alchemyResponse.json();
+        console.log(`Received ${nftsData.ownedNfts?.length || 0} tokens from Alchemy API`);
+        
         let tokensHtml = '';
         
-        if (balance.toNumber() === 0) {
+        if (!nftsData.ownedNfts || nftsData.ownedNfts.length === 0) {
           tokensHtml = '<p class="text-center text-muted">No tokens found for this wallet.</p>';
         } else {
           tokensHtml = '<div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2">';
-          
-          // Obtener todos los índices de tokens de una vez con retraso
-          const tokenPromises = [];
-          for (let i = 0; i < balance.toNumber(); i++) {
-            tokenPromises.push(nftReadContract.tokenOfOwnerByIndex(userAccount, i));
-            await sleep(100); // 100ms de retraso entre llamadas
-          }
-          
-          // Esperar a que todas las promesas se resuelvan
-          const tokenIds = await Promise.allSettled(tokenPromises);
           
           // Cargar el JSON con la información de los tokens
           const response = await fetch('./adrianpunks.json');
           const data = await response.json();
           const jsonCollection = data.collection;
 
-          // Procesar cada token con retraso entre llamadas
-          for (const result of tokenIds) {
-            if (result.status === 'fulfilled') {
-              const tokenId = result.value;
-              const tokenInfo = jsonCollection.find(item => parseInt(item.name.split('#')[1]) === tokenId.toNumber());
+          // Procesar cada token de Alchemy
+          for (const nft of nftsData.ownedNfts) {
+            try {
+              // Extraer tokenId
+              let tokenId;
+              if (nft.tokenId) {
+                tokenId = nft.tokenId;
+              } else if (nft.id && nft.id.tokenId) {
+                tokenId = nft.id.tokenId;
+              } else {
+                console.error("No tokenId found in NFT:", nft);
+                continue;
+              }
+              
+              // Convertir tokenId a número
+              let tokenIdInt;
+              if (typeof tokenId === 'number') {
+                tokenIdInt = tokenId;
+              } else if (tokenId.startsWith('0x')) {
+                tokenIdInt = parseInt(tokenId, 16);
+              } else {
+                tokenIdInt = parseInt(tokenId, 10);
+              }
+              
+              if (isNaN(tokenIdInt)) {
+                console.error("Invalid tokenId format:", tokenId);
+                continue;
+              }
+              
+              const tokenInfo = jsonCollection.find(item => parseInt(item.name.split('#')[1]) === tokenIdInt);
               
               // Crear un objeto nft con el formato necesario para getImageUrl
-              const nft = tokenInfo || { name: `AdrianPunk #${tokenId}` };
+              const nftObj = tokenInfo || { name: `AdrianPunk #${tokenIdInt}` };
               
-              // Usar la misma función getImageUrl para mantener consistencia con el resto de la app
-              const imgUrl = getImageUrl(nft);
+              // Usar la misma función getImageUrl para mantener consistencia
+              const imgUrl = getImageUrl(nftObj);
 
               // Intentar obtener las ofertas del token usando el contrato de solo lectura
               let highestOffer = null;
               try {
-                const tokenOffers = await newMarketplaceReadContract.getTokenOffersForToken(NFT_ADDRESS, tokenId);
-                await sleep(100); // Retraso entre llamadas
+                const tokenOffers = await newMarketplaceReadContract.getTokenOffersForToken(NFT_ADDRESS, tokenIdInt);
                 const relevantOffers = tokenOffers.filter(offer => offer.exists);
                 if (relevantOffers.length > 0) {
                   highestOffer = relevantOffers.reduce((max, offer) => 
@@ -1635,7 +1663,7 @@
                   );
                 }
               } catch (error) {
-                console.warn(`Error fetching offers for token ${tokenId}:`, error);
+                console.warn(`Error fetching offers for token ${tokenIdInt}:`, error);
               }
 
               const offerAmount = highestOffer ? ethers.utils.formatUnits(highestOffer.offerAmount, 18) : null;
@@ -1646,18 +1674,20 @@
 
               tokensHtml += `
                 <div class="col">
-                  <div class="card h-100" style="cursor: pointer;" onclick="closeAndShowNFTDetails('${tokenInfo ? tokenInfo.name : `AdrianPunk #${tokenId}`}')">
+                  <div class="card h-100" style="cursor: pointer;" onclick="closeAndShowNFTDetails('${tokenInfo ? tokenInfo.name : `AdrianPunk #${tokenIdInt}`}')">
                     <div class="ratio ratio-1x1">
-                      <img src="${imgUrl}" class="card-img-top" alt="Token #${tokenId}" style="object-fit: cover;">
+                      <img src="${imgUrl}" class="card-img-top" alt="Token #${tokenIdInt}" style="object-fit: cover;">
                     </div>
                     <div class="card-body p-2">
-                      <h6 class="card-title mb-0">#${tokenId}</h6>
+                      <h6 class="card-title mb-0">#${tokenIdInt}</h6>
                       ${tokenInfo ? `<small class="text-muted">Rarity: ${tokenInfo.rarity.toFixed(2)}</small>` : ''}
                       ${formattedOffer ? `<small class="text-success d-block">Offer: ${formattedOffer}</small>` : ''}
                     </div>
                   </div>
                 </div>
               `;
+            } catch (error) {
+              console.error(`Error processing token:`, error);
             }
           }
           tokensHtml += '</div>';
