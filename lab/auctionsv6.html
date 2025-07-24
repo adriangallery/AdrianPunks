@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adrian Auction - Token Bidding</title>
+    <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'VT323', monospace;
+            background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+            color: #00ff00;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .auction-panel {
+            background: rgba(0, 0, 0, 0.95);
+            border: 3px solid #00ff00;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 0 50px rgba(0, 255, 0, 0.3);
+        }
+
+        .leaderboard-panel {
+            background: rgba(0, 0, 0, 0.95);
+            border: 3px solid #ff6600;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 0 50px rgba(255, 102, 0, 0.3);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px #00ff00;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        .header h2 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px #ff6600;
+            color: #ff6600;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 20px #00ff00; }
+            to { text-shadow: 0 0 30px #00ff00, 0 0 40px #00ff00; }
+        }
+
+        .subtitle {
+            font-size: 1.3rem;
+            opacity: 0.8;
+            color: #cccccc;
+        }
+
+        .nft-preview {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 20px;
+            border: 3px solid #00ff00;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.4);
+            position: relative;
+        }
+
+        .nft-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .nft-title {
+            background: rgba(0, 0, 0, 0.9);
+            color: #00ff00;
+            text-align: center;
+            padding: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            border-top: 1px solid #00ff00;
+        }
+
+        .timer {
+            background: rgba(255, 0, 0, 0.2);
+            border: 2px solid #ff0000;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .timer-title {
+            color: #ff0000;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+
+        .timer-display {
+            font-size: 2.5rem;
+            color: #ffffff;
+            font-weight: bold;
+        }
+
+        .last-update {
+            font-size: 0.9rem;
+            color: #cccccc;
+            margin: 5px 0;
+        }
+
+
+
+        .auction-info {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .info-label {
+            color: #cccccc;
+        }
+
+        .info-value {
+            color: #ffffff;
+            font-weight: bold;
+        }
+
+        .highest-bid {
+            background: rgba(0, 255, 0, 0.2);
+            border: 2px solid #00ff00;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .highest-bid-amount {
+            font-size: 2.5rem;
+            color: #00ff00;
+            margin-bottom: 10px;
+        }
+
+        .highest-bidder {
+            font-size: 1.2rem;
+            color: #cccccc;
+        }
+
+        .connect-btn {
+            background: linear-gradient(45deg, #00ff00, #00cc00);
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: 'VT323', monospace;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 255, 0, 0.3);
+            width: 100%;
+        }
+
+        .connect-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 255, 0, 0.5);
+        }
+
+        .wallet-info {
+            display: none;
+            background: rgba(0, 255, 0, 0.2);
+            border: 1px solid #00ff00;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+
+        .bid-section {
+            display: none;
+        }
+
+        .bid-input-group {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .bid-input-label {
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+            color: #cccccc;
+        }
+
+        .bid-input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            font-size: 1.5rem;
+            color: #ffffff;
+            font-family: 'VT323', monospace;
+            margin-bottom: 15px;
+        }
+
+        .bid-input:focus {
+            outline: none;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+
+        .min-bid {
+            text-align: center;
+            color: #ffff00;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+        }
+
+        .approve-btn {
+            background: linear-gradient(45deg, #ff6600, #ff4400);
+            color: #fff;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: 'VT323', monospace;
+            margin: 10px 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 102, 0, 0.4);
+            width: 100%;
+        }
+
+        .approve-btn:hover {
+            transform: translateY(-3px);
+        }
+
+        .approve-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .bid-btn {
+            background: linear-gradient(45deg, #00ff00, #00cc00);
+            color: #000;
+            border: none;
+            padding: 18px 50px;
+            font-size: 1.3rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: 'VT323', monospace;
+            margin: 10px 0;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 255, 0, 0.4);
+            width: 100%;
+        }
+
+        .bid-btn:hover {
+            transform: translateY(-3px);
+        }
+
+        .bid-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .leaderboard {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .leaderboard-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .leaderboard-item.user {
+            background: rgba(0, 255, 0, 0.2);
+            border: 1px solid #00ff00;
+        }
+
+        .leaderboard-rank {
+            font-size: 1.5rem;
+            color: #ff6600;
+            font-weight: bold;
+            width: 30px;
+        }
+
+        .leaderboard-address {
+            color: #ffffff;
+            font-size: 1.1rem;
+        }
+
+        .leaderboard-amount {
+            color: #00ff00;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .user-stats {
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid #00ff00;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            display: none;
+            text-align: center;
+        }
+
+        .status.loading {
+            background: rgba(255, 255, 0, 0.2);
+            border: 2px solid #ffff00;
+            color: #ffff00;
+        }
+
+        .status.success {
+            background: rgba(0, 255, 0, 0.2);
+            border: 2px solid #00ff00;
+            color: #00ff00;
+        }
+
+        .status.error {
+            background: rgba(255, 0, 0, 0.2);
+            border: 2px solid #ff0000;
+            color: #ff0000;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .auction-panel, .leaderboard-panel {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 2.5rem;
+            }
+
+            .nft-preview {
+                width: 150px;
+                height: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Left Panel - Auction -->
+        <div class="auction-panel">
+            <div class="header">
+                <h1>ADRIAN AUCTION</h1>
+                <div class="subtitle">Token Bidding Platform</div>
+            </div>
+
+            <div class="nft-preview">
+                <img src="https://raw.githubusercontent.com/adriangallery/AdrianLAB/main/public/labimages/ozzy.png" alt="Auction NFT - Ozzy">
+                <div class="nft-title">OZZY - Limited Edition</div>
+            </div>
+
+            <div class="timer">
+                <div class="timer-title">Time Remaining</div>
+                <div class="timer-display" id="timeRemaining">Loading...</div>
+                <div class="last-update">Last update: <span id="lastUpdate">Never</span></div>
+            </div>
+
+            <div class="auction-info">
+                <div class="info-row">
+                    <span class="info-label">Total Bidders:</span>
+                    <span class="info-value" id="totalBidders">Loading...</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Total Tokens:</span>
+                    <span class="info-value" id="totalTokens">Loading...</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Your Balance:</span>
+                    <span class="info-value" id="userBalance">-</span>
+                </div>
+            </div>
+
+            <div class="highest-bid">
+                <div class="highest-bid-amount" id="highestBidAmount">0 $ADRIAN</div>
+                <div class="highest-bidder">Highest Bidder: <span id="highestBidder">None</span></div>
+            </div>
+
+            <button id="connectBtn" class="connect-btn">Connect Wallet</button>
+            
+            <div id="walletInfo" class="wallet-info">
+                Connected: <span id="walletAddress"></span>
+            </div>
+
+            <div id="bidSection" class="bid-section">
+                <div class="user-stats">
+                    <div class="info-row">
+                        <span class="info-label">Your Current Bid:</span>
+                        <span class="info-value" id="userBid">0 $ADRIAN</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Your Position:</span>
+                        <span class="info-value" id="userPosition">-</span>
+                    </div>
+                </div>
+
+                <div class="bid-input-group">
+                    <div class="bid-input-label">Enter Bid Amount ($ADRIAN)</div>
+                    <input type="number" id="bidAmount" class="bid-input" placeholder="0.0" step="0.01">
+                    <div class="min-bid">Minimum bid: <span id="minBid">0</span> $ADRIAN</div>
+                </div>
+                
+                <button id="approveBtn" class="approve-btn">1. Approve $ADRIAN Tokens</button>
+                <button id="bidBtn" class="bid-btn">2. Place Bid</button>
+            </div>
+
+            <div id="status" class="status"></div>
+        </div>
+
+        <!-- Right Panel - Leaderboard -->
+        <div class="leaderboard-panel">
+            <div class="header">
+                <h2>TOP BIDDERS</h2>
+            </div>
+
+            <div class="leaderboard" id="leaderboard">
+                <div class="leaderboard-item">
+                    <div class="leaderboard-rank">-</div>
+                    <div class="leaderboard-address">Loading...</div>
+                    <div class="leaderboard-amount">-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Contract addresses
+        const AUCTION_CONTRACT = "0x020d68117a4909e9bf511a50cf1355dc6b0987c9";
+        const ADRIAN_TOKEN = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+
+        // Multiple RPC providers (only CORS-friendly ones)
+        const RPC_PROVIDERS = [
+            'https://mainnet.base.org',
+            'https://base.blockpi.network/v1/rpc/public',
+            'https://1rpc.io/base'
+        ];
+        
+        let currentRpcIndex = 0;
+
+        // Contract ABIs - OPTIMIZED: Using getAuctionStats for efficiency
+        const AUCTION_ABI = [
+            "function bid(uint256 amount)",
+            "function getTimeRemaining() view returns (uint256)",
+            "function getTop10Bidders() view returns (address[] memory topBidders, uint256[] memory topBids)",
+            "function getBidderPosition(address bidder) view returns (uint256 position, uint256 bidAmount)",
+            "function getAuctionStats() view returns (uint256 _highestBid, address _highestBidder, uint256 _totalTokens, uint256 _bidderCount, uint256 _auctionEndTime)",
+            "function highestBid() view returns (uint256)",
+            "function highestBidder() view returns (address)",
+            "function auctionEndTime() view returns (uint256)"
+        ];
+
+        const ERC20_ABI = [
+            "function approve(address spender, uint256 amount) returns (bool)",
+            "function allowance(address owner, address spender) view returns (uint256)",
+            "function balanceOf(address account) view returns (uint256)",
+            "function decimals() view returns (uint8)"
+        ];
+
+        // App state
+        let currentAccount = null;
+        let auctionStats = null;
+        let userBidData = null;
+        let userBalance = null;
+        let updateInterval = null;
+        let lastUpdateTime = 0;
+
+        // Provider SOLO de lectura, siempre JSON-RPC público (sin caché de MetaMask)
+        function getFreshProvider() {
+            const rpcUrl = RPC_PROVIDERS[currentRpcIndex];
+            currentRpcIndex = (currentRpcIndex + 1) % RPC_PROVIDERS.length;
+            console.log(`📡 Reading from: ${rpcUrl}`);
+            
+            // Just use the RPC URL without specifying network
+            // ethers will auto-detect the network
+            return new ethers.providers.JsonRpcProvider(rpcUrl);
+        }
+        
+        // Provider de firma SOLO para transacciones
+        function getSignerProvider() {
+            if (!window.ethereum || !currentAccount) {
+                throw new Error("Wallet not connected");
+            }
+            console.log("✍️ Using MetaMask for signing");
+            return new ethers.providers.Web3Provider(window.ethereum);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('connectBtn').addEventListener('click', connectWallet);
+            document.getElementById('approveBtn').addEventListener('click', approveTokens);
+            document.getElementById('bidBtn').addEventListener('click', placeBid);
+            document.getElementById('bidAmount').addEventListener('input', updateMinBid);
+            checkConnection();
+        });
+
+        // Check if wallet is connected
+        async function checkConnection() {
+            if (window.ethereum) {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    if (accounts.length > 0) {
+                        await connectWallet();
+                    } else {
+                        // Load basic auction data even without connection
+                        await loadAuctionData(true);
+                        startUpdateInterval();
+                    }
+                } catch (error) {
+                    console.error("Connection check failed:", error);
+                }
+            }
+        }
+
+        // Connect wallet
+        async function connectWallet() {
+            try {
+                if (!window.ethereum) {
+                    showStatus("Please install MetaMask!", "error");
+                    return;
+                }
+                
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                currentAccount = accounts[0];
+                
+                // Switch to Base if needed
+                await switchToBase();
+                
+                // Load data
+                await loadAuctionData(true);
+                await loadUserData();
+                
+                // Update UI
+                document.getElementById('connectBtn').style.display = 'none';
+                document.getElementById('walletInfo').style.display = 'block';
+                document.getElementById('bidSection').style.display = 'block';
+                document.getElementById('walletAddress').textContent = 
+                    `${currentAccount.slice(0,6)}...${currentAccount.slice(-4)}`;
+                
+                showStatus("Wallet connected! You can now place bids.", "success");
+                
+                // Start auto-refresh
+                startUpdateInterval();
+                
+                // Handle account changes
+                window.ethereum.on('accountsChanged', () => window.location.reload());
+                window.ethereum.on('chainChanged', () => window.location.reload());
+                
+            } catch (error) {
+                console.error("Connection error:", error);
+                showStatus("Failed to connect wallet", "error");
+            }
+        }
+
+        // Switch to Base network
+        async function switchToBase() {
+            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+            if (chainId !== '0x2105') {
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x2105' }],
+                    });
+                } catch (switchError) {
+                    if (switchError.code === 4902) {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: '0x2105',
+                                chainName: 'Base Mainnet',
+                                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                                rpcUrls: ['https://mainnet.base.org'],
+                                blockExplorerUrls: ['https://basescan.org/'],
+                            }],
+                        });
+                    }
+                }
+            }
+        }
+
+        // Load auction data using OPTIMIZED contract calls with FRESH RPC
+        async function loadAuctionData(forceRefresh = false) {
+            try {
+                const now = Date.now();
+                
+                console.log(`🔍 Loading auction data OPTIMIZED at: ${new Date().toLocaleTimeString()}`);
+                
+                // ALWAYS use fresh JSON-RPC provider for reading (no MetaMask cache)
+                const provider = getFreshProvider();
+                const auctionContract = new ethers.Contract(AUCTION_CONTRACT, AUCTION_ABI, provider);
+                
+                // Force fresh calls with latest block
+                if (forceRefresh) {
+                    try {
+                        const blockNumber = await provider.getBlockNumber();
+                        console.log(`📦 Latest block: ${blockNumber}`);
+                    } catch (e) {
+                        console.log("Block number fetch failed, continuing...");
+                    }
+                }
+                
+                let attempts = 0;
+                const maxAttempts = 3;
+                
+                while (attempts < maxAttempts) {
+                    try {
+                        console.log("📞 Making OPTIMIZED contract calls with blockTag: 'latest'...");
+                        
+                        // OPTIMIZED: Get ALL data using getAuctionStats + leaderboard (2 calls instead of 5)
+                        const [auctionStatsResult, leaderboardResult] = await Promise.all([
+                            auctionContract.callStatic.getAuctionStats({ blockTag: 'latest' }),
+                            auctionContract.callStatic.getTop10Bidders({ blockTag: 'latest' })
+                        ]);
+                        
+                        // getAuctionStats returns: (_highestBid, _highestBidder, _totalTokens, _bidderCount, _auctionEndTime)
+                        const [
+                            highestBid,
+                            highestBidder,
+                            totalTokens,
+                            bidderCount,
+                            auctionEndTime
+                        ] = auctionStatsResult;
+                        
+                        // getTop10Bidders returns [address[], uint256[]] as tuple
+                        const leaderboardData = {
+                            topBidders: leaderboardResult[0], // First element: addresses
+                            topBids: leaderboardResult[1]     // Second element: amounts
+                        };
+                        
+                        // Calculate time remaining from auction end time
+                        const currentTime = Math.floor(Date.now() / 1000);
+                        const timeRemaining = Math.max(0, auctionEndTime.toNumber() - currentTime);
+                        
+                        console.log("🎯 OPTIMIZED RPC DATA (2 calls instead of 5):");
+                        console.log("getAuctionStats():", {
+                            highestBid: {
+                                raw: highestBid.toString(),
+                                formatted: ethers.utils.formatEther(highestBid),
+                                $ADRIAN: parseFloat(ethers.utils.formatEther(highestBid)).toFixed(2)
+                            },
+                            highestBidder: highestBidder,
+                            totalTokens: ethers.utils.formatEther(totalTokens),
+                            bidderCount: bidderCount.toString(),
+                            auctionEndTime: auctionEndTime.toString(),
+                            timeRemaining: timeRemaining + " seconds"
+                        });
+                        
+                        const newAuctionStats = {
+                            highestBid: highestBid,
+                            highestBidder: highestBidder,
+                            totalTokens: totalTokens,
+                            bidderCount: bidderCount.toNumber(),
+                            auctionEndTime: auctionEndTime.toNumber(),
+                            timeRemaining: timeRemaining
+                        };
+                        
+                        // Check if data actually changed (case-insensitive address comparison)
+                        const dataChanged = !auctionStats || 
+                            !newAuctionStats.highestBid.eq(auctionStats.highestBid) ||
+                            newAuctionStats.highestBidder.toLowerCase() !== auctionStats.highestBidder.toLowerCase() ||
+                            newAuctionStats.bidderCount !== auctionStats.bidderCount;
+                        
+                        if (dataChanged) {
+                            console.log("🔄 DATA CHANGED! New values:");
+                            console.log("- Highest Bid:", ethers.utils.formatEther(newAuctionStats.highestBid), "$ADRIAN");
+                            console.log("- Highest Bidder:", newAuctionStats.highestBidder);
+                            console.log("- Bidder Count:", newAuctionStats.bidderCount);
+                            console.log("- Total Tokens:", ethers.utils.formatEther(newAuctionStats.totalTokens), "$ADRIAN");
+                            console.log("- Time Remaining:", newAuctionStats.timeRemaining, "seconds");
+                        } else {
+                            console.log("✅ No changes detected");
+                        }
+                        
+                        auctionStats = newAuctionStats;
+                        lastUpdateTime = now;
+                        
+                        // Update UI
+                        const highestBidFormatted = parseFloat(ethers.utils.formatEther(auctionStats.highestBid)).toFixed(1);
+                        document.getElementById('highestBidAmount').textContent = `${highestBidFormatted} $ADRIAN`;
+                        
+                        const bidderDisplay = auctionStats.highestBidder === ethers.constants.AddressZero 
+                            ? "None" 
+                            : `${auctionStats.highestBidder.slice(0,6)}...${auctionStats.highestBidder.slice(-4)}`;
+                        document.getElementById('highestBidder').textContent = bidderDisplay;
+                        
+                        document.getElementById('totalBidders').textContent = auctionStats.bidderCount;
+                        
+                        const totalTokensFormatted = parseFloat(ethers.utils.formatEther(auctionStats.totalTokens)).toFixed(1);
+                        document.getElementById('totalTokens').textContent = `${totalTokensFormatted} $ADRIAN`;
+                        
+                        // Update timer using direct time remaining
+                        updateTimerDirect();
+                        
+                        // Load leaderboard (we already have the data)
+                        updateLeaderboardFromData(leaderboardData);
+                        
+                        // Update minimum bid
+                        updateMinBid();
+                        
+                        // Show last update time
+                        console.log(`✅ UI Updated at: ${new Date().toLocaleTimeString()}`);
+                        document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+                        
+                        break;
+                        
+                    } catch (error) {
+                        attempts++;
+                        console.log(`❌ Optimized RPC attempt ${attempts} failed:`, error.message);
+                        if (attempts === maxAttempts) throw error;
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                }
+                
+            } catch (error) {
+                console.error("❌ Error loading auction data:", error);
+                showStatus("Error loading auction data - trying different RPC...", "error");
+                
+                // Try different RPC provider
+                setTimeout(() => loadAuctionData(true), 2000);
+            }
+        }
+
+        // Load user data using OPTIMIZED RPC (no MetaMask cache)
+        async function loadUserData() {
+            if (!currentAccount) return;
+            
+            try {
+                console.log("👤 Loading user data OPTIMIZED for:", currentAccount);
+                
+                // Use FRESH provider for reading user data (no MetaMask cache)
+                const provider = getFreshProvider();
+                const auctionContract = new ethers.Contract(AUCTION_CONTRACT, AUCTION_ABI, provider);
+                const tokenContract = new ethers.Contract(ADRIAN_TOKEN, ERC20_ABI, provider);
+                
+                // OPTIMIZED: Get user balance and bid data in parallel
+                const [balance, bidData] = await Promise.all([
+                    tokenContract.callStatic.balanceOf(currentAccount, { blockTag: 'latest' }),
+                    auctionContract.callStatic.getBidderPosition(currentAccount, { blockTag: 'latest' })
+                ]);
+                
+                userBalance = balance;
+                userBidData = {
+                    position: bidData.position.toNumber(),
+                    bidAmount: bidData.bidAmount
+                };
+                
+                console.log("👤 OPTIMIZED user data loaded:", {
+                    balance: ethers.utils.formatEther(userBalance),
+                    bidAmount: ethers.utils.formatEther(userBidData.bidAmount),
+                    position: userBidData.position
+                });
+                
+                // Update UI
+                const balanceFormatted = parseFloat(ethers.utils.formatEther(userBalance)).toFixed(1);
+                document.getElementById('userBalance').textContent = `${balanceFormatted} $ADRIAN`;
+                
+                const bidFormatted = parseFloat(ethers.utils.formatEther(userBidData.bidAmount)).toFixed(1);
+                document.getElementById('userBid').textContent = `${bidFormatted} $ADRIAN`;
+                
+                document.getElementById('userPosition').textContent = 
+                    userBidData.position === 0 ? "Not bidding" : `#${userBidData.position}`;
+                
+            } catch (error) {
+                console.error("Error loading user data:", error);
+            }
+        }
+
+        // Load leaderboard with OPTIMIZED data fetching
+        async function loadLeaderboard() {
+            try {
+                const provider = getFreshProvider();
+                const contract = new ethers.Contract(AUCTION_CONTRACT, AUCTION_ABI, provider);
+                
+                // OPTIMIZED: Use getTop10Bidders directly
+                const leaderboard = await contract.getTop10Bidders();
+                const topBidders = leaderboard.topBidders;
+                const topBids = leaderboard.topBids;
+                
+                console.log("📊 OPTIMIZED Leaderboard loaded:", topBidders.length, "bidders");
+                
+                const leaderboardDiv = document.getElementById('leaderboard');
+                leaderboardDiv.innerHTML = '';
+                
+                if (topBidders.length === 0) {
+                    leaderboardDiv.innerHTML = '<div class="leaderboard-item"><div>No bidders yet</div></div>';
+                    return;
+                }
+                
+                for (let i = 0; i < topBidders.length; i++) {
+                    const isUser = currentAccount && topBidders[i].toLowerCase() === currentAccount.toLowerCase();
+                    const itemClass = isUser ? 'leaderboard-item user' : 'leaderboard-item';
+                    
+                    const bidFormatted = parseFloat(ethers.utils.formatEther(topBids[i])).toFixed(1);
+                    
+                    const item = document.createElement('div');
+                    item.className = itemClass;
+                    item.innerHTML = `
+                        <div class="leaderboard-rank">#${i + 1}</div>
+                        <div class="leaderboard-address">${topBidders[i].slice(0,6)}...${topBidders[i].slice(-4)}</div>
+                        <div class="leaderboard-amount">${bidFormatted} $ADRIAN</div>
+                    `;
+                    leaderboardDiv.appendChild(item);
+                }
+                
+            } catch (error) {
+                console.error("Error loading leaderboard:", error);
+            }
+        }
+
+        // Update timer using OPTIMIZED time remaining data
+        function updateTimerDirect() {
+            if (!auctionStats || !auctionStats.timeRemaining) {
+                document.getElementById('timeRemaining').textContent = "Loading...";
+                return;
+            }
+            
+            const timeLeft = auctionStats.timeRemaining;
+            
+            if (timeLeft <= 0) {
+                document.getElementById('timeRemaining').textContent = "AUCTION ENDED";
+                return;
+            }
+            
+            const hours = Math.floor(timeLeft / 3600);
+            const minutes = Math.floor((timeLeft % 3600) / 60);
+            const seconds = timeLeft % 60;
+            
+            document.getElementById('timeRemaining').textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        // Update leaderboard from already fetched data (OPTIMIZED)
+        function updateLeaderboardFromData(leaderboardData) {
+            try {
+                const topBidders = leaderboardData.topBidders;
+                const topBids = leaderboardData.topBids;
+                
+                console.log("📊 Updating leaderboard with OPTIMIZED data:", topBidders.length, "bidders");
+                
+                const leaderboardDiv = document.getElementById('leaderboard');
+                leaderboardDiv.innerHTML = '';
+                
+                if (topBidders.length === 0) {
+                    leaderboardDiv.innerHTML = '<div class="leaderboard-item"><div>No bidders yet</div></div>';
+                    return;
+                }
+                
+                for (let i = 0; i < topBidders.length; i++) {
+                    const isUser = currentAccount && topBidders[i].toLowerCase() === currentAccount.toLowerCase();
+                    const itemClass = isUser ? 'leaderboard-item user' : 'leaderboard-item';
+                    
+                    const bidFormatted = parseFloat(ethers.utils.formatEther(topBids[i])).toFixed(1);
+                    
+                    const item = document.createElement('div');
+                    item.className = itemClass;
+                    item.innerHTML = `
+                        <div class="leaderboard-rank">#${i + 1}</div>
+                        <div class="leaderboard-address">${topBidders[i].slice(0,6)}...${topBidders[i].slice(-4)}</div>
+                        <div class="leaderboard-amount">${bidFormatted} $ADRIAN</div>
+                    `;
+                    leaderboardDiv.appendChild(item);
+                }
+                
+            } catch (error) {
+                console.error("Error updating leaderboard:", error);
+            }
+        }
+
+        // Update timer (legacy function for compatibility)
+        function updateTimer() {
+            updateTimerDirect();
+        }
+
+        // Helper function to calculate minimum bid using EXACT contract logic
+        function calculateMinBidWei(currentBidWei) {
+            if (currentBidWei.eq(0)) {
+                return ethers.utils.parseEther("0.01"); // Minimum bid when no bids exist
+            }
+            
+            // EXACT CONTRACT LOGIC: newBid < highestBid + (highestBid / 10)
+            // This means: newBid >= highestBid + (highestBid / 10)
+            // Which is: newBid >= highestBid * 11 / 10
+            const minBidWei = currentBidWei.mul(11).div(10);
+            
+            return minBidWei;
+        }
+
+        // Update minimum bid based on current highest bid (FIXED - uses exact contract logic)
+        function updateMinBid() {
+            if (!auctionStats) return;
+            
+            // Use the exact contract logic to calculate minimum bid
+            const minBidWei = calculateMinBidWei(auctionStats.highestBid);
+            const minBidEther = parseFloat(ethers.utils.formatEther(minBidWei));
+            
+            document.getElementById('minBid').textContent = minBidEther.toFixed(2);
+            
+            // Update input placeholder with exact value
+            document.getElementById('bidAmount').placeholder = minBidEther.toFixed(2);
+            
+            console.log("🎯 Min bid calculation:", {
+                currentBidWei: auctionStats.highestBid.toString(),
+                currentBidEther: ethers.utils.formatEther(auctionStats.highestBid),
+                minBidWei: minBidWei.toString(),
+                minBidEther: minBidEther.toFixed(2)
+            });
+        }
+
+        // Approve tokens using SIGNER provider (FIXED - uses exact contract logic)
+        async function approveTokens() {
+            if (!currentAccount) {
+                showStatus("Connect wallet first!", "error");
+                return;
+            }
+            
+            const bidAmount = document.getElementById('bidAmount').value;
+            if (!bidAmount || parseFloat(bidAmount) <= 0) {
+                showStatus("Enter a valid bid amount first!", "error");
+                return;
+            }
+            
+            // FIXED: Use exact contract logic for validation
+            const bidAmountWei = ethers.utils.parseEther(bidAmount);
+            const minBidWei = calculateMinBidWei(auctionStats.highestBid);
+            
+            if (bidAmountWei.lt(minBidWei)) {
+                const minBidEther = parseFloat(ethers.utils.formatEther(minBidWei));
+                showStatus(`Bid must be at least ${minBidEther.toFixed(2)} $ADRIAN`, "error");
+                return;
+            }
+            
+            try {
+                document.getElementById('approveBtn').disabled = true;
+                showStatus(`Approving ${bidAmount} $ADRIAN tokens...`, "loading");
+                
+                // Use SIGNER provider for transactions (MetaMask)
+                const signerProvider = getSignerProvider();
+                const signer = signerProvider.getSigner();
+                const tokenContract = new ethers.Contract(ADRIAN_TOKEN, ERC20_ABI, signer);
+                
+                const tx = await tokenContract.approve(AUCTION_CONTRACT, bidAmountWei);
+                await tx.wait();
+                
+                showStatus(`✅ ${bidAmount} $ADRIAN approved! Now you can place your bid.`, "success");
+                
+            } catch (error) {
+                console.error("Approval error:", error);
+                let errorMsg = "Approval failed";
+                if (error.message.includes("denied") || error.code === 4001) {
+                    errorMsg = "Transaction cancelled by user";
+                } else if (error.message.includes("insufficient funds")) {
+                    errorMsg = "Insufficient funds for gas";
+                }
+                showStatus(errorMsg, "error");
+            } finally {
+                document.getElementById('approveBtn').disabled = false;
+            }
+        }
+
+        // Place bid using SIGNER provider (FIXED - uses exact contract validation)
+        async function placeBid() {
+            if (!currentAccount) {
+                showStatus("Connect wallet first!", "error");
+                return;
+            }
+            
+            const bidAmount = document.getElementById('bidAmount').value;
+            if (!bidAmount || parseFloat(bidAmount) <= 0) {
+                showStatus("Enter a valid bid amount!", "error");
+                return;
+            }
+            
+            // FIXED: Use exact contract logic for validation
+            const bidAmountWei = ethers.utils.parseEther(bidAmount);
+            const minBidWei = calculateMinBidWei(auctionStats.highestBid);
+            
+            if (bidAmountWei.lt(minBidWei)) {
+                const minBidEther = parseFloat(ethers.utils.formatEther(minBidWei));
+                showStatus(`Bid must be at least ${minBidEther.toFixed(2)} $ADRIAN`, "error");
+                return;
+            }
+            
+            try {
+                document.getElementById('bidBtn').disabled = true;
+                showStatus(`Placing bid of ${bidAmount} $ADRIAN...`, "loading");
+                
+                // Use SIGNER provider for transactions (MetaMask)
+                const signerProvider = getSignerProvider();
+                const signer = signerProvider.getSigner();
+                const contract = new ethers.Contract(AUCTION_CONTRACT, AUCTION_ABI, signer);
+                
+                const tx = await contract.bid(bidAmountWei);
+                
+                showStatus("Transaction sent! Waiting for confirmation...", "loading");
+                await tx.wait();
+                
+                showStatus(`🎉 Successfully placed bid of ${bidAmount} $ADRIAN!`, "success");
+                
+                // Clear input and reload data immediately
+                document.getElementById('bidAmount').value = '';
+                
+                // Force immediate refresh with fresh RPC data
+                setTimeout(async () => {
+                    await loadAuctionData(true);
+                    if (currentAccount) {
+                        await loadUserData();
+                    }
+                }, 1000); // Wait 1 second for blockchain to update
+                
+            } catch (error) {
+                console.error("Bid error:", error);
+                let errorMsg = "Bid failed";
+                
+                if (error.message.includes("insufficient funds")) {
+                    errorMsg = "Not enough $ADRIAN tokens";
+                } else if (error.message.includes("allowance")) {
+                    errorMsg = "Need to approve $ADRIAN first";
+                } else if (error.message.includes("denied") || error.code === 4001) {
+                    errorMsg = "Transaction cancelled by user";
+                } else if (error.message.includes("Auction ended")) {
+                    errorMsg = "Auction has ended";
+                } else if (error.message.includes("10% higher")) {
+                    errorMsg = "Bid must be at least 10% higher than current highest bid";
+                }
+                
+                showStatus(errorMsg, "error");
+            } finally {
+                document.getElementById('bidBtn').disabled = false;
+            }
+        }
+
+
+
+
+
+        // Block-based refresh system (OPTIMIZED - more efficient than setInterval)
+        let readProvider;
+        
+        function startBlockListener() {
+            // Clean up existing listener
+            if (readProvider) {
+                readProvider.removeAllListeners();
+            }
+            
+            console.log("🎧 Starting OPTIMIZED block listener for real-time updates...");
+            readProvider = getFreshProvider();
+            
+            // Listen for new blocks and update data with OPTIMIZED calls
+            readProvider.on('block', async (blockNumber) => {
+                console.log(`🆕 New block detected: ${blockNumber}`);
+                
+                try {
+                    await loadAuctionData();
+                    if (currentAccount) {
+                        await loadUserData();
+                    }
+                    updateTimerDirect();
+                } catch (error) {
+                    console.error("Error updating on new block:", error);
+                }
+            });
+            
+            // Fallback: still use interval but less frequent (every 10 seconds)
+            if (updateInterval) clearInterval(updateInterval);
+            updateInterval = setInterval(async () => {
+                // Update timer countdown every second
+                if (auctionStats && auctionStats.timeRemaining) {
+                    auctionStats.timeRemaining = Math.max(0, auctionStats.timeRemaining - 1);
+                    updateTimerDirect();
+                }
+                
+                // Fallback refresh every 10 seconds in case block listener fails
+                const now = Date.now();
+                if (now - lastUpdateTime > 10000) {
+                    console.log("⏰ OPTIMIZED fallback refresh (block listener backup)");
+                    await loadAuctionData(true);
+                    if (currentAccount) {
+                        await loadUserData();
+                    }
+                }
+            }, 1000);
+        }
+
+        // Legacy function for compatibility (now uses OPTIMIZED block listener)
+        function startUpdateInterval() {
+            startBlockListener();
+        }
+
+        // Show status
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            status.textContent = message;
+            
+            if (type === 'success' || type === 'error') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>
