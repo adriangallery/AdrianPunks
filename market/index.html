@@ -1655,7 +1655,13 @@
               // Intentar obtener las ofertas del token usando el contrato de solo lectura
               let highestOffer = null;
               try {
-                const tokenOffers = await newMarketplaceReadContract.getTokenOffersForToken(NFT_ADDRESS, tokenIdInt);
+                // Usar el provider de Alchemy para evitar rate limiting
+                const alchemyProvider = new ethers.providers.JsonRpcProvider(ALCHEMY_RPC_URL, {
+                  name: "base",
+                  chainId: 8453
+                });
+                const marketplaceContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, alchemyProvider);
+                const tokenOffers = await marketplaceContract.getTokenOffersForToken(NFT_ADDRESS, tokenIdInt);
                 const relevantOffers = tokenOffers.filter(offer => offer.exists);
                 if (relevantOffers.length > 0) {
                   highestOffer = relevantOffers.reduce((max, offer) => 
