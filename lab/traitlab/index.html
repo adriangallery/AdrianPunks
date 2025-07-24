@@ -270,6 +270,55 @@
             z-index: 100;
             backdrop-filter: blur(10px);
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+
+        .selection-info.minimized {
+            max-width: 50%;
+            margin: 10px auto;
+        }
+
+        .selection-info.minimized .selection-text {
+            display: none;
+        }
+
+        .selection-info.minimized .generated-image img {
+            max-width: 210px; /* 30% reduction from 300px */
+            height: auto;
+        }
+
+        .selection-info.minimized .image-loading-overlay {
+            width: 210px;
+            height: 210px;
+        }
+
+        .minimize-btn {
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            background: #666666;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            font-family: 'VT323', monospace;
+            transition: all 0.3s ease;
+            z-index: 101;
+        }
+
+        .minimize-btn:hover {
+            background: #888888;
+        }
+
+        .minimize-btn.minimized {
+            background: #00ff00;
+            color: #333333;
+        }
+
+        .minimize-btn.minimized:hover {
+            background: #00cc00;
         }
 
         .generated-image {
@@ -550,6 +599,7 @@
             </div>
 
             <div id="selection-info" class="selection-info" style="display: none;">
+                <button id="minimizeBtn" class="minimize-btn">Minimize</button>
                 <div id="selection-text"></div>
                 <div id="generated-image" class="generated-image" style="display: none;">
                     <div id="image-loading-overlay" class="image-loading-overlay" style="display: none;">
@@ -673,6 +723,7 @@
         const contractBtns = document.querySelectorAll('.contract-btn');
         const selectionInfo = document.getElementById('selection-info');
         const selectionText = document.getElementById('selection-text');
+        const minimizeBtn = document.getElementById('minimizeBtn');
         const generatedImage = document.getElementById('generated-image');
         const combinedImage = document.getElementById('combined-image');
         const imageLoadingOverlay = document.getElementById('image-loading-overlay');
@@ -712,6 +763,11 @@
             activateTokenBtn.addEventListener('click', activateToken);
             approveRenameBtn.addEventListener('click', approveRename);
             renameTokenBtn.addEventListener('click', renameToken);
+            
+            // Initialize minimize button
+            if (minimizeBtn) {
+                minimizeBtn.addEventListener('click', toggleSelectionInfo);
+            }
             
             // Listen for messages from parent window (AdrianLab)
             window.addEventListener('message', handleParentMessage);
@@ -3095,6 +3151,27 @@
                 openPackBtn.disabled = false;
             }
         }
+
+        // Minimize selection info
+        function minimizeSelectionInfo() {
+            selectionInfo.classList.add('minimized');
+            minimizeBtn.textContent = 'Expand';
+        }
+
+        // Expand selection info
+        function expandSelectionInfo() {
+            selectionInfo.classList.remove('minimized');
+            minimizeBtn.textContent = 'Minimize';
+        }
+
+        // Toggle selection info
+        function toggleSelectionInfo() {
+            if (selectionInfo.classList.contains('minimized')) {
+                expandSelectionInfo();
+            } else {
+                minimizeSelectionInfo();
+            }
+        }
     </script>
 </body>
-</html> 
+</html>
