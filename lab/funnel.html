@@ -159,6 +159,7 @@
             grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
             gap: 40px;
             margin-bottom: 60px;
+            max-width: 1200px;
         }
 
         .step-card {
@@ -202,6 +203,23 @@
             color: #cccccc;
             margin-bottom: 25px;
             line-height: 1.5;
+        }
+
+        /* NFT Preview Images */
+        .nft-preview {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 20px;
+            border: 3px solid #00ff00;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 255, 0, 0.2);
+        }
+
+        .nft-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         /* Mint Interface */
@@ -637,6 +655,11 @@
             <div class="step-card fade-in">
                 <div class="step-number">2</div>
                 <h3 class="step-title">Mint AdrianZERO NFT</h3>
+                
+                <div class="nft-preview">
+                    <img src="https://adrianlab.vercel.app/api/render/1" alt="AdrianZERO NFT Preview">
+                </div>
+                
                 <p class="step-description">
                     Mint your base AdrianZERO NFT - the foundation of your collection. 
                     This is your canvas for trait customization.
@@ -664,6 +687,11 @@
             <div class="step-card fade-in">
                 <div class="step-number">3</div>
                 <h3 class="step-title">STARTER Floppy (Green)</h3>
+                
+                <div class="nft-preview">
+                    <img src="https://adrianlab-kt4ehqbtn-adrianlab.vercel.app/labimages/10002.gif?v=1751800464450" alt="STARTER Floppy Green Preview">
+                </div>
+                
                 <p class="step-description">
                     Mint STARTER Floppy Discs containing rare traits. 
                     Open them to discover unique traits for your collection.
@@ -684,33 +712,6 @@
                         Mint STARTER Floppy
                     </button>
                     <div class="status-message" id="starterFloppyStatus"></div>
-                </div>
-            </div>
-
-            <!-- Step 4: Mint GF Floppy -->
-            <div class="step-card fade-in">
-                <div class="step-number">4</div>
-                <h3 class="step-title">GF Floppy</h3>
-                <p class="step-description">
-                    Mint exclusive GF Floppy Discs with premium traits and utilities. 
-                    Higher tier rewards await inside.
-                </p>
-                <div class="price-tag">Price: 8,000 $ADRIAN each</div>
-                
-                <div class="mint-interface" style="display: none;" id="gfFloppyMint">
-                    <div class="quantity-controls">
-                        <button class="quantity-btn" onclick="changeQuantity('gfFloppy', -1)">-</button>
-                        <div class="quantity-display" id="gfFloppyQuantity">1</div>
-                        <button class="quantity-btn" onclick="changeQuantity('gfFloppy', 1)">+</button>
-                    </div>
-                    <div class="total-cost">Total: <span class="cost-amount" id="gfFloppyTotal">8,000</span> $ADRIAN</div>
-                    <button class="action-btn btn-approve" id="approveGfFloppy" onclick="approveTokens('gfFloppy')">
-                        Approve $ADRIAN
-                    </button>
-                    <button class="action-btn btn-mint" id="mintGfFloppy" onclick="mintGfFloppy()">
-                        Mint GF Floppy
-                    </button>
-                    <div class="status-message" id="gfFloppyStatus"></div>
                 </div>
             </div>
         </div>
@@ -756,9 +757,7 @@
 
         // Pack configurations
         const STARTER_FLOPPY_PACK_ID = 10002;
-        const GF_FLOPPY_PACK_ID = 10004;
         const STARTER_FLOPPY_PRICE = ethers.utils.parseEther("7500");
-        const GF_FLOPPY_PRICE = ethers.utils.parseEther("8000");
 
         // ABIs
         const ERC20_ABI = [
@@ -785,8 +784,7 @@
         let packMinterContract;
         let quantities = {
             adrianZero: 1,
-            starterFloppy: 1,
-            gfFloppy: 1
+            starterFloppy: 1
         };
         let adrianZeroPrice = ethers.utils.parseEther("0");
 
@@ -845,7 +843,6 @@
                 // Show mint interfaces
                 document.getElementById('adrianZeroMint').style.display = 'block';
                 document.getElementById('starterFloppyMint').style.display = 'block';
-                document.getElementById('gfFloppyMint').style.display = 'block';
                 
                 // Load prices and data
                 await loadAdrianZeroPrice();
@@ -944,9 +941,6 @@
                 case 'starterFloppy':
                     price = STARTER_FLOPPY_PRICE;
                     break;
-                case 'gfFloppy':
-                    price = GF_FLOPPY_PRICE;
-                    break;
             }
             
             const total = price.mul(quantities[type]);
@@ -958,7 +952,6 @@
         function updateAllTotals() {
             updateTotal('adrianZero');
             updateTotal('starterFloppy');
-            updateTotal('gfFloppy');
         }
 
         async function approveTokens(type) {
@@ -979,8 +972,7 @@
                         spender = ADRIAN_ZERO_MINT;
                         break;
                     case 'starterFloppy':
-                    case 'gfFloppy':
-                        price = type === 'starterFloppy' ? STARTER_FLOPPY_PRICE : GF_FLOPPY_PRICE;
+                        price = STARTER_FLOPPY_PRICE;
                         spender = PACK_MINTER;
                         break;
                 }
@@ -1060,37 +1052,9 @@
             }
         }
 
-        async function mintGfFloppy() {
-            if (!userAddress) {
-                showStatus('gfFloppy', 'Connect wallet first!', 'error');
-                return;
-            }
-            
-            try {
-                const button = document.getElementById('mintGfFloppy');
-                button.disabled = true;
-                button.classList.add('btn-loading');
-                
-                showStatus('gfFloppy', `Minting ${quantities.gfFloppy} GF Floppy...`, 'loading');
-                
-                const tx = await packMinterContract.purchasePack(GF_FLOPPY_PACK_ID, quantities.gfFloppy, false);
-                await tx.wait();
-                
-                showStatus('gfFloppy', `🎉 Successfully minted ${quantities.gfFloppy} GF Floppy!`, 'success');
-                
-            } catch (error) {
-                console.error('Mint error:', error);
-                showStatus('gfFloppy', 'Mint failed: ' + parseError(error), 'error');
-            } finally {
-                const button = document.getElementById('mintGfFloppy');
-                button.disabled = false;
-                button.classList.remove('btn-loading');
-            }
-        }
-
         function showStatus(type, message, statusType) {
             if (type === 'all') {
-                ['adrianZero', 'starterFloppy', 'gfFloppy'].forEach(t => {
+                ['adrianZero', 'starterFloppy'].forEach(t => {
                     const statusEl = document.getElementById(t + 'Status');
                     if (statusEl) {
                         statusEl.className = `status-message ${statusType}`;
