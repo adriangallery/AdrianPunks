@@ -710,6 +710,8 @@
         
         // PackTokenMinter contract
         const PACK_TOKEN_MINTER_CONTRACT = "0x673bE1968A12470F93BE374AAB529a89d5D607d5";
+        // New Pack opener for tokenId 10003
+        const PACK_TOKEN_MINTER_CONTRACT_V2_10003 = "0x03f501158103dd54A23898bADf8E77Cb8305EB38";
         
         // AdrianNameRegistry contract
         const ADRIAN_NAME_REGISTRY_CONTRACT = "0xaeC5ED33c88c1943BB7452aC4B571ad0b4c4068C";
@@ -1784,12 +1786,8 @@
                     refreshMetadataSection.style.display = 'none'; // Hide refresh metadata in floppy tab
                     
                     // Check if it's a token that should show SOON or Open Pack
-                    // Token 10003 should show SOON, token 10004 should show Open Pack, all other floppy discs should be openable
-                    if (selectedFloppy.tokenId === 10003) {
-                        openFloppyBtn.textContent = 'SOON';
-                        openFloppyBtn.disabled = true;
-                        openPackSection.style.display = 'none';
-                    } else if (selectedFloppy.tokenId === 10004) {
+                    // Token 10003 and 10004 use Open Pack; others use Open Floppy
+                    if (selectedFloppy.tokenId === 10003 || selectedFloppy.tokenId === 10004) {
                         openFloppySection.style.display = 'none';
                         openPackSection.style.display = 'block';
                         openPackBtn.textContent = 'Open Pack';
@@ -3083,7 +3081,7 @@
                 return;
             }
 
-            if (selectedFloppy.tokenId !== 10004) {
+            if (selectedFloppy.tokenId !== 10004 && selectedFloppy.tokenId !== 10003) {
                 showOpenPackStatus('This function is only available for Pack tokens.', 'error');
                 return;
             }
@@ -3128,7 +3126,12 @@
                             "function openPack(uint256 tokenId) external"
                         ];
 
-                        const contract = new ethers.Contract(PACK_TOKEN_MINTER_CONTRACT, packMinterABI, signer);
+                        // Choose contract by tokenId (10003 uses V2)
+                        const packContractAddress = (selectedFloppy.tokenId === 10003)
+                            ? PACK_TOKEN_MINTER_CONTRACT_V2_10003
+                            : PACK_TOKEN_MINTER_CONTRACT;
+
+                        const contract = new ethers.Contract(packContractAddress, packMinterABI, signer);
                         const tokenId = selectedFloppy.tokenId;
 
                         console.log('Opening pack for token ID:', tokenId);
