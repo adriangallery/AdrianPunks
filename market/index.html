@@ -1342,49 +1342,108 @@
         alert("Please connect your wallet first.");
         return;
       }
+      
+      const container = document.getElementById("recentActivityContent");
+      container.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+      
+      let modal = new bootstrap.Modal(document.getElementById('recentActivityModal'));
+      modal.show();
+      
       try {
-        // Get all listed tokens from FloorEngine
-        const listedTokenIds = await floorEngineReadContract.getListedTokenIds();
+        // Get contract balance
+        const contractBalance = await tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS);
+        const balanceFormatted = parseFloat(ethers.utils.formatUnits(contractBalance, 18)).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         
-        let contentHtml = "";
-        if (listedTokenIds.length === 0) {
-          contentHtml = "<p class='text-center'>No active listings.</p>";
+        // Get recent events from FloorEngine (last 10000 blocks)
+        const currentBlock = await readProvider.getBlockNumber();
+        const fromBlock = Math.max(0, currentBlock - 10000);
+        
+        // Fetch all events
+        const listedFilter = floorEngineReadContract.filters.Listed();
+        const boughtFilter = floorEngineReadContract.filters.Bought();
+        const cancelledFilter = floorEngineReadContract.filters.Cancelled();
+        const sweepFilter = floorEngineReadContract.filters.FloorSweep();
+        
+        const [listedEvents, boughtEvents, cancelledEvents, sweepEvents] = await Promise.all([
+          floorEngineReadContract.queryFilter(listedFilter, fromBlock, 'latest'),
+          floorEngineReadContract.queryFilter(boughtFilter, fromBlock, 'latest'),
+          floorEngineReadContract.queryFilter(cancelledFilter, fromBlock, 'latest'),
+          floorEngineReadContract.queryFilter(sweepFilter, fromBlock, 'latest')
+        ]);
+        
+        // Combine and sort all events by block number (most recent first)
+        const allEvents = [
+          ...listedEvents.map(e => ({type: 'Listed', event: e})),
+          ...boughtEvents.map(e => ({type: 'Bought', event: e})),
+          ...cancelledEvents.map(e => ({type: 'Cancelled', event: e})),
+          ...sweepEvents.map(e => ({type: 'FloorSweep', event: e}))
+        ].sort((a, b) => b.event.blockNumber - a.event.blockNumber).slice(0, 20); // Last 20 events
+        
+        let contentHtml = `
+          <div class="alert alert-info mb-3">
+            <strong>💰 Contract Balance:</strong> ${balanceFormatted} $ADRIAN
+          </div>
+        `;
+        
+        if (allEvents.length === 0) {
+          contentHtml += "<p class='text-center text-muted'>No recent activity.</p>";
         } else {
-          contentHtml = "<div class='list-group'>";
-          for (const tokenId of listedTokenIds) {
-            const listing = await floorEngineReadContract.listings(tokenId);
-            const nft = nftData.find(n => parseInt(n.name.split('#')[1]) === tokenId.toNumber());
-            const price = parseFloat(ethers.utils.formatUnits(listing.price, 18));
-            const formattedPrice = price >= 1000000 ? (price / 1000000).toFixed(1) + 'M' :
-                                 price >= 1000 ? (price / 1000).toFixed(1) + 'K' :
-                                 price.toFixed(1);
-            const badge = listing.isContractOwned ? '<span class="badge bg-primary">ENGINE</span>' : '<span class="badge bg-secondary">USER</span>';
+          contentHtml += "<div class='list-group'>";
+          for (const item of allEvents) {
+            const e = item.event;
+            const args = e.args;
+            const price = args.price || args.buyPrice;
+            const formattedPrice = price ? parseFloat(ethers.utils.formatUnits(price, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1}) : 'N/A';
+            
+            let icon = '';
+            let color = '';
+            let description = '';
+            
+            switch(item.type) {
+              case 'Listed':
+                icon = '📝';
+                color = 'text-primary';
+                const badge = args.isContractOwned ? '<span class="badge bg-primary">ENGINE</span>' : '<span class="badge bg-secondary">USER</span>';
+                description = `Listed #${args.tokenId.toString()} for ${formattedPrice} $A ${badge}`;
+                break;
+              case 'Bought':
+                icon = '✅';
+                color = 'text-success';
+                description = `Bought #${args.tokenId.toString()} for ${formattedPrice} $A by ${args.buyer.substring(0, 6)}...`;
+                break;
+              case 'Cancelled':
+                icon = '❌';
+                color = 'text-danger';
+                description = `Cancelled listing #${args.tokenId.toString()}`;
+                break;
+              case 'FloorSweep':
+                icon = '🚀';
+                color = 'text-warning';
+                const relistPrice = parseFloat(ethers.utils.formatUnits(args.relistPrice, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1});
+                const reward = parseFloat(ethers.utils.formatUnits(args.callerReward, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1});
+                description = `Sweep! #${args.tokenId.toString()} bought for ${formattedPrice} $A, relisted at ${relistPrice} $A, reward: ${reward} $A`;
+                break;
+            }
+            
             contentHtml += `
               <div class="list-group-item d-flex justify-content-between align-items-center">
                 <div>
-                  <span class="fw-bold">Listing</span> - 
-                  <span class="text-muted">${listing.seller.substring(0, 6)}...${listing.seller.substring(38)}</span> - 
-                  <span class="fw-bold">#${tokenId.toString()}</span> - 
-                  <span class="text-primary">${formattedPrice} $A</span> ${badge}
+                  <span style="font-size: 1.2em;">${icon}</span>
+                  <span class="${color} fw-bold">${item.type}</span> - 
+                  <span class="text-muted">${description}</span>
+                  <br>
+                  <small class="text-muted">Block #${e.blockNumber}</small>
                 </div>
-                ${nft ? `
-                  <img src="${nft.image}" 
-                       class="rounded" 
-                       style="width: 30px; height: 30px; object-fit: cover; cursor: pointer;" 
-                       alt="Token ${tokenId}"
-                       onclick="closeAndShowNFTDetails('${nft.name}')">
-                ` : ''}
               </div>
             `;
           }
           contentHtml += "</div>";
         }
-        document.getElementById("recentActivityContent").innerHTML = contentHtml;
-        let modal = new bootstrap.Modal(document.getElementById('recentActivityModal'));
-        modal.show();
+        
+        container.innerHTML = contentHtml;
       } catch (e) {
         console.error(e);
-        alert("Error loading recent activity: " + e.message);
+        container.innerHTML = `<div class="alert alert-danger">Error loading activity: ${e.message}</div>`;
       }
     }
     
