@@ -974,17 +974,21 @@
         } catch (error) {
           ownershipStatus = `<div class="alert alert-warning">Could not verify token ownership</div>`;
         }
-        const activeListings = await newMarketplaceContract.getActiveListingsDetailed();
-        const tokenListing = activeListings.find(listing => listing.tokenId.toString() === tokenId.toString() && listing.expirationTime > Math.floor(Date.now() / 1000));
-        const tokenOffers = await newMarketplaceContract.getTokenOffersForToken(NFT_ADDRESS, tokenId);
-        console.log("Token offers:", tokenOffers);
-        const relevantOffers = tokenOffers.filter(offer => offer.exists);
-        let floorOffer;
+        
+        // Check if token is listed on FloorEngine
+        let tokenListing = null;
         try {
-          floorOffer = await newMarketplaceContract.callStatic.floorOffers(NFT_ADDRESS, 0);
-        } catch (e) {
-          console.error("Error retrieving floor offer, defaulting to no active offer:", e);
-          floorOffer = { offerAmount: ethers.BigNumber.from(0), buyer: "", active: false };
+          const isListed = await floorEngineReadContract.isListed(tokenId);
+          if (isListed) {
+            const listing = await floorEngineReadContract.listings(tokenId);
+            tokenListing = {
+              price: listing.price,
+              seller: listing.seller,
+              isContractOwned: listing.isContractOwned
+            };
+          }
+        } catch (error) {
+          console.error("Error checking listing status:", error);
         }
         const modalContent = document.getElementById('nftModalContent');
         modalContent.innerHTML = `
@@ -1002,59 +1006,20 @@
               <p><strong>Rarity:</strong> ${typeof nft.rarity === 'number' ? nft.rarity.toFixed(2) : 'N/A'}</p>
               ${isOwner ? `
                 ${!tokenListing ? `
-                  <button class="btn btn-primary w-100 mb-2" onclick="openListingForm('${nft.name}', 'NewAdrianMarket')">
-                    List for Sale
+                  <button class="btn btn-primary w-100 mb-2" onclick="openListingForm('${nft.name}', 'FloorEngine')">
+                    List for Sale on FloorEngine
                   </button>
                 ` : `
                   <div class="listing-info alert alert-info">
-                    <h6>Active Listing</h6>
+                    <h6>Active Listing ${tokenListing.isContractOwned ? '<span class="badge bg-primary">ENGINE</span>' : '<span class="badge bg-secondary">USER</span>'}</h6>
                     <p>Price: ${parseFloat(ethers.utils.formatUnits(tokenListing.price, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1})} $ADRIAN</p>
                     <p>Seller: ${tokenListing.seller.substring(0, 6)}...${tokenListing.seller.substring(38)}</p>
-                    <p>Expires: ${new Date(tokenListing.expirationTime * 1000).toLocaleString()}</p>
-                    <button class="btn btn-danger btn-sm" onclick="cancelListing(${tokenListing.id})">Cancel Listing</button>
+                    ${!tokenListing.isContractOwned ? `
+                      <button class="btn btn-danger btn-sm" onclick="cancelListing(${tokenId})">Cancel Listing</button>
+                    ` : '<p class="text-muted mb-0"><small>This listing is managed by the FloorEngine</small></p>'}
                   </div>
                 `}
               ` : ''}
-              <div class="offers-section mt-3">
-                <h6>Active Offers</h6>
-                ${relevantOffers && relevantOffers.length > 0 ? `
-                  <div class="list-group">
-                    ${relevantOffers.map(offer => `
-                      <div class="list-group-item">
-                        <p class="mb-1">Offer: ${parseFloat(ethers.utils.formatUnits(offer.offerAmount, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1})} $A</p>
-                        <small>By: ${offer.buyer.substring(0, 6)}...${offer.buyer.substring(38)}</small>
-                        ${isOwner ? `
-                          <button class="btn btn-success btn-sm float-end" 
-                            onclick="acceptTokenOffer('${NFT_ADDRESS}', ${tokenId}, ${offer.id})">
-                            Accept Offer
-                          </button>
-                        ` : ''}
-                        ${offer.buyer.toLowerCase() === userAccount.toLowerCase() ? `
-                          <button class="btn btn-danger btn-sm float-end" 
-                            onclick="cancelTokenOffer('${NFT_ADDRESS}', ${tokenId})">
-                            Cancel Offer
-                          </button>
-                        ` : ''}
-                      </div>
-                    `).join('')}
-                  </div>
-                ` : `
-                  <div class="text-center">
-                    <p class="text-muted">No active offers</p>
-                  </div>
-                `}
-                ${floorOffer.offerAmount.gt(0) ? `
-                  <div class="floor-offer-info mt-2">
-                    <p class="mb-1">Floor Offer: ${parseFloat(ethers.utils.formatUnits(floorOffer.offerAmount, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1})} $A</p>
-                    <small>By: ${floorOffer.buyer.substring(0, 6)}...${floorOffer.buyer.substring(38)}</small>
-                    ${isOwner ? `
-                      <button class="btn btn-success btn-sm" onclick="acceptFloorOffer(${tokenId})">
-                        Accept Floor Offer
-                      </button>
-                    ` : ''}
-                  </div>
-                ` : ''}
-              </div>
               <h6 class="mt-3">Attributes:</h6>
               <ul class="list-group">
                 ${nft.attributes && Array.isArray(nft.attributes) ? nft.attributes.map(attr => 
@@ -1062,21 +1027,9 @@
                     <div>
                       <strong>${attr.trait_type}:</strong> ${attr.value}
                     </div>
-                    <button class="btn btn-sm btn-outline-primary" 
-                      onclick="openTraitOfferForm('${attr.trait_type}', '${attr.value}')" 
-                      title="Make Trait Offer">
-                      💰
-                    </button>
                   </li>`
                 ).join('') : '<li class="list-group-item">No attributes found</li>'}
               </ul>
-              <div class="text-center mt-3">
-                ${!isOwner ? `
-                  <button class="btn btn-secondary w-100" onclick="openMakeTokenOfferForm('${nft.name.split('#')[1]}')">
-                    Make Token Offer
-                  </button>
-                ` : ''}
-              </div>
             </div>
           </div>
         `;
@@ -1342,12 +1295,27 @@
     }
     
     async function openMyListingsModal() {
-      if (!marketplaceContract) {
+      if (!floorEngineContract || !userAccount) {
         alert("Please connect your wallet first.");
         return;
       }
       try {
-        const myListings = await newMarketplaceContract.getMyListings(userAccount);
+        // Get all listed tokens from FloorEngine
+        const listedTokenIds = await floorEngineReadContract.getListedTokenIds();
+        
+        // Filter to get only user's listings (not contract-owned)
+        const myListings = [];
+        for (const tokenId of listedTokenIds) {
+          const listing = await floorEngineReadContract.listings(tokenId);
+          if (listing.seller.toLowerCase() === userAccount.toLowerCase() && !listing.isContractOwned) {
+            myListings.push({
+              tokenId: tokenId.toNumber(),
+              price: listing.price,
+              seller: listing.seller
+            });
+          }
+        }
+        
         let contentHtml = "";
         if (myListings.length === 0) {
           contentHtml = "<p class='text-center'>No listings found.</p>";
@@ -1355,7 +1323,7 @@
           contentHtml = "<ul class='list-group'>";
           myListings.forEach(listing => {
             contentHtml += `<li class="list-group-item">
-              Listing #${listing.id.toString()} - Token #${listing.tokenId.toString()} - Price: ${ethers.utils.formatUnits(listing.price, 18)} $ADRIAN - Qty: ${listing.quantity.toString()}
+              Token #${listing.tokenId} - Price: ${ethers.utils.formatUnits(listing.price, 18)} $ADRIAN
             </li>`;
           });
           contentHtml += "</ul>";
@@ -1370,37 +1338,40 @@
     }
     
     async function openRecentActivityModal() {
-      if (!marketplaceContract) {
+      if (!floorEngineContract) {
         alert("Please connect your wallet first.");
         return;
       }
       try {
-        const activeListings = await newMarketplaceContract.getActiveListingsDetailed();
+        // Get all listed tokens from FloorEngine
+        const listedTokenIds = await floorEngineReadContract.getListedTokenIds();
+        
         let contentHtml = "";
-        if (activeListings.length === 0) {
+        if (listedTokenIds.length === 0) {
           contentHtml = "<p class='text-center'>No active listings.</p>";
         } else {
           contentHtml = "<div class='list-group'>";
-          for (const listing of activeListings) {
-            const nft = nftData.find(n => parseInt(n.name.split('#')[1]) === listing.tokenId.toNumber());
+          for (const tokenId of listedTokenIds) {
+            const listing = await floorEngineReadContract.listings(tokenId);
+            const nft = nftData.find(n => parseInt(n.name.split('#')[1]) === tokenId.toNumber());
             const price = parseFloat(ethers.utils.formatUnits(listing.price, 18));
             const formattedPrice = price >= 1000000 ? (price / 1000000).toFixed(1) + 'M' :
                                  price >= 1000 ? (price / 1000).toFixed(1) + 'K' :
                                  price.toFixed(1);
+            const badge = listing.isContractOwned ? '<span class="badge bg-primary">ENGINE</span>' : '<span class="badge bg-secondary">USER</span>';
             contentHtml += `
               <div class="list-group-item d-flex justify-content-between align-items-center">
                 <div>
                   <span class="fw-bold">Listing</span> - 
                   <span class="text-muted">${listing.seller.substring(0, 6)}...${listing.seller.substring(38)}</span> - 
-                  <span class="fw-bold">${listing.tokenId.toString()}</span> - 
-                  <span class="text-primary">${formattedPrice} $A</span> - 
-                  <small class="text-muted">Expires: ${new Date(listing.expirationTime * 1000).toLocaleString()}</small>
+                  <span class="fw-bold">#${tokenId.toString()}</span> - 
+                  <span class="text-primary">${formattedPrice} $A</span> ${badge}
                 </div>
                 ${nft ? `
                   <img src="${nft.image}" 
                        class="rounded" 
                        style="width: 30px; height: 30px; object-fit: cover; cursor: pointer;" 
-                       alt="Token ${listing.tokenId}"
+                       alt="Token ${tokenId}"
                        onclick="closeAndShowNFTDetails('${nft.name}')">
                 ` : ''}
               </div>
