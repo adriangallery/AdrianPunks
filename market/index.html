@@ -302,6 +302,9 @@
     <!-- Balance Info -->
     <div class="info-section mb-4">
       <h2 id="tokenBalance" class="mb-2">Balance: Loading...</h2>
+      <div class="text-secondary" id="floorEngineBalance">
+        <span>FloorEngine: Loading...</span>
+      </div>
     </div>
 
     <!-- Botonera Principal Unificada -->
@@ -683,9 +686,15 @@
           floorEngineContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, signer);
           multicallContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, signer);
           updateTokenBalance();
+          updateFloorEngineBalance();
         }
       } else {
         console.error("Ethereum provider not found.");
+      }
+      
+      // Update FloorEngine balance even if user not connected
+      if (readProvider) {
+        updateFloorEngineBalance();
       }
     }
     
@@ -1186,6 +1195,20 @@
       }
     }
     
+    async function updateFloorEngineBalance() {
+      try {
+        const contractBalance = await tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS);
+        const balance = parseFloat(ethers.utils.formatUnits(contractBalance, 18));
+        let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
+                              balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
+                              balance.toFixed(1);
+        document.getElementById("floorEngineBalance").innerHTML = `<span>💰 FloorEngine: ${formattedBalance} $ADRIAN</span>`;
+      } catch (error) {
+        console.error("Error fetching FloorEngine balance:", error);
+        document.getElementById("floorEngineBalance").innerHTML = `<span>FloorEngine: Error</span>`;
+      }
+    }
+    
     async function sweepFloor() {
       try {
         if (!floorEngineContract || !userAccount) {
@@ -1208,8 +1231,9 @@
         await tx.wait();
         alert("Sweep Floor executed successfully! Check your wallet for rewards.");
         
-        // Reload marketplace
+        // Reload marketplace and balances
         loadNFTs();
+        updateFloorEngineBalance();
       } catch (error) {
         console.error("Error during Sweep Floor:", error);
         alert("Error during Sweep Floor: " + error.message);
