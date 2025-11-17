@@ -1029,16 +1029,6 @@
                   </div>
                 `}
               ` : ''}
-              <h6 class="mt-3">Attributes:</h6>
-              <ul class="list-group">
-                ${nft.attributes && Array.isArray(nft.attributes) ? nft.attributes.map(attr => 
-                  `<li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div>
-                      <strong>${attr.trait_type}:</strong> ${attr.value}
-                    </div>
-                  </li>`
-                ).join('') : '<li class="list-group-item">No attributes found</li>'}
-              </ul>
             </div>
           </div>
         `;
@@ -1290,7 +1280,8 @@
           rewardFormatted = parseFloat(ethers.utils.formatUnits(callerRewardFixed, 18)).toFixed(2);
         }
         
-        const relistPrice = cheapestPrice.mul(10000 + premiumBps.toNumber()).div(10000);
+        const premiumBpsNumber = typeof premiumBps.toNumber === 'function' ? premiumBps.toNumber() : Number(premiumBps);
+        const relistPrice = cheapestPrice.mul(10000 + premiumBpsNumber).div(10000);
         const relistFormatted = parseFloat(ethers.utils.formatUnits(relistPrice, 18)).toFixed(2);
         
         // Check if contract has enough balance
@@ -1378,29 +1369,58 @@
         const contractBalance = await tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS);
         const balanceFormatted = parseFloat(ethers.utils.formatUnits(contractBalance, 18)).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         
-        // Get recent events from FloorEngine (last 10000 blocks)
+        // Get recent events from FloorEngine
+        // Alchemy Free tier limit: 10 blocks per query
+        // We'll fetch events in chunks of 10 blocks, going back until we get enough events
         const currentBlock = await readProvider.getBlockNumber();
-        const fromBlock = Math.max(0, currentBlock - 10000);
+        const BLOCKS_PER_QUERY = 10;
+        const MAX_ITERATIONS = 100; // Max 1000 blocks back
         
-        // Fetch all events
         const listedFilter = floorEngineReadContract.filters.Listed();
         const boughtFilter = floorEngineReadContract.filters.Bought();
         const cancelledFilter = floorEngineReadContract.filters.Cancelled();
         const sweepFilter = floorEngineReadContract.filters.FloorSweep();
         
-        const [listedEvents, boughtEvents, cancelledEvents, sweepEvents] = await Promise.all([
-          floorEngineReadContract.queryFilter(listedFilter, fromBlock, 'latest'),
-          floorEngineReadContract.queryFilter(boughtFilter, fromBlock, 'latest'),
-          floorEngineReadContract.queryFilter(cancelledFilter, fromBlock, 'latest'),
-          floorEngineReadContract.queryFilter(sweepFilter, fromBlock, 'latest')
-        ]);
+        let allListedEvents = [];
+        let allBoughtEvents = [];
+        let allCancelledEvents = [];
+        let allSweepEvents = [];
+        
+        // Fetch events in chunks
+        for (let i = 0; i < MAX_ITERATIONS; i++) {
+          const toBlock = currentBlock - (i * BLOCKS_PER_QUERY);
+          const fromBlock = Math.max(0, toBlock - BLOCKS_PER_QUERY + 1);
+          
+          if (fromBlock < 0) break;
+          
+          try {
+            const [listedEvents, boughtEvents, cancelledEvents, sweepEvents] = await Promise.all([
+              floorEngineReadContract.queryFilter(listedFilter, fromBlock, toBlock),
+              floorEngineReadContract.queryFilter(boughtFilter, fromBlock, toBlock),
+              floorEngineReadContract.queryFilter(cancelledFilter, fromBlock, toBlock),
+              floorEngineReadContract.queryFilter(sweepFilter, fromBlock, toBlock)
+            ]);
+            
+            allListedEvents = allListedEvents.concat(listedEvents);
+            allBoughtEvents = allBoughtEvents.concat(boughtEvents);
+            allCancelledEvents = allCancelledEvents.concat(cancelledEvents);
+            allSweepEvents = allSweepEvents.concat(sweepEvents);
+            
+            // Stop if we have enough events
+            const totalEvents = allListedEvents.length + allBoughtEvents.length + allCancelledEvents.length + allSweepEvents.length;
+            if (totalEvents >= 20) break;
+          } catch (error) {
+            console.error(`Error fetching events from block ${fromBlock} to ${toBlock}:`, error);
+            break;
+          }
+        }
         
         // Combine and sort all events by block number (most recent first)
         const allEvents = [
-          ...listedEvents.map(e => ({type: 'Listed', event: e})),
-          ...boughtEvents.map(e => ({type: 'Bought', event: e})),
-          ...cancelledEvents.map(e => ({type: 'Cancelled', event: e})),
-          ...sweepEvents.map(e => ({type: 'FloorSweep', event: e}))
+          ...allListedEvents.map(e => ({type: 'Listed', event: e})),
+          ...allBoughtEvents.map(e => ({type: 'Bought', event: e})),
+          ...allCancelledEvents.map(e => ({type: 'Cancelled', event: e})),
+          ...allSweepEvents.map(e => ({type: 'FloorSweep', event: e}))
         ].sort((a, b) => b.event.blockNumber - a.event.blockNumber).slice(0, 20); // Last 20 events
         
         let contentHtml = `
