@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>$ADRIAN Ecosystem Stats</title>
+  <link rel="icon" type="image/x-icon" href="../favicon.ico">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+  <script src="./supabase-config.js"></script>
+  <style>
+    /* Estilos base */
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #333333;
+      --card-bg: #ffffff;
+      --border-color: #dee2e6;
+      --badge-bg: #007bff;
+      --badge-text: #ffffff;
+    }
+
+    [data-theme="dark"] {
+      --bg-color: #1a1a1a;
+      --text-color: #ffffff;
+      --card-bg: #2d2d2d;
+      --border-color: #404040;
+      --badge-bg: #0d6efd;
+      --badge-text: #ffffff;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      padding-top: 80px;
+    }
+
+    .container {
+      background-color: var(--bg-color);
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border-color: var(--border-color);
+      color: var(--text-color);
+      margin-bottom: 2rem;
+    }
+
+    .card-title {
+      color: var(--text-color);
+    }
+
+    /* Statistics Cards */
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.5rem;
+      text-align: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+      height: 100%;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .stat-label {
+      font-size: 0.9rem;
+      color: var(--text-color);
+      opacity: 0.7;
+      margin-bottom: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--text-color);
+    }
+
+    .stat-value.positive {
+      color: #28a745;
+    }
+
+    .stat-value.negative {
+      color: #dc3545;
+    }
+
+    .stat-subtitle {
+      font-size: 0.85rem;
+      color: var(--text-color);
+      opacity: 0.6;
+      margin-top: 0.5rem;
+    }
+
+    /* Chart Container */
+    .chart-container {
+      position: relative;
+      height: 300px;
+      margin: 1rem 0;
+    }
+
+    .chart-container.large {
+      height: 400px;
+    }
+
+    /* Section Header */
+    .section-header {
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .section-header h2 {
+      margin: 0;
+      color: var(--text-color);
+    }
+
+    /* Loading Spinner */
+    .loading-spinner {
+      text-align: center;
+      padding: 2rem;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding-top: 60px;
+      }
+      
+      .stat-card {
+        margin-bottom: 1rem;
+      }
+      
+      .stat-value {
+        font-size: 1.25rem;
+      }
+
+      .chart-container {
+        height: 250px;
+      }
+
+      .chart-container.large {
+        height: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/">$ADRIAN Ecosystem</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="/market/">Market</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="/activity/">Stats</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <!-- Page Header -->
+    <div class="text-center mb-5">
+      <h1>$ADRIAN Ecosystem Statistics</h1>
+      <p class="text-muted">Comprehensive analytics for the $ADRIAN ecosystem</p>
+    </div>
+
+    <!-- FloorEngine Statistics Section -->
+    <div class="section-header">
+      <h2><i class="bi bi-graph-up"></i> FloorEngine Statistics</h2>
+    </div>
+    <div id="floorEngineStats" class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Invested</div>
+          <div class="stat-value" id="feTotalInvested">Loading...</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Earned</div>
+          <div class="stat-value" id="feTotalEarned">Loading...</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Net Profit</div>
+          <div class="stat-value" id="feNetProfit">Loading...</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">ROI</div>
+          <div class="stat-value" id="feROI">Loading...</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Punks Bought</div>
+          <div class="stat-value" id="fePunksBought">Loading...</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Punks Sold</div>
+          <div class="stat-value" id="fePunksSold">Loading...</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Currently Listed</div>
+          <div class="stat-value" id="feCurrentlyListed">Loading...</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Listings Value</div>
+          <div class="stat-value" id="feListingsValue">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FloorEngine Charts -->
+    <div class="row mb-5">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">FloorEngine Volume Over Time</h5>
+            <div class="chart-container">
+              <canvas id="feVolumeChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">FloorEngine Activity Distribution</h5>
+            <div class="chart-container">
+              <canvas id="feActivityChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- $ADRIAN Token Statistics Section -->
+    <div class="section-header">
+      <h2><i class="bi bi-currency-exchange"></i> $ADRIAN Token Statistics</h2>
+    </div>
+    <div id="tokenStats" class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Supply</div>
+          <div class="stat-value" id="tokenTotalSupply">Loading...</div>
+          <div class="stat-subtitle">Minted - Burned</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Circulating Supply</div>
+          <div class="stat-value" id="tokenCirculatingSupply">Loading...</div>
+          <div class="stat-subtitle">In wallets</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Holders</div>
+          <div class="stat-value" id="tokenTotalHolders">Loading...</div>
+          <div class="stat-subtitle">Unique addresses</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">24h Volume</div>
+          <div class="stat-value" id="token24hVolume">Loading...</div>
+          <div class="stat-subtitle">Last 24 hours</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">24h Transactions</div>
+          <div class="stat-value" id="token24hTransactions">Loading...</div>
+          <div class="stat-subtitle">Last 24 hours</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Staked</div>
+          <div class="stat-value" id="tokenTotalStaked">Loading...</div>
+          <div class="stat-subtitle">Active stakes</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Rewards</div>
+          <div class="stat-value" id="tokenTotalRewards">Loading...</div>
+          <div class="stat-subtitle">Distributed</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Transfers</div>
+          <div class="stat-value" id="tokenTotalTransfers">Loading...</div>
+          <div class="stat-subtitle">All time</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Token Charts -->
+    <div class="row mb-5">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Token Volume Over Time</h5>
+            <div class="chart-container">
+              <canvas id="tokenVolumeChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Transaction Count Over Time</h5>
+            <div class="chart-container">
+              <canvas id="tokenTransactionsChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Supply Distribution</h5>
+            <div class="chart-container">
+              <canvas id="tokenSupplyChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Staking Activity</h5>
+            <div class="chart-container">
+              <canvas id="tokenStakingChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Holders Section -->
+    <div class="section-header">
+      <h2><i class="bi bi-trophy"></i> Top Holders</h2>
+    </div>
+    <div class="card mb-5">
+      <div class="card-body">
+        <div id="topHoldersTable" class="loading-spinner">
+          <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Constants
+    const ERC20_ADDRESS = '0x7e99075ce287f1cf8cbcaaa6a1c7894e404fd7ea';
+    const BURN_ADDRESS = '0x0000000000000000000000000000000000000000';
+    const FLOOR_ENGINE_ADDRESS = '0x0351F7cBA83277E891D4a85Da498A7eACD764D58';
+
+    // Supabase configuration
+    const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
+    const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
+
+    let supabaseClient = null;
+
+    function initSupabase() {
+      if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('Supabase initialized');
+      } else {
+        console.error('Supabase credentials not configured');
+      }
+    }
+
+    // Helper functions
+    function formatWeiString(weiValue) {
+      let weiStr = String(weiValue);
+      if (weiStr.includes('e') || weiStr.includes('E')) {
+        const num = parseFloat(weiStr);
+        weiStr = num.toLocaleString('fullwide', { useGrouping: false, maximumFractionDigits: 0 });
+      }
+      weiStr = weiStr.replace(/,/g, '');
+      return weiStr;
+    }
+
+    function formatADRIAN(weiString) {
+      try {
+        let weiStr = String(weiString);
+        if (weiStr.includes('e') || weiStr.includes('E')) {
+          const num = parseFloat(weiStr);
+          weiStr = num.toLocaleString('fullwide', { useGrouping: false, maximumFractionDigits: 0 });
+        }
+        weiStr = weiStr.replace(/,/g, '');
+        if (!/^\d+$/.test(weiStr)) {
+          console.warn('Invalid wei value:', weiString);
+          return '0.00';
+        }
+        const wei = ethers.BigNumber.from(weiStr);
+        const adrian = parseFloat(ethers.utils.formatUnits(wei, 18));
+        return adrian.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      } catch (error) {
+        console.error('Error formatting ADRIAN:', error, 'Value:', weiString);
+        try {
+          const num = parseFloat(weiString);
+          const adrian = num / 1e18;
+          return adrian.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } catch (e) {
+          return '0.00';
+        }
+      }
+    }
+
+    function shortAddress(address) {
+      return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    }
+
+    // Chart instances
+    let feVolumeChart = null;
+    let feActivityChart = null;
+    let tokenVolumeChart = null;
+    let tokenTransactionsChart = null;
+    let tokenSupplyChart = null;
+    let tokenStakingChart = null;
+
+    // Load FloorEngine Statistics
+    async function loadFloorEngineStats() {
+      if (!supabaseClient) return;
+      
+      try {
+        // Total invested
+        const { data: sweeps, error: sweepsError } = await supabaseClient
+          .from('sweep_events')
+          .select('buy_price_wei');
+        
+        let totalInvested = ethers.BigNumber.from(0);
+        if (sweeps && !sweepsError) {
+          sweeps.forEach(sweep => {
+            try {
+              const buyPrice = formatWeiString(sweep.buy_price_wei);
+              totalInvested = totalInvested.add(ethers.BigNumber.from(buyPrice));
+            } catch (e) {
+              console.warn('Error processing sweep buy_price:', e);
+            }
+          });
+        }
+        
+        // Total earned
+        const { data: trades, error: tradesError } = await supabaseClient
+          .from('trade_events')
+          .select('price_wei, is_contract_owned, created_at');
+        
+        let totalEarned = ethers.BigNumber.from(0);
+        let punksSold = 0;
+        const volumeData = [];
+        if (trades && !tradesError) {
+          trades.forEach(trade => {
+            if (trade.is_contract_owned) {
+              try {
+                const price = formatWeiString(trade.price_wei);
+                totalEarned = totalEarned.add(ethers.BigNumber.from(price));
+                punksSold++;
+                volumeData.push({
+                  date: new Date(trade.created_at).toISOString().split('T')[0],
+                  volume: parseFloat(ethers.utils.formatUnits(price, 18))
+                });
+              } catch (e) {
+                console.warn('Error processing trade price:', e);
+              }
+            }
+          });
+        }
+        
+        const punksBought = sweeps ? sweeps.length : 0;
+        
+        // Currently listed
+        const { data: listings, error: listingsError } = await supabaseClient
+          .from('punk_listings')
+          .select('price_wei')
+          .eq('is_contract_owned', true)
+          .eq('is_listed', true);
+        
+        let currentlyListed = 0;
+        let listingsValue = ethers.BigNumber.from(0);
+        if (listings && !listingsError) {
+          currentlyListed = listings.length;
+          listings.forEach(listing => {
+            try {
+              const price = formatWeiString(listing.price_wei);
+              listingsValue = listingsValue.add(ethers.BigNumber.from(price));
+            } catch (e) {
+              console.warn('Error processing listing price:', e);
+            }
+          });
+        }
+        
+        const netProfit = totalEarned.sub(totalInvested);
+        const roi = totalInvested.gt(0) 
+          ? netProfit.mul(10000).div(totalInvested).toNumber() / 100 
+          : 0;
+        
+        // Update UI
+        document.getElementById('feTotalInvested').textContent = formatADRIAN(totalInvested.toString()) + ' $ADRIAN';
+        document.getElementById('feTotalEarned').textContent = formatADRIAN(totalEarned.toString()) + ' $ADRIAN';
+        
+        const netProfitEl = document.getElementById('feNetProfit');
+        netProfitEl.textContent = formatADRIAN(netProfit.toString()) + ' $ADRIAN';
+        netProfitEl.className = 'stat-value ' + (netProfit.gte(0) ? 'positive' : 'negative');
+        
+        const roiEl = document.getElementById('feROI');
+        roiEl.textContent = roi.toFixed(2) + '%';
+        roiEl.className = 'stat-value ' + (roi >= 0 ? 'positive' : 'negative');
+        
+        document.getElementById('fePunksBought').textContent = punksBought;
+        document.getElementById('fePunksSold').textContent = punksSold;
+        document.getElementById('feCurrentlyListed').textContent = currentlyListed;
+        document.getElementById('feListingsValue').textContent = formatADRIAN(listingsValue.toString()) + ' $ADRIAN';
+
+        // Create volume chart
+        createFEVolumeChart(volumeData);
+        
+        // Get activity distribution
+        const { data: listingEvents } = await supabaseClient
+          .from('listing_events')
+          .select('event_type');
+        const { data: sweepEvents } = await supabaseClient
+          .from('sweep_events')
+          .select('*');
+        
+        const listedCount = listingEvents?.filter(e => e.event_type === 'Listed').length || 0;
+        const cancelledCount = listingEvents?.filter(e => e.event_type === 'Cancelled').length || 0;
+        const boughtCount = punksSold;
+        const sweepCount = sweepEvents?.length || 0;
+        
+        createFEActivityChart(listedCount, cancelledCount, boughtCount, sweepCount);
+        
+      } catch (error) {
+        console.error('Error loading FloorEngine stats:', error);
+      }
+    }
+
+    // Load Token Statistics
+    async function loadTokenStats() {
+      if (!supabaseClient) return;
+      
+      try {
+        // Total minted
+        const { data: mints, error: mintsError } = await supabaseClient
+          .from('erc20_transfers')
+          .select('value_wei')
+          .eq('contract_address', ERC20_ADDRESS)
+          .eq('from_address', BURN_ADDRESS);
+        
+        let totalMinted = ethers.BigNumber.from(0);
+        if (mints && !mintsError) {
+          mints.forEach(mint => {
+            try {
+              const value = formatWeiString(mint.value_wei);
+              totalMinted = totalMinted.add(ethers.BigNumber.from(value));
+            } catch (e) {
+              console.warn('Error processing mint:', e);
+            }
+          });
+        }
+        
+        // Total burned
+        const { data: burns, error: burnsError } = await supabaseClient
+          .from('erc20_transfers')
+          .select('value_wei')
+          .eq('contract_address', ERC20_ADDRESS)
+          .eq('to_address', BURN_ADDRESS);
+        
+        let totalBurned = ethers.BigNumber.from(0);
+        if (burns && !burnsError) {
+          burns.forEach(burn => {
+            try {
+              const value = formatWeiString(burn.value_wei);
+              totalBurned = totalBurned.add(ethers.BigNumber.from(value));
+            } catch (e) {
+              console.warn('Error processing burn:', e);
+            }
+          });
+        }
+        
+        const totalSupply = totalMinted.sub(totalBurned);
+        
+        // 24h volume and transactions
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayISO = yesterday.toISOString();
+        
+        const { data: transfers24h, error: transfers24hError } = await supabaseClient
+          .from('erc20_transfers')
+          .select('value_wei, created_at')
+          .eq('contract_address', ERC20_ADDRESS)
+          .gte('created_at', yesterdayISO);
+        
+        let volume24h = ethers.BigNumber.from(0);
+        let transactions24h = 0;
+        const volumeData = [];
+        if (transfers24h && !transfers24hError) {
+          transactions24h = transfers24h.length;
+          transfers24h.forEach(transfer => {
+            try {
+              const value = formatWeiString(transfer.value_wei);
+              volume24h = volume24h.add(ethers.BigNumber.from(value));
+              const date = new Date(transfer.created_at).toISOString().split('T')[0];
+              volumeData.push({
+                date: date,
+                volume: parseFloat(ethers.utils.formatUnits(value, 18))
+              });
+            } catch (e) {
+              console.warn('Error processing transfer:', e);
+            }
+          });
+        }
+        
+        // Total holders (unique addresses with balance > 0)
+        // Calculate balances by summing received and subtracting sent
+        const { data: received } = await supabaseClient
+          .from('erc20_transfers')
+          .select('to_address, value_wei')
+          .eq('contract_address', ERC20_ADDRESS)
+          .neq('to_address', BURN_ADDRESS);
+        
+        const { data: sent } = await supabaseClient
+          .from('erc20_transfers')
+          .select('from_address, value_wei')
+          .eq('contract_address', ERC20_ADDRESS)
+          .neq('from_address', BURN_ADDRESS);
+        
+        const balances = new Map();
+        
+        // Add received amounts
+        if (received) {
+          received.forEach(transfer => {
+            try {
+              const value = formatWeiString(transfer.value_wei);
+              const amount = ethers.BigNumber.from(value);
+              const current = balances.get(transfer.to_address) || ethers.BigNumber.from(0);
+              balances.set(transfer.to_address, current.add(amount));
+            } catch (e) {
+              console.warn('Error processing received transfer:', e);
+            }
+          });
+        }
+        
+        // Subtract sent amounts
+        if (sent) {
+          sent.forEach(transfer => {
+            try {
+              const value = formatWeiString(transfer.value_wei);
+              const amount = ethers.BigNumber.from(value);
+              const current = balances.get(transfer.from_address) || ethers.BigNumber.from(0);
+              balances.set(transfer.from_address, current.sub(amount));
+            } catch (e) {
+              console.warn('Error processing sent transfer:', e);
+            }
+          });
+        }
+        
+        // Filter positive balances
+        const positiveBalances = Array.from(balances.entries())
+          .filter(([address, balance]) => balance.gt(0));
+        
+        const totalHolders = positiveBalances.length;
+        const circulatingSupply = positiveBalances
+          .reduce((sum, [address, balance]) => sum.add(balance), ethers.BigNumber.from(0));
+        
+        // Total staked
+        const { data: stakes, error: stakesError } = await supabaseClient
+          .from('erc20_custom_events')
+          .select('event_data')
+          .eq('contract_address', ERC20_ADDRESS)
+          .eq('event_name', 'Staked');
+        
+        let totalStaked = ethers.BigNumber.from(0);
+        if (stakes && !stakesError) {
+          stakes.forEach(stake => {
+            try {
+              const amount = stake.event_data?.amount;
+              if (amount) {
+                const value = formatWeiString(amount);
+                totalStaked = totalStaked.add(ethers.BigNumber.from(value));
+              }
+            } catch (e) {
+              console.warn('Error processing stake:', e);
+            }
+          });
+        }
+        
+        // Total rewards
+        const { data: withdrawals, error: withdrawalsError } = await supabaseClient
+          .from('erc20_custom_events')
+          .select('event_data')
+          .eq('contract_address', ERC20_ADDRESS)
+          .eq('event_name', 'WithdrawnStake');
+        
+        let totalRewards = ethers.BigNumber.from(0);
+        if (withdrawals && !withdrawalsError) {
+          withdrawals.forEach(withdrawal => {
+            try {
+              const reward = withdrawal.event_data?.reward;
+              if (reward) {
+                const value = formatWeiString(reward);
+                totalRewards = totalRewards.add(ethers.BigNumber.from(value));
+              }
+            } catch (e) {
+              console.warn('Error processing reward:', e);
+            }
+          });
+        }
+        
+        // Total transfers
+        const { data: allTransfersCount } = await supabaseClient
+          .from('erc20_transfers')
+          .select('id', { count: 'exact', head: true })
+          .eq('contract_address', ERC20_ADDRESS);
+        
+        const totalTransfers = allTransfersCount || 0;
+        
+        // Update UI
+        document.getElementById('tokenTotalSupply').textContent = formatADRIAN(totalSupply.toString()) + ' $ADRIAN';
+        document.getElementById('tokenCirculatingSupply').textContent = formatADRIAN(circulatingSupply.toString()) + ' $ADRIAN';
+        document.getElementById('tokenTotalHolders').textContent = totalHolders.toLocaleString();
+        document.getElementById('token24hVolume').textContent = formatADRIAN(volume24h.toString()) + ' $ADRIAN';
+        document.getElementById('token24hTransactions').textContent = transactions24h.toLocaleString();
+        document.getElementById('tokenTotalStaked').textContent = formatADRIAN(totalStaked.toString()) + ' $ADRIAN';
+        document.getElementById('tokenTotalRewards').textContent = formatADRIAN(totalRewards.toString()) + ' $ADRIAN';
+        document.getElementById('tokenTotalTransfers').textContent = totalTransfers.toLocaleString();
+
+        // Create charts
+        createTokenVolumeChart(volumeData);
+        createTokenTransactionsChart();
+        createTokenSupplyChart(totalMinted, totalBurned, circulatingSupply);
+        createTokenStakingChart();
+        
+        // Load top holders (convert to array format)
+        const holdersMap = new Map();
+        positiveBalances.forEach(([address, balance]) => {
+          holdersMap.set(address, balance);
+        });
+        loadTopHolders(holdersMap);
+        
+      } catch (error) {
+        console.error('Error loading token stats:', error);
+      }
+    }
+
+    // Chart creation functions
+    function createFEVolumeChart(data) {
+      const ctx = document.getElementById('feVolumeChart');
+      if (!ctx) return;
+      
+      // Group by date
+      const grouped = {};
+      data.forEach(item => {
+        if (!grouped[item.date]) {
+          grouped[item.date] = 0;
+        }
+        grouped[item.date] += item.volume;
+      });
+      
+      const labels = Object.keys(grouped).sort();
+      const volumes = labels.map(date => grouped[date]);
+      
+      if (feVolumeChart) {
+        feVolumeChart.destroy();
+      }
+      
+      feVolumeChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Volume ($ADRIAN)',
+            data: volumes,
+            borderColor: '#007bff',
+            backgroundColor: 'rgba(0, 123, 255, 0.1)',
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    function createFEActivityChart(listed, cancelled, bought, sweeps) {
+      const ctx = document.getElementById('feActivityChart');
+      if (!ctx) return;
+      
+      if (feActivityChart) {
+        feActivityChart.destroy();
+      }
+      
+      feActivityChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Listed', 'Cancelled', 'Bought', 'Sweeps'],
+          datasets: [{
+            data: [listed, cancelled, bought, sweeps],
+            backgroundColor: [
+              '#007bff',
+              '#6c757d',
+              '#28a745',
+              '#ffc107'
+            ]
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom'
+            }
+          }
+        }
+      });
+    }
+
+    function createTokenVolumeChart(data) {
+      const ctx = document.getElementById('tokenVolumeChart');
+      if (!ctx) return;
+      
+      // Group by date
+      const grouped = {};
+      data.forEach(item => {
+        if (!grouped[item.date]) {
+          grouped[item.date] = 0;
+        }
+        grouped[item.date] += item.volume;
+      });
+      
+      const labels = Object.keys(grouped).sort();
+      const volumes = labels.map(date => grouped[date]);
+      
+      if (tokenVolumeChart) {
+        tokenVolumeChart.destroy();
+      }
+      
+      tokenVolumeChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Volume ($ADRIAN)',
+            data: volumes,
+            borderColor: '#28a745',
+            backgroundColor: 'rgba(40, 167, 69, 0.1)',
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    async function createTokenTransactionsChart() {
+      const ctx = document.getElementById('tokenTransactionsChart');
+      if (!ctx) return;
+      
+      // Get last 7 days of transactions
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const { data: transfers } = await supabaseClient
+        .from('erc20_transfers')
+        .select('created_at')
+        .eq('contract_address', ERC20_ADDRESS)
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .order('created_at', { ascending: true });
+      
+      const grouped = {};
+      transfers?.forEach(transfer => {
+        const date = new Date(transfer.created_at).toISOString().split('T')[0];
+        grouped[date] = (grouped[date] || 0) + 1;
+      });
+      
+      const labels = Object.keys(grouped).sort();
+      const counts = labels.map(date => grouped[date]);
+      
+      if (tokenTransactionsChart) {
+        tokenTransactionsChart.destroy();
+      }
+      
+      tokenTransactionsChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Transactions',
+            data: counts,
+            backgroundColor: '#17a2b8'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    function createTokenSupplyChart(minted, burned, circulating) {
+      const ctx = document.getElementById('tokenSupplyChart');
+      if (!ctx) return;
+      
+      const mintedFormatted = parseFloat(ethers.utils.formatUnits(minted, 18));
+      const burnedFormatted = parseFloat(ethers.utils.formatUnits(burned, 18));
+      const circulatingFormatted = parseFloat(ethers.utils.formatUnits(circulating, 18));
+      
+      if (tokenSupplyChart) {
+        tokenSupplyChart.destroy();
+      }
+      
+      tokenSupplyChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: ['Circulating', 'Burned', 'Other'],
+          datasets: [{
+            data: [
+              circulatingFormatted,
+              burnedFormatted,
+              Math.max(0, mintedFormatted - circulatingFormatted - burnedFormatted)
+            ],
+            backgroundColor: [
+              '#28a745',
+              '#dc3545',
+              '#6c757d'
+            ]
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom'
+            }
+          }
+        }
+      });
+    }
+
+    async function createTokenStakingChart() {
+      const ctx = document.getElementById('tokenStakingChart');
+      if (!ctx) return;
+      
+      // Get staking data for last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const { data: stakes } = await supabaseClient
+        .from('erc20_custom_events')
+        .select('created_at, event_data')
+        .eq('contract_address', ERC20_ADDRESS)
+        .eq('event_name', 'Staked')
+        .gte('created_at', thirtyDaysAgo.toISOString())
+        .order('created_at', { ascending: true });
+      
+      const grouped = {};
+      stakes?.forEach(stake => {
+        const date = new Date(stake.created_at).toISOString().split('T')[0];
+        if (!grouped[date]) {
+          grouped[date] = 0;
+        }
+        try {
+          const amount = stake.event_data?.amount;
+          if (amount) {
+            const value = formatWeiString(amount);
+            grouped[date] += parseFloat(ethers.utils.formatUnits(value, 18));
+          }
+        } catch (e) {
+          console.warn('Error processing stake for chart:', e);
+        }
+      });
+      
+      const labels = Object.keys(grouped).sort();
+      const amounts = labels.map(date => grouped[date]);
+      
+      if (tokenStakingChart) {
+        tokenStakingChart.destroy();
+      }
+      
+      tokenStakingChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Staked ($ADRIAN)',
+            data: amounts,
+            borderColor: '#ffc107',
+            backgroundColor: 'rgba(255, 193, 7, 0.1)',
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    async function loadTopHolders(balances) {
+      if (!supabaseClient) return;
+      
+      try {
+        // Convert map to array and sort
+        const holdersArray = Array.from(balances.entries())
+          .map(([address, balance]) => ({
+            address,
+            balance: parseFloat(ethers.utils.formatUnits(balance, 18))
+          }))
+          .filter(h => h.balance > 0)
+          .sort((a, b) => b.balance - a.balance)
+          .slice(0, 10);
+        
+        const table = document.getElementById('topHoldersTable');
+        if (holdersArray.length === 0) {
+          table.innerHTML = '<p class="text-muted">No holders found</p>';
+          return;
+        }
+        
+        let html = '<table class="table table-striped"><thead><tr><th>Rank</th><th>Address</th><th>Balance</th></tr></thead><tbody>';
+        holdersArray.forEach((holder, index) => {
+          html += `<tr>
+            <td>${index + 1}</td>
+            <td><code>${shortAddress(holder.address)}</code></td>
+            <td>${holder.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $ADRIAN</td>
+          </tr>`;
+        });
+        html += '</tbody></table>';
+        
+        table.innerHTML = html;
+      } catch (error) {
+        console.error('Error loading top holders:', error);
+        document.getElementById('topHoldersTable').innerHTML = 
+          '<div class="alert alert-danger">Error loading top holders: ' + error.message + '</div>';
+      }
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', async () => {
+      initSupabase();
+      
+      if (supabaseClient) {
+        await Promise.all([
+          loadFloorEngineStats(),
+          loadTokenStats()
+        ]);
+      } else {
+        console.error('Supabase not initialized');
+        document.body.innerHTML = '<div class="container mt-5"><div class="alert alert-danger">Error: Supabase credentials not configured</div></div>';
+      }
+    });
+  </script>
+</body>
+</html>
+
