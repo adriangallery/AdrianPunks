@@ -51,11 +51,20 @@ jobs:
           fi
           echo "Verification passed: credentials replaced"
 
+      - name: Show injected credentials (first 20 chars for verification)
+        run: |
+          echo "Verifying injection..."
+          grep -o "const SUPABASE_URL = window.SUPABASE_URL || '[^']*'" market/index.html | head -c 80
+          echo ""
+          echo "First 20 chars of URL: $(grep -o "const SUPABASE_URL = window.SUPABASE_URL || '[^']*'" market/index.html | sed "s/.*'\(.\{20\}\).*/\1/")"
+          echo "First 20 chars of KEY: $(grep -o "const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || '[^']*'" market/index.html | sed "s/.*'\(.\{20\}\).*/\1/")"
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: .
+          publish_branch: gh-pages
           keep_files: true
           force_orphan: false
           user_name: 'github-actions[bot]'
