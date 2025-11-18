@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AdrianPunks Market v3.12</title>
+  <title>AdrianPunks Market v3.13</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/market/styles.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     /* Estilos base */
     :root {
@@ -145,6 +146,24 @@
     /* Mantener los estilos existentes */
     #tokenBalance {
       margin-top: 10px;
+    }
+
+    /* Activity Page Styles */
+    .view-container {
+      min-height: 100vh;
+    }
+
+    .activity-list {
+      max-height: none;
+    }
+
+    .activity-card {
+      transition: transform 0.2s;
+    }
+
+    .activity-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
     @media (max-width: 768px) {
       #tokenBalance {
@@ -297,13 +316,14 @@
       .catch(error => console.error('Error loading menu:', error));
   </script>
 
-  <!-- Main Container -->
+  <!-- Marketplace View (default) -->
+  <div id="marketplaceView" class="view-container">
   <div class="container">
-    <!-- Balance Info -->
+      <!-- Balance Info -->
     <div class="info-section mb-4">
       <h2 id="tokenBalance" class="mb-2">Balance: Loading...</h2>
-      <div class="text-secondary" id="floorEngineBalance">
-        <span>FloorEngine: Loading...</span>
+        <div class="text-secondary" id="floorEngineBalance">
+          <span>FloorEngine: Loading...</span>
       </div>
     </div>
 
@@ -332,22 +352,22 @@
           <span class="d-none d-md-inline">Sort by FP</span><span class="d-md-none">Sort FP</span>
         </button>
         <div class="dropdown">
-          <button class="action-btn warning dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" onclick="updateSweepFloorInfo()">
-            <span>🚀 Sweep Floor</span>
+            <button class="action-btn warning dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" onclick="updateSweepFloorInfo()">
+              <span>🚀 Sweep Floor</span>
           </button>
-          <ul class="dropdown-menu p-3" id="sweepFloorMenu" style="min-width: 300px;">
-            <h6 class="dropdown-header">FloorEngine Sweep</h6>
-            <div id="sweepFloorInfo" class="mb-3">
-              <p class="text-muted mb-0">Loading...</p>
+            <ul class="dropdown-menu p-3" id="sweepFloorMenu" style="min-width: 300px;">
+              <h6 class="dropdown-header">FloorEngine Sweep</h6>
+              <div id="sweepFloorInfo" class="mb-3">
+                <p class="text-muted mb-0">Loading...</p>
             </div>
-            <button id="sweepFloorBtn" class="btn btn-warning w-100" onclick="sweepFloor()">Execute Sweep</button>
+              <button id="sweepFloorBtn" class="btn btn-warning w-100" onclick="sweepFloor()">Execute Sweep</button>
           </ul>
         </div>
         <button class="action-btn outline" onclick="openMyTokensModal()">
           <span class="d-none d-md-inline">My</span> Tokens
         </button>
-        <button class="action-btn" id="themeButton" onclick="toggleTheme()">
-          <span id="themeButtonText">DarkMode</span>
+          <button class="action-btn outline" id="activityButton" onclick="openActivityPage()">
+            <span>Activity</span>
         </button>
         <!-- Botón para cambiar entre colecciones de imágenes -->
         <button class="action-btn" id="collectionToggleButton" onclick="toggleImageCollection()">
@@ -360,8 +380,92 @@
       </div>
     </div>
 
-    <!-- NFT Grid -->
-    <div class="nft-grid" id="nftGrid"></div>
+      <!-- NFT Grid -->
+      <div class="nft-grid" id="nftGrid"></div>
+    </div>
+  </div>
+
+  <!-- Activity View -->
+  <div id="activityView" class="view-container" style="display: none;">
+    <div class="container">
+      <!-- Header con botón de volver -->
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>FloorEngine Activity</h2>
+        <button class="btn btn-outline-secondary" onclick="closeActivityPage()">
+          <i class="bi bi-arrow-left"></i> Back to Marketplace
+        </button>
+      </div>
+
+      <!-- Filtros -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <div class="row g-3">
+            <!-- Tipo de evento -->
+            <div class="col-md-3">
+              <label class="form-label">Event Type</label>
+              <select class="form-select" id="filterEventType" onchange="applyFilters()">
+                <option value="all">All Events</option>
+                <option value="Listed">Listings</option>
+                <option value="Cancelled">Cancelled</option>
+                <option value="Bought">Sales</option>
+                <option value="Sweep">Sweeps</option>
+              </select>
+            </div>
+            
+            <!-- Rango de fechas -->
+            <div class="col-md-3">
+              <label class="form-label">From Date</label>
+              <input type="date" class="form-control" id="filterDateFrom" onchange="applyFilters()">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">To Date</label>
+              <input type="date" class="form-control" id="filterDateTo" onchange="applyFilters()">
+            </div>
+            
+            <!-- Dirección (buyer/seller) -->
+            <div class="col-md-3">
+              <label class="form-label">Address</label>
+              <input type="text" class="form-control" id="filterAddress" placeholder="0x..." onchange="applyFilters()">
+            </div>
+            
+            <!-- Token ID -->
+            <div class="col-md-3">
+              <label class="form-label">Token ID</label>
+              <input type="number" class="form-control" id="filterTokenId" placeholder="Token ID" onchange="applyFilters()">
+            </div>
+            
+            <!-- Precio mínimo -->
+            <div class="col-md-3">
+              <label class="form-label">Min Price ($ADRIAN)</label>
+              <input type="number" class="form-control" id="filterMinPrice" step="0.01" onchange="applyFilters()">
+            </div>
+            
+            <!-- Precio máximo -->
+            <div class="col-md-3">
+              <label class="form-label">Max Price ($ADRIAN)</label>
+              <input type="number" class="form-control" id="filterMaxPrice" step="0.01" onchange="applyFilters()">
+            </div>
+            
+            <!-- Botón limpiar filtros -->
+            <div class="col-md-3 d-flex align-items-end">
+              <button class="btn btn-outline-danger w-100" onclick="clearActivityFilters()">Clear Filters</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lista de eventos -->
+      <div id="activityList" class="activity-list">
+        <!-- Eventos se cargarán aquí -->
+      </div>
+      
+      <!-- Loading indicator -->
+      <div id="activityLoading" class="text-center my-4" style="display: none;">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Modal para NFT Details -->
@@ -546,6 +650,21 @@
     // Alchemy API Configuration for faster token loading
     const ALCHEMY_API_KEY = "5qIXA1UZxOAzi8b9l0nrYmsQBO9-W7Ot";
     const ALCHEMY_RPC_URL = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+
+    // Supabase configuration (from GitHub Secrets via environment)
+    const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
+    const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
+
+    let supabaseClient = null;
+
+    function initSupabase() {
+      if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('Supabase initialized');
+      } else {
+        console.error('Supabase credentials not configured');
+      }
+    }
 
     // Variables para manejar las rutas de imagen
     let currentImageCollection = 'adrianpunks'; // Por defecto
@@ -948,8 +1067,8 @@
           }
           const owner = await nftReadContract.ownerOf(tokenId);
           if (userAccount) {
-            isOwner = owner.toLowerCase() === userAccount.toLowerCase();
-            ownershipStatus = isOwner ? `<div class="alert alert-success">You are the owner of this token</div>` : `<div class="alert alert-info">Owner: ${owner.substring(0, 6)}...${owner.substring(38)}</div>`;
+          isOwner = owner.toLowerCase() === userAccount.toLowerCase();
+          ownershipStatus = isOwner ? `<div class="alert alert-success">You are the owner of this token</div>` : `<div class="alert alert-info">Owner: ${owner.substring(0, 6)}...${owner.substring(38)}</div>`;
           } else {
             ownershipStatus = `<div class="alert alert-info">Owner: ${owner.substring(0, 6)}...${owner.substring(38)}</div>`;
           }
@@ -989,15 +1108,15 @@
               ${isOwner && !tokenListing ? `
                 <button class="btn btn-primary w-100 mb-2" onclick="openListingForm('${nft.name}', 'FloorEngine')">
                   List for Sale on FloorEngine
-                </button>
+                  </button>
               ` : ''}
               ${tokenListing ? `
-                <div class="listing-info alert alert-info">
+                  <div class="listing-info alert alert-info">
                   <h6>Active Listing ${tokenListing.isContractOwned ? '<span class="badge bg-primary">ENGINE</span>' : '<span class="badge bg-secondary">USER</span>'}</h6>
-                  <p>Price: ${parseFloat(ethers.utils.formatUnits(tokenListing.price, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1})} $ADRIAN</p>
-                  <p>Seller: ${tokenListing.seller.substring(0, 6)}...${tokenListing.seller.substring(38)}</p>
+                    <p>Price: ${parseFloat(ethers.utils.formatUnits(tokenListing.price, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1})} $ADRIAN</p>
+                    <p>Seller: ${tokenListing.seller.substring(0, 6)}...${tokenListing.seller.substring(38)}</p>
                   ${!tokenListing.isContractOwned ? `
-                    ${isOwner ? `
+                        ${isOwner ? `
                       <button class="btn btn-danger btn-sm" onclick="cancelListing(${tokenId})">Cancel Listing</button>
                       <p class="text-muted mb-0 mt-2"><small>Only the seller can cancel this listing</small></p>
                     ` : `
@@ -1008,8 +1127,8 @@
                       <button class="btn btn-primary btn-sm w-100" onclick="buyToken(${tokenId}, '${tokenListing.price}')">Buy Now</button>
                     ` : '<p class="text-muted mb-0"><small>This listing is managed by the FloorEngine</small></p>'}
                   `}
-                </div>
-              ` : ''}
+                  </div>
+                ` : ''}
             </div>
           </div>
         `;
@@ -1199,9 +1318,9 @@
     async function sweepFloor() {
       try {
         if (!floorEngineContract || !userAccount) {
-          alert("Please connect your wallet first.");
-          return;
-        }
+        alert("Please connect your wallet first.");
+        return;
+      }
         
         // Get info before sweeping
         const contractBalance = await tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS);
@@ -1258,8 +1377,8 @@
         if (!cheapestPrice) {
           infoDiv.innerHTML = '<p class="text-muted mb-0">No external listings available for sweeping</p>';
           document.getElementById('sweepFloorBtn').disabled = true;
-          return;
-        }
+        return;
+      }
         
         const cheapestFormatted = parseFloat(ethers.utils.formatUnits(cheapestPrice, 18)).toFixed(2);
         
@@ -1287,10 +1406,10 @@
         infoDiv.innerHTML = `
           <div class="mb-2">
             <strong>Cheapest Listing:</strong> Token #${cheapestTokenId} - ${cheapestFormatted} $ADRIAN
-          </div>
+                </div>
           <div class="mb-2">
             <strong>Contract Balance:</strong> ${balanceFormatted} $ADRIAN
-          </div>
+              </div>
           <div class="mb-2">
             <strong>Your Reward:</strong> ~${rewardFormatted} $ADRIAN
           </div>
@@ -1391,41 +1510,41 @@
         
         // Step 4: Load metadata and render tokens
         let tokensHtml = '<div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2">';
-        
-        // Cargar el JSON con la información de los tokens
-        const response = await fetch('./adrianpunks.json');
-        const data = await response.json();
-        const jsonCollection = data.collection;
+          
+          // Cargar el JSON con la información de los tokens
+          const response = await fetch('./adrianpunks.json');
+          const data = await response.json();
+          const jsonCollection = data.collection;
 
         // Procesar cada tokenId obtenido con Multicall
         for (const tokenIdInt of tokenIds) {
           try {
             const tokenInfo = jsonCollection.find(item => parseInt(item.name.split('#')[1]) === tokenIdInt);
-            
-            // Crear un objeto nft con el formato necesario para getImageUrl
+              
+              // Crear un objeto nft con el formato necesario para getImageUrl
             const nftObj = tokenInfo || { name: `AdrianPunk #${tokenIdInt}` };
             
             // Usar la misma función getImageUrl para mantener consistencia
             const imgUrl = getImageUrl(nftObj);
 
-            tokensHtml += `
-              <div class="col">
+              tokensHtml += `
+                <div class="col">
                 <div class="card h-100" style="cursor: pointer;" onclick="closeAndShowNFTDetails('${tokenInfo ? tokenInfo.name : `AdrianPunk #${tokenIdInt}`}')">
-                  <div class="ratio ratio-1x1">
+                    <div class="ratio ratio-1x1">
                     <img src="${imgUrl}" class="card-img-top" alt="Token #${tokenIdInt}" style="object-fit: cover;">
-                  </div>
-                  <div class="card-body p-2">
+                    </div>
+                    <div class="card-body p-2">
                     <h6 class="card-title mb-0">#${tokenIdInt}</h6>
-                    ${tokenInfo ? `<small class="text-muted">Rarity: ${tokenInfo.rarity.toFixed(2)}</small>` : ''}
+                      ${tokenInfo ? `<small class="text-muted">Rarity: ${tokenInfo.rarity.toFixed(2)}</small>` : ''}
+                    </div>
                   </div>
                 </div>
-              </div>
-            `;
+              `;
           } catch (error) {
             console.error(`Error processing token ${tokenIdInt}:`, error);
+            }
           }
-        }
-        tokensHtml += '</div>';
+          tokensHtml += '</div>';
         container.innerHTML = tokensHtml;
       } catch (error) {
         console.error("Error loading MyTokens:", error);
@@ -1438,6 +1557,7 @@
     }
     
     document.addEventListener('DOMContentLoaded', async () => {
+      initSupabase();
       await initContracts();
       loadNFTs();
       
@@ -1464,45 +1584,6 @@
     });
 
     // Función para cambiar el tema
-    function toggleTheme() {
-      const html = document.documentElement;
-      const themeButton = document.getElementById('themeButton');
-      const themeButtonText = document.getElementById('themeButtonText');
-      const isDark = html.getAttribute('data-theme') === 'dark';
-      
-      if (!isDark) {
-        html.setAttribute('data-theme', 'dark');
-        localStorage.setItem('theme', 'dark');
-        themeButtonText.textContent = 'LightMode';
-        themeButton.classList.remove('btn-outline-dark');
-        themeButton.classList.add('btn-dark');
-      } else {
-        html.removeAttribute('data-theme');
-        localStorage.setItem('theme', 'light');
-        themeButtonText.textContent = 'DarkMode';
-        themeButton.classList.remove('btn-dark');
-        themeButton.classList.add('btn-secondary');
-      }
-    }
-
-    // Cargar el tema guardado
-    document.addEventListener('DOMContentLoaded', () => {
-      const savedTheme = localStorage.getItem('theme');
-      const html = document.documentElement;
-      const themeButton = document.getElementById('themeButton');
-      const themeButtonText = document.getElementById('themeButtonText');
-      
-      if (savedTheme === 'dark') {
-        html.setAttribute('data-theme', 'dark');
-        themeButtonText.textContent = 'LightMode';
-        themeButton.classList.remove('btn-outline-dark');
-        themeButton.classList.add('btn-dark');
-      } else {
-        themeButtonText.textContent = 'DarkMode';
-        themeButton.classList.remove('btn-dark');
-        themeButton.classList.add('btn-secondary');
-      }
-    });
 
     async function filterByActiveListings() {
       const button = document.querySelector('button[onclick="filterByActiveListings()"]');
@@ -1885,6 +1966,352 @@
       // Aquí puedes agregar la lógica para cargar los NFTs del usuario
       // cuando se conecte la wallet
       console.log("Wallet conectada. Puedes implementar la carga de NFTs del usuario aquí.");
+    }
+
+    // ============================================
+    // ACTIVITY PAGE FUNCTIONS
+    // ============================================
+
+    // Variables globales para Activity
+    let activityPage = 0;
+    let activityLoading = false;
+    let activityHasMore = true;
+    let currentActivityFilters = {};
+    let activityScrollHandler = null;
+
+    // Función para abrir Activity
+    function openActivityPage() {
+      document.getElementById('marketplaceView').style.display = 'none';
+      document.getElementById('activityView').style.display = 'block';
+      
+      // Inicializar Supabase si no está inicializado
+      if (!supabaseClient) {
+        initSupabase();
+      }
+      
+      // Resetear paginación
+      activityPage = 0;
+      activityHasMore = true;
+      document.getElementById('activityList').innerHTML = '';
+      
+      // Cargar primera página
+      loadActivityEvents();
+      
+      // Configurar scroll infinito
+      setupActivityScroll();
+    }
+
+    // Función para cerrar Activity
+    function closeActivityPage() {
+      document.getElementById('activityView').style.display = 'none';
+      document.getElementById('marketplaceView').style.display = 'block';
+      
+      // Remover scroll handler
+      removeActivityScroll();
+    }
+
+    // Función principal para cargar eventos
+    async function loadActivityEvents() {
+      if (!supabaseClient || activityLoading || !activityHasMore) return;
+      
+      activityLoading = true;
+      document.getElementById('activityLoading').style.display = 'block';
+      
+      try {
+        const filters = currentActivityFilters;
+        const eventType = filters.eventType || 'all';
+        
+        // Determinar qué tabla(s) consultar
+        let data = [];
+        const limit = 20;
+        const from = activityPage * limit;
+        const to = from + limit - 1;
+        
+        if (eventType === 'all') {
+          // Para "all events", necesitamos obtener más datos de cada tabla y luego combinar
+          // Obtener más resultados de cada tabla para poder combinar y paginar correctamente
+          const fetchLimit = limit * 3; // Obtener más para tener suficiente después de combinar
+          const [listingsResult, tradesResult, sweepsResult] = await Promise.all([
+            buildListingEventsQuery(filters).limit(fetchLimit),
+            buildTradeEventsQuery(filters).limit(fetchLimit),
+            buildSweepEventsQuery(filters).limit(fetchLimit)
+          ]);
+          
+          // Combinar y ordenar por fecha
+          const allEvents = [
+            ...(listingsResult.data || []).map(e => ({ ...e, _eventType: 'listing' })),
+            ...(tradesResult.data || []).map(e => ({ ...e, _eventType: 'trade' })),
+            ...(sweepsResult.data || []).map(e => ({ ...e, _eventType: 'sweep' }))
+          ];
+          
+          allEvents.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          
+          // Aplicar paginación manual
+          data = allEvents.slice(from, to + 1);
+        } else if (eventType === 'Listed' || eventType === 'Cancelled') {
+          const result = await buildListingEventsQuery(filters).range(from, to);
+          data = result.data || [];
+        } else if (eventType === 'Bought') {
+          const result = await buildTradeEventsQuery(filters).range(from, to);
+          data = result.data || [];
+        } else if (eventType === 'Sweep') {
+          const result = await buildSweepEventsQuery(filters).range(from, to);
+          data = result.data || [];
+        }
+        
+        if (data && data.length > 0) {
+          renderActivityEvents(data);
+          activityPage++;
+          activityHasMore = data.length === limit;
+        } else {
+          activityHasMore = false;
+        }
+      } catch (error) {
+        console.error('Error loading activity:', error);
+        document.getElementById('activityList').innerHTML += 
+          '<div class="alert alert-danger">Error loading activity: ' + error.message + '</div>';
+      } finally {
+        activityLoading = false;
+        document.getElementById('activityLoading').style.display = 'none';
+      }
+    }
+
+    // Funciones para construir queries
+    function buildListingEventsQuery(filters) {
+      let query = supabaseClient
+        .from('listing_events')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (filters.eventType && filters.eventType !== 'all') {
+        query = query.eq('event_type', filters.eventType);
+      }
+      if (filters.dateFrom) {
+        query = query.gte('created_at', filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        query = query.lte('created_at', filters.dateTo + 'T23:59:59');
+      }
+      if (filters.address) {
+        query = query.ilike('seller', filters.address.toLowerCase());
+      }
+      if (filters.tokenId) {
+        query = query.eq('token_id', filters.tokenId);
+      }
+      if (filters.minPrice) {
+        const minPriceWei = ethers.utils.parseUnits(filters.minPrice.toString(), 18).toString();
+        query = query.gte('price_wei', minPriceWei);
+      }
+      if (filters.maxPrice) {
+        const maxPriceWei = ethers.utils.parseUnits(filters.maxPrice.toString(), 18).toString();
+        query = query.lte('price_wei', maxPriceWei);
+      }
+      
+      return query;
+    }
+
+    function buildTradeEventsQuery(filters) {
+      let query = supabaseClient
+        .from('trade_events')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (filters.dateFrom) {
+        query = query.gte('created_at', filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        query = query.lte('created_at', filters.dateTo + 'T23:59:59');
+      }
+      if (filters.address) {
+        const addr = filters.address.toLowerCase();
+        query = query.or(`buyer.ilike.%${addr}%,seller.ilike.%${addr}%`);
+      }
+      if (filters.tokenId) {
+        query = query.eq('token_id', filters.tokenId);
+      }
+      if (filters.minPrice) {
+        const minPriceWei = ethers.utils.parseUnits(filters.minPrice.toString(), 18).toString();
+        query = query.gte('price_wei', minPriceWei);
+      }
+      if (filters.maxPrice) {
+        const maxPriceWei = ethers.utils.parseUnits(filters.maxPrice.toString(), 18).toString();
+        query = query.lte('price_wei', maxPriceWei);
+      }
+      
+      return query;
+    }
+
+    function buildSweepEventsQuery(filters) {
+      let query = supabaseClient
+        .from('sweep_events')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (filters.dateFrom) {
+        query = query.gte('created_at', filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        query = query.lte('created_at', filters.dateTo + 'T23:59:59');
+      }
+      if (filters.address) {
+        query = query.ilike('caller', filters.address.toLowerCase());
+      }
+      if (filters.tokenId) {
+        query = query.eq('token_id', filters.tokenId);
+      }
+      if (filters.minPrice) {
+        const minPriceWei = ethers.utils.parseUnits(filters.minPrice.toString(), 18).toString();
+        query = query.gte('buy_price_wei', minPriceWei);
+      }
+      if (filters.maxPrice) {
+        const maxPriceWei = ethers.utils.parseUnits(filters.maxPrice.toString(), 18).toString();
+        query = query.lte('relist_price_wei', maxPriceWei);
+      }
+      
+      return query;
+    }
+
+    // Función para renderizar eventos
+    function renderActivityEvents(events) {
+      const container = document.getElementById('activityList');
+      
+      events.forEach(event => {
+        const eventCard = createEventCard(event);
+        container.appendChild(eventCard);
+      });
+    }
+
+    function createEventCard(event) {
+      const card = document.createElement('div');
+      card.className = 'card mb-3 activity-card';
+      
+      // Determinar tipo de evento y datos
+      let eventType, title, price, date, addresses = {};
+      
+      if (event.event_type) {
+        // listing_events
+        eventType = event.event_type;
+        title = `Token #${event.token_id} ${event.event_type}`;
+        price = event.price_wei ? formatADRIAN(event.price_wei) : null;
+        date = new Date(event.created_at);
+        addresses = { seller: event.seller };
+      } else if (event.buyer) {
+        // trade_events
+        eventType = 'Bought';
+        title = `Token #${event.token_id} Sold`;
+        price = formatADRIAN(event.price_wei);
+        date = new Date(event.created_at);
+        addresses = { buyer: event.buyer, seller: event.seller };
+      } else if (event.caller) {
+        // sweep_events
+        eventType = 'Sweep';
+        title = `Token #${event.token_id} Swept`;
+        price = formatADRIAN(event.buy_price_wei);
+        date = new Date(event.created_at);
+        addresses = { caller: event.caller };
+      }
+      
+      card.innerHTML = `
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <h6 class="card-title mb-1">
+                <span class="badge bg-${getEventBadgeColor(eventType)} me-2">${eventType}</span>
+                ${title}
+              </h6>
+              <p class="text-muted mb-1"><small>${date.toLocaleString()}</small></p>
+              ${price ? `<p class="mb-1"><strong>Price:</strong> ${price} $ADRIAN</p>` : ''}
+              ${addresses.seller ? `<p class="mb-1"><strong>Seller:</strong> <code>${shortAddress(addresses.seller)}</code></p>` : ''}
+              ${addresses.buyer ? `<p class="mb-1"><strong>Buyer:</strong> <code>${shortAddress(addresses.buyer)}</code></p>` : ''}
+              ${addresses.caller ? `<p class="mb-1"><strong>Caller:</strong> <code>${shortAddress(addresses.caller)}</code></p>` : ''}
+              ${event.caller_reward_wei ? `<p class="mb-1"><strong>Reward:</strong> ${formatADRIAN(event.caller_reward_wei)} $ADRIAN</p>` : ''}
+              ${event.relist_price_wei ? `<p class="mb-1"><strong>Relist Price:</strong> ${formatADRIAN(event.relist_price_wei)} $ADRIAN</p>` : ''}
+            </div>
+            <a href="https://basescan.org/tx/${event.tx_hash}" target="_blank" class="btn btn-sm btn-outline-primary">
+              View TX
+            </a>
+          </div>
+        </div>
+      `;
+      
+      return card;
+    }
+
+    // Funciones auxiliares
+    function formatADRIAN(weiString) {
+      const wei = ethers.BigNumber.from(weiString);
+      const adrian = parseFloat(ethers.utils.formatUnits(wei, 18));
+      return adrian.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function shortAddress(address) {
+      return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    }
+
+    function getEventBadgeColor(eventType) {
+      const colors = {
+        'Listed': 'primary',
+        'Cancelled': 'secondary',
+        'Bought': 'success',
+        'Sweep': 'warning'
+      };
+      return colors[eventType] || 'info';
+    }
+
+    // Función para aplicar filtros
+    function applyFilters() {
+      currentActivityFilters = {
+        eventType: document.getElementById('filterEventType').value,
+        dateFrom: document.getElementById('filterDateFrom').value,
+        dateTo: document.getElementById('filterDateTo').value,
+        address: document.getElementById('filterAddress').value.trim(),
+        tokenId: document.getElementById('filterTokenId').value ? parseInt(document.getElementById('filterTokenId').value) : null,
+        minPrice: document.getElementById('filterMinPrice').value ? parseFloat(document.getElementById('filterMinPrice').value) : null,
+        maxPrice: document.getElementById('filterMaxPrice').value ? parseFloat(document.getElementById('filterMaxPrice').value) : null
+      };
+      
+      // Resetear paginación
+      activityPage = 0;
+      activityHasMore = true;
+      document.getElementById('activityList').innerHTML = '';
+      
+      // Recargar eventos
+      loadActivityEvents();
+    }
+
+    // Función para limpiar filtros
+    function clearActivityFilters() {
+      document.getElementById('filterEventType').value = 'all';
+      document.getElementById('filterDateFrom').value = '';
+      document.getElementById('filterDateTo').value = '';
+      document.getElementById('filterAddress').value = '';
+      document.getElementById('filterTokenId').value = '';
+      document.getElementById('filterMinPrice').value = '';
+      document.getElementById('filterMaxPrice').value = '';
+      applyFilters();
+    }
+
+    // Scroll infinito
+    function setupActivityScroll() {
+      activityScrollHandler = () => {
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const windowHeight = window.innerHeight;
+        const documentHeight = document.documentElement.scrollHeight;
+        
+        // Cargar más cuando esté cerca del final (100px antes)
+        if (scrollTop + windowHeight >= documentHeight - 100) {
+          loadActivityEvents();
+        }
+      };
+      
+      window.addEventListener('scroll', activityScrollHandler);
+    }
+
+    function removeActivityScroll() {
+      if (activityScrollHandler) {
+        window.removeEventListener('scroll', activityScrollHandler);
+        activityScrollHandler = null;
+      }
     }
   </script>
 </body>
