@@ -785,27 +785,22 @@
     }
     
     // MODIFICACIÓN: Filtrar NFTs según la cantidad minteada
+    // Funciona sin wallet conectada - solo lectura de datos
     async function loadNFTs() {
       try {
-        if (!window.ethereum) {
-          document.getElementById("nftGrid").innerHTML = `
-            <div class="col-12 text-center">
-              <p class="text-muted">Please install MetaMask to view NFTs</p>
-            </div>
-          `;
-          return;
+        // Asegurar que readProvider esté inicializado
+        if (!readProvider) {
+          readProvider = new ethers.providers.JsonRpcProvider(ALCHEMY_RPC_URL, {
+            name: "base",
+            chainId: 8453
+          });
+          nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+          floorEngineReadContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
+          tokenReadContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
         }
-        if (!userAccount) {
-          document.getElementById("nftGrid").innerHTML = `
-            <div class="col-12 text-center">
-              <p class="text-muted">Please connect your wallet to view NFTs</p>
-            </div>
-          `;
-          return;
-        }
-        // Consultamos cuántos tokens se han minteado hasta el momento
-        const mintedCountBN = await nftContract.totalMinted();
-        const mintedCount = mintedCountBN.toNumber();
+        
+        // Total minted es inmutable: 1000 punks
+        const mintedCount = 1000;
         console.log("Minted count:", mintedCount);
 
         const response = await fetch('./adrianpunks.json');
@@ -817,7 +812,7 @@
           const tokenId = parseInt(tokenIdStr);
           return tokenId <= mintedCount;
         });
-        await loadActiveListings();
+        await loadActiveListings(); // Ya funciona sin wallet
         extractTraits(nftData);
         renderTraitFilters();
         filterAndDisplayNFTs();
@@ -941,9 +936,23 @@
         let ownershipStatus = '';
         let isOwner = false;
         try {
-          const owner = await nftContract.ownerOf(tokenId);
-          isOwner = owner.toLowerCase() === userAccount.toLowerCase();
-          ownershipStatus = isOwner ? `<div class="alert alert-success">You are the owner of this token</div>` : `<div class="alert alert-info">Owner: ${owner.substring(0, 6)}...${owner.substring(38)}</div>`;
+          // Usar readProvider para verificar ownership (funciona sin wallet)
+          if (!nftReadContract) {
+            if (!readProvider) {
+              readProvider = new ethers.providers.JsonRpcProvider(ALCHEMY_RPC_URL, {
+                name: "base",
+                chainId: 8453
+              });
+            }
+            nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+          }
+          const owner = await nftReadContract.ownerOf(tokenId);
+          if (userAccount) {
+            isOwner = owner.toLowerCase() === userAccount.toLowerCase();
+            ownershipStatus = isOwner ? `<div class="alert alert-success">You are the owner of this token</div>` : `<div class="alert alert-info">Owner: ${owner.substring(0, 6)}...${owner.substring(38)}</div>`;
+          } else {
+            ownershipStatus = `<div class="alert alert-info">Owner: ${owner.substring(0, 6)}...${owner.substring(38)}</div>`;
+          }
         } catch (error) {
           ownershipStatus = `<div class="alert alert-warning">Could not verify token ownership</div>`;
         }
@@ -988,9 +997,17 @@
                   <p>Price: ${parseFloat(ethers.utils.formatUnits(tokenListing.price, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1})} $ADRIAN</p>
                   <p>Seller: ${tokenListing.seller.substring(0, 6)}...${tokenListing.seller.substring(38)}</p>
                   ${!tokenListing.isContractOwned ? `
-                    <button class="btn btn-danger btn-sm" onclick="cancelListing(${tokenId})">Cancel Listing</button>
-                    <p class="text-muted mb-0 mt-2"><small>Only the seller can cancel this listing</small></p>
-                  ` : '<p class="text-muted mb-0"><small>This listing is managed by the FloorEngine</small></p>'}
+                    ${isOwner ? `
+                      <button class="btn btn-danger btn-sm" onclick="cancelListing(${tokenId})">Cancel Listing</button>
+                      <p class="text-muted mb-0 mt-2"><small>Only the seller can cancel this listing</small></p>
+                    ` : `
+                      <button class="btn btn-primary btn-sm w-100" onclick="buyToken(${tokenId}, '${tokenListing.price}')">Buy Now</button>
+                    `}
+                  ` : `
+                    ${!isOwner ? `
+                      <button class="btn btn-primary btn-sm w-100" onclick="buyToken(${tokenId}, '${tokenListing.price}')">Buy Now</button>
+                    ` : '<p class="text-muted mb-0"><small>This listing is managed by the FloorEngine</small></p>'}
+                  `}
                 </div>
               ` : ''}
             </div>
@@ -1013,6 +1030,10 @@
     
     async function cancelListing(tokenId) {
       try {
+        if (!userAccount || !floorEngineContract) {
+          alert("Please connect your wallet to cancel this listing");
+          return;
+        }
         const tx = await floorEngineContract.cancel(tokenId, { gasLimit: 300000 });
         await tx.wait();
         alert("Listing cancelled successfully!");
@@ -1026,6 +1047,10 @@
     }
     
     function openListingForm(nftName, marketType) {
+      if (!userAccount || !floorEngineContract) {
+        alert("Please connect your wallet to list this NFT");
+        return;
+      }
       const tokenId = nftName.split('#')[1];
       const modalBody = document.querySelector('.modal-body');
       const existingForm = document.querySelector('.listing-form');
@@ -1054,6 +1079,10 @@
     
     async function createListing(tokenId) {
       try {
+        if (!userAccount || !floorEngineContract || !nftContract) {
+          alert("Please connect your wallet to list this NFT");
+          return;
+        }
         const price = ethers.utils.parseUnits(document.getElementById('listingPrice').value, 18);
         
         // Step 1: Check if NFT is approved
@@ -1109,6 +1138,10 @@
     
     async function buyToken(tokenId, priceStr) {
       try {
+        if (!userAccount || !floorEngineContract || !tokenContract) {
+          alert("Please connect your wallet to purchase this NFT");
+          return;
+        }
         const price = ethers.BigNumber.from(priceStr);
         
         // Step 1: Check allowance and approve if needed
