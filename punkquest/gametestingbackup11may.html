@@ -1,0 +1,2302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Punk Quest DApp</title>
+
+  <!-- --- CSS frameworks & fonts --- -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap">
+
+  <!-- Global style placeholder — Section 12 will be pasted here -->
+  <style id="GLOBAL-STYLES"></style>
+</head>
+
+<body class="bg-dark text-light" style="font-family:'Share Tech Mono', monospace;">
+  <!-- Menu placeholder — Section 3 will inject HTML here -->
+  <nav id="MAIN-MENU"></nav>
+
+  <!-- Router outlet where each screen template mounts -->
+  <main id="APP" class="container py-4"></main>
+
+  <!-- Global scripts placeholder — every JS section is concatenated below -->
+  <script id="GLOBAL-SCRIPTS"></script>
+
+  <!-- Ethers (UMD build) for provider / signer utilities -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
+  <!-- ───────── SECTION 2: PUNK QUEST CONFIG ───────── -->
+  <script id="PQ-CONFIG">
+  /*  Replace ALL "0x…" placeholders and YOUR_INFURA_KEY_HERE
+      with your real addresses / keys before deploying.          */
+
+  (() => {
+    /* Core ABIs – only the functions/events we actually call */
+    const PUNK_QUEST_ABI = [
+      // staking & rewards
+      "function stake(uint256 id)",
+      "function batchStake(uint256[] ids)",
+      "function claimRewards(uint256 id) returns (uint256)",
+      "function batchClaimRewards(uint256[] ids) returns (uint256)",
+      "function unstake(uint256 id)",
+      "function batchUnstake(uint256[] ids)",
+      "function purchaseFastLevelUpgrade(uint256 id)",
+      // views
+      "function pendingPassiveReward(uint256 id) view returns (uint256)",
+      "function pendingGameReward(uint256 id) view returns (uint256)",
+      "function pendingTotalReward(uint256 id) view returns (uint256)",
+      "function getTokenStats(uint256 id) view returns (uint256 passive,uint256 game)",
+      "function getWalletStats(address w,uint256[] tokenIds) view returns (uint256[] stakedIds,uint256 pendingPassive,uint256 pendingGame)",
+      "function getGlobalStats() view returns (uint256 staked,uint256 base,uint256 socialEnd)",
+      // store / armory (templates + instances)
+      "function buyItem(uint256 id,uint256 qty)",
+      "function batchBuyItems(uint256[] ids,uint256[] qtys)",
+      "function equipItem(uint256 tokenId,uint256 itemId)",
+      "function equipItemInstance(uint256 tokenId,uint256 instId)",
+      "function equipExtraItemInstance(uint256 tokenId,uint256 instId)",
+      "function batchArmoryActionsInstances(uint256[] tokenIds,uint8[] acts,uint256[] insts,uint256[] idxs)",
+      "function purchaseExtraSlots(uint256 tokenId,uint256 qty)",
+      "function repairItem(uint256 inst,uint256 tokenId)",
+      "function getOwnedInstances(address owner) view returns (uint256[] instanceIds)",
+      "function getInstanceDetails(uint256 instId) view returns (uint256 templateId, uint256 durability, bool equipped, uint256 lastEvent)",
+      "function ownedItems(address,uint256) view returns (uint256 instanceId,uint256 templateId,uint256 durability,bool degraded)",
+      // detail helpers
+      "function getTokenArmoryDetails(uint256 id) view returns (uint256 weapon,uint256 armor,uint256[] extras,uint256 lastEvent)",
+      "function advancedTokenArmory(uint256 tokenId) view returns (uint256 weaponInstanceId,uint256 armorInstanceId,uint256 lastEventTimestamp,uint256[] extraInstanceIds)",
+      // owner
+      "function owner() view returns (address)",
+      // store additional
+      "function nextItemId() view returns (uint256)",
+      "function items(uint256 id) view returns (uint256 price, uint256 bonus, uint256 durability, bool exists, uint8 itemType, bool degradable)",
+      // eventos
+      "event ItemPurchasedInStore(address indexed user, uint256 templateId, uint256 instanceId)"
+    ];
+
+    const PUNK_NFT_ABI = [
+      "function ownerOf(uint256 tokenId) view returns (address)",
+      "function balanceOf(address owner) view returns (uint256)",
+      "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)"
+    ];
+
+    const MULTICALL_ABI = [
+      "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"
+    ];
+
+    const ERC20_ABI = [
+      "function balanceOf(address) view returns (uint256)",
+      "function allowance(address,address) view returns (uint256)",
+      "function approve(address,uint256) returns (bool)",
+      "function decimals() view returns (uint8)"
+    ];
+
+    /* Enumeration helpers for quick look-ups in Armory UI */
+    const ENUMS = {
+      ArmoryActionType:        { EquipDefault: 0, EquipExtra: 1, UnequipExtra: 2, UnequipAll: 3 },
+      AdvancedArmoryActionType:{ EquipDefault: 0, EquipExtra: 1, UnequipExtra: 2, UnequipAll: 3 }
+    };
+
+    /* Public, mutable DApp-wide config object */
+    window.PQ_CONFIG = {
+      /* ── network ── */
+      chainId:        8453,                         // 8453 = Base Mainnet
+      chainName:      "Base Mainnet",
+      rpcViaInfura:   "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1",
+      rpcBackup:      "https://mainnet.base.org",   // RPC público como respaldo
+      explorer:       "https://basescan.org",
+      nativeCurrency: { name:"Ether", symbol:"ETH", decimals:18 },
+
+      /* ── contracts ── */
+      contracts: {
+        punkQuest: {
+          address: "0xaf22843e195b792a3f874562ab7cee751066665e",
+          abi:     PUNK_QUEST_ABI
+        },
+        punkNFT: {
+          address: "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566",
+          abi:     PUNK_NFT_ABI
+        },
+        rewardToken: {
+          address: "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea",
+          abi:     ERC20_ABI
+        },
+        multicall: {
+          address: "0xcA11bde05977b3631167028862bE2a173976CA11", // Multicall3 en todas las redes
+          abi:     MULTICALL_ABI
+        }
+      },
+
+      /* ── ui helpers ── */
+      enums: ENUMS,
+
+      /* ── misc constants ── */
+      gasLimitBuffer: 1.15,                      // add 15 % head-room to estimated gas
+      rateLimitRetryDelay: 2000                  // tiempo de espera en ms para reintentar en caso de límite de tasa
+    };
+  })();
+  </script>
+  <!-- ───────── END SECTION 2 ───────── -->
+
+  <!-- ───────── SECTION 3: MENU & ROUTER ───────── -->
+  <!-- 1️⃣  Template that renders the top navigation bar -->
+  <template id="TEMPLATE-MENU">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-secondary shadow-sm">
+      <div class="container-fluid">
+        <a class="navbar-brand fw-bold" href="#/dashboard">PunkQuest</a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                data-bs-target="#pqNav" aria-controls="pqNav" aria-expanded="false"
+                aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="pqNav">
+          <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+            <li class="nav-item"><a class="nav-link" href="#/dashboard">Dashboard</a></li>
+            <li class="nav-item"><a class="nav-link" href="#/store">Store</a></li>
+            <li class="nav-item"><a class="nav-link" href="#/armory">Armory</a></li>
+            <li class="nav-item"><a class="nav-link" href="#/events">Events</a></li>
+            <li class="nav-item"><a class="nav-link" href="#/stats">Stats</a></li>
+          </ul>
+
+          <!-- Connect / account button -->
+          <button id="btn-connect" class="btn btn-outline-light">Connect Wallet</button>
+        </div>
+      </div>
+    </nav>
+  </template>
+
+  <!-- 2️⃣  Router + menu bootstrapper -->
+  <script id="PQ-ROUTER">
+  (() => {
+    /* ----- Inject the nav bar into #MAIN-MENU ----- */
+    const menuClone = document.getElementById('TEMPLATE-MENU')?.content.cloneNode(true);
+    const mainMenu = document.getElementById('MAIN-MENU');
+    if (menuClone && mainMenu) {
+      mainMenu.replaceWith(menuClone);
+    }
+
+    /* ----- Basic wallet-connect stub (Section 4 will override) ----- */
+    const connectBtn = document.getElementById('btn-connect');
+    if (connectBtn) {
+      connectBtn.addEventListener('click', async () => {
+        if (window.PQ_WALLET?.connect) {
+          return window.PQ_WALLET.connect();
+        }
+        if (window.ethereum?.request) {
+          try {
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+          } catch (err) {
+            alert(err.message || err);
+          }
+        } else {
+          alert("MetaMask (or a compatible wallet) isn't detected.");
+        }
+      });
+    }
+
+    /* ----- Hash-based router ----- */
+    const SCREENS = {
+      dashboard : 'screen-dashboard',
+      store     : 'screen-store',
+      armory    : 'screen-armory',
+      events    : 'screen-events',
+      stats     : 'screen-stats'
+    };
+
+    /* Create (empty) screen containers that later sections will fill */
+    const appRoot = document.getElementById('APP');
+    if (appRoot) {
+      Object.values(SCREENS).forEach(id => {
+        const el = document.createElement('section');
+        el.id = id;
+        el.className = 'screen-hidden';
+        appRoot.appendChild(el);
+      });
+    }
+
+    function showScreen(name) {
+      const targetId = SCREENS[name] || SCREENS.dashboard;
+      Object.values(SCREENS).forEach(id => {
+        const screen = document.getElementById(id);
+        if (screen) {
+          screen.classList.toggle('screen-hidden', id !== targetId);
+        }
+      });
+
+      /* Highlight active menu tab */
+      document.querySelectorAll('#pqNav .nav-link').forEach(link => {
+        link.classList.toggle('active', link.getAttribute('href') === '#/' + name);
+      });
+
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+
+    function handleRoute() {
+      const page = location.hash.replace('#/', '') || 'dashboard';
+      showScreen(page);
+    }
+
+    window.addEventListener('hashchange', handleRoute);
+    handleRoute();            // first load
+  })();
+  </script>
+
+  <!-- 3️⃣  Bootstrap JS bundle (for navbar toggler) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- ───────── END SECTION 3 ───────── -->
+
+  <!-- ───────── SECTION 4: WALLET MODULE ───────── -->
+  <script id="PQ-WALLET">
+  (() => {
+    const { chainId, chainName, rpcViaInfura, nativeCurrency, contracts } = window.PQ_CONFIG;
+
+    /* ---------- tiny event-bus ---------- */
+    const bus = new EventTarget();
+    function emit(type, detail={}) { bus.dispatchEvent(new CustomEvent(type,{detail})); }
+    function on  (type, fn){ bus.addEventListener(type, fn); }
+    function off (type, fn){ bus.removeEventListener(type,fn); }
+
+    /* ---------- state ---------- */
+    let provider, signer, account, networkOk = false;
+
+    /* ---------- ethers fall-back (read-only) ---------- */
+    const createStaticProvider = () => {
+      // Obtener referencias a las variables de configuración
+      const { chainId, rpcViaInfura, rpcBackup } = window.PQ_CONFIG;
+      
+      // Intentar primero con Infura, si falla usar el respaldo
+      try {
+        const infuraProvider = new ethers.providers.JsonRpcProvider(rpcViaInfura, chainId);
+        // Añadir manejo especial para errores de límite de tasa
+        const originalSend = infuraProvider.send;
+        infuraProvider.send = async function(method, params) {
+          try {
+            return await originalSend.call(this, method, params);
+          } catch (error) {
+            if (error?.message?.includes('429') || error?.error?.message?.includes('rate limit')) {
+              console.warn('Infura rate limit reached, retrying after delay...');
+              await new Promise(resolve => setTimeout(resolve, window.PQ_CONFIG.rateLimitRetryDelay));
+              return originalSend.call(this, method, params);
+            }
+            throw error;
+          }
+        };
+        return infuraProvider;
+      } catch (error) {
+        console.warn('Fallback to backup RPC provider', error);
+        return new ethers.providers.JsonRpcProvider(rpcBackup, chainId);
+      }
+    };
+
+    const staticProvider = createStaticProvider();
+
+    /* ---------- helpers ---------- */
+    function short(addr){ return addr.slice(0,6)+'…'+addr.slice(-4); }
+    function btn(){ return document.getElementById('btn-connect'); }
+    function setBtn(txt, cls='btn-outline-light'){
+      const b = btn();
+      b.textContent = txt;
+      b.className = 'btn '+cls;
+    }
+
+    async function ensureCorrectChain(){
+      const wanted = '0x'+chainId.toString(16);
+      const cur    = await window.ethereum.request({ method:'eth_chainId' });
+      if(cur === wanted){ networkOk = true; return true; }
+
+      /* try to switch, else add */
+      try{
+        await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{chainId:wanted}] });
+        networkOk = true; return true;
+      }catch(switchErr){
+        if(switchErr.code === 4902){            // chain not added
+          try{
+            await window.ethereum.request({
+              method:'wallet_addEthereumChain',
+              params:[{
+                chainId: wanted,
+                chainName,
+                rpcUrls:[rpcViaInfura],
+                nativeCurrency
+              }]
+            });
+            networkOk = true; return true;
+          }catch(addErr){}
+        }
+        networkOk = false; return false;
+      }
+    }
+
+    /* ---------- connect ---------- */
+    async function connect(){
+      if(!window.ethereum){ alert('MetaMask (or compatible) not detected.'); return; }
+      await ensureCorrectChain();
+      try{
+        const accs = await window.ethereum.request({ method:'eth_requestAccounts' });
+        account = ethers.utils.getAddress(accs[0]);
+        provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+        signer   = provider.getSigner();
+        setBtn(short(account), 'btn-success');
+        emit('wallet:connected', { account, provider, signer });
+      }catch(err){
+        console.error(err);
+      }
+    }
+
+    /* ---------- auto-reconnect ---------- */
+    if(window.ethereum && localStorage.getItem('PQ_AUTO_CONNECT')==='1'){
+      connect();
+    }
+
+    on('wallet:connected', () => {
+      localStorage.setItem('PQ_AUTO_CONNECT','1');
+    });
+
+    /* ---------- event listeners ---------- */
+    if(window.ethereum){
+      window.ethereum.on('accountsChanged', (accs)=>{
+        if(accs.length){ connect(); } else { disconnect(); }
+      });
+      window.ethereum.on('chainChanged', () => location.reload());
+    }
+
+    function disconnect(){
+      account = signer = provider = undefined;
+      localStorage.removeItem('PQ_AUTO_CONNECT');
+      setBtn('Connect Wallet', 'btn-outline-light');
+      emit('wallet:disconnected');
+    }
+
+    /* ---------- contract factories ---------- */
+    function pqContract(){
+      const { address, abi } = contracts.punkQuest;
+      return signer
+        ? new ethers.Contract(address, abi, signer)
+        : new ethers.Contract(address, abi, staticProvider);
+    }
+    function nftContract(){
+      const { address, abi } = contracts.punkNFT;
+      return signer
+        ? new ethers.Contract(address, abi, signer)
+        : new ethers.Contract(address, abi, staticProvider);
+    }
+    function rewardTokenContract(){
+      const { address, abi } = contracts.rewardToken;
+      return signer
+        ? new ethers.Contract(address, abi, signer)
+        : new ethers.Contract(address, abi, staticProvider);
+    }
+    function multicallContract(){
+      const { address, abi } = contracts.multicall;
+      return new ethers.Contract(address, abi, provider || staticProvider);
+    }
+
+    /* ---------- public API ---------- */
+    window.PQ_WALLET = {
+      /* state */
+      get account(){ return account; },
+      get provider(){ return provider || staticProvider; },
+      get signer(){ return signer; },
+      /* actions */
+      connect, disconnect, ensureCorrectChain,
+      /* contracts */
+      pqContract, nftContract, rewardTokenContract, multicallContract,
+      /* event bus */
+      on, off
+    };
+
+    /* ---------- init button ---------- */
+    btn().addEventListener('click', connect);
+  })();
+  </script>
+  <!-- ───────── END SECTION 4 ───────── -->
+
+  <!-- ───────── SECTION 5: STATE & HELPERS ───────── -->
+  <script id="PQ-STATE">
+  /*  Light-weight cache layer that wraps PunkQuest reads so every
+      screen can grab fresh data with one-liners like:
+          await PQ_STATE.refreshGlobal();
+          const t = await PQ_STATE.getToken(42);                     */
+
+  (() => {
+    const WALLET = window.PQ_WALLET;
+    const bus    = new EventTarget();                    /* mini pub-sub */
+
+    /* ---------- in-memory cache ---------- */
+    const cache = {
+      global   : {},           /* { staked, base, socialEnd } */
+      wallet   : {},           /* { stakedIds, passive, game } */
+      tokens   : {},           /* tokenId → detailed info     */
+      items    : {},           /* itemId  → template meta      */
+      inventory: {}            /* wallet → { itemId:qty }      */
+    };
+
+    /* ---------- helper: emit events ---------- */
+    const emit = (t, d={}) => bus.dispatchEvent(new CustomEvent(t,{detail:d}));
+
+    /* ---------- GLOBAL STATS ---------- */
+    async function refreshGlobal() {
+      try {
+        const [staked, base, socialEnd] = await retryOnRateLimit(() => 
+          WALLET.pqContract().getGlobalStats()
+        );
+        cache.global = { staked: staked.toString(), base: base.toString(), socialEnd: Number(socialEnd) };
+        emit('state:global', cache.global);
+        return cache.global;
+      } catch (error) {
+        console.error("Error al obtener estadísticas globales:", error);
+        return cache.global;
+      }
+    }
+
+    /* ---------- Utility para reintentar en caso de límite de tasa ---------- */
+    async function retryOnRateLimit(fn, maxRetries = 3) {
+      let lastError;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          return await fn();
+        } catch (error) {
+          lastError = error;
+          // Verificar si es un error de límite de tasa
+          if (error?.message?.includes('429') || 
+              error?.error?.message?.includes('rate limit') ||
+              error?.data?.error?.message?.includes('rate limit')) {
+            console.warn(`Rate limit alcanzado, reintento ${attempt+1}/${maxRetries}...`);
+            // Esperar un tiempo cada vez mayor entre reintentos (back-off exponencial)
+            await new Promise(resolve => 
+              setTimeout(resolve, 2000 * (attempt + 1))
+            );
+            continue;
+          }
+          // Si no es error de límite de tasa, lanzar el error
+          throw error;
+        }
+      }
+      // Si llegamos aquí, todos los reintentos fallaron
+      console.error("Máximo de reintentos alcanzado");
+      throw lastError;
+    }
+
+    /* ---------- WALLET-LEVEL AGGREGATES ---------- */
+    async function refreshWallet(tokenIds = []) {
+      if (!WALLET.account) return {};
+      try {
+        const [ids, passive, game] = await retryOnRateLimit(() => 
+          WALLET.pqContract().getWalletStats(WALLET.account, tokenIds)
+        );
+        cache.wallet = { stakedIds: ids.map(n => Number(n)), passive, game };
+        emit('state:wallet', cache.wallet);
+        return cache.wallet;
+      } catch (error) {
+        console.error("Error al obtener estadísticas de wallet:", error);
+        return cache.wallet;
+      }
+    }
+
+    /* ---------- SINGLE TOKEN DETAILS ---------- */
+    async function getToken(id) {
+      if (cache.tokens[id]) return cache.tokens[id];
+
+      const pq = WALLET.pqContract();
+      const mc = WALLET.multicallContract();
+      const iface = pq.interface;
+      
+      try {
+        // Verificar qué funciones están disponibles
+        const hasDetailedInfo = typeof pq.getTokenDetailedInfo === 'function';
+        
+        // Definir las llamadas que haremos
+        const calls = [
+          {
+            target: pq.address, 
+            allowFailure: false,
+            callData: iface.encodeFunctionData('getTokenStats', [id])
+          },
+          {
+            target: pq.address, 
+            allowFailure: false,
+            callData: iface.encodeFunctionData('getTokenArmoryDetails', [id])
+          }
+        ];
+        
+        // Realizar una sola llamada a la red con retry en caso de límite de tasa
+        const res = await retryOnRateLimit(() => mc.aggregate3(calls));
+        
+        // Decodificar los resultados
+        const [passive, game] = iface.decodeFunctionResult('getTokenStats', res[0].returnData);
+        const [weapon, armor, extras, lastEvent] = iface.decodeFunctionResult('getTokenArmoryDetails', res[1].returnData);
+        
+        // Crear objeto token con valores por defecto para los campos que podrían faltar
+        cache.tokens[id] = {
+          passive, 
+          game, 
+          stakeStart: ethers.BigNumber.from(0),
+          lastClaim: ethers.BigNumber.from(0),
+          fast: ethers.BigNumber.from(0),
+          itemsBonus: ethers.BigNumber.from(0),
+          spec: ethers.BigNumber.from(0),
+          fix: ethers.BigNumber.from(0),
+          pending: ethers.BigNumber.from(0),
+          weapon, 
+          armor, 
+          extras, 
+          lastEvent
+        };
+        
+        emit('state:token', { id, data: cache.tokens[id] });
+        return cache.tokens[id];
+      } catch (error) {
+        console.error(`Error al cargar detalles del token #${id}:`, error);
+        // Si falla multicall, intentar el método directo pero solo con las funciones que sabemos que existen
+        try {
+          const [passive, game] = await retryOnRateLimit(() => pq.getTokenStats(id));
+          const [weapon, armor, extras, lastEvent] = await retryOnRateLimit(() => pq.getTokenArmoryDetails(id));
+          
+          cache.tokens[id] = {
+            passive, 
+            game, 
+            stakeStart: ethers.BigNumber.from(0),
+            lastClaim: ethers.BigNumber.from(0),
+            fast: ethers.BigNumber.from(0),
+            itemsBonus: ethers.BigNumber.from(0),
+            spec: ethers.BigNumber.from(0),
+            fix: ethers.BigNumber.from(0),
+            pending: ethers.BigNumber.from(0),
+            weapon, 
+            armor, 
+            extras, 
+            lastEvent
+          };
+          
+          emit('state:token', { id, data: cache.tokens[id] });
+          return cache.tokens[id];
+        } catch (fallbackError) {
+          console.error(`Error en fallback para token #${id}:`, fallbackError);
+          throw fallbackError;
+        }
+      }
+    }
+
+    /* ---------- STORE TEMPLATES ---------- */
+    async function loadStoreTemplates(maxToScan = 60) {
+      if (Object.keys(cache.items).length) return cache.items;      // already cached
+      
+      try {
+        // Intentar cargar desde el contrato real
+        const pq = WALLET.pqContract();
+        // Obtenemos el próximo ID disponible para saber cuántos elementos hay
+        const nextId = await retryOnRateLimit(() => pq.nextItemId());
+        
+        for (let i = 1; i < nextId.toNumber(); i++) {
+          try {
+            // Obtenemos la información del ítem
+            const itm = await retryOnRateLimit(() => pq.items(i));
+            
+            if (itm.exists) {
+              cache.items[i] = {
+                id: i,
+                price: itm.price,
+                bonus: itm.bonus,
+                durability: itm.durability,
+                type: itm.itemType,
+                degradable: itm.degradable,
+                exists: itm.exists
+              };
+            }
+          } catch (error) {
+            console.warn(`Error al cargar ítem ${i}:`, error);
+          }
+        }
+        
+        // Si no se cargó ningún ítem, usamos datos de prueba
+        if (Object.keys(cache.items).length === 0) {
+          fallbackStoreItems();
+        }
+      } catch (error) {
+        console.error("Error al cargar ítems de la tienda:", error);
+        // Si falla todo, usamos datos de prueba
+        fallbackStoreItems();
+      }
+      
+      // No emitimos evento para evitar recursión
+      return cache.items;
+    }
+
+    // Fallback con datos de prueba si no se puede acceder al contrato
+    function fallbackStoreItems() {
+      console.log("Usando datos de tienda de respaldo");
+      cache.items = {
+        1: {
+          id: 1,
+          price: ethers.utils.parseEther("0.1"),
+          bonus: ethers.utils.parseEther("0.01"),
+          durability: 100,
+          type: 0, // Weapon
+          degradable: true,
+          exists: true
+        },
+        2: {
+          id: 2,
+          price: ethers.utils.parseEther("0.15"),
+          bonus: ethers.utils.parseEther("0.02"),
+          durability: 150,
+          type: 1, // Armor
+          degradable: false,
+          exists: true
+        }
+      };
+    }
+
+    /* ---------- PLAYER INVENTORY (TEMPLATE ITEMS) ---------- */
+    async function loadInventory(address = WALLET.account) {
+      if (!address) return {};
+      if (cache.inventory[address]) return cache.inventory[address];
+      
+      // Aseguramos que los datos de tienda estén cargados
+      const items = await loadStoreTemplates();
+      
+      // Datos de prueba para inventario
+      const inv = { 1: ethers.BigNumber.from(2) };
+      cache.inventory[address] = inv;
+      
+      // No emitimos evento para evitar recursión
+      return inv;
+    }
+
+    /* ---------- PLAYER INSTANCES (ACTUAL ITEMS) ---------- */
+    async function scanOwnedInstances(owner, batch = 20, hardCap = 500) {
+      const q = WALLET.pqContract();
+      const mc = WALLET.multicallContract();
+      const iface = q.interface;
+
+      const out = [];
+      for (let from = 0; from < hardCap; from += batch) {
+        console.log(`Escaneando instancias ${from}-${from + batch - 1}...`);
+        // construimos llamadas ownedItems(owner,from+i)
+        const calls = [];
+        for (let i = 0; i < batch; i++) {
+          calls.push({
+            target: q.address,
+            allowFailure: true,
+            callData: iface.encodeFunctionData("ownedItems", [owner, from + i])
+          });
+        }
+
+        try {
+          const res = await retryOnRateLimit(() => mc.aggregate3(calls));  // multicall3
+          let anyOK = false;
+
+          res.forEach((r, i) => {
+            if (!r.success) return;                    // índice fuera de rango
+            anyOK = true;
+            const [id, tpl, dur, deg] = iface.decodeFunctionResult(
+              "ownedItems",
+              r.returnData
+            );
+            out.push({
+              instanceId: id.toString(),
+              templateId: tpl.toString(),
+              durability: dur.toNumber(),
+              equipped: false,                       // lo actualizaremos después
+              needsRepair: deg || dur.isZero(),
+              lastEvent: "0"  // Campo requerido por otras partes del código
+            });
+          });
+
+          if (!anyOK) {
+            console.log(`No más instancias después de ${from}`);
+            break;                          // primer bloque vacío ⇒ terminamos
+          }
+        } catch (err) {
+          console.error(`Error en escaneo ${from}-${from + batch - 1}:`, err);
+          // Continuamos con el siguiente bloque en caso de error
+        }
+      }
+      
+      console.log(`Total instancias encontradas: ${out.length}`);
+      return out;
+    }
+
+    async function loadInstances(addr = WALLET.account, force = false) {
+      if (!addr) return [];
+      if (cache.instances?.[addr] && !force) return cache.instances[addr];
+
+      try {
+        console.log("Cargando instancias para cuenta:", addr);
+        
+        // 1) Obtener todas las instancias que posee el usuario
+        const instancesArr = await scanOwnedInstances(addr);
+        
+        if (instancesArr.length > 0) {
+          // 2) Obtener los IDs de tokens stakeados para verificar qué instancias están equipadas
+          const staked = cache.wallet.stakedIds || [];
+          console.log(`Verificando ${staked.length} tokens stakeados para instancias equipadas`);
+          
+          // Set para almacenar IDs de instancias equipadas
+          const equipSet = new Set();
+          
+          // Verificar las instancias equipadas usando advancedTokenArmory
+          if (staked.length > 0 && typeof WALLET.pqContract().advancedTokenArmory === 'function') {
+            try {
+              // Llamadas individuales para cada token stakeado
+              console.log(`Consultando advancedTokenArmory para ${staked.length} tokens stakeados`);
+              
+              for (const id of staked) {
+                try {
+                  // Llamar a advancedTokenArmory y obtener los IDs de instancias
+                  const [weaponInstanceId, armorInstanceId, lastEventTimestamp, extraInstanceIds] = 
+                    await retryOnRateLimit(() => WALLET.pqContract().advancedTokenArmory(id));
+                  
+                  console.log(`Token #${id} advancedTokenArmory:`, {
+                    weaponInstanceId: weaponInstanceId.toString(),
+                    armorInstanceId: armorInstanceId.toString(),
+                    lastEventTimestamp: lastEventTimestamp.toString(),
+                    extraInstanceIds: extraInstanceIds.map(e => e.toString())
+                  });
+                  
+                  // Agregar instancias equipadas al Set
+                  if (weaponInstanceId && !weaponInstanceId.isZero()) {
+                    equipSet.add(weaponInstanceId.toString());
+                    console.log(`Token #${id} tiene weaponInstanceId #${weaponInstanceId.toString()} equipado`);
+                  }
+                  
+                  if (armorInstanceId && !armorInstanceId.isZero()) {
+                    equipSet.add(armorInstanceId.toString());
+                    console.log(`Token #${id} tiene armorInstanceId #${armorInstanceId.toString()} equipado`);
+                  }
+                  
+                  if (extraInstanceIds && extraInstanceIds.length > 0) {
+                    for (const extraId of extraInstanceIds) {
+                      if (extraId && !extraId.isZero()) {
+                        equipSet.add(extraId.toString());
+                        console.log(`Token #${id} tiene extraInstanceId #${extraId.toString()} equipado`);
+                      }
+                    }
+                  }
+                } catch (err) {
+                  console.error(`Error consultando advancedTokenArmory para token #${id}:`, err);
+                }
+              }
+            } catch (error) {
+              console.error(`Error general consultando advancedTokenArmory:`, error);
+            }
+          }
+          
+          // Marcar las instancias equipadas
+          console.log(`Instancias equipadas encontradas:`, Array.from(equipSet));
+          instancesArr.forEach(inst => {
+            inst.equipped = equipSet.has(inst.instanceId);
+            if (inst.equipped) {
+              console.log(`Instancia #${inst.instanceId} (template ${inst.templateId}) marcada como equipada 🔒`);
+            }
+          });
+          
+          // Actualizar el caché
+          cache.instances = cache.instances || {};
+          cache.instances[addr] = instancesArr;
+          emit("state:instances", { address: addr, instances: instancesArr });
+          console.log(`${instancesArr.length} instancias cargadas correctamente`);
+        } else if (!cache.instances?.[addr]) {
+          // Si no encontramos nada y no hay caché previa, inicializar con array vacío
+          cache.instances = cache.instances || {};
+          cache.instances[addr] = [];
+        }
+        
+        return cache.instances[addr];
+      } catch (err) {
+        console.error("scanOwnedInstances falló:", err);
+        // Devolver caché anterior o array vacío
+        return cache.instances?.[addr] || [];
+      }
+    }
+
+    /* ---------- External API ---------- */
+    window.PQ_STATE = {
+      cache,
+      /* event helpers */     on: (t, f) => bus.addEventListener(t, f),
+                              off: (t, f) => bus.removeEventListener(t, f),
+      /* fetchers */          refreshGlobal,
+                              refreshWallet,
+                              getToken,
+                              loadStoreTemplates,
+                              loadInventory,
+                              loadInstances,
+      /* helpers */           retryOnRateLimit
+    };
+
+    /* ---------- auto-refresh when wallet connects ---------- */
+    WALLET.on('wallet:connected', async () => {
+      // Solo actualizamos los datos globales y de wallet
+      try {
+        await refreshGlobal();
+        await refreshWallet();
+      } catch (error) {
+        console.error("Error al actualizar datos:", error);
+      }
+    });
+  })();
+  </script>
+  <!-- ───────── END SECTION 5 ───────── -->
+
+  <!-- ───────── SECTION 6: DASHBOARD / STAKING ───────── -->
+  <!-- 1️⃣  Dashboard template -->
+  <template id="TEMPLATE-DASHBOARD">
+    <div class="container-fluid">
+      <!-- Global snapshot -->
+      <div class="row g-3 mb-4" id="dash-global">
+        <div class="col-md-3">
+          <div class="card text-bg-secondary h-100">
+            <div class="card-body">
+              <h6 class="card-title mb-1">Punks staked</h6>
+              <p class="h4 mb-0" id="g-staked">–</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card text-bg-secondary h-100">
+            <div class="card-body">
+              <h6 class="card-title mb-1">Base reward rate</h6>
+              <p class="h4 mb-0" id="g-base">–</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card text-bg-secondary h-100">
+            <div class="card-body">
+              <h6 class="card-title mb-1">Passive pending</h6>
+              <p class="h4 mb-0" id="g-passive">–</p>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card text-bg-secondary h-100">
+            <div class="card-body">
+              <h6 class="card-title mb-1">Game pending</h6>
+              <p class="h4 mb-0" id="g-game">–</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick actions -->
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        <button class="btn btn-primary" id="btn-refresh">Refresh</button>
+        <button class="btn btn-success" id="btn-claim-all" disabled>Claim all</button>
+        <button class="btn btn-warning" id="btn-unstake-all" disabled>Unstake all</button>
+      </div>
+
+      <!-- Token table -->
+      <div class="table-responsive">
+        <table class="table table-dark table-striped align-middle">
+          <thead>
+            <tr>
+              <th scope="col">Token ID</th>
+              <th scope="col">Passive</th>
+              <th scope="col">Game</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="dash-table">
+            <!-- rows injected dynamically -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Stake input -->
+      <div class="input-group mt-4" style="max-width:22rem;">
+        <input type="number" min="0" step="1" class="form-control" id="inp-stake"
+               placeholder="Punk ID to stake">
+        <button class="btn btn-outline-info" id="btn-stake">Stake</button>
+      </div>
+    </div>
+  </template>
+
+  <!-- 2️⃣  Dashboard logic -->
+  <script id="PQ-DASHBOARD">
+  (() => {
+    const WALLET = window.PQ_WALLET;
+    const STATE  = window.PQ_STATE;
+    const screen = document.getElementById('screen-dashboard');
+
+    /* inject template once */
+    screen.appendChild(
+      document.getElementById('TEMPLATE-DASHBOARD').content.cloneNode(true)
+    );
+
+    /* elements */
+    const el = {
+      staked   : screen.querySelector('#g-staked'),
+      base     : screen.querySelector('#g-base'),
+      pass     : screen.querySelector('#g-passive'),
+      game     : screen.querySelector('#g-game'),
+      tableBdy : screen.querySelector('#dash-table'),
+      claimAll : screen.querySelector('#btn-claim-all'),
+      unstakeAll:screen.querySelector('#btn-unstake-all'),
+      refresh  : screen.querySelector('#btn-refresh'),
+      stakeBtn : screen.querySelector('#btn-stake'),
+      stakeInp : screen.querySelector('#inp-stake')
+    };
+
+    /* utils */
+    const fmt = (v, dec = 18, fixed = 4) =>
+      ethers.utils.commify(Number(ethers.utils.formatUnits(v, dec)).toFixed(fixed));
+
+    function setLoading(button, on){
+      button.disabled = on;
+      button.innerHTML = on ? `<span class="spinner-border spinner-border-sm me-1"></span>Processing`
+                            : button.dataset.label;
+    }
+
+    /* renderers */
+    async function renderGlobal(){
+      const g = STATE.cache.global;
+      if(!g.staked) return;
+      el.staked.textContent = g.staked;
+      el.base.textContent   = fmt(g.base, 18, 0) + ' /s';
+    }
+
+    async function renderWallet(){
+      const w = STATE.cache.wallet;
+      if(!w.stakedIds) return;
+
+      el.pass.textContent  = fmt(w.passive || 0);
+      el.game.textContent  = fmt(w.game   || 0);
+
+      el.claimAll.disabled   = !w.stakedIds.length;
+      el.unstakeAll.disabled = !w.stakedIds.length;
+
+      /* build rows */
+      el.tableBdy.innerHTML = '';
+      for(const id of w.stakedIds){
+        const t   = await STATE.getToken(id);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <th scope="row">${id}</th>
+          <td>${fmt(t.passive)}</td>
+          <td>${fmt(t.game)}</td>
+          <td>
+            <button class="btn btn-sm btn-success me-1" data-act="claim" data-id="${id}">Claim</button>
+            <button class="btn btn-sm btn-warning me-1" data-act="unstake" data-id="${id}">Unstake</button>
+            <button class="btn btn-sm btn-outline-info" data-act="fast" data-id="${id}"
+                    title="Purchase fast-level upgrade">FLU</button>
+          </td>`;
+        el.tableBdy.appendChild(row);
+      }
+    }
+
+    /* actions */
+    async function claim(id){
+      const pq = WALLET.pqContract();
+      setLoading(el.claimAll, true);
+      try{
+        const tx = await pq.claimRewards(id);
+        await tx.wait();
+        await STATE.getToken(id);                 /* refresh cache */
+        STATE.refreshWallet();                    /* update aggregates */
+      }catch(e){ console.error(e); }
+      setLoading(el.claimAll, false);
+    }
+
+    async function unstake(id){
+      const pq = WALLET.pqContract();
+      setLoading(el.unstakeAll, true);
+      try{
+        const tx = await pq.unstake(id);
+        await tx.wait();
+        STATE.refreshWallet();
+      }catch(e){ console.error(e); }
+      setLoading(el.unstakeAll, false);
+    }
+
+    async function fastUpgrade(id){
+      const pq = WALLET.pqContract();
+      try{
+        const tx = await pq.purchaseFastLevelUpgrade(id);
+        await tx.wait();
+        STATE.getToken(id);
+        alert(`Fast-level upgrade purchased for #${id}`);
+      }catch(e){ console.error(e); alert(e.message || e); }
+    }
+
+    async function claimAll(){
+      const ids = STATE.cache.wallet.stakedIds || [];
+      if(!ids.length) return;
+      const pq = WALLET.pqContract();
+      setLoading(el.claimAll, true);
+      try{
+        const tx = await pq.batchClaimRewards(ids);
+        await tx.wait();
+        STATE.refreshWallet();
+      }catch(e){ console.error(e); }
+      setLoading(el.claimAll, false);
+    }
+
+    async function unstakeAll(){
+      const ids = STATE.cache.wallet.stakedIds || [];
+      if(!ids.length) return;
+      const pq = WALLET.pqContract();
+      setLoading(el.unstakeAll, true);
+      try{
+        const tx = await pq.batchUnstake(ids);
+        await tx.wait();
+        STATE.refreshWallet();
+      }catch(e){ console.error(e); }
+      setLoading(el.unstakeAll, false);
+    }
+
+    async function stakeToken(){
+      const id = Number(el.stakeInp.value);
+      if(!id){ alert('Enter a valid token ID'); return; }
+      const pq = WALLET.pqContract();
+      setLoading(el.stakeBtn, true);
+      try{
+        const tx = await pq.stake(id);
+        await tx.wait();
+        el.stakeInp.value = '';
+        STATE.refreshWallet();
+      }catch(e){ console.error(e); alert(e.message || e); }
+      setLoading(el.stakeBtn, false);
+    }
+
+    /* listeners */
+    el.tableBdy.addEventListener('click', e=>{
+      const btn = e.target.closest('button[data-id]');
+      if(!btn) return;
+      const id  = Number(btn.dataset.id);
+      const act = btn.dataset.act;
+      if(act === 'claim')   claim(id);
+      if(act === 'unstake') unstake(id);
+      if(act === 'fast')    fastUpgrade(id);
+    });
+
+    el.claimAll .dataset.label = 'Claim all';
+    el.unstakeAll.dataset.label = 'Unstake all';
+    el.claimAll .addEventListener('click', claimAll);
+    el.unstakeAll.addEventListener('click', unstakeAll);
+    el.refresh  .addEventListener('click', () => {
+      STATE.refreshGlobal();
+      STATE.refreshWallet();
+    });
+
+    el.stakeBtn.dataset.label = 'Stake';
+    el.stakeBtn.addEventListener('click', stakeToken);
+
+    /* react to state changes */
+    STATE.on('state:global',  renderGlobal);
+    STATE.on('state:wallet',  async () => {
+      await renderWallet();
+      renderGlobal();
+    });
+
+    /* initial paint (in case wallet already connected) */
+    if(WALLET.account){
+      renderGlobal();
+      renderWallet();
+    }
+  })();
+  </script>
+  <!-- ───────── END SECTION 6 ───────── -->
+
+  <!-- ───────── SECTION 7: STORE ───────── -->
+  <!-- ────── STORE + CART EXTENDED ────── -->
+  <script id="PQ-STORE">
+  (() => {
+    const { pqContract } = PQ_WALLET;
+    const { loadStoreTemplates, cache, on, loadInstances } = PQ_STATE;
+    const scr = document.getElementById('screen-store');
+
+    /* ▸ HTML ---------------------------------------------------------------- */
+    scr.innerHTML = `
+      <div class="container-fluid">
+        <h3 class="mb-3">Weapon Store</h3>
+        <div class="row g-3" id="grid"></div>
+
+        <h4 class="mt-4 mb-2">Cart</h4>
+        <div class="table-responsive">
+          <table class="table table-dark table-sm align-middle mb-2">
+            <thead><tr><th>ID</th><th>Qty</th><th>Price</th><th></th></tr></thead>
+            <tbody id="cart-body"></tbody>
+          </table>
+        </div>
+        <button class="btn btn-success" id="btn-checkout" disabled>Checkout</button>
+      </div>`;
+
+    const $ = id => scr.querySelector(id);
+    const grid = $('#grid'), cartBody = $('#cart-body'), btnCO = $('#btn-checkout');
+
+    /* ▸ In-memory cart ------------------------------------------------------- */
+    const cart = new Map();      // id -> qty
+    const instDecimals = 18;     // use everywhere
+
+    function addToCart(id, price){
+      const cur = cart.get(id) || 0;
+      cart.set(id, cur + 1);
+      renderCart();
+    }
+    function removeFromCart(id){
+      cart.delete(id);
+      renderCart();
+    }
+
+    /* ▸ Rendering ------------------------------------------------------------ */
+    const fmt = v => ethers.utils.commify(ethers.utils.formatUnits(v,18));
+
+    async function paintWeapons(){
+      await loadStoreTemplates();
+      grid.innerHTML = '';
+
+      /* solo Weapon (itemType === 0) */
+      Object.values(cache.items)
+        .filter(it => it.type === 0 && it.exists)
+        .forEach(it => {
+          const col = document.createElement('div');
+          col.className = 'col-sm-6 col-md-4 col-lg-3';
+          col.innerHTML = `
+            <div class="card text-bg-secondary h-100">
+              <div class="card-body d-flex flex-column">
+                <h5 class="card-title">Weapon #${it.id}</h5>
+                <p class="mb-1">Bonus: ${fmt(it.bonus)}</p>
+                <p class="mb-3">Durability: ${it.durability}</p>
+                <button class="btn btn-primary mt-auto" data-add="${it.id}">Add to cart – ${fmt(it.price)}</button>
+              </div>
+            </div>`;
+          grid.append(col);
+        });
+    }
+
+    /* ▸ Utility para manejar límites de tasa ------------------------------------ */
+    const retryContractCall = async (fn, maxRetries = 3) => {
+      let lastError;
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          return await fn();
+        } catch (error) {
+          lastError = error;
+          // Verificar si es un error de límite de tasa
+          if (error?.message?.includes('429') || 
+              error?.error?.message?.includes('rate limit') ||
+              error?.data?.error?.message?.includes('rate limit')) {
+            console.warn(`Rate limit alcanzado, reintento ${attempt+1}/${maxRetries}...`);
+            // Esperar un tiempo cada vez mayor entre reintentos
+            await new Promise(resolve => 
+              setTimeout(resolve, 2000 * (attempt + 1))
+            );
+            continue;
+          }
+          // Si no es error de límite de tasa, lanzar el error
+          throw error;
+        }
+      }
+      // Si llegamos aquí, todos los reintentos fallaron
+      throw lastError;
+    };
+
+    function renderCart(){
+      cartBody.innerHTML = '';
+      let total = ethers.BigNumber.from(0);
+
+      for (const [id, qty] of cart){
+        const price = cache.items[id].price.mul(qty);
+        total = total.add(price);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${id}</td>
+          <td>${qty}</td>
+          <td>${fmt(price)}</td>
+          <td><button class="btn btn-sm btn-outline-danger" data-del="${id}">✕</button></td>`;
+        cartBody.append(tr);
+      }
+      btnCO.disabled = cart.size === 0;
+      btnCO.textContent = cart.size
+        ? `Checkout – ${fmt(total)}`
+        : 'Checkout';
+    }
+
+    /* ▸ Events --------------------------------------------------------------- */
+    grid.addEventListener('click', e=>{
+      const id = e.target.dataset.add;
+      if(!id) return;
+      addToCart(Number(id));
+    });
+
+    cartBody.addEventListener('click', e=>{
+      const id = e.target.dataset.del;
+      if(id) removeFromCart(Number(id));
+    });
+
+    btnCO.addEventListener('click', async ()=>{
+      const ids  = Array.from(cart.keys());
+      const qtys = ids.map(id => cart.get(id));
+      
+      // Calcular precio total
+      let total = ethers.BigNumber.from(0);
+      for (const [id, qty] of cart) {
+        const price = cache.items[id].price.mul(qty);
+        total = total.add(price);
+      }
+      
+      try {
+        btnCO.disabled = true;
+        btnCO.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+        
+        // Obtener contrato de token $ADRIAN
+        const tokenContract = PQ_WALLET.rewardTokenContract();
+        const questContract = pqContract();
+        
+        // Verificar si necesitamos aprobación
+        const currentAllowance = await retryContractCall(() => 
+          tokenContract.allowance(PQ_WALLET.account, questContract.address)
+        );
+        
+        // Si la aprobación actual es menor que el total, solicitar nueva aprobación
+        if (currentAllowance.lt(total)) {
+          PQ_UTIL.toast('Aprobando tokens $ADRIAN para la compra...', true);
+          
+          // Aprobar el token para gastar
+          const approveTx = await tokenContract.approve(questContract.address, total);
+          await approveTx.wait();
+          
+          PQ_UTIL.toast('¡Aprobación completada!', true);
+        }
+        
+        // Realizar la compra usando batchBuyItems (misma firma)
+        PQ_UTIL.toast('Comprando items...', true);
+        const tx = await questContract.batchBuyItems(ids, qtys);
+        const receipt = await tx.wait();
+        
+        // 1) limpia caché para este usuario
+        if (PQ_STATE.cache.instances) {
+          delete PQ_STATE.cache.instances[PQ_WALLET.account];
+        }
+        
+        // 2) vuelve a cargar y repinta
+        await PQ_STATE.loadInstances(PQ_WALLET.account, true);
+        PQ_UTIL.toast('Instancias actualizadas ✅', true);
+        if (location.hash === '#/armory') {
+          window.paintInventory?.();   // expuesta desde PQ-ARMORY
+        }
+        
+        // 3) no emitimos eventos de compra aquí
+        
+        cart.clear(); 
+        renderCart();
+      } catch (err) {
+        console.error("Error en checkout:", err);
+        PQ_UTIL.toast(err.message || err, false);
+      } finally {
+        btnCO.disabled = false;
+        btnCO.textContent = cart.size ? `Checkout – ${fmt(total)}` : 'Checkout';
+      }
+    });
+
+    /* ▸ Reactive refresh ----------------------------------------------------- */
+    on('state:items', paintWeapons);
+    PQ_WALLET.on('wallet:connected', paintWeapons);
+    
+    // Exponer la función de pintado para que el script de corrección pueda acceder a ella
+    window.PQ_STORE = { paintWeapons };
+
+  })();
+  </script>
+
+  <!-- Corrección para el orden correcto de los campos y formateado apropiado -->
+  <script id="PQ-STORE-FIX">
+  (() => {
+    /* 1 ·  helper: formatear solo cantidades con 18 decimales  */
+    const toToken = (bn, prec = 4) =>
+        Number(ethers.utils.formatUnits(bn, 18)).toFixed(prec);
+
+    /* 2 ·  sobre-escribimos loadStoreTemplates con el orden REAL */
+    PQ_STATE.loadStoreTemplates = async function () {
+      const { pqContract } = PQ_WALLET;
+      const cache = PQ_STATE.cache;
+
+      if (Object.keys(cache.items).length) return cache.items;   // ya estaba cargado
+
+      try {
+        const nextId = await pqContract().nextItemId();
+        for (let i = 1; i < nextId; i++) {
+          try {
+            const [price, bonus, durability, exists, itemType, degradable] =
+                  await pqContract().items(i);
+
+            if (!exists) continue;     // huecos vacíos
+
+            cache.items[i] = {
+              id:          i,
+              price,                       // BigNumber (18 dec.)
+              bonus,                       // BigNumber (18 dec.)
+              durability: durability.toNumber(),   // entero "normal"
+              type:        itemType,       // 0 = Weapon, 1 = Armor
+              degradable,
+              exists
+            };
+          } catch (err) {
+            console.warn(`Error al cargar item ${i}:`, err);
+          }
+        }
+      } catch (err) {
+        console.error("Error al cargar armas:", err);
+        // Usar datos de respaldo si hay error
+        if (Object.keys(cache.items).length === 0) {
+          cache.items = {
+            1: {
+              id: 1,
+              price: ethers.utils.parseEther("0.1"),
+              bonus: ethers.utils.parseEther("0.01"),
+              durability: 100,
+              type: 0, // Weapon
+              degradable: true,
+              exists: true
+            },
+            2: {
+              id: 2,
+              price: ethers.utils.parseEther("0.15"),
+              bonus: ethers.utils.parseEther("0.02"),
+              durability: 150,
+              type: 1, // Armor
+              degradable: false,
+              exists: true
+            }
+          };
+        }
+      }
+      
+      return cache.items;
+    };
+
+    /* 3 ·  pequeño parche al render del grid */
+    const oldPaint = PQ_STORE?.paintWeapons;          // por si ya existe
+    const paintWeapons = async () => {
+      const { cache } = PQ_STATE;
+      const grid = document.querySelector('#grid');
+      if (!grid) return;
+
+      await PQ_STATE.loadStoreTemplates();
+      grid.innerHTML = '';
+
+      Object.values(cache.items)
+        .filter(it => it.type === 0)                 // solo Weapon
+        .forEach(it => {
+          const col = document.createElement('div');
+          col.className = 'col-sm-6 col-md-4 col-lg-3';
+          col.innerHTML = `
+            <div class="card text-bg-secondary h-100">
+              <div class="card-body d-flex flex-column">
+                <h5 class="card-title">Weapon #${it.id}</h5>
+                <p class="mb-1">Bonus: ${toToken(it.bonus)}</p>
+                <p class="mb-3">Durability: ${it.durability}</p>
+                <button class="btn btn-primary mt-auto" data-add="${it.id}">
+                  Add&nbsp;to&nbsp;cart&nbsp;–&nbsp;${toToken(it.price)}
+                </button>
+              </div>
+            </div>`;
+          grid.append(col);
+        });
+    };
+
+    /* si ya tenías un listener lo quitamos y ponemos el nuevo */
+    PQ_STATE.off?.('state:items', oldPaint);
+    PQ_STATE.on('state:items', paintWeapons);
+    PQ_WALLET.on('wallet:connected', paintWeapons);
+
+    /* run once if wallet already in */
+    if (PQ_WALLET.account) paintWeapons();
+  })();
+  </script>
+
+  <!-- ───────────────────────  SECTION 8: ARMORY  ─────────────────────── -->
+  <!-- ───────── NEW TEMPLATE ARMORY ───────── -->
+  <template id="TEMPLATE-ARMORY">
+    <div class="container-fluid">
+      <h3 class="mb-3">Armory</h3>
+
+      <div class="row">
+        <!-- ◂▸ Tus AdrianPunks -->
+        <div class="col-lg-12 mb-4">
+          <h5>Tus AdrianPunks</h5>
+          <div class="d-flex flex-wrap gap-2 mb-4" id="punks-wallet">
+            <div class="spinner-border text-light" role="status">
+              <span class="visually-hidden">Cargando...</span>
+            </div>
+          </div>
+          
+          <!-- Detalles del punk seleccionado -->
+          <div id="punk-details" class="card bg-dark border-secondary mb-4" style="display: none;">
+            <div class="card-header">
+              <h5 class="mb-0 text-white">Detalles de AdrianPunk #<span id="detail-id">0</span></h5>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-3">
+                  <div class="mb-3">
+                    <h6 class="text-white">Weapon</h6>
+                    <p class="h5 text-white" id="detail-weapon">-</p>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="mb-3">
+                    <h6 class="text-white">Armor</h6>
+                    <p class="h5 text-white" id="detail-armor">-</p>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="mb-3">
+                    <h6 class="text-white">Extras</h6>
+                    <p class="h5 text-white" id="detail-extras">-</p>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="mb-3">
+                    <h6 class="text-white">Last Event</h6>
+                    <p class="h5 text-white" id="detail-event">-</p>
+                  </div>
+                </div>
+              </div>
+              <!-- Respuesta raw de getTokenArmoryDetails -->
+              <div class="mt-3">
+                <h6 class="text-white">Respuesta completa de getTokenArmoryDetails:</h6>
+                <pre id="detail-raw" class="bg-dark text-light p-3 border border-secondary rounded">-</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ◂▸ Tokens & loadout -->
+        <div class="col-lg-7 mb-4">
+          <h5>Your staked punks</h5>
+          <div class="table-responsive">
+            <table class="table table-dark table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>Punk</th><th>Weapon Inst</th><th>Armor Inst</th><th>Extras Inst</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="tbl-punks"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ◂▸ Inventory - Instances -->
+        <div class="col-lg-5">
+          <h5>Your available item instances</h5>
+          <div class="table-responsive">
+            <table class="table table-dark table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>Inst ID</th><th>Template</th><th>Durability</th><th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="tbl-inv"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- ───────── NEW SCRIPT ARMORY ───────── -->
+  <script id="PQ-ARMORY">
+  (() => {
+    const WAL  = PQ_WALLET;
+    const ST   = PQ_STATE;
+    const ENUM = PQ_CONFIG.enums;
+
+    const screen = document.getElementById('screen-armory');
+    screen.innerHTML = '';                                   // limpia el viejo contenido
+    screen.append(
+      document.getElementById('TEMPLATE-ARMORY').content.cloneNode(true)
+    );
+
+    /* --- refs --- */
+    const tblPunks = screen.querySelector('#tbl-punks');
+    const tblInv   = screen.querySelector('#tbl-inv');
+    const punksWallet = screen.querySelector('#punks-wallet');
+    const punkDetails = screen.querySelector('#punk-details');
+    const detailId = screen.querySelector('#detail-id');
+    const detailWeapon = screen.querySelector('#detail-weapon');
+    const detailArmor = screen.querySelector('#detail-armor');
+    const detailExtras = screen.querySelector('#detail-extras');
+    const detailEvent = screen.querySelector('#detail-event');
+
+    /* --- helpers --- */
+    const tokenFmt = x => x && x !== '0' ? x : '–';
+    const fmtQty   = q => ethers.BigNumber.isBigNumber(q) ? q.toString() : q;
+    
+    /* --- retry helper para lecturas del contrato --- */
+    async function retryRead(fn, maxTries = 3) {
+      let lastError;
+      for (let i = 0; i < maxTries; i++) {
+        try {
+          return await fn();
+        } catch (err) {
+          lastError = err;
+          if (err?.message?.includes('429') || err?.data?.error?.message?.includes('rate limit')) {
+            console.warn(`Rate limit alcanzado, reintento ${i+1}/${maxTries}`);
+            await new Promise(r => setTimeout(r, 2000 * (i + 1)));
+            continue;
+          }
+          throw err;
+        }
+      }
+      throw lastError;
+    }
+
+    /* --- cargar los AdrianPunks disponibles --- */
+    async function loadWalletPunks() {
+      punksWallet.innerHTML = '<div class="spinner-border text-light" role="status"><span class="visually-hidden">Cargando...</span></div>';
+      
+      try {
+        if (!WAL.account) {
+          punksWallet.innerHTML = '<div class="alert alert-warning">Conecta tu wallet para ver tus AdrianPunks</div>';
+          return;
+        }
+        
+        // Creamos contrato NFT correctamente
+        const nftContract = WAL.nftContract();
+        
+        if (!nftContract) {
+          punksWallet.innerHTML = '<div class="alert alert-warning">Error al cargar contrato NFT</div>';
+          return;
+        }
+        
+        // Obtenemos el balance de tokens
+        const balance = await retryRead(() => nftContract.balanceOf(WAL.account));
+        const totalTokens = balance.toNumber();
+        
+        if (totalTokens === 0) {
+          punksWallet.innerHTML = '<div class="alert alert-info">No posees ningún AdrianPunk</div>';
+          return;
+        }
+        
+        // Configuramos Multicall para obtener todos los IDs en una sola llamada
+        const multicall = WAL.multicallContract();
+        
+        // Preparamos las llamadas para TokenOfOwnerByIndex
+        const calls = [];
+        for (let i = 0; i < totalTokens; i++) {
+          calls.push({
+            target: PQ_CONFIG.contracts.punkNFT.address,
+            allowFailure: true,
+            callData: nftContract.interface.encodeFunctionData('tokenOfOwnerByIndex', [WAL.account, i])
+          });
+        }
+        
+        // Ejecutamos todas las llamadas en una sola transacción
+        let tokenIds = [];
+        try {
+          // Intentamos primero con multicall
+          const results = await retryRead(() => multicall.aggregate3(calls));
+          tokenIds = results
+            .filter(result => result.success)
+            .map(result => {
+              const decoded = nftContract.interface.decodeFunctionResult('tokenOfOwnerByIndex', result.returnData);
+              return decoded[0];
+            });
+        } catch (multicallError) {
+          console.warn("Error con multicall, usando método alternativo:", multicallError);
+          // Fallback - si multicall falla, usamos el método individual
+          tokenIds = [];
+          for (let i = 0; i < totalTokens; i++) {
+            try {
+              const tokenId = await retryRead(() => nftContract.tokenOfOwnerByIndex(WAL.account, i));
+              tokenIds.push(tokenId);
+            } catch (err) {
+              console.error(`Error al consultar token #${i}:`, err);
+            }
+          }
+        }
+        
+        if (tokenIds.length === 0) {
+          punksWallet.innerHTML = '<div class="alert alert-info">No se pudieron cargar tus AdrianPunks</div>';
+          return;
+        }
+        
+        // Mostramos los tokens
+        punksWallet.innerHTML = '';
+        tokenIds.forEach(tokenId => {
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-outline-secondary punk-select';
+          btn.dataset.id = tokenId.toString();
+          btn.textContent = `#${tokenId.toString()}`;
+          btn.addEventListener('click', () => showPunkDetails(tokenId));
+          punksWallet.appendChild(btn);
+        });
+        
+        // Si hay tokens, seleccionar el primero automáticamente
+        if (punksWallet.children.length > 0) {
+          const firstTokenId = punksWallet.children[0].dataset.id;
+          showPunkDetails(firstTokenId);
+        }
+      } catch (err) {
+        console.error('Error al cargar tokens del wallet:', err);
+        punksWallet.innerHTML = '<div class="alert alert-danger">Error al cargar tus AdrianPunks</div>';
+      }
+    }
+    
+    /* --- mostrar detalles de un AdrianPunk --- */
+    async function showPunkDetails(tokenId) {
+      try {
+        // Actualizar selección visual
+        document.querySelectorAll('.punk-select').forEach(btn => {
+          btn.classList.toggle('btn-outline-secondary', btn.dataset.id != tokenId);
+          btn.classList.toggle('btn-secondary', btn.dataset.id == tokenId);
+        });
+        
+        // Mostrar spinner mientras cargamos
+        detailId.textContent = tokenId;
+        detailWeapon.innerHTML = '<div class="spinner-border spinner-border-sm"></div>';
+        detailArmor.innerHTML = '<div class="spinner-border spinner-border-sm"></div>';
+        detailExtras.innerHTML = '<div class="spinner-border spinner-border-sm"></div>';
+        detailEvent.innerHTML = '<div class="spinner-border spinner-border-sm"></div>';
+        const detailRaw = document.getElementById('detail-raw');
+        detailRaw.innerHTML = '<div class="spinner-border spinner-border-sm"></div>';
+        punkDetails.style.display = 'block';
+        
+        // Obtenemos los contratos necesarios
+        const pqContract = WAL.pqContract();
+        const multicall = WAL.multicallContract();
+        
+        if (!pqContract) {
+          throw new Error('Contrato PunkQuest no inicializado');
+        }
+        
+        // Cargamos primero las instancias disponibles para relacionarlas con las equipadas
+        console.log(`Verificando instancias disponibles para relacionar con los items equipados...`);
+        await ST.loadInstances(WAL.account, true); // Forzar recarga de instancias
+        const instances = ST.cache.instances?.[WAL.account] || [];
+        console.log(`Instancias disponibles:`, instances);
+        
+        // Intentar utilizar la función advancedTokenArmory si está disponible
+        let weaponInstanceId, armorInstanceId, lastEventTimestamp, extraInstanceIds;
+        let useAdvanced = false;
+        
+        try {
+          if (typeof pqContract.advancedTokenArmory === 'function') {
+            console.log(`Intentando usar advancedTokenArmory para token #${tokenId}...`);
+            [weaponInstanceId, armorInstanceId, lastEventTimestamp, extraInstanceIds] = 
+              await retryRead(() => pqContract.advancedTokenArmory(tokenId));
+              
+            console.log(`Resultado de advancedTokenArmory:`, {
+              weaponInstanceId: weaponInstanceId.toString(),
+              armorInstanceId: armorInstanceId.toString(),
+              lastEventTimestamp: lastEventTimestamp.toString(),
+              extraInstanceIds: extraInstanceIds.map(e => e.toString())
+            });
+            
+            useAdvanced = true;
+          }
+        } catch (advError) {
+          console.warn(`Error al llamar a advancedTokenArmory:`, advError);
+          useAdvanced = false;
+        }
+        
+        // Si pudimos usar advancedTokenArmory, procesamos los resultados
+        let weapon, armor, extras, lastEvent;
+        let weaponInstances = [], armorInstances = [], extrasInstances = [];
+        
+        if (useAdvanced) {
+          // Buscar instancias específicas
+          if (weaponInstanceId && !weaponInstanceId.isZero()) {
+            console.log(`Buscando instancia específica para weaponInstanceId #${weaponInstanceId.toString()}...`);
+            // Buscar la instancia específica
+            const weaponInstance = instances.find(inst => inst.instanceId === weaponInstanceId.toString());
+            if (weaponInstance) {
+              console.log(`Encontrada instancia #${weaponInstance.instanceId} (template ${weaponInstance.templateId})`);
+              weaponInstances = [weaponInstance];
+              // Usar el templateId como weapon
+              weapon = ethers.BigNumber.from(weaponInstance.templateId);
+            } else {
+              console.log(`Instancia #${weaponInstanceId.toString()} no encontrada en el caché`);
+              weapon = ethers.BigNumber.from(0);
+            }
+          } else {
+            weapon = ethers.BigNumber.from(0);
+          }
+          
+          if (armorInstanceId && !armorInstanceId.isZero()) {
+            console.log(`Buscando instancia específica para armorInstanceId #${armorInstanceId.toString()}...`);
+            // Buscar la instancia específica
+            const armorInstance = instances.find(inst => inst.instanceId === armorInstanceId.toString());
+            if (armorInstance) {
+              console.log(`Encontrada instancia #${armorInstance.instanceId} (template ${armorInstance.templateId})`);
+              armorInstances = [armorInstance];
+              // Usar el templateId como armor
+              armor = ethers.BigNumber.from(armorInstance.templateId);
+            } else {
+              console.log(`Instancia #${armorInstanceId.toString()} no encontrada en el caché`);
+              armor = ethers.BigNumber.from(0);
+            }
+          } else {
+            armor = ethers.BigNumber.from(0);
+          }
+          
+          // Procesar extras
+          extras = [];
+          if (extraInstanceIds && extraInstanceIds.length > 0) {
+            for (const extraId of extraInstanceIds) {
+              if (extraId.isZero()) continue;
+              
+              console.log(`Buscando instancia específica para extraInstanceId #${extraId.toString()}...`);
+              const extraInstance = instances.find(inst => inst.instanceId === extraId.toString());
+              if (extraInstance) {
+                console.log(`Encontrada instancia #${extraInstance.instanceId} (template ${extraInstance.templateId})`);
+                extrasInstances.push(extraInstance);
+                // Agregar el templateId a extras
+                extras.push(ethers.BigNumber.from(extraInstance.templateId));
+              }
+            }
+          }
+          
+          // Usar el timestamp como lastEvent
+          lastEvent = lastEventTimestamp;
+        } else {
+          // Caemos de nuevo al método original getTokenArmoryDetails
+          try {
+            console.log(`Consultando getTokenArmoryDetails para token #${tokenId}...`);
+            // Intentamos usar multicall primero (más eficiente)
+            const calls = [{
+              target: PQ_CONFIG.contracts.punkQuest.address,
+              allowFailure: false,
+              callData: pqContract.interface.encodeFunctionData('getTokenArmoryDetails', [tokenId])
+            }];
+            
+            const results = await retryRead(() => multicall.aggregate3(calls));
+            if (results[0].success) {
+              [weapon, armor, extras, lastEvent] = pqContract.interface.decodeFunctionResult(
+                'getTokenArmoryDetails', 
+                results[0].returnData
+              );
+              console.log(`Resultado de getTokenArmoryDetails:`, {
+                weapon: weapon.toString(),
+                armor: armor.toString(),
+                extras: extras.map(e => e.toString()),
+                lastEvent: lastEvent.toString()
+              });
+            } else {
+              throw new Error('Multicall falló');
+            }
+          } catch (multicallError) {
+            console.warn("Error con multicall, usando método directo:", multicallError);
+            // Fallback a método directo
+            [weapon, armor, extras, lastEvent] = await retryRead(() => 
+              pqContract.getTokenArmoryDetails(tokenId)
+            );
+            console.log(`Resultado de getTokenArmoryDetails (fallback):`, {
+              weapon: weapon.toString(),
+              armor: armor.toString(),
+              extras: extras.map(e => e.toString()),
+              lastEvent: lastEvent.toString()
+            });
+          }
+          
+          // Buscar las instancias que corresponden a los template IDs
+          console.log(`Buscando instancias para weapon template ID ${weapon.toString()}...`);
+          weaponInstances = instances.filter(inst => 
+            inst.templateId === weapon.toString() && inst.equipped);
+          console.log(`Instancias de weapon encontradas:`, weaponInstances);
+          
+          console.log(`Buscando instancias para armor template ID ${armor.toString()}...`);
+          armorInstances = instances.filter(inst => 
+            inst.templateId === armor.toString() && inst.equipped);
+          console.log(`Instancias de armor encontradas:`, armorInstances);
+          
+          // Comprobar si hay instancias para los extras
+          extrasInstances = [];
+          for (const extraId of extras) {
+            if (extraId.toString() === '0') continue;
+            console.log(`Buscando instancias para extra template ID ${extraId.toString()}...`);
+            const extraInsts = instances.filter(inst => 
+              inst.templateId === extraId.toString() && inst.equipped);
+            extrasInstances.push(...extraInsts);
+            console.log(`Instancias de extra encontradas:`, extraInsts);
+          }
+        }
+        
+        // Actualizar UI con los detalles (mostrar información de instancias)
+        if (useAdvanced) {
+          // Con advancedTokenArmory, sabemos exactamente qué instancia está equipada
+          detailWeapon.textContent = weaponInstanceId.isZero() ? '–' : 
+            `${weapon.toString()} (Inst #${weaponInstanceId.toString()})`;
+          
+          detailArmor.textContent = armorInstanceId.isZero() ? '–' : 
+            `${armor.toString()} (Inst #${armorInstanceId.toString()})`;
+          
+          if (extraInstanceIds.length === 0 || extraInstanceIds.every(id => id.isZero())) {
+            detailExtras.textContent = '–';
+          } else {
+            detailExtras.textContent = extraInstanceIds
+              .filter(id => !id.isZero())
+              .map((id, idx) => {
+                const templateId = extras[idx]?.toString() || '?';
+                return `${templateId} (Inst #${id.toString()})`;
+              })
+              .join(', ');
+          }
+        } else {
+          // Usar el método anterior basado en templates
+          detailWeapon.textContent = weapon.toString() === '0' ? '–' : 
+            `${weapon.toString()} ${weaponInstances.length ? '(Inst #' + weaponInstances[0].instanceId + ')' : ''}`;
+          
+          detailArmor.textContent = armor.toString() === '0' ? '–' : 
+            `${armor.toString()} ${armorInstances.length ? '(Inst #' + armorInstances[0].instanceId + ')' : ''}`;
+          
+          detailExtras.textContent = extras.length === 0 || extras.every(e => e.toString() === '0') ? 
+            '–' : 
+            extras
+              .filter(e => e.toString() !== '0')
+              .map(e => {
+                const extraInsts = instances.filter(inst => 
+                  inst.templateId === e.toString() && inst.equipped);
+                return `${e.toString()} ${extraInsts.length ? '(Inst #' + extraInsts[0].instanceId + ')' : ''}`;
+              })
+              .join(', ');
+        }
+        
+        detailEvent.textContent = lastEvent.toString() === '0' ? '–' : lastEvent.toString();
+        
+        // Mostrar la respuesta raw como JSON con información adicional
+        const rawResponse = {
+          method: useAdvanced ? 'advancedTokenArmory' : 'getTokenArmoryDetails',
+          result: useAdvanced ? {
+            weaponInstanceId: weaponInstanceId.toString(),
+            armorInstanceId: armorInstanceId.toString(),
+            lastEventTimestamp: lastEventTimestamp.toString(),
+            extraInstanceIds: extraInstanceIds.map(id => id.toString()),
+            processed: {
+              weapon: weapon?.toString() || '0',
+              armor: armor?.toString() || '0',
+              extras: extras?.map(e => e.toString()) || []
+            }
+          } : {
+            weapon: weapon.toString(),
+            armor: armor.toString(),
+            extras: extras.map(e => e.toString()),
+            lastEvent: lastEvent.toString()
+          },
+          instances: {
+            weaponInstances: weaponInstances.map(i => ({
+              instanceId: i.instanceId, 
+              templateId: i.templateId,
+              equipped: i.equipped
+            })),
+            armorInstances: armorInstances.map(i => ({
+              instanceId: i.instanceId, 
+              templateId: i.templateId,
+              equipped: i.equipped
+            })),
+            extrasInstances: extrasInstances.map(i => ({
+              instanceId: i.instanceId, 
+              templateId: i.templateId,
+              equipped: i.equipped
+            }))
+          }
+        };
+        detailRaw.textContent = JSON.stringify(rawResponse, null, 2);
+      } catch (err) {
+        console.error(`Error al consultar detalles del token #${tokenId}:`, err);
+        punkDetails.style.display = 'block';
+        detailWeapon.textContent = 'Error';
+        detailArmor.textContent = 'Error';
+        detailExtras.textContent = 'Error';
+        detailEvent.textContent = 'Error';
+        document.getElementById('detail-raw').textContent = `Error: ${err.message || err}`;
+      }
+    }
+
+    /* --- pintar punks staked + loadout --- */
+    async function paintPunks() {
+      tblPunks.innerHTML = '';
+      const ids = ST.cache.wallet.stakedIds || [];
+      
+      // Cargamos las instancias para poder identificar qué instancia corresponde a cada item equipado
+      const instances = await ST.loadInstances(WAL.account) || [];
+      const instanceMap = {};
+      
+      // Creamos un mapa por templateId para buscar rápidamente instancias
+      instances.forEach(inst => {
+        if (!instanceMap[inst.templateId]) {
+          instanceMap[inst.templateId] = [];
+        }
+        instanceMap[inst.templateId].push(inst);
+      });
+      
+      for (const id of ids) {
+        try {
+          // Usar Infura para lecturas
+          const t = await retryRead(() => ST.getToken(id));
+          
+          // Buscar instancias correspondientes a los items equipados
+          let weaponInstance = '–';
+          let armorInstance = '–';
+          let extrasInstances = '–';
+          
+          // Weapon
+          if (t.weapon && t.weapon !== '0') {
+            const matchingWeapons = instanceMap[t.weapon] || [];
+            const equipped = matchingWeapons.find(inst => inst.equipped);
+            if (equipped) {
+              weaponInstance = equipped.instanceId;
+              
+              // Marcar si necesita reparación
+              if (equipped.needsRepair || equipped.durability === 0) {
+                weaponInstance += ' 🛠️';
+              }
+            } else {
+              weaponInstance = `${t.weapon} (?)`;
+            }
+          }
+          
+          // Armor
+          if (t.armor && t.armor !== '0') {
+            const matchingArmors = instanceMap[t.armor] || [];
+            const equipped = matchingArmors.find(inst => inst.equipped);
+            if (equipped) {
+              armorInstance = equipped.instanceId;
+              
+              // Marcar si necesita reparación
+              if (equipped.needsRepair || equipped.durability === 0) {
+                armorInstance += ' 🛠️';
+              }
+            } else {
+              armorInstance = `${t.armor} (?)`;
+            }
+          }
+          
+          // Extras
+          if (t.extras && t.extras.length > 0) {
+            const extrasList = [];
+            for (const extraId of t.extras) {
+              if (extraId === '0') continue;
+              
+              const matchingExtras = instanceMap[extraId] || [];
+              const equipped = matchingExtras.find(inst => inst.equipped);
+              if (equipped) {
+                let extraText = equipped.instanceId;
+                
+                // Marcar si necesita reparación
+                if (equipped.needsRepair || equipped.durability === 0) {
+                  extraText += ' 🛠️';
+                }
+                
+                extrasList.push(extraText);
+              } else {
+                extrasList.push(`${extraId} (?)`);
+              }
+            }
+            
+            extrasInstances = extrasList.length > 0 ? extrasList.join(', ') : '–';
+          }
+          
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${id}</td>
+            <td>${weaponInstance}</td>
+            <td>${armorInstance}</td>
+            <td>${extrasInstances}</td>
+            <td>
+              <button class="btn btn-sm btn-outline-info" data-unequip="${id}">
+                Unequip&nbsp;All
+              </button>
+            </td>`;
+          tblPunks.append(tr);
+        } catch (err) {
+          console.error(`Error al cargar punk ${id}:`, err);
+        }
+      }
+    }
+
+    /* --- pintar inventario disponible con instancias --- */
+    async function paintInventory() {
+      tblInv.innerHTML = '';
+      try {
+        // Cargar instancias en lugar de inventario de templates
+        const instances = await retryRead(() => ST.loadInstances(WAL.account));
+        
+        console.log("Instancias disponibles:", instances);
+        
+        if (!instances || instances.length === 0) {
+          console.log("No hay instancias disponibles para mostrar");
+          tblInv.innerHTML = '<tr><td colspan="4" class="text-center">No items in inventory</td></tr>';
+          return;
+        }
+        
+        // Cargar metadatos de templates para obtener información adicional
+        await retryRead(() => ST.loadStoreTemplates());
+        
+        // Para cada instancia, mostrar su información
+        let rowsAdded = 0;
+        for (const inst of instances) {
+          // Obtener info del template
+          const tpl = ST.cache.items[inst.templateId];
+          const needsRepair = inst.needsRepair || inst.durability === 0;
+          
+          console.log(`Mostrando instancia ${inst.instanceId}, template ${inst.templateId}, durabilidad ${inst.durability}, equipada: ${inst.equipped}`);
+          
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${inst.instanceId}</td>
+            <td>${inst.templateId}</td>
+            <td>${inst.durability}${inst.equipped ? ' 🔒' : ''}${needsRepair ? ' 🛠️' : ''}</td>
+            <td>
+              ${!inst.equipped ? 
+                `<button class="btn btn-sm btn-success"
+                        data-inst="${inst.instanceId}"
+                        data-tpl="${inst.templateId}">
+                  Equip →
+                </button>` : '<span class="badge bg-secondary">Equipado</span>'}
+            </td>`;
+          tblInv.append(tr);
+          rowsAdded++;
+        }
+        
+        // Si no se agregó nada, mostrar un mensaje
+        if (rowsAdded === 0) {
+          console.log("No se añadieron filas al inventario");
+          tblInv.innerHTML = '<tr><td colspan="4" class="text-center">No items available</td></tr>';
+        }
+      } catch (err) {
+        console.error("Error al cargar inventario:", err);
+        tblInv.innerHTML = '<tr><td colspan="4" class="text-center">Error loading inventory</td></tr>';
+      }
+    }
+    
+    /* --- acciones --- */
+    tblPunks.addEventListener('click', async e => {
+      const id = e.target.dataset.unequip;
+      if (!id) return;
+      try {
+        const tx = await WAL.pqContract()
+          .batchArmoryActionsInstances([id],
+                                       [ENUM.ArmoryActionType.UnequipAll],
+                                       [0],
+                                       [0]);
+        await tx.wait();
+        // Actualizar UI con retry para evitar errores de rate-limit
+        await ST.retryOnRateLimit(() => ST.getToken(id));
+        await ST.retryOnRateLimit(() => ST.loadInstances(WAL.account, true));
+        paintPunks();
+        paintInventory();
+        
+        // Si este token está seleccionado en los detalles, actualizarlo
+        if (detailId.textContent === id) {
+          showPunkDetails(id);
+        }
+      } catch (err) {
+        PQ_UTIL.toast(err.message || err, false);
+      }
+    });
+
+    tblInv.addEventListener('click', async e => {
+      const btn = e.target.closest('button[data-inst]');
+      if (!btn) return;
+
+      const instId = btn.dataset.inst;
+      const punkId = prompt(`Equip item instance #${instId} to Punk ID:`);
+      if (!punkId) return;
+
+      try {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        // Equipar directamente usando equipItemInstance
+        PQ_UTIL.toast(`Equipando instancia #${instId} a Punk #${punkId}...`, true);
+        const tx = await WAL.pqContract().equipItemInstance(punkId, instId);
+        await tx.wait();
+        
+        PQ_UTIL.toast(`Item #${instId} equipado a Punk #${punkId}`, true);
+
+        // Actualizar UI con retry para evitar errores de rate-limit
+        await ST.retryOnRateLimit(() => ST.getToken(punkId));
+        await ST.retryOnRateLimit(() => ST.loadInstances(WAL.account, true));
+        paintPunks();
+        paintInventory();
+        
+        // Si este token está seleccionado en los detalles, actualizarlo
+        if (detailId.textContent === punkId) {
+          showPunkDetails(punkId);
+        }
+      } catch (err) {
+        console.error("Error en equipamiento:", err);
+        PQ_UTIL.toast(err.message || err, false);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Equip →';
+      }
+    });
+
+    /* --- reactivo a cambios de estado --- */
+    ST.on('state:wallet', paintPunks);
+    // Actualizar el listener para manejar el nuevo formato de eventos
+    ST.on('state:instances', (event) => {
+      const { detail } = event;
+      console.log("Evento state:instances recibido:", detail);
+      
+      // Verificar que el evento sea para nuestro usuario
+      if (detail.address === WAL.account) {
+        console.log("Actualizando inventario con nuevas instancias");
+        paintInventory();
+      }
+    });
+    WAL.on('wallet:connected', async () => {
+      await ST.loadStoreTemplates();
+      await ST.loadInstances();
+      paintPunks();
+      paintInventory();
+      loadWalletPunks();
+    });
+
+    /* si el wallet ya está conectado al abrir */
+    if (WAL.account) {
+      ST.loadStoreTemplates();
+      ST.loadInstances().then(paintInventory);
+      paintPunks();
+      loadWalletPunks();
+    }
+    
+    // Exponemos la función paintInventory para poder llamarla desde otros módulos
+    window.paintInventory = paintInventory;
+  })();
+  </script>
+
+  <!-- ───────────────────────  SECTION 9: EVENTS  ─────────────────────── -->
+  <template id="TEMPLATE-EVENTS">
+    <div class="container-fluid">
+      <h3 class="mb-3">Events</h3>
+      <button class="btn btn-primary mb-2" id="btn-random">Random trigger (owner)</button>
+      <pre class="bg-black p-3 rounded-3" id="log" style="min-height:160px;"></pre>
+    </div>
+  </template>
+
+  <script id="PQ-EVENTS">
+  (() => {
+    const WAL=PQ_WALLET, screen=document.getElementById('screen-events');
+    if (screen) {
+      const template = document.getElementById('TEMPLATE-EVENTS');
+      if (template) {
+        screen.appendChild(template.content.cloneNode(true));
+      }
+      const log=screen.querySelector('#log'), btn=screen.querySelector('#btn-random');
+      if (log && btn) {
+        btn.addEventListener('click',async()=>{
+          const token=prompt('Token ID?'); if(!token)return;
+          try{
+            const tx=await WAL.pqContract().randomTriggerEvent(token);
+            await tx.wait(); append(`Random event on #${token}`);
+          }catch(e){alert(e.message||e);}
+        });
+
+        function append(txt){ log.textContent+=`${new Date().toLocaleTimeString()} — ${txt}\n`; }
+
+        WAL.on('wallet:connected', async()=>{
+          try {
+            // Comprobar si la función owner existe y obtener el propietario
+            const pqContract = WAL.pqContract();
+            // Verificamos si existe la función owner antes de llamarla
+            if (typeof pqContract.owner === 'function') {
+              const owner = await pqContract.owner();
+              btn.style.display = owner.toLowerCase()===WAL.account?.toLowerCase()?'':'none';
+            } else {
+              // Si no existe la función, ocultamos el botón
+              btn.style.display = 'none';
+            }
+          } catch (error) {
+            console.error("Error al verificar el propietario:", error);
+            btn.style.display = 'none';
+          }
+        });
+      }
+    }
+  })();
+  </script>
+
+  <!-- ───────────────────────  SECTION 10: STATS  ─────────────────────── -->
+  <template id="TEMPLATE-STATS">
+    <div class="container-fluid">
+      <h3 class="mb-3">Global Stats</h3>
+      <div id="stats-cards" class="row g-3"></div>
+    </div>
+  </template>
+
+  <script id="PQ-STATS">
+  (() => {
+    const WAL=PQ_WALLET, ST=PQ_STATE, screen=document.getElementById('screen-stats');
+    if (screen) {
+      const template = document.getElementById('TEMPLATE-STATS');
+      if (template) {
+        screen.appendChild(template.content.cloneNode(true));
+      }
+      const row=screen.querySelector('#stats-cards');
+      if (row) {
+        function card(label,val){return `
+          <div class="col-md-3">
+           <div class="card text-bg-secondary h-100"><div class="card-body">
+            <h6 class="card-title mb-1">${label}</h6><p class="h4 mb-0">${val}</p>
+           </div></div></div>`;}
+
+        async function paint(){
+          await ST.refreshGlobal();
+          const g=ST.cache.global;
+          if(!Object.keys(g).length)return;
+          row.innerHTML= card('Total staked',g.staked)+
+                         card('Base rate',ethers.utils.formatUnits(g.base,18))+
+                         card('Social boost ends', g.socialEnd?new Date(g.socialEnd*1000).toLocaleString():'–');
+        }
+
+        ST.on('state:global',paint);
+        WAL.on('wallet:connected',paint);
+      }
+    }
+  })();
+  </script>
+
+  <!-- ───────────────────────  SECTION 11: UTILS  ─────────────────────── -->
+  <script id="PQ-UTIL">
+  (() => {
+    window.PQ_UTIL = {
+      toast(msg, ok=true){
+        const el=document.createElement('div');
+        el.className=`toast align-items-center text-bg-${ok?'success':'danger'} border-0 position-fixed bottom-0 end-0 m-3`;
+        el.role='alert'; el.innerHTML=`
+          <div class="d-flex"><div class="toast-body">${msg}</div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto"
+            data-bs-dismiss="toast" aria-label="Close"></button></div>`;
+        document.body.append(el);
+        const t=new bootstrap.Toast(el); t.show();
+        setTimeout(()=>el.remove(),5000);
+      }
+    };
+  })();
+  </script>
+
+  <!-- ───────────────────────  SECTION 12: GLOBAL STYLES  ─────────────────────── -->
+  <style id="GLOBAL-STYLES">
+  :root{
+    --pq-purple:#c084fc; --pq-green:#4ade80; --pq-dark:#0d1117;
+  }
+  body{background:var(--pq-dark);color:#e5e7eb;}
+  .navbar-brand{color:var(--pq-purple)!important;}
+  .btn-primary{background:var(--pq-purple);border-color:var(--pq-purple);}
+  .table-dark th,.table-dark td{vertical-align:middle;}
+  .screen-hidden{display:none!important;}
+  .toast{text-shadow:none;}
+  </style>
+
+  <!-- ───────────────────────  SECTION 13: BOOT  ─────────────────────── -->
+  <script id="PQ-BOOT">
+  (() => {
+    document.addEventListener('DOMContentLoaded',()=>{
+      /* if wallet already authorized, connect silently */
+      if(window.ethereum && localStorage.getItem('PQ_AUTO_CONNECT')==='1'){
+        PQ_WALLET.connect();
+      }
+    });
+  })();
+  </script>
+
+  <!-- Global scripts placeholder — every JS section is concatenated below -->
+  <script id="GLOBAL-SCRIPTS"></script>
+</body>
+</html>

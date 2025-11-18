@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdrianLAB - Get Started with Digital Evolution</title>
+    <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'VT323', monospace;
+            background: linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #0a0a0a 100%);
+            color: #ffffff;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            position: relative;
+            background: radial-gradient(circle at 50% 50%, rgba(0, 255, 0, 0.1) 0%, transparent 50%);
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                linear-gradient(rgba(0, 255, 0, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 0, 0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+            opacity: 0.5;
+            z-index: -1;
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            background: linear-gradient(45deg, #00ff00, #00ccff, #ff0088);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            color: transparent;
+            animation: glow 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { 
+                filter: drop-shadow(0 0 20px rgba(0, 255, 0, 0.5));
+            }
+            to { 
+                filter: drop-shadow(0 0 40px rgba(0, 255, 0, 0.8));
+            }
+        }
+
+        .hero .subtitle {
+            font-size: 1.8rem;
+            color: #cccccc;
+            margin-bottom: 30px;
+            max-width: 600px;
+        }
+
+        .hero .description {
+            font-size: 1.4rem;
+            color: #888888;
+            margin-bottom: 40px;
+            max-width: 800px;
+        }
+
+        /* Wallet Connection */
+        .wallet-section {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .connect-btn {
+            background: linear-gradient(45deg, #00ff00, #00cc00);
+            color: #000;
+            border: none;
+            padding: 20px 40px;
+            font-size: 1.5rem;
+            border-radius: 15px;
+            cursor: pointer;
+            font-family: 'VT323', monospace;
+            transition: all 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0, 255, 0, 0.3);
+            text-decoration: none;
+            display: inline-block;
+            margin: 10px;
+            font-weight: bold;
+        }
+
+        .connect-btn:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 255, 0, 0.5);
+            background: linear-gradient(45deg, #00ff44, #00ee00);
+        }
+
+        .wallet-info {
+            display: none;
+            background: rgba(0, 170, 255, 0.1);
+            border: 1px solid rgba(0, 170, 255, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            margin: 20px auto;
+            max-width: 400px;
+        }
+
+        .wallet-address {
+            font-family: monospace;
+            font-size: 1.2rem;
+            color: #00aaff;
+            margin-bottom: 10px;
+        }
+
+        /* Steps Section */
+        .steps-section {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            position: relative;
+            background: radial-gradient(circle at 50% 50%, rgba(0, 255, 0, 0.1) 0%, transparent 50%);
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .steps-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                linear-gradient(rgba(0, 255, 0, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 0, 0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+            opacity: 0.5;
+            z-index: -1;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #00ff00;
+            filter: drop-shadow(0 0 20px rgba(0, 255, 0, 0.5));
+        }
+
+        .section-subtitle {
+            text-align: center;
+            font-size: 1.5rem;
+            color: #888;
+            margin-bottom: 60px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 40px;
+            margin-bottom: 60px;
+            max-width: 1200px;
+        }
+
+        .step-card {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #333;
+            border-radius: 20px;
+            padding: 40px 30px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .step-card:hover {
+            border-color: #00ff00;
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0, 255, 0, 0.2);
+        }
+
+        .step-number {
+            display: inline-block;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(45deg, #00ff00, #00cc00);
+            color: #000;
+            border-radius: 50%;
+            line-height: 60px;
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+
+        .step-title {
+            font-size: 2rem;
+            color: #ffffff;
+            margin-bottom: 15px;
+        }
+
+        .step-description {
+            font-size: 1.3rem;
+            color: #cccccc;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        /* NFT Preview Images */
+        .nft-preview {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto 20px;
+            border: 3px solid #00ff00;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 255, 0, 0.2);
+        }
+
+        .nft-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Mint Interface */
+        .mint-interface {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 20px;
+        }
+
+        .quantity-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .quantity-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid rgba(0, 255, 136, 0.3);
+            background: rgba(0, 255, 136, 0.1);
+            color: #00ff88;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'VT323', monospace;
+        }
+
+        .quantity-btn:hover {
+            background: rgba(0, 255, 136, 0.2);
+            border-color: rgba(0, 255, 136, 0.5);
+        }
+
+        .quantity-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .quantity-display {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #00ff88;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .total-cost {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+            color: #888;
+        }
+
+        .cost-amount {
+            color: #00aaff;
+            font-weight: bold;
+            font-size: 1.4rem;
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'VT323', monospace;
+            margin-bottom: 10px;
+            position: relative;
+        }
+
+        .btn-approve {
+            background: linear-gradient(45deg, #ff8800, #ffaa00);
+            color: #000;
+        }
+
+        .btn-approve:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 136, 0, 0.3);
+        }
+
+        .btn-mint {
+            background: linear-gradient(45deg, #00ff88, #00aaff);
+            color: #000;
+        }
+
+        .btn-mint:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 255, 136, 0.3);
+        }
+
+        .btn-uniswap {
+            background: linear-gradient(45deg, #ff0088, #ff4400);
+            color: #fff;
+        }
+
+        .btn-uniswap:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 0, 136, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-loading {
+            color: transparent !important;
+        }
+
+        .btn-loading::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            top: 50%;
+            left: 50%;
+            margin-left: -10px;
+            margin-top: -10px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Status messages */
+        .status-message {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            text-align: center;
+            display: none;
+        }
+
+        .status-message.loading {
+            background: rgba(255, 255, 0, 0.1);
+            border: 1px solid rgba(255, 255, 0, 0.3);
+            color: #ffff00;
+        }
+
+        .status-message.success {
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            color: #00ff00;
+        }
+
+        .status-message.error {
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            color: #ff4444;
+        }
+
+        /* Price indicators */
+        .price-tag {
+            background: rgba(0, 255, 0, 0.2);
+            border: 1px solid #00ff00;
+            border-radius: 8px;
+            padding: 8px 15px;
+            font-size: 1.1rem;
+            color: #00ff00;
+            display: inline-block;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        /* Final CTA Section */
+        .final-cta {
+            background: linear-gradient(135deg, rgba(0, 255, 0, 0.1), rgba(0, 0, 0, 0.9));
+            padding: 80px 20px;
+            text-align: center;
+            border-top: 2px solid #00ff00;
+        }
+
+        .final-cta h2 {
+            font-size: 3rem;
+            color: #00ff00;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 0 30px rgba(0, 255, 0, 0.5));
+        }
+
+        .final-cta p {
+            font-size: 1.5rem;
+            color: #cccccc;
+            margin-bottom: 40px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .final-cta-button {
+            background: linear-gradient(45deg, #00ff00, #00aaff);
+            color: #000;
+            border: none;
+            padding: 25px 50px;
+            font-size: 1.8rem;
+            border-radius: 15px;
+            cursor: pointer;
+            font-family: 'VT323', monospace;
+            transition: all 0.3s ease;
+            box-shadow: 0 15px 40px rgba(0, 255, 0, 0.4);
+            text-decoration: none;
+            display: inline-block;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .final-cta-button:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 20px 50px rgba(0, 255, 0, 0.6);
+        }
+
+        /* Feature highlights */
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-top: 60px;
+            padding: 0 20px;
+        }
+
+        .feature {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .feature-title {
+            font-size: 1.5rem;
+            color: #00ff00;
+            margin-bottom: 10px;
+        }
+
+        .feature-text {
+            color: #cccccc;
+            font-size: 1.2rem;
+        }
+
+        /* Network warning */
+        .network-warning {
+            background: rgba(255, 136, 0, 0.1);
+            border: 1px solid rgba(255, 136, 0, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            color: #ff8800;
+            text-align: center;
+            display: none;
+        }
+
+        .network-warning button {
+            background: rgba(255, 136, 0, 0.2);
+            border: 1px solid rgba(255, 136, 0, 0.5);
+            color: #ff8800;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-weight: 600;
+            font-family: 'VT323', monospace;
+        }
+
+        .network-warning button:hover {
+            background: rgba(255, 136, 0, 0.3);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero .subtitle {
+                font-size: 1.4rem;
+            }
+
+            .hero .description {
+                font-size: 1.2rem;
+            }
+
+            .section-title {
+                font-size: 2.5rem;
+            }
+
+            .step-title {
+                font-size: 1.8rem;
+            }
+
+            .step-description {
+                font-size: 1.2rem;
+            }
+
+            .steps-grid {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+
+            .final-cta h2 {
+                font-size: 2.5rem;
+            }
+
+            .final-cta-button {
+                padding: 20px 40px;
+                font-size: 1.5rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero {
+                padding: 15px;
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .step-card {
+                padding: 30px 20px;
+            }
+
+            .connect-btn {
+                padding: 15px 30px;
+                font-size: 1.3rem;
+            }
+        }
+
+        /* Fade in animations */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s ease;
+        }
+
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <!-- Network Warning -->
+    <div id="networkWarning" class="network-warning">
+        <span>⚠️ Please switch to Base Network</span>
+        <button onclick="switchToBase()">Switch Network</button>
+    </div>
+
+    <!-- Steps Section -->
+    <section class="steps-section" id="get-started">
+        <h2 class="section-title fade-in">How to Get Started</h2>
+        <p class="section-subtitle fade-in">Follow these simple steps to join the AdrianLAB ecosystem</p>
+        
+        <!-- Wallet Connection -->
+        <div class="wallet-section">
+            <button id="connectBtn" class="connect-btn">Connect Wallet</button>
+            <div id="walletInfo" class="wallet-info">
+                <div class="wallet-address" id="walletAddress"></div>
+            </div>
+        </div>
+        
+        <div class="steps-grid">
+            <!-- Step 1: Get $ADRIAN -->
+            <div class="step-card fade-in">
+                <div class="step-number">1</div>
+                <h3 class="step-title">Get $ADRIAN Tokens</h3>
+                
+                <div class="nft-preview">
+                    <img src="https://adrianlab.vercel.app/api/render/148" alt="$ADRIAN Token Preview">
+                </div>
+                
+                <p class="step-description">
+                    Start by swapping ETH for $ADRIAN tokens on Uniswap. 
+                    You'll need these tokens to mint NFTs and apply traits.
+                </p>
+                <div class="price-tag">Base Network • Low Fees</div>
+                
+                <div class="mint-interface">
+                    <a href="https://app.uniswap.org/swap?chain=base&inputCurrency=ETH&outputCurrency=0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea" 
+                       target="_blank" 
+                       class="action-btn btn-uniswap">
+                        Swap on Uniswap
+                    </a>
+                </div>
+            </div>
+
+            <!-- Step 2: Mint AdrianZERO -->
+            <div class="step-card fade-in">
+                <div class="step-number">2</div>
+                <h3 class="step-title">Mint AdrianZERO NFT</h3>
+                
+                <div class="nft-preview">
+                    <img src="https://adrianlab.vercel.app/api/render/1" alt="AdrianZERO NFT Preview">
+                </div>
+                
+                <p class="step-description">
+                    Mint your base AdrianZERO NFT - the foundation of your collection. 
+                    This is your canvas for trait customization.
+                </p>
+                <div class="price-tag">Price: <span id="adrianZeroPrice">Loading...</span> $ADRIAN</div>
+                
+                <div class="mint-interface" style="display: none;" id="adrianZeroMint">
+                    <div class="quantity-controls">
+                        <button class="quantity-btn" onclick="changeQuantity('adrianZero', -1)">-</button>
+                        <div class="quantity-display" id="adrianZeroQuantity">1</div>
+                        <button class="quantity-btn" onclick="changeQuantity('adrianZero', 1)">+</button>
+                    </div>
+                    <div class="total-cost">Total: <span class="cost-amount" id="adrianZeroTotal">0</span> $ADRIAN</div>
+                    <button class="action-btn btn-approve" id="approveAdrianZero" onclick="approveTokens('adrianZero')">
+                        Approve $ADRIAN
+                    </button>
+                    <button class="action-btn btn-mint" id="mintAdrianZero" onclick="mintAdrianZero()">
+                        Mint AdrianZERO
+                    </button>
+                    <div class="status-message" id="adrianZeroStatus"></div>
+                </div>
+            </div>
+
+            <!-- Step 3: Mint STARTER Floppy -->
+            <div class="step-card fade-in">
+                <div class="step-number">3</div>
+                <h3 class="step-title">STARTER Floppy (Green)</h3>
+                
+                <div class="nft-preview">
+                    <img src="https://adrianlab-kt4ehqbtn-adrianlab.vercel.app/labimages/10002.gif?v=1751800464450" alt="STARTER Floppy Green Preview">
+                </div>
+                
+                <p class="step-description">
+                    Mint STARTER Floppy Discs containing rare traits. 
+                    Open them to discover unique traits for your collection.
+                </p>
+                <div class="price-tag">Price: 7,500 $ADRIAN each</div>
+                
+                <div class="mint-interface" style="display: none;" id="starterFloppyMint">
+                    <div class="quantity-controls">
+                        <button class="quantity-btn" onclick="changeQuantity('starterFloppy', -1)">-</button>
+                        <div class="quantity-display" id="starterFloppyQuantity">1</div>
+                        <button class="quantity-btn" onclick="changeQuantity('starterFloppy', 1)">+</button>
+                    </div>
+                    <div class="total-cost">Total: <span class="cost-amount" id="starterFloppyTotal">7,500</span> $ADRIAN</div>
+                    <button class="action-btn btn-approve" id="approveStarterFloppy" onclick="approveTokens('starterFloppy')">
+                        Approve $ADRIAN
+                    </button>
+                    <button class="action-btn btn-mint" id="mintStarterFloppy" onclick="mintStarterFloppy()">
+                        Mint STARTER Floppy
+                    </button>
+                    <div class="status-message" id="starterFloppyStatus"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Final CTA -->
+    <section class="final-cta">
+        <h2>Ready to Evolve?</h2>
+        <p>
+            Now that you have your NFTs and traits, it's time to enter the TraitLAB 
+            and start customizing your collection like never before.
+        </p>
+        <a href="https://adrianpunks.com/lab/traitlab" class="final-cta-button">
+            Enter TraitLAB →
+        </a>
+        
+        <div class="features" style="margin-top: 40px;">
+            <div class="feature">
+                <span class="feature-icon">🎨</span>
+                <div class="feature-title">Visual Trait Preview</div>
+                <div class="feature-text">See how traits look before applying</div>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">🔧</span>
+                <div class="feature-title">Easy Application</div>
+                <div class="feature-text">Apply multiple traits with one transaction</div>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">📱</span>
+                <div class="feature-title">Mobile Friendly</div>
+                <div class="feature-text">Works perfectly on all devices</div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // Contract addresses and configurations
+        const ADRIAN_TOKEN = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+        const ADRIAN_ZERO_MINT = "0x39be2ea60f78c55559309ed61acaf5a9174e57b6";
+        const PACK_MINTER = "0x673bE1968A12470F93BE374AAB529a89d5D607d5";
+        const BASE_CHAIN_ID = 8453;
+        const BASE_CHAIN_ID_HEX = "0x2105";
+
+        // Pack configurations
+        const STARTER_FLOPPY_PACK_ID = 10002;
+        const STARTER_FLOPPY_PRICE = ethers.utils.parseEther("7500");
+
+        // ABIs
+        const ERC20_ABI = [
+            "function approve(address spender, uint256 amount) returns (bool)",
+            "function allowance(address owner, address spender) view returns (uint256)",
+            "function balanceOf(address account) view returns (uint256)"
+        ];
+
+        const ADRIAN_ZERO_ABI = [
+            "function mintMultiplePublic(uint256 quantity)",
+            "function getCurrentBatchInfo() view returns (uint256 batchId, string name, uint256 price, uint256 minted, uint256 maxSupply, bool active, uint256 startTime, uint256 endTime, bool useMerkleWhitelist)"
+        ];
+
+        const PACK_MINTER_ABI = [
+            "function purchasePack(uint256 packId, uint256 quantity, bool useAllowlist) external"
+        ];
+
+        // Global state
+        let provider;
+        let signer;
+        let userAddress;
+        let adrianToken;
+        let adrianZeroContract;
+        let packMinterContract;
+        let quantities = {
+            adrianZero: 1,
+            starterFloppy: 1
+        };
+        let adrianZeroPrice = ethers.utils.parseEther("0");
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check if wallet is already connected
+            checkConnection();
+            
+            // Set up event listeners
+            document.getElementById('connectBtn').addEventListener('click', connectWallet);
+            
+            // Fade in animations
+            setupFadeInAnimations();
+        });
+
+        async function checkConnection() {
+            if (window.ethereum) {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    if (accounts.length > 0) {
+                        await connectWallet();
+                    }
+                } catch (error) {
+                    console.error("Connection check failed:", error);
+                }
+            }
+        }
+
+        async function connectWallet() {
+            try {
+                if (!window.ethereum) {
+                    showStatus('all', 'Please install MetaMask!', 'error');
+                    return;
+                }
+
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                userAddress = accounts[0];
+                
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                signer = provider.getSigner();
+                
+                // Check network
+                await ensureCorrectNetwork();
+                
+                // Initialize contracts
+                adrianToken = new ethers.Contract(ADRIAN_TOKEN, ERC20_ABI, signer);
+                adrianZeroContract = new ethers.Contract(ADRIAN_ZERO_MINT, ADRIAN_ZERO_ABI, signer);
+                packMinterContract = new ethers.Contract(PACK_MINTER, PACK_MINTER_ABI, signer);
+                
+                // Update UI
+                document.getElementById('connectBtn').style.display = 'none';
+                document.getElementById('walletInfo').style.display = 'block';
+                document.getElementById('walletAddress').textContent = 
+                    `${userAddress.slice(0,6)}...${userAddress.slice(-4)}`;
+                
+                // Show mint interfaces
+                document.getElementById('adrianZeroMint').style.display = 'block';
+                document.getElementById('starterFloppyMint').style.display = 'block';
+                
+                // Load prices and data
+                await loadAdrianZeroPrice();
+                updateAllTotals();
+                
+                showStatus('all', 'Wallet connected successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Connection error:', error);
+                showStatus('all', 'Failed to connect wallet', 'error');
+            }
+        }
+
+        async function ensureCorrectNetwork() {
+            try {
+                const { chainId } = await provider.getNetwork();
+                if (chainId !== BASE_CHAIN_ID) {
+                    document.getElementById('networkWarning').style.display = 'block';
+                    throw new Error('Wrong network. Please switch to Base.');
+                } else {
+                    document.getElementById('networkWarning').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Network check failed:', error);
+                throw error;
+            }
+        }
+
+        async function switchToBase() {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: BASE_CHAIN_ID_HEX }]
+                });
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+                
+            } catch (switchError) {
+                if (switchError.code === 4902) {
+                    try {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: BASE_CHAIN_ID_HEX,
+                                chainName: 'Base',
+                                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                                rpcUrls: ['https://mainnet.base.org'],
+                                blockExplorerUrls: ['https://basescan.org']
+                            }]
+                        });
+                        
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                        
+                    } catch (addError) {
+                        console.error('Add network error:', addError);
+                    }
+                }
+            }
+        }
+
+        async function loadAdrianZeroPrice() {
+            try {
+                const batchInfo = await adrianZeroContract.getCurrentBatchInfo();
+                adrianZeroPrice = batchInfo.price;
+                
+                const priceFormatted = ethers.utils.formatEther(adrianZeroPrice);
+                document.getElementById('adrianZeroPrice').textContent = 
+                    parseFloat(priceFormatted).toLocaleString();
+                
+                updateAllTotals();
+            } catch (error) {
+                console.error('Error loading AdrianZero price:', error);
+                document.getElementById('adrianZeroPrice').textContent = 'Error loading';
+            }
+        }
+
+        function changeQuantity(type, delta) {
+            const newQuantity = quantities[type] + delta;
+            if (newQuantity >= 1 && newQuantity <= 10) {
+                quantities[type] = newQuantity;
+                document.getElementById(type + 'Quantity').textContent = newQuantity;
+                updateTotal(type);
+            }
+        }
+
+        function updateTotal(type) {
+            let price;
+            switch(type) {
+                case 'adrianZero':
+                    price = adrianZeroPrice;
+                    break;
+                case 'starterFloppy':
+                    price = STARTER_FLOPPY_PRICE;
+                    break;
+            }
+            
+            const total = price.mul(quantities[type]);
+            const formatted = ethers.utils.formatEther(total);
+            document.getElementById(type + 'Total').textContent = 
+                parseFloat(formatted).toLocaleString();
+        }
+
+        function updateAllTotals() {
+            updateTotal('adrianZero');
+            updateTotal('starterFloppy');
+        }
+
+        async function approveTokens(type) {
+            if (!userAddress) {
+                showStatus(type, 'Connect wallet first!', 'error');
+                return;
+            }
+            
+            try {
+                const button = document.getElementById('approve' + capitalizeFirst(type));
+                button.disabled = true;
+                button.classList.add('btn-loading');
+                
+                let price, spender;
+                switch(type) {
+                    case 'adrianZero':
+                        price = adrianZeroPrice;
+                        spender = ADRIAN_ZERO_MINT;
+                        break;
+                    case 'starterFloppy':
+                        price = STARTER_FLOPPY_PRICE;
+                        spender = PACK_MINTER;
+                        break;
+                }
+                
+                const totalCost = price.mul(quantities[type]);
+                
+                showStatus(type, 'Approving $ADRIAN tokens...', 'loading');
+                
+                const tx = await adrianToken.approve(spender, totalCost);
+                await tx.wait();
+                
+                showStatus(type, '✅ $ADRIAN approved successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Approval error:', error);
+                showStatus(type, 'Approval failed: ' + parseError(error), 'error');
+            } finally {
+                const button = document.getElementById('approve' + capitalizeFirst(type));
+                button.disabled = false;
+                button.classList.remove('btn-loading');
+            }
+        }
+
+        async function mintAdrianZero() {
+            if (!userAddress) {
+                showStatus('adrianZero', 'Connect wallet first!', 'error');
+                return;
+            }
+            
+            try {
+                const button = document.getElementById('mintAdrianZero');
+                button.disabled = true;
+                button.classList.add('btn-loading');
+                
+                showStatus('adrianZero', `Minting ${quantities.adrianZero} AdrianZERO NFT(s)...`, 'loading');
+                
+                const tx = await adrianZeroContract.mintMultiplePublic(quantities.adrianZero);
+                await tx.wait();
+                
+                showStatus('adrianZero', `🎉 Successfully minted ${quantities.adrianZero} AdrianZERO NFT(s)!`, 'success');
+                
+            } catch (error) {
+                console.error('Mint error:', error);
+                showStatus('adrianZero', 'Mint failed: ' + parseError(error), 'error');
+            } finally {
+                const button = document.getElementById('mintAdrianZero');
+                button.disabled = false;
+                button.classList.remove('btn-loading');
+            }
+        }
+
+        async function mintStarterFloppy() {
+            if (!userAddress) {
+                showStatus('starterFloppy', 'Connect wallet first!', 'error');
+                return;
+            }
+            
+            try {
+                const button = document.getElementById('mintStarterFloppy');
+                button.disabled = true;
+                button.classList.add('btn-loading');
+                
+                showStatus('starterFloppy', `Minting ${quantities.starterFloppy} STARTER Floppy...`, 'loading');
+                
+                const tx = await packMinterContract.purchasePack(STARTER_FLOPPY_PACK_ID, quantities.starterFloppy, false);
+                await tx.wait();
+                
+                showStatus('starterFloppy', `🎉 Successfully minted ${quantities.starterFloppy} STARTER Floppy!`, 'success');
+                
+            } catch (error) {
+                console.error('Mint error:', error);
+                showStatus('starterFloppy', 'Mint failed: ' + parseError(error), 'error');
+            } finally {
+                const button = document.getElementById('mintStarterFloppy');
+                button.disabled = false;
+                button.classList.remove('btn-loading');
+            }
+        }
+
+        function showStatus(type, message, statusType) {
+            if (type === 'all') {
+                ['adrianZero', 'starterFloppy'].forEach(t => {
+                    const statusEl = document.getElementById(t + 'Status');
+                    if (statusEl) {
+                        statusEl.className = `status-message ${statusType}`;
+                        statusEl.textContent = message;
+                        statusEl.style.display = 'block';
+                        
+                        if (statusType === 'success') {
+                            setTimeout(() => {
+                                statusEl.style.display = 'none';
+                            }, 5000);
+                        }
+                    }
+                });
+            } else {
+                const statusEl = document.getElementById(type + 'Status');
+                if (statusEl) {
+                    statusEl.className = `status-message ${statusType}`;
+                    statusEl.textContent = message;
+                    statusEl.style.display = 'block';
+                    
+                    if (statusType === 'success') {
+                        setTimeout(() => {
+                            statusEl.style.display = 'none';
+                        }, 5000);
+                    }
+                }
+            }
+        }
+
+        function parseError(error) {
+            if (error.code === 4001) {
+                return 'Transaction rejected by user';
+            } else if (error.message && error.message.includes('insufficient funds')) {
+                return 'Insufficient funds';
+            } else if (error.message && error.message.includes('allowance')) {
+                return 'Need to approve tokens first';
+            } else {
+                return error.message || 'Unknown error occurred';
+            }
+        }
+
+        function capitalizeFirst(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+
+        function setupFadeInAnimations() {
+            const observerOptions = {
+                threshold: 0.1,
+                rootMargin: '0px 0px -50px 0px'
+            };
+
+            const observer = new IntersectionObserver(function(entries) {
+                entries.forEach(function(entry) {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, observerOptions);
+
+            const fadeElements = document.querySelectorAll('.fade-in');
+            fadeElements.forEach(function(el) {
+                observer.observe(el);
+            });
+
+            const stepCards = document.querySelectorAll('.step-card');
+            stepCards.forEach(function(card, index) {
+                card.style.transitionDelay = (index * 0.2) + 's';
+            });
+        }
+
+        // Listen for account changes
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', function (accounts) {
+                if (accounts.length === 0) {
+                    window.location.reload();
+                } else {
+                    connectWallet();
+                }
+            });
+
+            window.ethereum.on('chainChanged', function () {
+                window.location.reload();
+            });
+        }
+    </script>
+</body>
+</html>

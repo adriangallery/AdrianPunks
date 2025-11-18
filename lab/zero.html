@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdrianZERO - Simple Mint</title>
+    <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'VT323', monospace;
+            background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+            color: #00ff00;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 500px;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            border: 3px solid #00ff00;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(0, 255, 0, 0.3);
+        }
+
+        .header {
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 3.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px #00ff00;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 20px #00ff00; }
+            to { text-shadow: 0 0 30px #00ff00, 0 0 40px #00ff00; }
+        }
+
+        .subtitle {
+            font-size: 1.3rem;
+            opacity: 0.8;
+            color: #cccccc;
+        }
+
+        .nft-preview {
+            width: 250px;
+            height: 250px;
+            margin: 0 auto 30px;
+            border: 3px solid #00ff00;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.4);
+        }
+
+        .nft-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .connect-btn {
+            background: linear-gradient(45deg, #00ff00, #00cc00);
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: 'VT323', monospace;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 255, 0, 0.3);
+        }
+
+        .connect-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 255, 0, 0.5);
+        }
+
+        .wallet-info {
+            display: none;
+            background: rgba(0, 255, 0, 0.2);
+            border: 1px solid #00ff00;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+        }
+
+        .mint-section {
+            display: none;
+        }
+
+        .quantity-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+        }
+
+        .quantity-btn {
+            background: #333;
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            padding: 12px 18px;
+            font-size: 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: 'VT323', monospace;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .quantity-btn:hover {
+            background: #00ff00;
+            color: #000;
+        }
+
+        .quantity-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .quantity-display {
+            font-size: 2rem;
+            font-weight: bold;
+            min-width: 80px;
+            color: #ffffff;
+        }
+
+        .approve-btn {
+            background: linear-gradient(45deg, #ff6600, #ff4400);
+            color: #fff;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: 'VT323', monospace;
+            margin: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 102, 0, 0.4);
+        }
+
+        .approve-btn:hover {
+            transform: translateY(-3px);
+        }
+
+        .approve-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .mint-btn {
+            background: linear-gradient(45deg, #00ff00, #00cc00);
+            color: #000;
+            border: none;
+            padding: 18px 50px;
+            font-size: 1.3rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: 'VT323', monospace;
+            margin: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 255, 0, 0.4);
+        }
+
+        .mint-btn:hover {
+            transform: translateY(-3px);
+        }
+
+        .mint-btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            display: none;
+        }
+
+        .status.loading {
+            background: rgba(255, 255, 0, 0.2);
+            border: 2px solid #ffff00;
+            color: #ffff00;
+        }
+
+        .status.success {
+            background: rgba(0, 255, 0, 0.2);
+            border: 2px solid #00ff00;
+            color: #00ff00;
+        }
+
+        .status.error {
+            background: rgba(255, 0, 0, 0.2);
+            border: 2px solid #ff0000;
+            color: #ff0000;
+        }
+
+        .info {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            font-size: 1.1rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 25px;
+            }
+
+            .header h1 {
+                font-size: 2.5rem;
+            }
+
+            .nft-preview {
+                width: 200px;
+                height: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>AdrianZERO</h1>
+            <div class="subtitle">Simple Mint Interface</div>
+        </div>
+
+        <div class="nft-preview">
+            <img src="https://i2.seadn.io/base/0x6e369bf0e4e0c106192d606fb6d85836d684da75/75fc9be9913aed8dfd959586c2d8ff/5b75fc9be9913aed8dfd959586c2d8ff.png?w=350" alt="AdrianZERO NFT">
+        </div>
+
+        <div class="info">
+            <strong>Price:</strong> <span id="price">Loading...</span><br>
+            <strong>Minted:</strong> <span id="minted">Loading...</span> / <span id="maxSupply">Loading...</span><br>
+            <strong>Max per wallet:</strong> <span id="maxPerWallet">Loading...</span> NFTs
+        </div>
+
+        <button id="connectBtn" class="connect-btn">Connect Wallet</button>
+        
+        <div id="walletInfo" class="wallet-info">
+            Connected: <span id="walletAddress"></span>
+        </div>
+
+        <div id="mintSection" class="mint-section">
+            <div class="quantity-controls">
+                <button class="quantity-btn" onclick="changeQuantity(-1)">-</button>
+                <div class="quantity-display" id="quantityDisplay">1</div>
+                <button class="quantity-btn" onclick="changeQuantity(1)">+</button>
+            </div>
+            
+            <button id="approveBtn" class="approve-btn">1. Approve <span id="approveAmount">$ADRIAN</span></button><br>
+            <button id="mintBtn" class="mint-btn">2. Mint AdrianZERO</button>
+        </div>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        // Updated configuration for new contract
+        const MINT_CONTRACT = "0x39be2ea60f78c55559309ed61acaf5a9174e57b6";
+        const ADRIAN_TOKEN = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+
+        // Updated ABIs for new contract
+        const MINT_ABI = [
+            "function mintMultiplePublic(uint256 quantity)",
+            "function getCurrentBatchInfo() view returns (uint256 batchId, string name, uint256 price, uint256 minted, uint256 maxSupply, bool active, uint256 startTime, uint256 endTime, bool useMerkleWhitelist)",
+            "function getUserMintInfo(address user, uint256 batchId) view returns (uint256 mintedInBatch, uint256 maxAllowed, uint256 remaining, bool isWhitelisted)",
+            "function canMint(address user) view returns (bool mintable, string reason, uint256 price, uint256 available)",
+            "function isCurrentBatchPublic() view returns (bool)"
+        ];
+        const ERC20_ABI = [
+            "function approve(address spender, uint256 amount) returns (bool)",
+            "function allowance(address owner, address spender) view returns (uint256)",
+            "function balanceOf(address account) view returns (uint256)"
+        ];
+
+        // App state
+        let currentAccount = null;
+        let currentQuantity = 1;
+        let batchInfo = null;
+        let userMintInfo = null;
+        let userBalance = null;
+        let maxMintAllowed = 0;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('connectBtn').addEventListener('click', connectWallet);
+            document.getElementById('approveBtn').addEventListener('click', approveTokens);
+            document.getElementById('mintBtn').addEventListener('click', mintNFT);
+            checkConnection();
+        });
+
+        // Check if wallet is connected
+        async function checkConnection() {
+            if (window.ethereum) {
+                try {
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    if (accounts.length > 0) {
+                        await connectWallet();
+                    }
+                } catch (error) {
+                    console.error("Connection check failed:", error);
+                }
+            }
+        }
+
+        // Load batch information - Reading current batch dynamically
+        async function loadBatchInfo() {
+            try {
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const contract = new ethers.Contract(MINT_CONTRACT, MINT_ABI, provider);
+                
+                // Get current batch info from contract
+                const currentBatchInfo = await contract.getCurrentBatchInfo();
+                
+                batchInfo = {
+                    batchId: currentBatchInfo.batchId.toNumber(),
+                    name: currentBatchInfo.name,
+                    price: currentBatchInfo.price,
+                    minted: currentBatchInfo.minted.toNumber(),
+                    maxSupply: currentBatchInfo.maxSupply.toNumber(),
+                    active: currentBatchInfo.active,
+                    startTime: currentBatchInfo.startTime.toNumber(),
+                    endTime: currentBatchInfo.endTime.toNumber(),
+                    useMerkleWhitelist: currentBatchInfo.useMerkleWhitelist
+                };
+                
+                // Update UI with batch info
+                document.getElementById('price').textContent = `${ethers.utils.formatEther(batchInfo.price)} $ADRIAN`;
+                document.getElementById('minted').textContent = batchInfo.minted.toString();
+                document.getElementById('maxSupply').textContent = batchInfo.maxSupply.toString();
+                
+                // Update approve button with initial amount
+                updateQuantityDisplay();
+                
+                console.log("Current batch info loaded:", batchInfo);
+                
+            } catch (error) {
+                console.error("Error loading batch info:", error);
+                showStatus("Error loading batch information", "error");
+            }
+        }
+
+        // Load user data
+        async function loadUserData() {
+            if (!currentAccount || !batchInfo) return;
+            
+            try {
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const mintContract = new ethers.Contract(MINT_CONTRACT, MINT_ABI, provider);
+                const tokenContract = new ethers.Contract(ADRIAN_TOKEN, ERC20_ABI, provider);
+                
+                // Get user mint info and balance
+                const [userMintInfoResult, userBalanceResult] = await Promise.all([
+                    mintContract.getUserMintInfo(currentAccount, batchInfo.batchId),
+                    tokenContract.balanceOf(currentAccount)
+                ]);
+                
+                userMintInfo = userMintInfoResult;
+                userBalance = userBalanceResult;
+                
+                // Calculate max mint allowed
+                const maxAllowed = userMintInfo.maxAllowed.toNumber();
+                const balanceMax = userBalance.div(batchInfo.price).toNumber();
+                maxMintAllowed = Math.min(maxAllowed, balanceMax);
+                
+                // Update UI with user limits
+                document.getElementById('maxPerWallet').textContent = userMintInfo.maxAllowed.toString();
+                
+                // Update quantity if needed
+                if (currentQuantity > maxMintAllowed) {
+                    currentQuantity = Math.max(1, maxMintAllowed);
+                    updateQuantityDisplay();
+                }
+                
+                console.log("User data loaded:", {
+                    maxAllowed,
+                    balanceMax,
+                    maxMintAllowed,
+                    userMintInfo: userMintInfo,
+                    userBalance: ethers.utils.formatEther(userBalance)
+                });
+                
+            } catch (error) {
+                console.error("Error loading user data:", error);
+            }
+        }
+
+        // Connect wallet
+        async function connectWallet() {
+            try {
+                if (!window.ethereum) {
+                    showStatus("Please install MetaMask!", "error");
+                    return;
+                }
+                
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                currentAccount = accounts[0];
+                
+                // Switch to Base if needed
+                await switchToBase();
+                
+                // Load batch and user data
+                await loadBatchInfo();
+                await loadUserData();
+                
+                // Update UI
+                document.getElementById('connectBtn').style.display = 'none';
+                document.getElementById('walletInfo').style.display = 'block';
+                document.getElementById('mintSection').style.display = 'block';
+                document.getElementById('walletAddress').textContent = 
+                    `${currentAccount.slice(0,6)}...${currentAccount.slice(-4)}`;
+                
+                showStatus("Wallet connected! You can now approve and mint.", "success");
+                
+                // Handle account changes
+                window.ethereum.on('accountsChanged', () => window.location.reload());
+                window.ethereum.on('chainChanged', () => window.location.reload());
+                
+            } catch (error) {
+                console.error("Connection error:", error);
+                showStatus("Failed to connect wallet", "error");
+            }
+        }
+
+        // Switch to Base network
+        async function switchToBase() {
+            const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+            if (chainId !== '0x2105') {
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x2105' }],
+                    });
+                } catch (switchError) {
+                    if (switchError.code === 4902) {
+                        await window.ethereum.request({
+                            method: 'wallet_addEthereumChain',
+                            params: [{
+                                chainId: '0x2105',
+                                chainName: 'Base Mainnet',
+                                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                                rpcUrls: ['https://mainnet.base.org'],
+                                blockExplorerUrls: ['https://basescan.org/'],
+                            }],
+                        });
+                    }
+                }
+            }
+        }
+
+        // Approve tokens - Calculated based on current quantity
+        async function approveTokens() {
+            if (!currentAccount) {
+                showStatus("Connect wallet first!", "error");
+                return;
+            }
+            
+            if (!batchInfo) {
+                showStatus("Please wait for batch info to load", "error");
+                return;
+            }
+            
+            try {
+                document.getElementById('approveBtn').disabled = true;
+                
+                // Calculate exact amount needed for current quantity
+                const totalCost = batchInfo.price.mul(currentQuantity);
+                const costInTokens = ethers.utils.formatEther(totalCost);
+                
+                showStatus(`Approving ${costInTokens} $ADRIAN tokens...`, "loading");
+                
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const signer = provider.getSigner();
+                const tokenContract = new ethers.Contract(ADRIAN_TOKEN, ERC20_ABI, signer);
+                
+                // Approve exact amount needed
+                const tx = await tokenContract.approve(MINT_CONTRACT, totalCost);
+                await tx.wait();
+                
+                showStatus(`✅ ${costInTokens} $ADRIAN approved! Now you can mint.`, "success");
+                
+            } catch (error) {
+                console.error("Approval error:", error);
+                showStatus("Approval failed: " + (error.message || "Unknown error"), "error");
+            } finally {
+                document.getElementById('approveBtn').disabled = false;
+            }
+        }
+
+        // Mint NFT - Using mintMultiplePublic (no merkle proof needed)
+        async function mintNFT() {
+            if (!currentAccount) {
+                showStatus("Connect wallet first!", "error");
+                return;
+            }
+            
+            if (currentQuantity > maxMintAllowed) {
+                showStatus(`You can only mint up to ${maxMintAllowed} NFTs`, "error");
+                return;
+            }
+            
+            try {
+                document.getElementById('mintBtn').disabled = true;
+                showStatus(`Minting ${currentQuantity} AdrianZERO NFT(s)...`, "loading");
+                
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const signer = provider.getSigner();
+                const contract = new ethers.Contract(MINT_CONTRACT, MINT_ABI, signer);
+                
+                console.log("Minting with:", {
+                    quantity: currentQuantity,
+                    maxMintAllowed: maxMintAllowed,
+                    batchInfo: batchInfo
+                });
+                
+                const tx = await contract.mintMultiplePublic(currentQuantity);
+                
+                showStatus("Transaction sent! Waiting for confirmation...", "loading");
+                await tx.wait();
+                
+                showStatus(`🎉 Successfully minted ${currentQuantity} AdrianZERO NFT(s)!`, "success");
+                
+                // Reload data after mint
+                await loadBatchInfo();
+                await loadUserData();
+                
+            } catch (error) {
+                console.error("Mint error:", error);
+                let errorMsg = "Mint failed";
+                
+                if (error.message.includes("insufficient funds")) {
+                    errorMsg = "Not enough $ADRIAN tokens";
+                } else if (error.message.includes("allowance")) {
+                    errorMsg = "Need to approve $ADRIAN first";
+                } else if (error.message.includes("denied")) {
+                    errorMsg = "Transaction cancelled";
+                } else if (error.message.includes("Mint limit exceeded")) {
+                    errorMsg = "You have reached your mint limit for this batch";
+                } else if (error.message.includes("Batch not available")) {
+                    errorMsg = "Batch is not available or sold out";
+                }
+                
+                showStatus(errorMsg, "error");
+            } finally {
+                document.getElementById('mintBtn').disabled = false;
+            }
+        }
+
+        // Quantity controls
+        function changeQuantity(delta) {
+            const newQuantity = currentQuantity + delta;
+            if (newQuantity >= 1 && newQuantity <= maxMintAllowed) {
+                currentQuantity = newQuantity;
+                updateQuantityDisplay();
+            }
+        }
+
+        function updateQuantityDisplay() {
+            document.getElementById('quantityDisplay').textContent = currentQuantity;
+            
+            // Update button states
+            document.getElementById('decreaseBtn').disabled = currentQuantity <= 1;
+            document.getElementById('increaseBtn').disabled = currentQuantity >= maxMintAllowed;
+            
+            // Update approve button text with exact amount
+            if (batchInfo) {
+                const totalCost = batchInfo.price.mul(currentQuantity);
+                const costInTokens = ethers.utils.formatEther(totalCost);
+                document.getElementById('approveAmount').textContent = `${costInTokens} $ADRIAN`;
+            }
+        }
+
+        // Show status
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            status.textContent = message;
+            
+            if (type === 'success' || type === 'error') {
+                setTimeout(() => {
+                    status.style.display = 'none';
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>

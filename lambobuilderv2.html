@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AdrianPunks Lambo Builder</title>
+  
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  
+  <!-- AdrianPunks style fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  
+  <!-- Ethers.js for wallet connection -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  
+  <style>
+    :root {
+      --menu-bg: #1c1c1c;
+      --menu-hover: #2d2d2d;
+      --menu-border: #333333;
+      --wallet-btn: #ff6b2b;
+      --wallet-btn-hover: #ff8142;
+      --background-color: #f0f0f0;
+      --card-background: #ffffff;
+      --text-primary: #04111d;
+      --text-secondary: #707a83;
+      --border-color: #e5e8eb;
+      --accent-purple: #8a2be2;
+      --accent-purple-hover: #7a1dd2;
+      --navbar-height: 60px;
+    }
+    
+    * {
+      font-family: 'Share Tech Mono', monospace;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Share Tech Mono', monospace;
+      background-color: var(--background-color);
+      color: var(--text-primary);
+      margin: 0;
+      padding: 20px;
+      padding-top: calc(var(--navbar-height) + 20px);
+    }
+    
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: var(--card-background);
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+      text-align: center;
+      color: var(--accent-purple);
+      margin-bottom: 20px;
+      letter-spacing: 1px;
+    }
+    
+    .input-section {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--text-primary);
+    }
+    
+    input[type="number"] {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: #fff;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 16px;
+    }
+    
+    .btn {
+      background-color: var(--accent-purple);
+      color: #fff;
+      border: none;
+      padding: 12px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: bold;
+      transition: background-color 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      touch-action: manipulation;
+    }
+    
+    .btn:hover {
+      background-color: var(--accent-purple-hover);
+      transform: translateY(-2px);
+    }
+    
+    .btn:disabled {
+      background-color: #555;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    
+    .preview-section {
+      margin-top: 30px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .canvas-container {
+      width: 100%;
+      max-width: 800px;
+      margin-bottom: 20px;
+      border: 2px solid var(--border-color);
+      border-radius: 4px;
+      overflow: hidden;
+      background-color: #2a2a2a;
+    }
+    
+    canvas {
+      width: 100%;
+      display: block;
+    }
+    
+    .error-message {
+      color: #ef4444;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    
+    .loading {
+      display: none;
+      margin: 20px 0;
+      text-align: center;
+    }
+    
+    .spinner {
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      border-top: 4px solid var(--accent-purple);
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    .preview-label {
+      margin-bottom: 10px;
+      color: var(--accent-purple);
+      font-weight: bold;
+    }
+    
+    .image-selector {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    
+    .image-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    /* Wallet Button Styles */
+    .btn-connect {
+      background-color: var(--accent-purple);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      display: block;
+      margin: 0 auto 20px;
+    }
+    
+    .btn-connect:hover {
+      background-color: var(--accent-purple-hover);
+      transform: translateY(-2px);
+    }
+    
+    .account-display {
+      display: inline-block;
+      background-color: #f0f0f0;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      margin-bottom: 20px;
+    }
+    
+    /* Navbar styling */
+    .navbar {
+      position: fixed;
+      width: 100%;
+      z-index: 1000;
+      top: 0;
+      left: 0;
+      margin: 0;
+      padding: 0;
+      background-color: #212529 !important;
+      border-bottom: 1px solid var(--menu-border);
+      height: var(--navbar-height);
+    }
+    
+    .navbar .container-fluid {
+      padding: 0 15px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+    }
+    
+    .token-symbol {
+      color: #fff !important;
+      font-size: 1.2rem !important;
+      letter-spacing: 1px;
+      text-shadow: 0 0 5px rgba(255,255,255,0.5);
+      margin: 0;
+      padding: 0;
+    }
+    
+    .nav-link {
+      padding: 15px 20px !important;
+      color: #fff !important;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.3s ease !important;
+    }
+    
+    .nav-link:hover {
+      background-color: rgba(255,255,255,0.1);
+      text-shadow: 0 0 5px rgba(255,255,255,0.5);
+    }
+    
+    @media (max-width: 600px) {
+      .container {
+        padding: 15px;
+      }
+      .image-selector {
+        flex-direction: column;
+      }
+    }
+    
+    /* Modificar estilos para el selector */
+    .form-select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background-color: #fff;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 16px;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+    
+    .form-select:disabled {
+      background-color: #f8f8f8;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+    
+    /* Ajustar estilos para la hamburguesa del menú */
+    .navbar-toggler {
+      margin: 0;
+      border: 1px solid rgba(255,255,255,0.3) !important;
+      padding: 6px 10px;
+      z-index: 2000;
+    }
+    
+    .navbar-toggler-icon {
+      filter: invert(100%);
+    }
+    
+    /* Asegurar que el menú desplegado aparezca sobre otros elementos */
+    .navbar-collapse {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background-color: #212529;
+      padding: 10px 0;
+      z-index: 1999;
+    }
+    
+    /* Fix para el botón de hamburguesa y el menú mobile */
+    @media (max-width: 991px) {
+      .navbar-collapse {
+        border-top: 1px solid var(--menu-border);
+      }
+      
+      .nav-link {
+        padding: 10px 15px !important;
+        width: 100%;
+        display: block;
+      }
+    }
+    
+    /* Clase para oscurecer el fondo cuando el menú está abierto */
+    .menu-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1998;
+      display: none;
+    }
+    
+    .menu-backdrop.active {
+      display: block;
+    }
+    
+    /* Forzar menú hamburguesa en todos los dispositivos, incluso en desktop */
+    .navbar-expand-lg .navbar-collapse {
+      display: none !important;
+    }
+    
+    .navbar-expand-lg .navbar-toggler {
+      display: block !important;
+    }
+    
+    .navbar-expand-lg .desktop-wallet-section {
+      display: none !important;
+    }
+    
+    .navbar-collapse {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background-color: #212529;
+      padding: 10px 0;
+      z-index: 1999;
+      border-top: 1px solid var(--menu-border);
+    }
+    
+    .navbar-toggler {
+      margin: 0;
+      border: 1px solid rgba(255,255,255,0.3) !important;
+      padding: 6px 10px;
+      z-index: 2000;
+    }
+    
+    .navbar-toggler-icon {
+      filter: invert(100%);
+    }
+    
+    .nav-link {
+      padding: 10px 15px !important;
+      width: 100%;
+      display: block;
+    }
+    
+    /* Fix para el botón de hamburguesa y el menú en todas las resoluciones */
+    .navbar-collapse.show {
+      display: block !important;
+    }
+    
+    /* Add mobile-specific active state */
+    .btn:active {
+      background-color: var(--accent-purple-hover);
+      transform: translateY(1px);
+    }
+    
+    /* Ensure buttons are easy to tap on mobile */
+    @media (max-width: 768px) {
+      .btn {
+        min-height: 44px; /* Apple's recommended minimum touch target size */
+        font-size: 16px; /* Prevent iOS zoom on focus */
+      }
+      
+      /* Ensure input fields don't zoom */
+      input[type="number"],
+      input[type="text"],
+      select {
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Menu Component -->
+  <div id="menu-container"></div>
+  
+  <!-- Main Content -->
+  <div class="container">
+    <h1>AdrianPunks Lambo Builder</h1>
+    
+    <!-- Connect Wallet Section -->
+    <div id="connect-section" class="text-center mb-4">
+      <button id="connectWalletBtn" class="btn-connect">Connect Wallet</button>
+    </div>
+    
+    <!-- Account Info Section (hidden by default) -->
+    <div id="account-section" class="text-center mb-4" style="display: none;">
+      <p>Connected Wallet:</p>
+      <div id="accountDisplay" class="account-display"></div>
+    </div>
+    
+    <div class="input-section">
+      <div>
+        <label for="token-id">Select your AdrianPunk:</label>
+        <select id="token-id" class="form-select">
+          <option value="" disabled selected>Connect wallet to see your tokens</option>
+        </select>
+      </div>
+      
+      <!-- Add custom token input field -->
+      <div class="mt-3">
+        <label for="custom-token-id">Or enter any token ID (1-1000):</label>
+        <div class="d-flex">
+          <input type="number" id="custom-token-id" class="form-control me-2" min="1" max="1000" placeholder="Enter token ID">
+          <button id="custom-token-btn" class="btn">Use</button>
+        </div>
+      </div>
+      
+      <div class="image-selector">
+        <div class="image-option">
+          <input type="radio" id="lambo-yellow" name="lambo-color" value="YELLOW" checked>
+          <label for="lambo-yellow">Yellow Lambo</label>
+        </div>
+        <div class="image-option">
+          <input type="radio" id="lambo-blue" name="lambo-color" value="BLUE">
+          <label for="lambo-blue">Blue Lambo</label>
+        </div>
+        <div class="image-option">
+          <input type="radio" id="lambo-red" name="lambo-color" value="RED">
+          <label for="lambo-red">Red Lambo</label>
+        </div>
+        <div class="image-option">
+          <input type="radio" id="lambo-black" name="lambo-color" value="BLACK">
+          <label for="lambo-black">Black Lambo</label>
+        </div>
+        <div class="image-option">
+          <input type="radio" id="lambo-white" name="lambo-color" value="WHITE">
+          <label for="lambo-white">White Lambo</label>
+        </div>
+        <div class="image-option">
+          <input type="radio" id="lambo-cyan" name="lambo-color" value="CYAN">
+          <label for="lambo-cyan">Cyan Lambo</label>
+        </div>
+        <div class="image-option">
+          <input type="radio" id="lambo-pink" name="lambo-color" value="PINKjpg">
+          <label for="lambo-pink">Pink Lambo</label>
+        </div>
+        <div class="image-option">
+          <input type="radio" id="lambo-snot" name="lambo-color" value="SNOT">
+          <label for="lambo-snot">Snot Lambo</label>
+        </div>
+        <div class="image-option">
+          <input type="radio" id="lambo-professorx" name="lambo-color" value="ProfessorX">
+          <label for="lambo-professorx">Professor X Lambo</label>
+        </div>
+      </div>
+      
+      <button id="generate-btn" class="btn">Generate Image</button>
+    </div>
+    
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Generating your custom Lambo...</p>
+    </div>
+    
+    <div class="preview-section hidden" id="preview-section">
+      <p class="preview-label">Preview:</p>
+      <div class="canvas-container">
+        <canvas id="canvas"></canvas>
+      </div>
+      <button id="download-btn" class="btn">Download Image</button>
+    </div>
+    
+    <p id="error-message" class="error-message hidden"></p>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Load the menu
+      fetch('/market/components/menu.html')
+        .then(response => response.text())
+        .then(html => {
+          document.getElementById('menu-container').innerHTML = html;
+          
+          // Asegurar que Bootstrap se cargue y se inicialice correctamente
+          const bootstrapScript = document.createElement('script');
+          bootstrapScript.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js';
+          bootstrapScript.integrity = "sha384-geWF76RCwLtnZ8qwWowPQNguL3RmwHVBC9FhGdlKrxdiJJigb/j/68SIy3Te4Bkz";
+          bootstrapScript.crossOrigin = "anonymous";
+          
+          bootstrapScript.onload = () => {
+            // Modificar el menú para forzar el comportamiento de hamburguesa en desktop
+            const navbarToggler = document.querySelector('.navbar-toggler');
+            const navbarCollapse = document.querySelector('.navbar-collapse');
+            
+            // Eliminar cualquier clase de expansión que pueda estar agregando Bootstrap
+            if (navbarCollapse) {
+              navbarCollapse.classList.remove('show');
+              
+              // Forzar el formato de menú móvil
+              const navbarContainer = document.querySelector('.navbar');
+              if (navbarContainer) {
+                navbarContainer.classList.remove('navbar-expand-lg');
+              }
+              
+              // Corregir evento de clic en el botón hamburguesa
+              if (navbarToggler) {
+                // Remover cualquier listener existente
+                const newToggler = navbarToggler.cloneNode(true);
+                if (navbarToggler.parentNode) {
+                  navbarToggler.parentNode.replaceChild(newToggler, navbarToggler);
+                }
+                
+                // Aplicar el nuevo evento
+                newToggler.addEventListener('click', (e) => {
+                  e.preventDefault();
+                  navbarCollapse.classList.toggle('show');
+                  
+                  // Gestionar el backdrop
+                  let backdrop = document.querySelector('.menu-backdrop');
+                  if (!backdrop) {
+                    backdrop = document.createElement('div');
+                    backdrop.className = 'menu-backdrop';
+                    document.body.appendChild(backdrop);
+                    
+                    // Cerrar menú al hacer clic en el backdrop
+                    backdrop.addEventListener('click', () => {
+                      navbarCollapse.classList.remove('show');
+                      backdrop.classList.remove('active');
+                      document.body.style.overflow = '';
+                    });
+                  }
+                  
+                  if (navbarCollapse.classList.contains('show')) {
+                    backdrop.classList.add('active');
+                    document.body.style.overflow = 'hidden'; // Prevenir scroll
+                  } else {
+                    backdrop.classList.remove('active');
+                    document.body.style.overflow = '';
+                  }
+                });
+              }
+              
+              // Cerrar menú al hacer clic en cualquier enlace del menú
+              const navLinks = document.querySelectorAll('.nav-link');
+              navLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                  navbarCollapse.classList.remove('show');
+                  const backdrop = document.querySelector('.menu-backdrop');
+                  if (backdrop) {
+                    backdrop.classList.remove('active');
+                  }
+                  document.body.style.overflow = '';
+                });
+              });
+            }
+          };
+          
+          document.head.appendChild(bootstrapScript);
+        })
+        .catch(error => console.error('Error loading menu:', error));
+      
+      // Contract addresses y ABIs
+      const ADRIAN_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
+      const ADRIAN_PUNKS_ABI = [
+        "function ownerOf(uint256 id) external view returns (address)",
+        "function balanceOf(address owner) external view returns (uint256)",
+        "function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256)"
+      ];
+      
+      // Infura provider para operaciones de solo lectura
+      const infuraProvider = new ethers.providers.JsonRpcProvider(
+        "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1",
+        {
+          name: "base",
+          chainId: 8453
+        }
+      );
+      
+      // Inicializar contrato para lectura
+      const adrianPunksContract = new ethers.Contract(
+        ADRIAN_PUNKS_ADDRESS,
+        ADRIAN_PUNKS_ABI,
+        infuraProvider
+      );
+      
+      // State variables
+      let ownedTokens = [];
+      let userAccount = null;
+      
+      // Estado global para el manejo de tokens
+      const tokenState = {
+        currentTokenId: null,
+        useCustomToken: false
+      };
+      
+      // Referencias a elementos DOM
+      const connectWalletBtn = document.getElementById('connectWalletBtn');
+      const accountSection = document.getElementById('account-section');
+      const accountDisplay = document.getElementById('accountDisplay');
+      const connectSection = document.getElementById('connect-section');
+      const tokenInput = document.getElementById('token-id');
+      const generateBtn = document.getElementById('generate-btn');
+      const downloadBtn = document.getElementById('download-btn');
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      const previewSection = document.getElementById('preview-section');
+      const errorMessage = document.getElementById('error-message');
+      const loadingEl = document.getElementById('loading');
+      const lamboOptions = document.getElementsByName('lambo-color');
+      const customTokenInput = document.getElementById('custom-token-id');
+      const customTokenBtn = document.getElementById('custom-token-btn');
+      
+      // Set canvas size
+      canvas.width = 1500;
+      canvas.height = 500;
+      
+      // Variables for images
+      let lamboImg = new Image();
+      let punkImg = new Image();
+      
+      // Check if wallet is already connected
+      const checkConnection = async () => {
+        try {
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const accounts = await provider.listAccounts();
+          if (accounts.length > 0) {
+            userAccount = accounts[0];
+            displayAccount(userAccount);
+            await loadUserTokens(userAccount);
+          } else {
+            showError('No wallet connected. You can still use the custom token field to view any AdrianPunk.');
+            tokenInput.disabled = true;
+            connectWalletBtn.style.display = 'block';
+            customTokenInput.disabled = false;
+            customTokenBtn.disabled = false;
+          }
+        } catch (error) {
+          console.error('Error checking connection:', error);
+          showError('No wallet detected. You can still use the custom token field to view any AdrianPunk.');
+          tokenInput.disabled = true;
+          customTokenInput.disabled = false;
+          customTokenBtn.disabled = false;
+        }
+      };
+      
+      // Display connected account
+      const displayAccount = (address) => {
+        accountDisplay.textContent = `${address.substring(0, 6)}...${address.substring(address.length - 4)}`;
+        connectSection.style.display = 'none';
+        accountSection.style.display = 'block';
+      };
+      
+      // Connect wallet function
+      connectWalletBtn.addEventListener('click', async () => {
+        try {
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          await provider.send("eth_requestAccounts", []);
+          const signer = provider.getSigner();
+          userAccount = await signer.getAddress();
+          displayAccount(userAccount);
+          await loadUserTokens(userAccount);
+        } catch (error) {
+          console.error('Error connecting wallet:', error);
+          showError('Could not connect to wallet. You can still use the custom token field to view any AdrianPunk.');
+          customTokenInput.disabled = false;
+          customTokenBtn.disabled = false;
+        }
+      });
+      
+      // Load user tokens
+      const loadUserTokens = async (address) => {
+        try {
+          showError('Loading your AdrianPunks tokens...');
+          const balance = await adrianPunksContract.balanceOf(address);
+          const totalTokens = balance.toNumber();
+          
+          if (totalTokens === 0) {
+            showError('You don\'t own any AdrianPunks. Use the custom token field to view any token.');
+            tokenInput.disabled = true;
+            return;
+          }
+          
+          // Configure Multicall for efficiency
+          const multicall = new ethers.Contract(
+            "0xcA11bde05977b3631167028862bE2a173976CA11",
+            [
+              "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"
+            ],
+            infuraProvider
+          );
+          
+          const calls = [];
+          for (let i = 0; i < totalTokens; i++) {
+            calls.push({
+              target: ADRIAN_PUNKS_ADDRESS,
+              allowFailure: true,
+              callData: adrianPunksContract.interface.encodeFunctionData('tokenOfOwnerByIndex', [address, i])
+            });
+          }
+          
+          const results = await multicall.aggregate3(calls);
+          ownedTokens = results
+            .filter(result => result.success)
+            .map(result => {
+              const decoded = adrianPunksContract.interface.decodeFunctionResult('tokenOfOwnerByIndex', result.returnData);
+              return decoded[0].toNumber();
+            });
+          
+          tokenInput.disabled = false;
+          
+          if (ownedTokens.length > 0) {
+            createTokenOptions(ownedTokens);
+            generateImage();
+            showError(`Loaded ${ownedTokens.length} AdrianPunks from your wallet`);
+          }
+        } catch (error) {
+          console.error('Error loading tokens:', error);
+          showError('Could not load your tokens. Use the custom token field to view any token.');
+        }
+      };
+      
+      // Create token options
+      const createTokenOptions = (tokens) => {
+        tokenInput.innerHTML = '';
+        
+        if (tokens.length === 0) {
+          const option = document.createElement('option');
+          option.value = '';
+          option.textContent = 'No tokens found';
+          option.disabled = true;
+          option.selected = true;
+          tokenInput.appendChild(option);
+          return;
+        }
+        
+        tokens.sort((a, b) => a - b).forEach(tokenId => {
+          const option = document.createElement('option');
+          option.value = tokenId;
+          option.textContent = `AdrianPunk #${tokenId}`;
+          tokenInput.appendChild(option);
+        });
+        
+        tokenInput.selectedIndex = 0;
+      };
+      
+      // Handle custom token button click
+      function handleCustomTokenButtonClick(e) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        
+        const customTokenId = parseInt(customTokenInput.value);
+        
+        if (!isNaN(customTokenId) && customTokenId >= 1 && customTokenId <= 1000) {
+          tokenState.currentTokenId = customTokenId;
+          tokenState.useCustomToken = true;
+          
+          if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
+          
+          generateImage();
+        } else {
+          showError('Please enter a valid token ID between 1 and 1000');
+        }
+      }
+      
+      // Setup custom token button events
+      customTokenBtn.addEventListener('click', handleCustomTokenButtonClick);
+      customTokenBtn.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        handleCustomTokenButtonClick(e);
+      });
+      
+      customTokenInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleCustomTokenButtonClick();
+        }
+      });
+      
+      // Generate image function
+      async function generateImage() {
+        let tokenId;
+        
+        if (tokenState.useCustomToken && tokenState.currentTokenId) {
+          tokenId = tokenState.currentTokenId;
+        } else {
+          tokenId = parseInt(tokenInput.value);
+        }
+        
+        if (isNaN(tokenId) || tokenId < 1 || tokenId > 1000) {
+          showError('Please select a valid AdrianPunk token.');
+          return;
+        }
+        
+        errorMessage.classList.add('hidden');
+        previewSection.classList.add('hidden');
+        loadingEl.style.display = 'block';
+        
+        try {
+          let lamboColor = 'YELLOW';
+          for (let option of lamboOptions) {
+            if (option.checked) {
+              lamboColor = option.value;
+              break;
+            }
+          }
+          
+          const punkPath = `/market/adrianpunksimages/${tokenId}.png`;
+          const lamboPath = `/lambo-images/ADRIAN_LAMBO_${lamboColor}.jpg`;
+          
+          const [punkImage, lamboImage] = await Promise.all([
+            loadImage(punkPath),
+            loadImage(lamboPath)
+          ]);
+          
+          punkImg = punkImage;
+          lamboImg = lamboImage;
+          
+          drawCombinedImage();
+          
+          loadingEl.style.display = 'none';
+          previewSection.classList.remove('hidden');
+          
+          tokenState.currentTokenId = tokenId; // Save current token for download
+        } catch (error) {
+          console.error('Error loading images:', error);
+          loadingEl.style.display = 'none';
+          showError('Could not load images. Please try another token or check your connection.');
+        }
+      }
+      
+      function drawCombinedImage() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx
+        ctx.drawImage(lamboImg, 0, 0, canvas.width, canvas.height);
+       
+       const tempCanvas = document.createElement('canvas');
+       const tempCtx = tempCanvas.getContext('2d');
+       
+       const punkSize = Math.min(canvas.width, canvas.height) * 0.23;
+       tempCanvas.width = punkSize;
+       tempCanvas.height = punkSize;
+       
+       tempCtx.drawImage(punkImg, 0, 0, punkSize, punkSize);
+       
+       const imageData = tempCtx.getImageData(0, 0, punkSize, punkSize);
+       const data = imageData.data;
+       
+       for (let i = 0; i < data.length; i += 4) {
+         const r = data[i];
+         const g = data[i + 1];
+         const b = data[i + 2];
+         
+         if ((r === 204 && g === 204 && b === 204) || (r === 51 && g === 51 && b === 51)) {
+           data[i + 3] = 0;
+         }
+       }
+       
+       tempCtx.putImageData(imageData, 0, 0);
+       
+       const punkX = (canvas.width - punkSize) / 2 - 39;
+       const punkY = (canvas.height - punkSize) / 2 - 101;
+       
+       ctx.drawImage(tempCanvas, punkX, punkY, punkSize, punkSize);
+     }
+     
+     function loadImage(src) {
+       return new Promise((resolve, reject) => {
+         const img = new Image();
+         img.crossOrigin = 'Anonymous';
+         img.onload = () => resolve(img);
+         img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+         img.src = src + '?t=' + new Date().getTime();
+       });
+     }
+     
+     function downloadImage() {
+       // Use the current token ID from state
+       const tokenId = tokenState.currentTokenId || parseInt(tokenInput.value);
+       
+       if (!tokenId) {
+         showError('Please generate an image first');
+         return;
+       }
+       
+       let lamboColor = 'YELLOW';
+       for (let option of lamboOptions) {
+         if (option.checked) {
+           lamboColor = option.value;
+           break;
+         }
+       }
+
+       const fileName = `adrianpunk${tokenId}-${lamboColor}-lambo.png`;
+       const imgData = canvas.toDataURL('image/png');
+       
+       const link = document.createElement('a');
+       link.download = fileName;
+       link.href = imgData;
+       link.click();
+       showError('Image downloaded successfully');
+     }
+     
+     function showError(message) {
+       errorMessage.textContent = message;
+       errorMessage.classList.remove('hidden');
+       setTimeout(() => {
+         errorMessage.classList.add('hidden');
+       }, 5000);
+     }
+     
+     // Event listeners
+     tokenInput.addEventListener('change', () => {
+       tokenState.useCustomToken = false;
+       customTokenInput.value = '';
+       generateImage();
+     });
+     
+     lamboOptions.forEach(option => {
+       option.addEventListener('change', generateImage);
+     });
+     
+     generateBtn.addEventListener('click', generateImage);
+     downloadBtn.addEventListener('click', downloadImage);
+     
+     // Mobile-specific adjustments
+     function setupMobileOptimizations() {
+       document.querySelectorAll('.btn').forEach(button => {
+         button.style.display = 'inline-block';
+         button.style.width = 'auto';
+       });
+     }
+     
+     // Initialize
+     setupMobileOptimizations();
+     checkConnection();
+   });
+ </script>
+</body>
+</html>

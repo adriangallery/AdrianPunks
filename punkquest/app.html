@@ -1,0 +1,1686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PunkQuest Marketplace</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <!-- Ethers.js -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-color: #f0f0f0;
+      --primary-text: #333333;
+      --accent-purple: #8a2be2;
+      --accent-purple-hover: #7a1dd2;
+      --accent-blue: #4dabf7;
+      --card-bg: #ffffff;
+      --card-border: #e9ecef;
+      --card-selected-border: #8a2be2;
+      --screen-bg: #ffffff;
+      --navbar-height: 60px;
+      --error-bg: #f8d7da;
+      --error-border: #f5c6cb;
+      --error-text: #721c24;
+      --success-bg: #d4edda;
+      --success-border: #c3e6cb;
+      --success-text: #155724;
+    }
+    
+    body {
+      background-color: var(--bg-color);
+      color: var(--primary-text);
+      font-family: 'Share Tech Mono', monospace;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+      padding-top: calc(var(--navbar-height) + 20px);
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 20px;
+      background: var(--screen-bg);
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    
+    header {
+      text-align: center;
+      padding: 2rem;
+      margin-bottom: 2rem;
+      position: relative;
+    }
+    
+    header h1 {
+      font-size: 2.5rem;
+      margin: 0;
+      color: var(--primary-text);
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+    
+    header p {
+      margin-top: 1rem;
+      font-size: 1rem;
+      color: var(--primary-text);
+      opacity: 0.8;
+    }
+    
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    .section-title {
+      font-size: 1.4rem;
+      margin-bottom: 1.5rem;
+      color: var(--primary-text);
+      font-weight: 600;
+      border-bottom: 2px solid var(--card-border);
+      padding-bottom: 0.5rem;
+    }
+    
+    .token-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .store-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      padding: 0;
+      margin: 0;
+    }
+    
+    @media (max-width: 768px) {
+      .token-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .store-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .token-grid {
+        grid-template-columns: 1fr;
+      }
+      .store-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    .token-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    
+    .token-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .token-card img {
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      border-radius: 4px;
+      aspect-ratio: 1/1;
+      background-color: #f0f0f0;
+      transition: opacity 0.3s ease;
+    }
+    
+    .token-card img.loading {
+      opacity: 0.5;
+    }
+    
+    .token-card img.error {
+      opacity: 0.3;
+    }
+    
+    .item-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    
+    .item-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    .item-type {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    
+    .type-weapon {
+      background-color: #fee2e2;
+      color: #b91c1c;
+    }
+    
+    .type-armor {
+      background-color: #e0e7ff;
+      color: #4338ca;
+    }
+    
+    .item-bonus {
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .item-durability {
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .item-price {
+      font-size: 1rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    
+    .token-info {
+      padding: 0.5rem 0;
+    }
+    
+    .token-title {
+      font-size: 1.1rem;
+      font-weight: bold;
+      margin-bottom: 0.5rem;
+    }
+    
+    .token-status {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    
+    .status-staked {
+      background-color: #d1fae5;
+      color: #065f46;
+    }
+    
+    .status-not-staked {
+      background-color: #fef3c7;
+      color: #92400e;
+    }
+    
+    .token-gear {
+      font-size: 0.9rem;
+      color: #6b7280;
+    }
+    
+    .selected-token {
+      border: 2px solid var(--card-selected-border);
+      box-shadow: 0 0 0 2px var(--card-selected-border);
+    }
+    
+    .btn-connect {
+      background-color: var(--accent-purple);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    
+    .btn-connect:hover {
+      background-color: var(--accent-purple-hover);
+    }
+    
+    .btn-action {
+      background-color: var(--accent-purple);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-block;
+      text-align: center;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .btn-action:hover {
+      background-color: var(--accent-purple-hover);
+      transform: translateY(-2px);
+    }
+    
+    .btn-secondary {
+      background-color: #6c757d;
+    }
+    
+    .btn-secondary:hover {
+      background-color: #5a6268;
+    }
+    
+    .btn-add-cart {
+      background-color: #0d6efd;
+      color: white;
+      border: none;
+      padding: 0.5rem;
+      font-size: 0.9rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      width: 100%;
+    }
+    
+    .btn-add-cart:hover {
+      background-color: #0b5ed7;
+    }
+    
+    .cart-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+    
+    .account-display {
+      display: inline-block;
+      background-color: #f0f0f0;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-family: monospace;
+      font-size: 0.9rem;
+    }
+    
+    .alert {
+      padding: 1rem;
+      border-radius: 0.375rem;
+      margin-bottom: 1rem;
+    }
+    
+    .alert-danger {
+      background-color: var(--error-bg);
+      border: 1px solid var(--error-border);
+      color: var(--error-text);
+    }
+    
+    .alert-success {
+      background-color: var(--success-bg);
+      border: 1px solid var(--success-border);
+      color: var(--success-text);
+    }
+    
+    .nav-tabs {
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 1.5rem;
+    }
+    
+    .nav-link {
+      color: var(--primary-text);
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      padding: 0.5rem 1rem;
+      transition: all 0.2s ease;
+    }
+    
+    .nav-link.active {
+      color: var(--accent-purple);
+      border-bottom: 2px solid var(--accent-purple);
+    }
+    
+    .tab-content {
+      padding: 1rem;
+    }
+    
+    .inventory-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem;
+      background-color: #f8f9fa;
+      border-radius: 0.375rem;
+      margin-bottom: 0.5rem;
+    }
+    
+    .inventory-count {
+      background-color: var(--accent-purple);
+      color: white;
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+    
+    .badge {
+      margin-left: 0.5rem;
+    }
+    
+    .footer {
+      text-align: center;
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--card-border);
+      color: #9ca3af;
+      font-size: 0.875rem;
+    }
+    
+    .spinner-border {
+      width: 1.5rem;
+      height: 1.5rem;
+      margin-right: 0.5rem;
+    }
+    
+    .small-quantity {
+      width: 3rem;
+      text-align: center;
+      margin: 0 0.5rem;
+    }
+    
+    .equipped-badge {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      background-color: var(--accent-purple);
+      color: white;
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+    
+    .reward-info {
+      background-color: #f8f9fa;
+      padding: 1rem;
+      border-radius: 0.375rem;
+      margin-bottom: 1rem;
+    }
+    
+    .reward-value {
+      font-weight: bold;
+      color: var(--accent-purple);
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="#">PunkQuest</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link active" href="#" data-bs-target="#tokensSection" id="tokensTab">My Tokens</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" data-bs-target="#storeSection" id="storeTab">Store</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" data-bs-target="#inventorySection" id="inventoryTab">Inventory</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#" data-bs-target="#cartSection" id="cartTab">Cart <span id="cartBadge" class="badge bg-danger">0</span></a>
+          </li>
+        </ul>
+      </div>
+      <div id="account-section" class="text-end" style="display: none;">
+        <span id="tokenBalance" class="text-white me-3">$ADRIAN: 0</span>
+        <span id="accountDisplay" class="account-display text-white"></span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>PunkQuest Marketplace</h1>
+      <p>Buy items, equip your AdrianPunks, and earn rewards</p>
+    </header>
+    
+    <!-- Connect Wallet Section -->
+    <div id="connect-section" class="text-center mb-4">
+      <button id="connectWalletBtn" class="btn-connect">Connect Wallet</button>
+    </div>
+    
+    <!-- Alert Messages -->
+    <div id="errorAlert" class="alert alert-danger" style="display: none;"></div>
+    <div id="successAlert" class="alert alert-success" style="display: none;"></div>
+    
+    <!-- Tab Content Sections -->
+    <div class="tab-content">
+      <!-- Tokens Section -->
+      <div id="tokensSection" class="tab-pane active">
+        <div class="card">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="section-title mb-0">Your AdrianPunks</h2>
+            <div>
+              <button id="selectAllBtn" class="btn-secondary btn-action">Select All</button>
+              <button id="claimAllBtn" class="btn-action">Claim All Rewards</button>
+            </div>
+          </div>
+          
+          <div id="loading-tokens" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading your tokens...</p>
+          </div>
+          
+          <div id="no-tokens-message" class="text-center py-5" style="display: none;">
+            <p>You don't own any AdrianPunks yet</p>
+          </div>
+          
+          <!-- Token Grid -->
+          <div id="token-grid" class="token-grid mb-4"></div>
+          
+          <!-- Token Actions -->
+          <div id="token-actions" style="display: none;">
+            <div class="d-flex flex-wrap">
+              <button id="stakeBtn" class="btn-action">Stake Selected</button>
+              <button id="unstakeBtn" class="btn-action">Unstake Selected</button>
+              <button id="claimBtn" class="btn-action">Claim Selected</button>
+              <button id="levelUpBtn" class="btn-action">Fast Level Upgrade</button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Equipment Section -->
+        <div id="equipment-section" class="card" style="display: none;">
+          <h2 class="section-title">Equip Items</h2>
+          
+          <div id="no-token-selected" class="text-center my-3">
+            <p>Select a token to equip items</p>
+          </div>
+          
+          <div id="token-equipment" style="display: none;">
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <h5>Currently Equipped</h5>
+                <div id="current-equipment" class="p-3 bg-light rounded">
+                  <div id="weapon-slot">
+                    <p>Weapon Slot: <span id="current-weapon">None</span></p>
+                  </div>
+                  <div id="armor-slot">
+                    <p>Armor Slot: <span id="current-armor">None</span></p>
+                  </div>
+                  <div id="extra-slots">
+                    <p>Extra Slots: <span id="current-extras">None</span></p>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <h5>Your Inventory</h5>
+                <div id="equipment-inventory" class="p-3 bg-light rounded">
+                  <p>Loading inventory...</p>
+                </div>
+              </div>
+            </div>
+            <button id="purchaseSlotBtn" class="btn-action">Purchase Extra Slot</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Store Section -->
+      <div id="storeSection" class="tab-pane">
+        <div class="card">
+          <h2 class="section-title">Item Store</h2>
+          
+          <div id="loading-store" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading store items...</p>
+          </div>
+          
+          <!-- Filter Controls -->
+          <div class="mb-3">
+            <div class="btn-group" role="group">
+              <button type="button" class="btn btn-outline-secondary active" data-filter="all">All Items</button>
+              <button type="button" class="btn btn-outline-secondary" data-filter="weapon">Weapons</button>
+              <button type="button" class="btn btn-outline-secondary" data-filter="armor">Armor</button>
+            </div>
+          </div>
+          
+          <!-- Item Grid -->
+          <div id="store-grid" class="store-grid"></div>
+        </div>
+      </div>
+      
+      <!-- Inventory Section -->
+      <div id="inventorySection" class="tab-pane">
+        <div class="card">
+          <h2 class="section-title">Your Inventory</h2>
+          
+          <div id="loading-inventory" class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading your inventory...</p>
+          </div>
+          
+          <div id="no-inventory-message" class="text-center py-5" style="display: none;">
+            <p>Your inventory is empty. Visit the store to buy items!</p>
+          </div>
+          
+          <!-- Inventory List -->
+          <div id="inventory-list"></div>
+        </div>
+      </div>
+      
+      <!-- Cart Section -->
+      <div id="cartSection" class="tab-pane">
+        <div class="card">
+          <h2 class="section-title">Shopping Cart</h2>
+          
+          <div id="empty-cart-message" class="text-center py-5">
+            <p>Your cart is empty. Add items from the store!</p>
+          </div>
+          
+          <!-- Cart Items -->
+          <div id="cart-items"></div>
+          
+          <!-- Cart Summary -->
+          <div id="cart-summary" class="mt-3" style="display: none;">
+            <hr>
+            <div class="d-flex justify-content-between">
+              <h5>Total:</h5>
+              <h5 id="cart-total">0 $ADRIAN</h5>
+            </div>
+            <button id="approveBtn" class="btn-action w-100 mb-2">Approve $ADRIAN</button>
+            <button id="checkoutBtn" class="btn-action w-100" disabled>Checkout</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Footer -->
+    <div class="footer">
+      <p id="contractAddressInfo"></p>
+      <p>© 2025 PunkQuest</p>
+    </div>
+  </div>
+
+  <!-- Modal for Item Details -->
+  <div class="modal fade" id="itemDetailsModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="itemDetailsTitle">Item Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="itemDetailsContent">
+          <!-- Content will be dynamically inserted -->
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" id="addToCartModal">Add to Cart</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JavaScript -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <!-- Configuración y lógica de la aplicación -->
+  <script>
+    /* -----------------------------------------------------------
+       Adrian Punks  – Marketplace / Quest dApp
+       Autor: ChatGPT · Mayo 2025
+       ----------------------------------------------------------- */
+
+    /* ------------------ 1.  CONFIGURACIÓN BÁSICA ------------------ */
+
+    const CFG = {
+      network: {
+        chainIdHex: "0x2105",          // Base mainnet
+        chainIdDec: 8453,
+        rpc: "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1"
+      },
+      addresses: {
+        punks:  "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566",
+        quest:  "0x6c1BFa0AfB84e314DF2e8B9a88C3530e0b19a49F",
+        token:  "0xD2a4684edFc70D2B01600416f50Fc5733bFc97D5".toLowerCase(),
+        multicall: "0xcA11bde05977b3631167028862bE2a173976CA11"
+      },
+      abi: { 
+        punks: [
+          "function balanceOf(address owner) view returns (uint256)",
+          "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+          "function tokenURI(uint256 tokenId) view returns (string)",
+          "function ownerOf(uint256 tokenId) view returns (address)",
+          "function getApproved(uint256 tokenId) view returns (address)",
+          "function isApprovedForAll(address owner, address operator) view returns (bool)",
+          "function approve(address to, uint256 tokenId)",
+          "function setApprovalForAll(address operator, bool approved)",
+          "function transferFrom(address from, address to, uint256 tokenId)",
+          "function safeTransferFrom(address from, address to, uint256 tokenId)",
+          "function safeTransferFrom(address from, address to, uint256 tokenId, bytes data)"
+        ],
+        quest: [
+          "function stake(uint256 id)",
+          "function unstake(uint256 id)",
+          "function claimRewards(uint256 id) returns (uint256)",
+          "function batchStake(uint256[] ids)",
+          "function batchUnstake(uint256[] ids)",
+          "function batchClaimRewards(uint256[] ids) returns (uint256)",
+          "function getTokenDetailedInfo(uint256 id) view returns (uint256, uint256, uint256, uint256, uint256, int256, uint256)",
+          "function getTokenStats(uint256 id) view returns (uint256, uint256)",
+          "function getTokenArmoryDetails(uint256 id) view returns (uint256, uint256, uint256[], uint256)",
+          "function activationFee() view returns (uint256)",
+          "function exitFee() view returns (uint256)",
+          "function claimFee() view returns (uint256)",
+          "function fastLevelUpgradeFee() view returns (uint256)",
+          "function extraSlotCost() view returns (uint256)",
+          "function repairFee() view returns (uint256)",
+          "function baseRewardRate() view returns (uint256)",
+          "function eventChance() view returns (uint256)",
+          "function eventCooldown() view returns (uint256)",
+          "function positiveEventBonus() view returns (uint256)",
+          "function negativeEventPenalty() view returns (uint256)",
+          "function maxFastLevelBonus() view returns (uint256)",
+          "function fastLevelUpgradeBonusIncrement() view returns (uint256)",
+          "function maxSlots() view returns (uint256)",
+          "function socialMinTokens() view returns (uint256)",
+          "function socialBoostBonus() view returns (uint256)",
+          "function socialBoostDuration() view returns (uint256)",
+          "function socialBoostActiveUntil() view returns (uint256)",
+          "function totalStaked() view returns (uint256)",
+          "function totalItemsEquipped() view returns (uint256)",
+          "function totalItemsPurchased() view returns (uint256)",
+          "function getGlobalStats() view returns (uint256, uint256, uint256)",
+          "function getEconomicSnapshot() view returns (uint256, uint256, uint256, uint256)",
+          "function getWalletStats(address w, uint256[] tokenIds) view returns (uint256[], uint256, uint256)",
+          "function pendingPassiveReward(uint256 id) view returns (uint256)",
+          "function pendingGameReward(uint256 id) view returns (uint256)",
+          "function pendingTotalReward(uint256 id) view returns (uint256)",
+          "function randomTriggerEvent(uint256 tokenId)",
+          "function triggerEvent(uint256 tokenId, uint256 id)",
+          "function triggerAdvancedEvent(uint256 tokenId, uint256 ev)",
+          "function addEventDefinition(string n, int256 adj, string d)",
+          "function addAdvancedEventDefinition(string n, int256 adj, string d, uint256 deg)",
+          "function setEventParameters(uint256 c, uint256 chance, uint256 pos, uint256 neg)",
+          "function setEventsPaused(bool p)",
+          "function addItem(uint8 t, uint256 p, uint256 b, uint256 d, bool degr)",
+          "function updateItem(uint256 id, uint256 p, uint256 b, uint256 d)",
+          "function buyItem(uint256 id, uint256 qty)",
+          "function batchBuyItems(uint256[] ids, uint256[] qtys)",
+          "function equipItem(uint256 tokenId, uint256 itemId)",
+          "function equipItemInstance(uint256 tokenId, uint256 instId)",
+          "function equipExtraItemInstance(uint256 tokenId, uint256 instId)",
+          "function repairItem(uint256 inst, uint256 tokenId)",
+          "function purchaseFastLevelUpgrade(uint256 id)",
+          "function purchaseExtraSlots(uint256 tokenId, uint256 q)",
+          "function addRewardToken(address t)",
+          "function depositRewardFunds(uint256 a)",
+          "function withdrawRewardFunds(uint256 a, address to)",
+          "function setActivationFee(uint256 v)",
+          "function setExitFee(uint256 v)",
+          "function setClaimFee(uint256 v)",
+          "function setFastLevelUpgradeFee(uint256 v)",
+          "function setExtraSlotCost(uint256 v)",
+          "function setRepairFee(uint256 v)",
+          "function setBaseRewardRate(uint256 v)",
+          "function setFastLevelUpgradeBonusIncrement(uint256 v)",
+          "function setMaxFastLevelBonus(uint256 v)",
+          "function setMaxSlots(uint256 v)",
+          "function setLevelParameters(uint256[] th, uint256[] bn)",
+          "function setSocialStakingParameters(uint256 m, uint256 b, uint256 d)",
+          "function setArtistWallet(address w)",
+          "function setFeeWallet(address w)",
+          "function owner() view returns (address)",
+          "function renounceOwnership()",
+          "function transferOwnership(address newOwner)"
+        ],
+        erc20: [
+          "function balanceOf(address account) view returns (uint256)",
+          "function allowance(address owner, address spender) view returns (uint256)",
+          "function approve(address spender, uint256 amount) returns (bool)",
+          "function transfer(address to, uint256 amount) returns (bool)",
+          "function transferFrom(address from, address to, uint256 amount) returns (bool)",
+          "function decimals() view returns (uint8)",
+          "function symbol() view returns (string)",
+          "function name() view returns (string)",
+          "function totalSupply() view returns (uint256)",
+          "function stake(uint256 amount)",
+          "function withdrawStake()",
+          "function calculateReward(address staker) view returns (uint256)",
+          "function stakedBalance(address account) view returns (uint256)",
+          "function stakingStart(address account) view returns (uint256)",
+          "function rewardRate() view returns (uint256)",
+          "function updateRewardRate(uint256 _newRewardRate)",
+          "function taxFee() view returns (uint256)",
+          "function creatorFee() view returns (uint256)",
+          "function burnFee() view returns (uint256)",
+          "function taxAddress() view returns (address)",
+          "function creatorAddress() view returns (address)",
+          "function isFeeExempt(address account) view returns (bool)",
+          "function setFeeExemption(address account, bool exempt)",
+          "function updateTaxFee(uint256 _newTaxFee)",
+          "function updateCreatorFee(uint256 _newCreatorFee)",
+          "function updateBurnFee(uint256 _newBurnFee)",
+          "function updateTaxAddress(address _newTaxAddress)",
+          "function updateCreatorAddress(address _newCreatorAddress)",
+          "function owner() view returns (address)",
+          "function renounceOwnership()",
+          "function transferOwnership(address newOwner)"
+        ]
+      },
+      imgPath:  "/market/halfxadrianimages/",
+      placeholder: "/market/halfxadrianimages/placeholder.jpg"
+    };
+
+    /* ------------------ 2.  ESTADO GLOBAL ------------------ */
+
+    const S = {
+      provider:     null,
+      signer:       null,
+      account:      "",
+      contracts:    {},
+      ownedTokens:  [],
+      selected:     new Set(),
+      storeItems:   [],
+      inventory:    {},
+      cart:         [],
+      fees:         {},
+      decimals:     18,
+      symbol:       "ADRIAN",
+      loading:      false,
+      currentTab:   "tokens"
+    };
+
+    /* ------------------ 3.  DOM CORTO ------------------ */
+
+    const $ = selector => document.querySelector(selector);
+    const $$ = selector => document.querySelectorAll(selector);
+
+    /* Elementos Reutilizados */
+    const E = {
+      connectBtn:   $("#connectWalletBtn"),
+      accountBox:   $("#accountDisplay"),
+      balBox:       $("#tokenBalance"),
+      error:        $("#errorAlert"),
+      ok:           $("#successAlert"),
+      loadingTok:   $("#loading-tokens"),
+      noTok:        $("#no-tokens-message"),
+      grid:         $("#token-grid"),
+      tokActions:   $("#token-actions"),
+      stakeBtn:     $("#stakeBtn"),
+      unstakeBtn:   $("#unstakeBtn"),
+      claimBtn:     $("#claimBtn"),
+      lvlBtn:       $("#levelUpBtn"),
+      selectAll:    $("#selectAllBtn"),
+      storeLoad:    $("#loading-store"),
+      storeGrid:    $("#store-grid"),
+      cartBadge:    $("#cartBadge"),
+      cartItems:    $("#cart-items"),
+      cartSum:      $("#cart-summary"),
+      cartTotal:    $("#cart-total"),
+      approveBtn:   $("#approveBtn"),
+      checkoutBtn:  $("#checkoutBtn"),
+      tabs:         $$(".nav-link")
+    };
+
+    /* ------------------ 4.  UTILIDADES ------------------ */
+
+    // Formatea un BigNumber a un número legible, manejando diferentes casos de decimales
+    const fmt = (bn, dec = S.decimals, fixed = 2) => {
+      if (!bn) return "0";
+      try {
+        // Asegurarse de que bn sea un BigNumber
+        const bigNum = ethers.BigNumber.isBigNumber(bn) 
+          ? bn 
+          : ethers.BigNumber.from(String(bn));
+        
+        // Convertir usando ethers y formatear con precisión fija
+        return Number(ethers.utils.formatUnits(bigNum, dec)).toFixed(fixed);
+      } catch (e) {
+        console.error("Error formateando número:", e, "Valor:", bn);
+        return "Error";
+      }
+    };
+
+    // Parsea un string o número a BigNumber con los decimales correctos
+    const parse = (value, dec = S.decimals) => {
+      if (!value) return ethers.BigNumber.from(0);
+      try {
+        // Convertir a string primero para manejar diferentes tipos de entrada
+        return ethers.utils.parseUnits(String(value), dec);
+      } catch (e) {
+        console.error("Error parseando número:", e, "Valor:", value);
+        return ethers.BigNumber.from(0);
+      }
+    };
+
+    // Sanitiza direcciones Ethereum
+    const safeAddress = (address) => {
+      if (!address) return null;
+      try {
+        // Normalizar la dirección usando ethers
+        return ethers.utils.getAddress(address.toLowerCase());
+      } catch (e) {
+        console.error("Dirección inválida:", address, e);
+        return null;
+      }
+    };
+
+    const notify = (box, msg) => {
+      box.textContent = msg;
+      box.style.display = "block";
+      setTimeout(() => (box.style.display = "none"), 5000);
+    };
+
+    const handleErr = err => notify(E.error, err.message ?? "Error inesperado");
+
+    const withLoad = fn => async (...a) => {
+      S.loading = true; toggleUI();
+      try { return await fn(...a); }
+      catch (e) { handleErr(e); }
+      finally { S.loading = false; toggleUI(); }
+    };
+
+    /* ------------------ 5.  CONEXIÓN WALLET ------------------ */
+
+    async function connect() {
+      if (!window.ethereum) throw new Error("Instala MetaMask para continuar");
+      
+      // Solicitar cuentas
+      const [acc] = await window.ethereum.request({ method: "eth_requestAccounts" });
+      
+      // Verificar y cambiar red si es necesario
+      if ((await ethereum.request({ method: "eth_chainId" })) !== CFG.network.chainIdHex) {
+        try {
+          await ethereum.request({ method: "wallet_switchEthereumChain",
+                                   params: [{ chainId: CFG.network.chainIdHex }] });
+        } catch (e) {
+          if (e.code === 4902)
+            await ethereum.request({ method: "wallet_addEthereumChain",
+                                     params: [{ chainName: "Base Mainnet",
+                                                chainId: CFG.network.chainIdHex,
+                                                rpcUrls: [CFG.network.rpc],
+                                                nativeCurrency: {
+                                                  name: "ETH",
+                                                  symbol: "ETH",
+                                                  decimals: 18
+                                                },
+                                                blockExplorerUrls: ["https://basescan.org/"] }] });
+          else throw e;
+        }
+      }
+
+      // Normalizar la dirección del usuario
+      const normalizedAccount = safeAddress(acc);
+      if (!normalizedAccount) {
+        throw new Error("Dirección de wallet inválida");
+      }
+
+      // Configurar los providers
+      S.provider = new ethers.providers.Web3Provider(window.ethereum);
+      S.signer = S.provider.getSigner();
+      S.account = normalizedAccount;
+      
+      // Provider RPC para consultas
+      const baseProvider = new ethers.providers.JsonRpcProvider(CFG.network.rpc, {
+        name: "base",
+        chainId: CFG.network.chainIdDec
+      });
+      
+      // Aseguramos que las direcciones de contratos estén normalizadas
+      const normalizedAddresses = {
+        punks: safeAddress(CFG.addresses.punks),
+        quest: safeAddress(CFG.addresses.quest),
+        token: safeAddress(CFG.addresses.token.toLowerCase()),
+        multicall: safeAddress(CFG.addresses.multicall)
+      };
+      
+      // Verificar que todas las direcciones son válidas
+      const invalidAddresses = Object.entries(normalizedAddresses)
+        .filter(([_, addr]) => !addr)
+        .map(([name]) => name);
+      
+      if (invalidAddresses.length > 0) {
+        console.error("Direcciones inválidas:", invalidAddresses);
+        notify(E.error, `Direcciones de contratos inválidas: ${invalidAddresses.join(', ')}`);
+      }
+      
+      // Instancias de contrato
+      if (normalizedAddresses.punks) {
+        S.contracts.punks = new ethers.Contract(
+          normalizedAddresses.punks,
+          CFG.abi.punks,
+          baseProvider
+        ).connect(S.signer);
+      }
+      
+      if (normalizedAddresses.quest) {
+        S.contracts.quest = new ethers.Contract(
+          normalizedAddresses.quest,
+          CFG.abi.quest,
+          baseProvider
+        ).connect(S.signer);
+      }
+      
+      // Inicializamos el contrato token con manejo de errores
+      try {
+        if (normalizedAddresses.token) {
+          S.contracts.token = new ethers.Contract(
+            normalizedAddresses.token,
+            CFG.abi.erc20,
+            baseProvider
+          ).connect(S.signer);
+          
+          try {
+            // Intentamos leer decimals y symbol, pero usamos valores por defecto si hay error
+            const decimals = await S.contracts.token.decimals().catch(() => 18);
+            const symbol = await S.contracts.token.symbol().catch(() => "ADRIAN");
+            
+            S.decimals = decimals;
+            S.symbol = symbol;
+          } catch (e) {
+            console.warn("Error leyendo decimales o símbolo:", e);
+            // Usamos valores por defecto
+            S.decimals = 18;
+            S.symbol = "ADRIAN";
+          }
+        } else {
+          console.warn("Dirección de token inválida, usando valores por defecto");
+          S.decimals = 18;
+          S.symbol = "ADRIAN";
+        }
+      } catch (e) {
+        console.error("Error inicializando contrato token:", e);
+        notify(E.error, "Error al conectar con el token ADRIAN. Algunas funciones pueden no estar disponibles.");
+      }
+      
+      // Definimos explícitamente el multicall
+      if (normalizedAddresses.multicall) {
+        S.contracts.multicall = new ethers.Contract(
+          normalizedAddresses.multicall,
+          ["function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"],
+          baseProvider
+        );
+      }
+
+      notify(E.ok, "Wallet conectada correctamente");
+      renderAccount(); 
+      
+      try {
+        await bootstrapData();
+      } catch (e) {
+        console.error("Error cargando datos:", e);
+        notify(E.error, "Error cargando datos. Intenta recargar la página.");
+      }
+    }
+
+    function renderAccount() {
+      E.accountBox.textContent = `${S.account.slice(0, 6)}…${S.account.slice(-4)}`;
+      E.accountBox.parentElement.style.display = "block";
+    }
+
+    /* ------------------ 6.  CARGA INICIAL ------------------ */
+
+    async function bootstrapData() {
+      try {
+        await Promise.all([
+          loadFees().catch(e => console.error("Error cargando fees:", e)),
+          loadBalance().catch(e => console.error("Error cargando balance:", e)),
+          loadTokens().catch(e => console.error("Error cargando tokens:", e)),
+          loadStore().catch(e => console.error("Error cargando tienda:", e))
+        ]);
+      } catch (e) {
+        console.error("Error en bootstrapData:", e);
+      }
+    }
+
+    /* --- 6-a  BALANCE -------------------------------------- */
+    async function loadBalance() {
+      try {
+        if (!S.contracts.token) return;
+        const bal = await S.contracts.token.balanceOf(S.account);
+        E.balBox.textContent = `$${S.symbol}: ${fmt(bal, S.decimals, 2)}`;
+      } catch (e) {
+        console.error("Error cargando balance:", e);
+        E.balBox.textContent = `$${S.symbol}: Error`;
+      }
+    }
+
+    /* --- 6-b  COMISIONES ----------------------------------- */
+    async function loadFees() {
+      try {
+        if (!S.contracts.quest) return;
+        const Q = S.contracts.quest;
+        const [activation, exit, claim, levelUp, extra] = await Promise.all([
+          Q.activationFee().catch(() => ethers.BigNumber.from(0)),
+          Q.exitFee().catch(() => ethers.BigNumber.from(0)),
+          Q.claimFee().catch(() => ethers.BigNumber.from(0)),
+          Q.fastLevelUpgradeFee().catch(() => ethers.BigNumber.from(0)),
+          Q.extraSlotCost().catch(() => ethers.BigNumber.from(0))
+        ]);
+        S.fees = { activation, exit, claim, levelUp, extra };
+      } catch (e) {
+        console.error("Error cargando fees:", e);
+      }
+    }
+
+    /* --- 6-c  TOKEN NFTs ----------------------------------- */
+    async function loadTokens() {
+      try {
+        E.loadingTok.style.display = "block"; 
+        E.grid.innerHTML = "";
+        E.noTok.style.display = "none";
+        
+        if (!S.contracts.punks) {
+          E.noTok.style.display = "block";
+          E.loadingTok.style.display = "none";
+          return;
+        }
+        
+        const bal = (await S.contracts.punks.balanceOf(S.account)).toNumber();
+        if (!bal) { 
+          E.noTok.style.display = "block"; 
+          E.loadingTok.style.display = "none";
+          return; 
+        }
+
+        /* Obtener Ids mediante multicall */
+        const iface = new ethers.utils.Interface(CFG.abi.punks);
+        const calls = [...Array(bal).keys()].map(i => ({
+            target: CFG.addresses.punks,
+            allowFailure: true,
+            callData: iface.encodeFunctionData("tokenOfOwnerByIndex", [S.account, i])
+        }));
+        
+        try {
+          if (!S.contracts.multicall) {
+            throw new Error("Multicall contract not initialized");
+          }
+          
+          const results = await S.contracts.multicall.aggregate3(calls);
+          S.ownedTokens = results
+            .filter(r => r.success)
+            .map(r => {
+              const decoded = iface.decodeFunctionResult("tokenOfOwnerByIndex", r.returnData);
+              return decoded[0].toNumber();
+            });
+        } catch (e) {
+          console.error("Error con multicall, intentando método alternativo:", e);
+          // Método alternativo si falla multicall
+          S.ownedTokens = [];
+          for (let i = 0; i < bal; i++) {
+            try {
+              const tokenId = await S.contracts.punks.tokenOfOwnerByIndex(S.account, i);
+              S.ownedTokens.push(tokenId.toNumber());
+            } catch (err) {
+              console.error(`Error obteniendo token #${i}:`, err);
+            }
+          }
+        }
+
+        renderTokens();
+      } catch (e) {
+        console.error("Error cargando tokens:", e);
+        E.loadingTok.style.display = "none";
+      } finally {
+        if (E.loadingTok) E.loadingTok.style.display = "none";
+      }
+    }
+
+    /* Renderizado de tarjetas NFT */
+    function renderTokens() {
+      E.grid.innerHTML = "";
+      S.ownedTokens.forEach(id => {
+        const card = document.createElement("div");
+        card.className = "token-card" + (S.selected.has(id) ? " selected-token" : "");
+        card.onclick = () => toggleSelect(id);
+
+        const img   = new Image();
+        img.src     = `${CFG.imgPath}${id}.jpg`;
+        img.onerror = () => (img.src = CFG.placeholder);
+        card.append(img);
+
+        const info  = document.createElement("div");
+        info.className = "token-info";
+        info.innerHTML = `<div class="token-title">Adrian #${id}</div>`;
+        card.append(info);
+
+        E.grid.append(card);
+      });
+      toggleUI();
+    }
+
+    /* Selección */
+    function toggleSelect(id) {
+      S.selected.has(id) ? S.selected.delete(id) : S.selected.add(id);
+      renderTokens();
+    }
+
+    /* --- 6-d  TIENDA --------------------------------------- */
+    async function loadStore() {
+      try {
+        if (E.storeLoad) E.storeLoad.style.display = "block";
+        
+        if (!S.contracts.quest) {
+          if (E.storeLoad) E.storeLoad.style.display = "none";
+          return;
+        }
+        
+        let nextId;
+        try {
+          nextId = await S.contracts.quest.nextItemId();
+          nextId = nextId ? nextId.toNumber() : 10; // Valor por defecto si falla
+        } catch (e) {
+          console.error("Error obteniendo nextItemId, usando default:", e);
+          nextId = 10; // Valor por defecto si falla
+        }
+
+        S.storeItems = [];
+        // Usar multicall para obtener items en lote si hay muchos
+        if (nextId > 5 && S.contracts.multicall) {
+          try {
+            const itemsCalls = [];
+            for (let i = 1; i < nextId; i++) {
+              itemsCalls.push({
+                target: CFG.addresses.quest,
+                allowFailure: true,
+                callData: S.contracts.quest.interface.encodeFunctionData("items", [i])
+              });
+            }
+            
+            const results = await S.contracts.multicall.aggregate3(itemsCalls);
+            
+            for (let i = 0; i < results.length; i++) {
+              if (results[i].success) {
+                try {
+                  const item = S.contracts.quest.interface.decodeFunctionResult("items", results[i].returnData);
+                  if (item && item.exists) {
+                    S.storeItems.push({ id: i+1, ...item });
+                  }
+                } catch (err) {
+                  console.error(`Error decodificando item ${i+1}:`, err);
+                }
+              }
+            }
+          } catch (e) {
+            console.error("Error usando multicall para la tienda, usando método individual:", e);
+            // Caer al método individual si falla multicall
+            await loadStoreIndividual(nextId);
+          }
+        } else {
+          await loadStoreIndividual(nextId);
+        }
+        
+        renderStore();
+      } catch (e) {
+        console.error("Error cargando tienda:", e);
+      } finally {
+        if (E.storeLoad) E.storeLoad.style.display = "none";
+      }
+    }
+    
+    // Función auxiliar para cargar items individualmente
+    async function loadStoreIndividual(nextId) {
+      for (let i = 1; i < nextId; i++) {
+        try {
+          const item = await S.contracts.quest.items(i);
+          if (!item || !item.exists) continue;
+          S.storeItems.push({ id: i, ...item });
+        } catch (e) {
+          console.error(`Error cargando item de tienda #${i}:`, e);
+        }
+      }
+    }
+
+    function renderStore(filter = "all") {
+      E.storeGrid.innerHTML = "";
+      const f = filter === "all" ? () => true :
+                filter === "weapon" ? it => it.itemType === 0 :
+                it => it.itemType === 1;
+
+      S.storeItems.filter(f).forEach(it => {
+        const card = document.createElement("div");
+        card.className = "item-card";
+        card.onclick = () => showItem(it);
+        card.innerHTML = `
+          <div class="item-type ${it.itemType === 0 ? "type-weapon" : "type-armor"}">
+            ${it.itemType === 0 ? "Weapon" : "Armor"}
+          </div>
+          <div class="item-bonus">Bonus: ${it.bonus}%</div>
+          <div class="item-durability">Durability: ${it.durability}</div>
+          <div class="item-price">${fmt(it.price)} $${S.symbol}</div>`;
+        E.storeGrid.append(card);
+      });
+      E.storeLoad.style.display = "none";
+    }
+
+    /* Item → modal */
+    function showItem(item) {
+      $("#itemDetailsTitle").textContent = `Item #${item.id}`;
+      $("#itemDetailsContent").innerHTML = `
+         <p><strong>Tipo:</strong> ${item.itemType === 0 ? "Weapon" : "Armor"}</p>
+         <p><strong>Bono:</strong> ${item.bonus}%</p>
+         <p><strong>Durabilidad:</strong> ${item.durability}</p>
+         <p><strong>Precio:</strong> ${fmt(item.price)} $${S.symbol}</p>`;
+      $("#addToCartModal").onclick = () => { addToCart(item.id, 1); };
+      new bootstrap.Modal("#itemDetailsModal").show();
+    }
+
+    /* ------------------ 7.  CARRITO ------------------ */
+
+    function addToCart(id, qty = 1) {
+      const found = S.cart.find(i => i.id === id);
+      found ? (found.qty += qty) : S.cart.push({ id, qty });
+      renderCart();
+    }
+
+    function renderCart() {
+      E.cartItems.innerHTML = "";
+      let total = ethers.BigNumber.from(0);
+      S.cart.forEach(it => {
+        const storeIt = S.storeItems.find(s => s.id === it.id);
+        if (!storeIt) return; // Omitir si no encontramos el item
+        
+        const li = document.createElement("div");
+        li.className = "cart-item";
+        
+        try {
+          const itemPrice = storeIt.price || ethers.BigNumber.from(0);
+          const itemQtyBN = ethers.BigNumber.from(it.qty || 1);
+          const subtotal = itemPrice.mul(itemQtyBN);
+          
+          li.innerHTML = `
+            <span>#${it.id} × ${it.qty}</span>
+            <strong>${fmt(subtotal)}</strong>`;
+          
+          E.cartItems.append(li);
+          total = total.add(subtotal);
+        } catch (e) {
+          console.error("Error calculando precio para item:", it.id, e);
+        }
+      });
+      
+      E.cartTotal.textContent = `${fmt(total)} $${S.symbol}`;
+      E.cartBadge.textContent = S.cart.length;
+      E.checkoutBtn.disabled = !S.cart.length;
+      E.cartSum.style.display = S.cart.length ? "block" : "none";
+    }
+
+    /* APROBAR → TOKEN */
+    const approve = withLoad(async () => {
+      if (!S.contracts.token) {
+        notify(E.error, "Contrato de token no disponible.");
+        return;
+      }
+      
+      try {
+        // Calcular el total usando BigNumbers de manera segura
+        const total = S.cart.reduce((sum, it) => {
+          try {
+            const storeIt = S.storeItems.find(s => s.id === it.id);
+            if (!storeIt || !storeIt.price) return sum;
+            
+            const price = storeIt.price;
+            const qty = ethers.BigNumber.from(it.qty || 1);
+            return sum.add(price.mul(qty));
+          } catch (e) {
+            console.error("Error al calcular precio para item:", it.id, e);
+            return sum;
+          }
+        }, ethers.BigNumber.from(0));
+        
+        // Si el total es 0, no hay nada que aprobar
+        if (total.eq(0)) {
+          notify(E.error, "No hay items en el carrito o los precios son inválidos");
+          return;
+        }
+        
+        const allowance = await S.contracts.token.allowance(S.account, CFG.addresses.quest);
+        if (allowance.gte(total)) {
+          notify(E.ok, "Allowance suficiente 👍");
+          return;
+        }
+
+        // Solicitar aprobación con margen adicional (1.1 veces el total)
+        const approveAmount = total.mul(110).div(100); // 110% del total para tener margen
+        const tx = await S.contracts.token.approve(safeAddress(CFG.addresses.quest), approveAmount);
+        await tx.wait(); 
+        notify(E.ok, "Allowance actualizado");
+      } catch (e) {
+        console.error("Error en approve:", e);
+        notify(E.error, "Error al aprobar tokens: " + (e.message || "Error desconocido"));
+      }
+    });
+
+    const checkout = withLoad(async () => {
+      if (!S.contracts.quest || !S.contracts.token) {
+        notify(E.error, "Contratos no disponibles. Intenta reconectar la wallet.");
+        return;
+      }
+      
+      try {
+        // Verificar que hay items en el carrito
+        if (!S.cart.length) {
+          notify(E.error, "No hay items en el carrito");
+          return;
+        }
+        
+        // Verificar cada item antes de la compra
+        for (const it of S.cart) {
+          if (!it || !it.id || !it.qty) {
+            notify(E.error, "Item inválido en el carrito");
+            return;
+          }
+          
+          const storeItem = S.storeItems.find(s => s.id === it.id);
+          if (!storeItem) {
+            notify(E.error, `El item #${it.id} no está disponible en la tienda`);
+            return;
+          }
+          
+          // Convertir cantidad a BigNumber si no lo es
+          const qty = ethers.BigNumber.isBigNumber(it.qty) 
+                       ? it.qty 
+                       : ethers.BigNumber.from(String(it.qty));
+          
+          // Verificar que la cantidad es válida
+          if (qty.lte(0)) {
+            notify(E.error, `Cantidad inválida para el item #${it.id}`);
+            return;
+          }
+          
+          // Comprar el item
+          const tx = await S.contracts.quest.buyItem(it.id, qty);
+          await tx.wait();
+        }
+        
+        notify(E.ok, "¡Compra completada!");
+        // Limpiar carrito y actualizar UI
+        S.cart = []; 
+        renderCart(); 
+        await loadInventory();
+      } catch (e) {
+        console.error("Error en checkout:", e);
+        
+        let errorMsg = "Error al completar la compra: " + (e.message || "Error desconocido");
+        
+        // Mensajes de error amigables para casos comunes
+        if (e.code === 'CALL_EXCEPTION' || e.code === 'UNPREDICTABLE_GAS_LIMIT') {
+          if (e.message.includes('allowance')) {
+            errorMsg = "Insuficiente allowance. Por favor, aprueba primero los tokens.";
+          } else if (e.message.includes('balance')) {
+            errorMsg = "Balance insuficiente para completar la compra.";
+          } else if (e.message.includes('429')) {
+            errorMsg = "Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.";
+          } else if (e.message.includes('denied') || e.message.includes('rejected')) {
+            errorMsg = "Transacción rechazada por el usuario.";
+          }
+        }
+        
+        notify(E.error, errorMsg);
+      }
+    });
+
+    /* ------------------ 8.  INVENTARIO ------------------ */
+
+    async function loadInventory() {
+      try {
+        const invDiv = $("#loading-inventory");
+        if (invDiv) invDiv.style.display = "block";
+        
+        if (!S.contracts.quest) {
+          if (invDiv) invDiv.style.display = "none";
+          $("#no-inventory-message").style.display = "block";
+          return;
+        }
+        
+        // Verificar que hay items en la tienda primero
+        if (!S.storeItems || S.storeItems.length === 0) {
+          try {
+            await loadStore();
+          } catch (e) {
+            console.error("Error cargando la tienda para el inventario:", e);
+          }
+        }
+        
+        // Si no hay items en la tienda después de intentar cargarlos, salir
+        if (!S.storeItems || S.storeItems.length === 0) {
+          if (invDiv) invDiv.style.display = "none";
+          $("#no-inventory-message").style.display = "block";
+          return;
+        }
+        
+        const inv = {};
+        
+        // Usar multicall para consultar el inventario en lote
+        if (S.contracts.multicall && S.storeItems.length > 3) {
+          try {
+            const inventoryCalls = S.storeItems.map(item => ({
+              target: CFG.addresses.quest,
+              allowFailure: true,
+              callData: S.contracts.quest.interface.encodeFunctionData("inventory", [S.account, item.id])
+            }));
+            
+            const results = await S.contracts.multicall.aggregate3(inventoryCalls);
+            
+            for (let i = 0; i < results.length; i++) {
+              if (results[i].success) {
+                try {
+                  const qty = S.contracts.quest.interface.decodeFunctionResult("inventory", results[i].returnData)[0];
+                  if (qty && qty.gt(0)) {
+                    inv[S.storeItems[i].id] = qty.toNumber();
+                  }
+                } catch (err) {
+                  console.error(`Error decodificando inventario para item ${S.storeItems[i].id}:`, err);
+                }
+              }
+            }
+          } catch (e) {
+            console.error("Error usando multicall para inventario, usando método individual:", e);
+            // Caer al método individual si falla multicall
+            await loadInventoryIndividual(inv);
+          }
+        } else {
+          await loadInventoryIndividual(inv);
+        }
+        
+        S.inventory = inv;
+        renderInventory();
+      } catch (e) {
+        console.error("Error cargando inventario:", e);
+        const invDiv = $("#loading-inventory");
+        if (invDiv) invDiv.style.display = "none";
+      }
+    }
+    
+    // Función auxiliar para cargar inventario individualmente
+    async function loadInventoryIndividual(inv) {
+      const promises = S.storeItems.map(async it => {
+        try {
+          const qty = await S.contracts.quest.inventory(S.account, it.id);
+          if (qty && qty.gt(0)) inv[it.id] = qty.toNumber();
+        } catch (e) {
+          console.error(`Error cargando item #${it.id} para inventario:`, e);
+        }
+      });
+      
+      await Promise.all(promises);
+    }
+
+    function renderInventory() {
+      const list = $("#inventory-list");
+      list.innerHTML = "";
+      Object.entries(S.inventory).forEach(([id, qty]) => {
+        const li = document.createElement("div");
+        li.className = "inventory-item";
+        li.innerHTML = `<span>Item #${id}</span><span class="inventory-count">${qty}</span>`;
+        list.append(li);
+      });
+      $("#no-inventory-message").style.display = Object.keys(S.inventory).length ? "none" : "block";
+      $("#loading-inventory").style.display = "none";
+    }
+
+    /* ------------------ 9.  TOKENS → ACCIONES ------------------ */
+
+    const batch = withLoad(async (fnName, msg) => {
+      if (!S.selected.size) {
+        notify(E.error, "Ningún token seleccionado");
+        return;
+      }
+      
+      if (!S.contracts.quest) {
+        notify(E.error, "Contrato no disponible. Intenta reconectar la wallet.");
+        return;
+      }
+      
+      try {
+        const ids = [...S.selected];
+        
+        // Comprobar si se necesita fee
+        let fee = ethers.BigNumber.from(0);
+        if (fnName === "batchStake") {
+          fee = S.fees.activation.mul(ids.length);
+        } else if (fnName === "batchUnstake") {
+          fee = S.fees.exit.mul(ids.length).add(S.fees.claim.mul(ids.length));
+        } else if (fnName === "batchClaimRewards") {
+          fee = S.fees.claim.mul(ids.length);
+        }
+        
+        // Verificar allowance si hay fee
+        if (fee.gt(0) && S.contracts.token) {
+          const allowance = await S.contracts.token.allowance(S.account, CFG.addresses.quest);
+          if (allowance.lt(fee)) {
+            notify(E.ok, "Aprobando gastos...");
+            const txA = await S.contracts.token.approve(CFG.addresses.quest, fee.mul(2)); // Multiplicar por 2 para tener margen
+            await txA.wait();
+            
+            // Verificar que la aprobación se completó
+            const newAllowance = await S.contracts.token.allowance(S.account, CFG.addresses.quest);
+            if (newAllowance.lt(fee)) {
+              throw new Error('La aprobación falló o es insuficiente');
+            }
+          }
+        }
+        
+        // Ejecutar la operación principal
+        const tx = await S.contracts.quest[fnName](ids);
+        await tx.wait(); 
+        notify(E.ok, msg);
+        
+        // Actualizar UI
+        await loadTokens(); 
+        S.selected.clear();
+      } catch (e) {
+        console.error(`Error en operación ${fnName}:`, e);
+        
+        let errorMsg = `Error: ${e.message || "Operación fallida"}`;
+        
+        // Mensajes de error amigables
+        if (e.code === 'CALL_EXCEPTION' || e.code === 'UNPREDICTABLE_GAS_LIMIT') {
+          if (fnName === "batchStake" && e.message.includes('staked')) {
+            errorMsg = "¡Ops! Algunos de estos tokens ya están stakeados";
+          } else if (fnName === "batchUnstake" && e.message.includes('not staked')) {
+            errorMsg = "¡Ops! Algunos de estos tokens no están stakeados";
+          } else if (e.message.includes('allowance')) {
+            errorMsg = "Es necesario aprobar los tokens primero. Inténtalo de nuevo.";
+          } else if (e.message.includes('429')) {
+            errorMsg = "Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.";
+          }
+        }
+        
+        notify(E.error, errorMsg);
+      }
+    });
+
+    /* ------------------ 10.  UI & EVENTOS ------------------ */
+
+    function toggleUI() {
+      /* botones */
+      const sel = S.selected.size;
+      E.tokActions.style.display = sel ? "block" : "none";
+      E.stakeBtn.textContent     = `Stake (${sel})`;
+      E.unstakeBtn.textContent   = `Unstake (${sel})`;
+      E.claimBtn.textContent     = `Claim (${sel})`;
+      /* select-all */
+      E.selectAll.textContent = sel === S.ownedTokens.length ? "Deselect All" : "Select All";
+    }
+
+    /* ------------------ 11.  INICIALIZACIÓN ------------------ */
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Event listeners para los botones
+      E.connectBtn.addEventListener('click', withLoad(connect));
+      E.selectAll.addEventListener('click', () => {
+        if (S.selected.size === S.ownedTokens.length) S.selected.clear();
+        else S.ownedTokens.forEach(id => S.selected.add(id));
+        renderTokens();
+      });
+
+      // Event listeners para las pestañas
+      E.tabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          e.preventDefault();
+          const target = e.target.dataset.bsTarget;
+          document.querySelectorAll('.tab-pane').forEach(pane => {
+            pane.classList.remove('active');
+          });
+          document.querySelector(target).classList.add('active');
+          E.tabs.forEach(t => t.classList.remove('active'));
+          e.target.classList.add('active');
+          if (e.target.id === 'inventoryTab') loadInventory();
+        });
+      });
+
+      // Botones de acciones
+      E.stakeBtn.addEventListener('click', () => batch("batchStake", "Tokens stakeados"));
+      E.unstakeBtn.addEventListener('click', () => batch("batchUnstake", "Tokens des-stakeados"));
+      E.claimBtn.addEventListener('click', () => batch("batchClaimRewards", "Recompensas reclamadas"));
+      E.lvlBtn.addEventListener('click', withLoad(async () => {
+        if (S.selected.size !== 1) return notify(E.error, "Selecciona solo 1 token");
+        const tokenId = [...S.selected][0];
+        const tx = await S.contracts.quest.purchaseFastLevelUpgrade(tokenId);
+        await tx.wait(); notify(E.ok, "Token subido de nivel");
+      }));
+
+      // Botones del carrito
+      E.approveBtn.addEventListener('click', approve);
+      E.checkoutBtn.addEventListener('click', checkout);
+
+      // Verificar si la wallet ya está conectada
+      if (window.ethereum) {
+        window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
+          if (accounts.length > 0) withLoad(connect)();
+        });
+      }
+    });
+  </script>
+</body>
+</html>

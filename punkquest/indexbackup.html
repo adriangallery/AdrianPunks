@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PunkQuest - Season one</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="/market/styles.css">
+  <style>
+    /* Original PunkQuest visual styles */
+    :root {
+      --bg-color: #f8f9fa;
+      --primary-text: #2c3e50;
+      --accent-red: #ff6b6b;
+      --accent-blue: #4dabf7;
+      --card-bg: #ffffff;
+      --card-border: #e9ecef;
+      --screen-bg: #ffffff;
+      --scanline-color: rgba(0,0,0,0.03);
+      --pixel-shadow: -1px -1px 0 var(--accent-red), 1px 1px 0 var(--accent-blue);
+      --menu-bg: #1c1c1c;
+      --menu-hover: #2d2d2d;
+      --menu-border: #333333;
+      --wallet-btn: #ff6b2b;
+      --wallet-btn-hover: #ff8142;
+      --navbar-height: 60px;
+    }
+    body {
+      background-color: var(--bg-color);
+      color: var(--primary-text);
+      font-family: 'Space Grotesk', sans-serif;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+      background-image: repeating-linear-gradient(0deg, var(--scanline-color), var(--scanline-color) 1px, transparent 1px, transparent 4px);
+      padding-top: calc(var(--navbar-height) + 20px);
+    }
+    .container {
+      max-width: 1200px;
+      margin: auto;
+      padding: 0;
+      background: var(--screen-bg);
+      border: 1px solid var(--card-border);
+      box-shadow: 0 0 0 1px var(--accent-red), 0 0 0 2px var(--accent-blue), 0 4px 6px rgba(0,0,0,0.1);
+      border-radius: 8px;
+    }
+    header {
+      text-align: center;
+      padding: 2rem;
+      background: linear-gradient(180deg, var(--card-bg) 0%, var(--screen-bg) 100%);
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 2rem;
+      position: relative;
+    }
+    header h1 {
+      font-size: 2.5rem;
+      margin: 0;
+      color: var(--primary-text);
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+    header p {
+      margin-top: 1rem;
+      font-size: 1rem;
+      color: var(--primary-text);
+      opacity: 0.8;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .section-title {
+      font-size: 1.4rem;
+      margin-bottom: 1.5rem;
+      color: var(--primary-text);
+      font-weight: 600;
+      border-bottom: 2px solid var(--card-border);
+      padding-bottom: 0.5rem;
+    }
+    .token-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+      padding: 0;
+      margin: 0;
+    }
+    .token-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.3rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-height: 180px;
+      display: flex;
+      flex-direction: column;
+    }
+    .token-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .token-card img {
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      border-radius: 4px;
+      flex-grow: 1;
+    }
+    .token-card .card-body {
+      padding: 0.5rem;
+    }
+    .selected-token {
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 2px var(--accent-blue);
+    }
+    .btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 0.8rem;
+      padding: 0.8rem 1.2rem;
+      background: var(--card-bg);
+      border: 2px solid var(--primary-text);
+      color: var(--primary-text);
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin: 0.5rem;
+      box-shadow: 3px 3px 0 var(--primary-text);
+    }
+    .btn:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 5px 5px 0 var(--primary-text);
+      border-color: var(--accent-blue);
+    }
+    .btn:active {
+      transform: translate(2px, 2px);
+      box-shadow: none;
+      border-color: var(--accent-red);
+    }
+    .terminal {
+      background: var(--card-bg);
+      color: var(--primary-text);
+      padding: 1rem;
+      font-family: 'Space Mono', monos-serif;
+      font-size: 0.9rem;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      margin: 1rem 0;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+    }
+    #total-rewards {
+      font-size: 2.5rem;
+      color: var(--primary-text);
+      text-align: center;
+      margin: 1rem 0;
+      padding: 1rem;
+      font-weight: 600;
+    }
+    .wallet-address {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1rem;
+      color: #000000;
+      opacity: 0.8;
+      margin: 0;
+      padding: 0.5rem 0;
+    }
+    @keyframes rewardsUpdate {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    .rewards-update {
+      animation: rewardsUpdate 0.5s ease;
+    }
+    /* end original PunkQuest CSS */
+
+    /* Market-specific tweaks */
+    #tokenBalance {
+      margin-top: 10px;
+    }
+    @media (max-width: 768px) {
+      #tokenBalance {
+        margin-top: 70px;
+      }
+      .card-title {
+        font-size: 1rem;
+        line-height: 1.2;
+        margin-bottom: 0.25rem;
+      }
+      .nft-card .card-body {
+        padding: 0.5rem;
+      }
+      .nft-card .card-text {
+        font-size: 0.85rem;
+      }
+      .action-btn {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.6rem;
+      }
+      .action-btn.dropdown-toggle::after {
+        margin-left: 0.3rem;
+      }
+      .token-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.3rem;
+      }
+      .token-card {
+        padding: 0.2rem;
+        min-height: 160px;
+      }
+      .token-card img {
+        max-height: 120px;
+        object-fit: contain;
+      }
+      .token-card .card-title {
+        font-size: 0.9rem;
+      }
+      .token-card .card-text {
+        font-size: 0.8rem;
+      }
+    }
+    .modal-dialog {
+      max-width: 500px;
+    }
+    .modal-body img {
+      max-width: 300px;
+      margin: 0 auto;
+      display: block;
+    }
+    .modal-backdrop {
+      opacity: 0.5;
+    }
+    body.modal-open {
+      overflow: auto !important;
+      padding-right: 0 !important;
+    }
+    .offer-form {
+      transition: all 0.3s ease;
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .offer-form.hiding {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    .modal-body {
+      max-height: 80vh;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+    }
+    .trait-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      font-size: 0.9em;
+      padding: 8px 12px;
+    }
+    .trait-categories {
+      max-height: 400px;
+      overflow-y: auto;
+      padding-right: 10px;
+    }
+    .trait-category {
+      margin-bottom: 1rem;
+    }
+    .trait-category-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #333;
+    }
+    .trait-values {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 0.5rem;
+    }
+    .trait-value-item button {
+      font-size: 0.8rem;
+      padding: 0.25rem 0.5rem;
+    }
+    #activeFilters {
+      margin-bottom: 1rem;
+    }
+    #activeFilters .badge {
+      font-size: 0.8rem;
+      padding: 0.35rem 0.65rem;
+    }
+    #traitFilterMenu {
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .token-stats-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+      padding: 1rem;
+    }
+
+    .token-stats-item {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .token-stats-item h3 {
+      color: var(--primary-text);
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+      border-bottom: 2px solid var(--card-border);
+      padding-bottom: 0.5rem;
+    }
+
+    .token-stats-item p {
+      margin: 0.5rem 0;
+      font-size: 0.9rem;
+      color: var(--primary-text);
+    }
+
+    .token-stats-item p:last-child {
+      margin-bottom: 0;
+    }
+
+    @media (max-width: 768px) {
+      .token-stats-container {
+        grid-template-columns: 1fr;
+      }
+    }
+    .top-box {
+      height: 80px;
+      width: 100%;
+      background: transparent;
+      margin-bottom: 20px;
+    }
+    /* Menu Styles */
+    .navbar {
+      position: fixed;
+      width: 100%;
+      z-index: 1000;
+      top: 0;
+      left: 0;
+      margin: 0;
+      padding: 0;
+      background-color: var(--menu-bg) !important;
+      border-bottom: 1px solid var(--menu-border);
+      height: var(--navbar-height);
+    }
+    .navbar .container-fluid {
+      padding: 0 15px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+    }
+    .navbar-collapse {
+      flex-grow: 0;
+    }
+    .desktop-wallet-section {
+      margin-left: 20px;
+      position: absolute;
+      right: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .navbar-toggler {
+      margin: 0;
+      border: 1px solid var(--menu-border) !important;
+      padding: 6px 10px;
+    }
+    .navbar-toggler-icon {
+      filter: invert(100%) !important;
+    }
+    .token-symbol {
+      color: #fff !important;
+      font-size: 1.2rem !important;
+      letter-spacing: 1px;
+      text-shadow: 0 0 5px rgba(255,255,255,0.5);
+      margin: 0;
+      padding: 0;
+    }
+    .nav-link {
+      padding: 15px 20px !important;
+      color: #fff !important;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.3s ease !important;
+    }
+    .nav-link:hover {
+      background-color: var(--menu-hover);
+      text-shadow: 0 0 5px rgba(255,255,255,0.5);
+    }
+    #connectWalletButton,
+    #connectWalletButtonMobile {
+      background-color: var(--wallet-btn);
+      color: #fff;
+      border: none;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+    }
+    #connectWalletButton {
+      padding: 8px 16px;
+      height: 36px;
+    }
+    #connectWalletButtonMobile {
+      padding: 6px 12px;
+      height: 32px;
+      font-size: 0.9rem;
+    }
+    #connectWalletButton:hover,
+    #connectWalletButtonMobile:hover {
+      background-color: var(--wallet-btn-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 0 10px rgba(255,107,43,0.3);
+    }
+    .wallet-address {
+      color: #000000;
+      font-size: 0.9rem;
+      margin-left: 10px;
+      opacity: 0.8;
+    }
+    @media (max-width: 991px) {
+      .navbar-collapse {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background-color: var(--menu-bg);
+        padding: 10px 0;
+        border-top: 1px solid var(--menu-border);
+      }
+      .nav-link {
+        padding: 10px 15px !important;
+      }
+      .token-symbol {
+        font-size: 1rem !important;
+      }
+      .wallet-address {
+        font-size: 0.8rem;
+        margin-left: 8px;
+      }
+    }
+    @media (max-width: 380px) {
+      .token-symbol {
+        font-size: 0.9rem !important;
+      }
+      #connectWalletButtonMobile {
+        padding: 4px 8px;
+        font-size: 0.8rem;
+        height: 28px;
+      }
+      .navbar .container-fluid {
+        padding: 0 8px;
+      }
+    }
+    .token-card {
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 2px solid transparent;
+    }
+    .token-card.selected {
+      border-color: #007bff;
+      box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+    }
+    .token-stats {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #dee2e6;
+    }
+  </style>
+</head>
+<body>
+  <!-- Include the menu -->
+  <div id="menu-container"></div>
+  <script>
+    // Load the menu
+    fetch('/market/components/menu.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('menu-container').innerHTML = html;
+        const script = document.createElement('script');
+        script.src = '/market/components/menu.js';
+        document.head.appendChild(script);
+      })
+      .catch(error => console.error('Error loading menu:', error));
+  </script>
+  <div class="container">
+    <header>
+      <h1>PunkQuest</h1>
+      <p>Your journey begins here | Season one</p>
+    </header>
+
+    <div class="row justify-content-between align-items-center mb-4">
+      <div class="col-auto">
+        <button id="connect-wallet" class="btn">Connect Wallet</button>
+        <a href="/armory/" class="btn">Armory</a>
+      </div>
+    </div>
+
+    <section id="wallet-connection" class="mb-4">
+      <div id="wallet-info" class="mt-2"></div>
+    </section>
+
+    <section id="total-rewards-section" class="mb-4">
+      <div class="card">
+        <h2 class="section-title">Total Pending Rewards</h2>
+        <div id="total-rewards" class="big-number">0 A$</div>
+      </div>
+    </section>
+
+    <section id="tokens-section" class="mb-4">
+      <div class="card">
+        <h2 class="section-title">My Tokens</h2>
+        <div id="tokens-grid" class="token-grid"></div>
+      </div>
+    </section>
+
+    <section id="token-stats" class="mb-4">
+      <div class="card">
+        <h2 class="section-title">Token Statistics</h2>
+        <div id="individual-token-stats" class="terminal">Select one or more tokens to view detailed statistics.</div>
+      </div>
+    </section>
+
+    <section id="stake-actions" class="mb-4">
+      <div class="card">
+        <h2 class="section-title">Actions</h2>
+        <button id="stake-token" class="btn mb-3">Stake Token(s)</button>
+        <button id="unstake-token" class="btn mb-3">Unstake Token(s)</button>
+        <button id="claim-token" class="btn mb-3">Claim Rewards</button>
+        <button id="refresh-info" class="btn mb-3">Refresh Stats</button>
+        <div id="action-output" class="terminal"></div>
+        <div id="fee-info" class="terminal"></div>
+      </div>
+    </section>
+
+    <div id="general-output" class="terminal"></div>
+  </div>
+
+  <!-- Bootstrap 5 JS and Ethers.js Library -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@makerdao/multicall@0.1.0/dist/multicall.min.js"></script>
+  <script>
+    // Configuración de Infura y provider base
+    const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
+    const NETWORK_CONF = { name: "base", chainId: 8453 };
+    const baseProvider = new ethers.providers.JsonRpcProvider(INFURA_URL, NETWORK_CONF);
+
+    // Variables globales
+    let provider;
+    let signer;
+    let tokenContract, stakingContract, nftContract;
+    let selectedTokenIds = [];
+    let allMyTokenIds = [];
+    let rewardsUpdateInterval;
+    let tokenDecimals = 0; // Variable global para los decimales
+
+    const AD_TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+    const AD_PUNKS_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566";
+    const STAKING_ADDRESS = "0xaf22843e195b792a3f874562ab7cee751066665e";
+    const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+
+    // ABIs
+    const erc20ABI = [
+      {
+        "constant": true,
+        "inputs": [],
+        "name": "name",
+        "outputs": [{"name": "", "type": "string"}],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "constant": true,
+        "inputs": [],
+        "name": "symbol",
+        "outputs": [{"name": "", "type": "string"}],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "constant": true,
+        "inputs": [],
+        "name": "decimals",
+        "outputs": [{"name": "", "type": "uint8"}],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "constant": true,
+        "inputs": [{"name": "_owner", "type": "address"}],
+        "name": "balanceOf",
+        "outputs": [{"name": "balance", "type": "uint256"}],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+      },
+      {
+        "constant": false,
+        "inputs": [
+          {"name": "_to", "type": "address"},
+          {"name": "_value", "type": "uint256"}
+        ],
+        "name": "transfer",
+        "outputs": [{"name": "", "type": "bool"}],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "constant": false,
+        "inputs": [
+          {"name": "_spender", "type": "address"},
+          {"name": "_value", "type": "uint256"}
+        ],
+        "name": "approve",
+        "outputs": [{"name": "", "type": "bool"}],
+        "payable": false,
+        "stateMutability": "nonpayable",
+        "type": "function"
+      },
+      {
+        "constant": true,
+        "inputs": [
+          {"name": "_owner", "type": "address"},
+          {"name": "_spender", "type": "address"}
+        ],
+        "name": "allowance",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "payable": false,
+        "stateMutability": "view",
+        "type": "function"
+      }
+    ];
+
+    const stakingABI = [
+      "function batchStake(uint256[]) returns ()",
+      "function batchUnstake(uint256[]) returns ()",
+      "function batchClaimRewards(uint256[]) returns (uint256)",
+      "function getTokenDetailedInfo(uint256) view returns (uint256,uint256,uint256,uint256,uint256,int256,uint256)",
+      "function getTokenStats(uint256) view returns (uint256,uint256)",
+      "function getTokenArmoryDetails(uint256) view returns (uint256,uint256,uint256[],uint256)",
+      "function getWalletStats(address,uint256[]) view returns (uint256[],uint256,uint256)",
+      "function stakes(uint256) view returns (uint256,uint256)",
+      "function baseRewardRate() view returns (uint256)",
+      "function activationFee() view returns (uint256)",
+      "function claimFee() view returns (uint256)",
+      "function exitFee() view returns (uint256)",
+      "function repairFee() view returns (uint256)",
+      "function extraSlotCost() view returns (uint256)",
+      "function fastLevelUpgradeFee() view returns (uint256)",
+      "function fastLevelUpgradeBonusIncrement() view returns (uint256)",
+      "function maxSlots() view returns (uint256)",
+      "function socialBoostActiveUntil() view returns (uint256)",
+      "function socialBoostBonus() view returns (uint256)",
+      "function socialBoostDuration() view returns (uint256)",
+      "function socialMinTokens() view returns (uint256)",
+      "function isSocialBoostActive() view returns (bool)",
+      "function totalStaked() view returns (uint256)",
+      "function totalItemsEquipped() view returns (uint256)",
+      "function totalItemsPurchased() view returns (uint256)",
+      "function pendingPassiveReward(uint256) view returns (uint256)",
+      "function pendingGameReward(uint256) view returns (uint256)",
+      "function pendingTotalReward(uint256) view returns (uint256)"
+    ];
+    const nftABI = [
+      "function balanceOf(address) view returns (uint256)",
+      "function tokenOfOwnerByIndex(address,uint256) view returns (uint256)",
+      "function ownerOf(uint256) view returns (address)"
+    ];
+
+    // Helpers to format amounts
+    function formatAmount(amount) {
+      return amount.toString() + " $ADRIAN";
+    }
+
+    // Display fee info
+    async function displayFeeInfo() {
+      if (!stakingContract) return;
+      try {
+        const activationFee = await stakingContract.activationFee();
+        const exitFee = await stakingContract.exitFee();
+        document.getElementById('fee-info').textContent = `Stake Cost: ${formatAmount(activationFee)} | Unstake Cost: ${formatAmount(exitFee)}`;
+      } catch (e) {
+        document.getElementById('fee-info').textContent = "Error fetching fee info: " + e.message;
+      }
+    }
+
+    // Load tokens with images from JSON
+    async function loadTokens(ownerAddress) {
+      try {
+        const tokensGrid = document.getElementById("tokens-grid");
+        tokensGrid.innerHTML = "";
+        allMyTokenIds = []; // Reiniciar la lista de IDs
+
+        // Configurar Multicall
+        const multicall = new ethers.Contract(
+          "0xcA11bde05977b3631167028862bE2a173976CA11", // Multicall3 address
+          [
+            "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"
+          ],
+          baseProvider
+        );
+
+        // Obtener el balance total de NFTs
+        const balance = await nftContract.balanceOf(ownerAddress);
+        const totalTokens = balance.toNumber();
+
+        if (totalTokens === 0) {
+          tokensGrid.innerHTML = "<p>No tokens found in your wallet.</p>";
+          return;
+        }
+
+        // Preparar llamadas para obtener todos los tokenIds
+        const calls = [];
+        for (let i = 0; i < totalTokens; i++) {
+          calls.push({
+            target: AD_PUNKS_ADDRESS,
+            allowFailure: true,
+            callData: nftContract.interface.encodeFunctionData('tokenOfOwnerByIndex', [ownerAddress, i])
+          });
+        }
+
+        // Ejecutar todas las llamadas en una sola transacción
+        const results = await multicall.aggregate3(calls);
+        const tokenIds = results
+          .filter(result => result.success)
+          .map(result => {
+            const decoded = nftContract.interface.decodeFunctionResult('tokenOfOwnerByIndex', result.returnData);
+            return decoded[0];
+          });
+
+        // Cargar el JSON con la información de los tokens
+        const response = await fetch('/punkquest/adrianpunks.json');
+        const data = await response.json();
+        const jsonCollection = data.collection;
+
+        // Preparar llamadas para verificar stakes
+        const stakeCalls = tokenIds.map(tokenId => ({
+          target: STAKING_ADDRESS,
+          allowFailure: true,
+          callData: stakingContract.interface.encodeFunctionData('stakes', [tokenId])
+        }));
+
+        // Ejecutar todas las llamadas de stakes en una sola transacción
+        const stakeResults = await multicall.aggregate3(stakeCalls);
+        const stakes = stakeResults
+          .filter(result => result.success)
+          .map(result => {
+            const decoded = stakingContract.interface.decodeFunctionResult('stakes', result.returnData);
+            return decoded;
+          });
+
+        // Cargar cada token
+        for (let i = 0; i < tokenIds.length; i++) {
+          try {
+            const tokenId = tokenIds[i];
+            const stakeResult = stakes[i];
+            const isStaked = stakeResult && stakeResult[0] ? stakeResult[0].gt(0) : false;
+            
+            // Buscar la información del token en el JSON
+            const tokenInfo = jsonCollection.find(item => item.id === tokenId.toString());
+            let imgUrl;
+            if (tokenInfo?.image) {
+              imgUrl = tokenInfo.image;
+            } else {
+              const baseUrl = tokenId.lt(501) 
+                ? 'https://ipfs.io/ipfs/bafybeibfywb3emvjod5owcus7nyn4fqosqrbvuq2cyxczhbmavfxuautsy/'
+                : 'https://ipfs.io/ipfs/bafybeie4fatiqdy4mreadt6hmqysrtev6xe37esml2llsupb6ub4qilnta/';
+              // Verificar si el token es uno de los que usa .gif
+              const gifTokens = [1, 13, 69, 221];
+              const extension = gifTokens.includes(tokenId.toNumber()) ? '.gif' : '.png';
+              imgUrl = `${baseUrl}${tokenId}${extension}`;
+            }
+            
+            const tokenCard = document.createElement("div");
+            tokenCard.className = "col";
+            tokenCard.innerHTML = `
+              <div class="card h-100 token-card ${isStaked ? 'staked' : ''}" data-token-id="${tokenId}">
+                <img src="${imgUrl}" alt="Token ${tokenId}">
+                <div class="card-body">
+                  <h5 class="card-title">Token #${tokenId}</h5>
+                  <p class="card-text">Status: ${isStaked ? 'Staked' : 'Not Staked'}</p>
+                </div>
+              </div>
+            `;
+            tokensGrid.appendChild(tokenCard);
+            allMyTokenIds.push(tokenId); // Agregar el ID a la lista global
+
+            // Agregar event listener para selección múltiple
+            const card = tokenCard.querySelector('.token-card');
+            card.addEventListener('click', () => {
+              handleTokenClick(tokenId, card);
+            });
+          } catch (tokenError) {
+            console.error(`Error loading token ${i}:`, tokenError);
+            continue;
+          }
+        }
+      } catch (error) {
+        console.error("Error loading tokens:", error);
+        document.getElementById("tokens-grid").innerHTML = 
+          `<p class="text-danger">Error loading tokens: ${error.message}</p>`;
+      }
+    }
+
+    // Display aggregate rewards
+    async function displayAggregateRewards() {
+      if (!stakingContract || !signer) {
+        document.getElementById('total-rewards').textContent = "0 $ADRIAN";
+        return;
+      }
+      
+      try {
+        const walletAddress = await signer.getAddress();
+        if (!allMyTokenIds || allMyTokenIds.length === 0) {
+          document.getElementById('total-rewards').textContent = "0 $ADRIAN";
+          return;
+        }
+
+        // Usar Multicall para obtener los rewards de todos los tokens
+        const multicall = new ethers.Contract(
+          "0xcA11bde05977b3631167028862bE2a173976CA11",
+          [
+            "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) public view returns (tuple(bool success, bytes returnData)[] returnData)"
+          ],
+          baseProvider
+        );
+
+        // Preparar llamadas para obtener los rewards de cada token
+        const calls = allMyTokenIds.map(tokenId => ({
+          target: STAKING_ADDRESS,
+          allowFailure: true,
+          callData: stakingContract.interface.encodeFunctionData('pendingTotalReward', [tokenId])
+        }));
+
+        // Ejecutar todas las llamadas en una sola transacción
+        const results = await multicall.aggregate3(calls);
+        const rewards = results
+          .filter(result => result.success)
+          .map(result => {
+            const decoded = stakingContract.interface.decodeFunctionResult('pendingTotalReward', result.returnData);
+            return decoded[0];
+          });
+
+        // Sumar todos los rewards
+        const total = rewards.reduce((acc, reward) => acc.add(reward), ethers.BigNumber.from(0));
+
+        const rewardsElement = document.getElementById('total-rewards');
+        rewardsElement.textContent = formatAmount(total);
+        rewardsElement.classList.add('rewards-update');
+        setTimeout(() => rewardsElement.classList.remove('rewards-update'), 500);
+      } catch (err) {
+        console.error("Error fetching wallet stats:", err);
+        document.getElementById('total-rewards').textContent = "Error loading rewards";
+      }
+    }
+
+    // Display token statistics
+    async function displayTokenStats() {
+      const out = document.getElementById('individual-token-stats');
+
+      if (selectedTokenIds.length === 0) {
+        out.textContent = 'Select one or more tokens to view detailed statistics.';
+        return;
+      }
+
+      try {
+        let html = '<div class="token-stats-container">';
+        selectedTokenIds.sort((a, b) => Number(a) - Number(b));
+
+        // Obtener todos los stakes de una vez
+        const stakesPromises = selectedTokenIds.map(tokenId => 
+          stakingContract.stakes(tokenId).catch(() => [ethers.BigNumber.from(0), ethers.BigNumber.from(0)])
+        );
+        const stakes = await Promise.all(stakesPromises);
+
+        // Obtener todos los pending rewards de una vez
+        const rewardsPromises = selectedTokenIds.map(tokenId => 
+          stakingContract.pendingPassiveReward(tokenId).catch(() => ethers.BigNumber.from(0))
+        );
+        const pendingRewards = await Promise.all(rewardsPromises);
+
+        for (let i = 0; i < selectedTokenIds.length; i++) {
+          const tokenId = selectedTokenIds[i];
+          const [stakeStart, lastClaim] = stakes[i];
+          const pendingReward = pendingRewards[i];
+          const isStaked = stakeStart.gt(0);
+          const stakingHrs = isStaked
+            ? Math.floor((Date.now()/1000 - stakeStart.toNumber()) / 3600)
+            : 0;
+
+          html += `
+            <div class="token-stats-item">
+              <h3>Token #${tokenId}</h3>
+              <p>Status: ${isStaked ? 'Staked' : 'Not Staked'}</p>
+              ${isStaked ? `
+                <p>Staking Duration: ${stakingHrs} hours</p>
+                <p>Last Claim: ${new Date(lastClaim.toNumber()*1000).toLocaleString()}</p>
+                <p>Pending Rewards: ${pendingReward.toNumber()} $ADRIAN</p>
+              ` : ''}
+            </div>`;
+        }
+
+        out.innerHTML = html + '</div>';
+      } catch (err) {
+        console.error("Error fetching token stats:", err);
+        out.innerHTML = `<div class="token-stats-item">
+                           <h3>Error</h3>
+                           <p style="color:var(--accent-red);">Error loading stats. Please try again later.</p>
+                         </div>`;
+      }
+    }
+
+    // Stake tokens in batch
+    document.getElementById('stake-token').addEventListener('click', async () => {
+      if (selectedTokenIds.length === 0) return alert('Please select tokens to stake.');
+      try {
+        const walletAddress = await signer.getAddress();
+        const activationFee = await stakingContract.activationFee();
+        const totalFee = activationFee.mul(selectedTokenIds.length);
+        const allowance = await tokenContract.allowance(walletAddress, STAKING_ADDRESS);
+        if (allowance.lt(totalFee)) {
+          document.getElementById('general-output').textContent = 'Approving spending...';
+          const tx = await tokenContract.connect(signer).approve(STAKING_ADDRESS, totalFee);
+          await tx.wait();
+        }
+
+        // Stake usando el provider de Infura
+        const stakingContractWithInfura = new ethers.Contract(
+          STAKING_ADDRESS,
+          stakingABI,
+          new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+            name: "base",
+            chainId: 8453
+          })
+        ).connect(signer);
+
+        const txStake = await stakingContractWithInfura.batchStake(selectedTokenIds);
+        await txStake.wait();
+        document.getElementById('general-output').textContent = 'Staked: ' + selectedTokenIds.join(', ');
+        loadTokens(walletAddress);
+        displayAggregateRewards();
+          } catch (e) {
+        let errorMessage = 'Error staking: ';
+        if (e.code === 'CALL_EXCEPTION' || e.code === 'UNPREDICTABLE_GAS_LIMIT') {
+          // Verificar si los tokens ya están staked
+          const stakesPromises = selectedTokenIds.map(tokenId => 
+            stakingContract.stakes(tokenId).then(res => res[0].gt(0))
+          );
+          const stakes = await Promise.all(stakesPromises);
+          if (stakes.some(isStaked => isStaked) || e.message.includes('staked')) {
+            errorMessage = 'Oops! Some of these tokens are already staked! 🎮';
+          } else if (e.message.includes('429')) {
+            errorMessage = 'Too many requests! Let\'s take a short break and try again in a moment! ⏳';
+          } else {
+            errorMessage = 'Something went wrong! Please try again later! 🎮';
+          }
+        } else {
+          errorMessage = 'Error staking: ' + e.message;
+        }
+        document.getElementById('general-output').textContent = errorMessage;
+      }
+    });
+
+    async function connectWallet() {
+      try {
+        if (!window.ethereum) {
+          document.getElementById("wallet-info").innerText = "Please install MetaMask.";
+          return;
+        }
+        // Configurar el provider de MetaMask
+        const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+        // Configurar el provider de Base para consultas usando Infura
+        const etherscanProvider = new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+          name: "base",
+          chainId: 8453
+        });
+        // Usar el provider de MetaMask para transacciones
+        provider = web3Provider;
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        const walletAddress = await signer.getAddress();
+        const shortAddress = walletAddress.substring(0,6) + "..." + walletAddress.substring(walletAddress.length - 4);
+        document.getElementById("wallet-info").innerHTML = `<p class="wallet-address">Connected: ${shortAddress}</p>`;
+        // Inicializar contratos de solo lectura con Infura
+        nftContract     = new ethers.Contract(AD_PUNKS_ADDRESS, nftABI,     baseProvider);
+        tokenContract   = new ethers.Contract(AD_TOKEN_ADDRESS, erc20ABI,   baseProvider);
+        stakingContract = new ethers.Contract(STAKING_ADDRESS,  stakingABI, baseProvider);
+
+        // Conectar stakingContract con el signer para transacciones
+        stakingContract = stakingContract.connect(signer); // ETH write via MetaMask
+
+        // Obtener decimales del token una sola vez
+        tokenDecimals = await tokenContract.decimals();
+
+        // Conectar los contratos con el signer para transacciones
+        tokenContract = tokenContract.connect(signer);
+
+        document.getElementById("connect-wallet").disabled = true;
+        document.getElementById("stake-actions").style.display = "block";
+        document.getElementById("tokens-section").style.display = "block";
+        document.getElementById("total-rewards-section").style.display = "block";
+        
+        // Cargar tokens y actualizar rewards
+        await loadTokens(walletAddress);
+        await displayAggregateRewards();
+        
+        // Configurar actualización periódica de rewards
+        if (rewardsUpdateInterval) {
+          clearInterval(rewardsUpdateInterval);
+        }
+        rewardsUpdateInterval = setInterval(displayAggregateRewards, 30000); // Actualizar cada 30 segundos
+      } catch (error) {
+        console.error("Error connecting wallet:", error);
+        document.getElementById("wallet-info").innerText = "Error connecting wallet: " + error.message;
+      }
+    }
+
+    // Event Listeners
+    document.getElementById('connect-wallet').addEventListener('click', connectWallet);
+    document.getElementById('unstake-token').addEventListener('click', async () => {
+      if (selectedTokenIds.length === 0) {
+        alert('Please select token(s) first');
+        return;
+      }
+
+      const out = document.getElementById('general-output');
+      try {
+        const wallet = await signer.getAddress();
+
+        // Calcular los fees necesarios
+        const [exitFee, claimFee] = await Promise.all([
+          stakingContract.exitFee(),
+          stakingContract.claimFee()
+        ]);
+
+        // Calcular el total de fees por token (2*exitFee + claimFee)
+        const perToken = exitFee.mul(2).add(claimFee);
+        const totalFee = perToken.mul(selectedTokenIds.length);
+
+        // Comprobar / aprobar allowance
+        const allowance = await tokenContract.allowance(wallet, STAKING_ADDRESS);
+        if (allowance.lt(totalFee)) {
+          out.textContent = 'Approving fees…';
+          const txA = await tokenContract
+                       .connect(signer)
+                       .approve(STAKING_ADDRESS, totalFee);
+          await txA.wait();
+          
+          // Verificar que la aprobación se haya completado
+          const newAllowance = await tokenContract.allowance(wallet, STAKING_ADDRESS);
+          if (newAllowance.lt(totalFee)) {
+            throw new Error('Approval failed or insufficient allowance');
+          }
+        }
+
+        // Des-stake usando el provider de Infura
+        out.textContent = 'Unstaking…';
+        const stakingContractWithInfura = new ethers.Contract(
+          STAKING_ADDRESS,
+          stakingABI,
+          new ethers.providers.JsonRpcProvider("https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1", {
+            name: "base",
+            chainId: 8453
+          })
+        ).connect(signer);
+        
+        const tx = await stakingContractWithInfura.batchUnstake(selectedTokenIds);
+        await tx.wait();
+
+        out.textContent = 'Unstaked: ' + selectedTokenIds.join(', ');
+        selectedTokenIds = [];
+        loadTokens(wallet);
+        displayAggregateRewards();
+      } catch (err) {
+        let errorMessage = 'Error unstaking: ';
+        if (err.code === 'CALL_EXCEPTION' || err.code === 'UNPREDICTABLE_GAS_LIMIT') {
+          if (err.message.includes('not staked')) {
+            errorMessage = "Oops! Some of these tokens aren't staked! 🎮";
+          } else if (err.message.includes('allowance') || err.message.includes('Approval failed')) {
+            errorMessage = "Oops! We need to approve the fees first! Please try again! 🎮";
+          } else if (err.message.includes('429')) {
+            errorMessage = "Too many requests! Let's take a short break and try again in a moment! ⏳";
+          } else {
+            errorMessage = "Something went wrong! Please try again later! 🎮";
+        }
+      } else {
+          errorMessage += err.message;
+        }
+        out.textContent = errorMessage;
+        console.error(err);
+      }
+    });
+    document.getElementById('claim-token').addEventListener('click', async () => {
+      if (selectedTokenIds.length === 0) {
+        alert('Please select token(s) first');
+        return;
+      }
+
+      const general_output = document.getElementById('general-output');
+      try {
+        const wallet = await signer.getAddress();
+        const claimFee = await stakingContract.claimFee();
+        const totalFee = claimFee.mul(selectedTokenIds.length);
+        const allowance = await tokenContract.allowance(wallet, STAKING_ADDRESS);
+
+        if (allowance.lt(totalFee)) {
+          general_output.textContent = 'Approving claim fee…';
+          const txA = await tokenContract.connect(signer).approve(STAKING_ADDRESS, totalFee.mul(2));
+          await txA.wait();
+        }
+
+        general_output.textContent = 'Claiming rewards…';
+        const tx = await stakingContract.connect(signer).batchClaimRewards(selectedTokenIds);
+        await tx.wait();
+
+        general_output.textContent = 'Rewards claimed for tokens: ' + selectedTokenIds.join(', ');
+        displayAggregateRewards();
+      } catch (err) {
+        general_output.textContent = 'Error claiming rewards: ' + err.message;
+        console.error(err);
+      }
+    });
+    document.getElementById('refresh-info').addEventListener('click', async () => {
+      try {
+        const address = await signer.getAddress();
+        await loadTokens(address);
+        displayAggregateRewards();
+      } catch (error) {
+        console.error("Error refreshing tokens:", error);
+        document.getElementById("tokens-grid").innerHTML = 
+          `<p class="text-danger">Error refreshing tokens: ${error.message}</p>`;
+      }
+    });
+
+    // Handle token click
+    async function handleTokenClick(tokenId, card) {
+      try {
+        // Toggle selection
+        if (card.classList.contains('selected')) {
+          card.classList.remove('selected');
+          selectedTokenIds = selectedTokenIds.filter(id => !id.eq(tokenId));
+        } else {
+          card.classList.add('selected');
+          selectedTokenIds.push(tokenId);
+        }
+
+        // Actualizar la información del token
+        if (card.classList.contains('selected')) {
+          const tokenStats = await stakingContract.getTokenDetailedInfo(tokenId);
+          const lastClaim = tokenStats[5].toNumber();
+          const lastClaimText = lastClaim === 0 ? 'Never claimed!' : new Date(lastClaim * 1000).toLocaleString();
+          
+          const statsHtml = `
+            <div class="token-stats-item">
+              <h3>Token #${tokenId}</h3>
+              <p>Level: ${tokenStats[0].toString()}</p>
+              <p>Experience: ${tokenStats[1].toString()}</p>
+              <p>Slots: ${tokenStats[2].toString()}</p>
+              <p>Items Equipped: ${tokenStats[3].toString()}</p>
+              <p>Total Rewards: ${Number(tokenStats[6])} $ADRIAN</p>
+              <p>Last Claim: ${lastClaimText}</p>
+            </div>
+          `;
+          
+          // Añadir la información al final de la tarjeta
+          const statsDiv = document.createElement('div');
+          statsDiv.className = 'token-stats';
+          statsDiv.innerHTML = statsHtml;
+          card.appendChild(statsDiv);
+        } else {
+          // Eliminar la información cuando se deselecciona
+          const statsDiv = card.querySelector('.token-stats');
+          if (statsDiv) {
+            statsDiv.remove();
+          }
+        }
+      } catch (error) {
+        console.error("Error handling token click:", error);
+      }
+    }
+  </script>
+</body>
+</html>

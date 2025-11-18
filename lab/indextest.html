@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AdrianLAB - Retro Adventure</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="game-system/game-styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+        /* Floating text overlay for point & click messages */
+        .floating-text {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff00;
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #00ff00;
+            font-family: 'VT323', monospace;
+            font-size: 1rem;
+            max-width: 300px;
+            z-index: 1000;
+            pointer-events: none;
+            animation: fadeInOut 4s ease-in-out;
+            box-shadow: 0 4px 12px rgba(0, 255, 0, 0.3);
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(10px); }
+            10% { opacity: 1; transform: translateY(0); }
+            80% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-10px); }
+        }
+
+        /* Inventory Modal */
+        .inventory-modal {
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            flex: 1;
+            display: none;
+            overflow-y: auto;
+        }
+
+        .inventory-header {
+            color: #00ff00;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            text-align: center;
+            font-family: 'VT323', monospace;
+        }
+
+
+
+        /* Inventory toggle button */
+        .inventory-toggle {
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: 'VT323', monospace;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        }
+
+        .inventory-toggle:hover {
+            background: rgba(0, 255, 0, 0.2);
+            transform: translateY(-1px);
+        }
+
+        /* Loading indicator */
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-family: 'VT323', monospace;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #00ff00;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .retro-footer {
+                height: 100px;
+                padding: 6px;
+            }
+            
+            .footer-sections {
+                gap: 5px;
+            }
+            
+            .footer-section {
+                padding: 4px;
+            }
+            
+            .section-header {
+                font-size: 0.6rem;
+                margin-bottom: 4px;
+                padding-bottom: 2px;
+            }
+            
+
+            
+
+        }
+
+        /* Footer sections layout */
+        .footer-sections {
+            display: flex;
+            gap: 10px;
+            height: 100%;
+            width: 100%;
+        }
+
+        .footer-section {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #00ff00;
+            border-radius: 6px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .section-header {
+            color: #00ff00;
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 8px;
+            font-family: 'VT323', monospace;
+            border-bottom: 1px solid #00ff00;
+            padding-bottom: 4px;
+            flex-shrink: 0;
+        }
+
+        .inventory-section-left,
+        .inventory-section-right {
+            flex: 1;
+        }
+
+
+
+        /* Reduce footer height and ensure proper layout */
+        .retro-footer {
+            height: 120px;
+            padding: 8px;
+            background: rgba(0, 0, 0, 0.9);
+            border-top: 2px solid #00ff00;
+            display: flex;
+            align-items: stretch;
+            overflow: hidden;
+        }
+
+        /* Update inventory grid for smaller sections */
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        .inventory-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            padding: 4px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 40px;
+        }
+
+        .inventory-item:hover {
+            background: rgba(0, 255, 0, 0.2);
+            transform: scale(1.05);
+        }
+
+        .inventory-item.selected {
+            border: 2px solid #ffff00;
+        }
+
+        .inventory-item img {
+            width: 36px;
+            height: 36px;
+            object-fit: contain;
+            margin-bottom: 2px;
+            border-radius: 2px;
+        }
+
+        .inventory-item .item-name {
+            color: #00ff00;
+            font-size: 0.5rem;
+            font-weight: bold;
+            line-height: 1.1;
+            margin-bottom: 1px;
+            font-family: 'VT323', monospace;
+        }
+
+        .inventory-item .item-id {
+            color: #888;
+            font-size: 0.4rem;
+            line-height: 1;
+            font-family: 'VT323', monospace;
+        }
+
+        .no-items {
+            color: #888;
+            text-align: center;
+            font-style: italic;
+            padding: 10px;
+            font-family: 'VT323', monospace;
+            font-size: 0.6rem;
+            grid-column: 1 / -1;
+        }
+        
+        /* Upstairs screen specific styles */
+        #upstairs-screen {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        #upstairs-screen .background-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        
+        #upstairs-screen .click-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            cursor: pointer;
+        }
+        
+        #upstairs-screen .retro-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 10;
+        }
+        
+        #upstairs-screen .retro-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 10;
+        }
+        
+
+        
+
+    </style>
+</head>
+<body>
+    <!-- Mensaje para girar dispositivo -->
+    <div id="rotate-device-message" class="rotate-device-message">
+        <div class="icon">📱</div>
+        <div>Gira tu dispositivo</div>
+        <div>para mejor experiencia</div>
+    </div>
+
+    <div id="app">
+        <!-- Intro screen -->
+        <div id="intro-screen" class="screen active">
+            <img src="intro.png" alt="AdrianLAB Intro" id="intro-image">
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+                <div class="progress-text">LOADING...</div>
+            </div>
+        </div>
+
+        <!-- Main screen -->
+        <div id="main-screen" class="screen">
+            <div class="background-container">
+                <img src="scenes/images/outside.png" alt="Outside" id="outside-bg">
+            </div>
+            
+            <!-- Header with wallet -->
+            <header class="retro-header">
+                <div class="logo">AdrianLAB</div>
+                <button id="connect-wallet" class="retro-button">Connect Wallet</button>
+                <button id="mute-button" class="retro-button small">🔊</button>
+            </header>
+
+            <!-- Main clickable area -->
+            <div id="click-area" class="click-area">
+                <div class="pixel-cursor"></div>
+            </div>
+
+
+
+            <!-- Mint popup -->
+            <div id="mint-popup" class="popup">
+                <div class="popup-content large">
+                    <div class="popup-header">
+                        <h2>AdrianLAB - Starter Mint</h2>
+                        <button id="close-popup" class="close-btn">×</button>
+                    </div>
+                    <div class="popup-body">
+                        <iframe 
+                            src="startermint.html" 
+                            frameborder="0" 
+                            width="100%" 
+                            height="600px"
+                            allow="clipboard-write"
+                            title="AdrianLAB Starter Mint">
+                        </iframe>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer with Inventory -->
+            <footer class="retro-footer">
+                <!-- Two-section layout: Inventory Left, Inventory Right -->
+                <div class="footer-sections">
+                    <!-- Left section: Inventory Left -->
+                    <div class="footer-section inventory-section-left">
+                        <div class="section-header">Inventory</div>
+                        <div id="inventory-grid-left" class="inventory-grid">
+                            <div class="no-items">Connect wallet to load inventory.</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right section: Inventory Right -->
+                    <div class="footer-section inventory-section-right">
+                        <div class="section-header">Items</div>
+                        <div id="inventory-grid-right" class="inventory-grid">
+                            <div class="no-items">No items found.</div>
+                        </div>
+                    </div>
+                </div>
+            </footer>
+        </div>
+
+        <!-- Floppy purchase screen -->
+        <div id="floppy-screen" class="screen">
+            <div class="floppy-container">
+                <h1 class="retro-title">Floppy Purchase</h1>
+                <div class="floppy-item">
+                    <div class="floppy-disk"></div>
+                    <h3>Retro Floppy Disk</h3>
+                    <p>Price: 0.01 ETH</p>
+                    <button id="buy-floppy" class="retro-button">Buy Floppy</button>
+                </div>
+                <button id="back-to-main" class="retro-button">Back</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio -->
+    <audio id="background-music" loop preload="auto">
+        <source src="retroadrian.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- Load ethers.js only when needed -->
+    <script>
+        // Function to load ethers.js dynamically
+        window.loadEthers = function() {
+            return new Promise((resolve, reject) => {
+                if (window.ethers) {
+                    resolve(window.ethers);
+                    return;
+                }
+                
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js';
+                script.onload = () => resolve(window.ethers);
+                script.onerror = () => reject(new Error('Failed to load ethers.js'));
+                document.head.appendChild(script);
+            });
+        };
+        
+        // Detect mobile and update UI accordingly
+        function updateUIForMobile() {
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                           window.innerWidth <= 768;
+            
+            // Update mute button for mobile
+            const muteButton = document.getElementById('mute-button');
+            if (muteButton && isMobile) {
+                muteButton.textContent = 'Music ON';
+            }
+            
+            // Update intro image for mobile
+            const introImage = document.getElementById('intro-image');
+            if (introImage && isMobile) {
+                introImage.src = 'Banner_Mobile.png';
+                introImage.alt = 'AdrianLAB Intro Mobile';
+            }
+        }
+        
+        // Run on page load
+        updateUIForMobile();
+    </script>
+    
+    <script src="indextest.js"></script>
+</body>
+</html> 

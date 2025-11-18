@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Upstairs Image</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .image-container {
+            width: 800px;
+            height: 600px;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+            border: 2px solid #00ff00;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .floor {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100px;
+            background: linear-gradient(to top, #8B4513, #A0522D);
+        }
+        
+        .wall {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #696969 0%, #808080 50%, #696969 100%);
+            opacity: 0.3;
+        }
+        
+        .stairs {
+            position: absolute;
+            left: 20px;
+            bottom: 100px;
+            width: 120px;
+            height: 200px;
+            background: linear-gradient(45deg, #8B4513, #A0522D);
+            clip-path: polygon(0 100%, 100% 100%, 80% 0, 0 0);
+        }
+        
+        .stairs::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                to bottom,
+                transparent 0px,
+                transparent 20px,
+                rgba(0,0,0,0.3) 20px,
+                rgba(0,0,0,0.3) 22px
+            );
+        }
+        
+        .window {
+            position: absolute;
+            right: 50px;
+            top: 100px;
+            width: 150px;
+            height: 200px;
+            background: linear-gradient(135deg, #87CEEB 0%, #B0E0E6 100%);
+            border: 3px solid #696969;
+        }
+        
+        .window::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background: #696969;
+        }
+        
+        .window::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            width: 100%;
+            height: 2px;
+            background: #696969;
+        }
+        
+        .furniture {
+            position: absolute;
+            left: 300px;
+            bottom: 100px;
+            width: 200px;
+            height: 150px;
+            background: linear-gradient(45deg, #8B4513, #A0522D);
+            border-radius: 10px;
+        }
+        
+        .furniture::before {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: -30px;
+            width: 160px;
+            height: 30px;
+            background: linear-gradient(45deg, #8B4513, #A0522D);
+            border-radius: 5px 5px 0 0;
+        }
+        
+        .light {
+            position: absolute;
+            left: 50%;
+            top: 50px;
+            width: 60px;
+            height: 60px;
+            background: radial-gradient(circle, #FFFF00 0%, #FFD700 50%, transparent 100%);
+            border-radius: 50%;
+            box-shadow: 0 0 30px #FFFF00;
+        }
+        
+        .text-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ff00;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        
+        .download-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background: #00ff00;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        .download-btn:hover {
+            background: #00cc00;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upstairs Image Generator</h1>
+    <p>This creates a provisional upstairs image for the AdrianLAB game.</p>
+    
+    <div class="image-container" id="upstairs-image">
+        <div class="wall"></div>
+        <div class="floor"></div>
+        <div class="stairs"></div>
+        <div class="window"></div>
+        <div class="furniture"></div>
+        <div class="light"></div>
+        <div class="text-overlay">UPSTAIRS - Fiat Zone</div>
+    </div>
+    
+    <br>
+    <button class="download-btn" onclick="downloadImage()">Download as PNG</button>
+    
+    <script>
+        function downloadImage() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const container = document.getElementById('upstairs-image');
+            
+            canvas.width = 800;
+            canvas.height = 600;
+            
+            // Convert HTML to canvas
+            html2canvas(container).then(function(canvas) {
+                const link = document.createElement('a');
+                link.download = 'upstairs.png';
+                link.href = canvas.toDataURL();
+                link.click();
+            });
+        }
+        
+        // Simple HTML to Canvas conversion
+        function html2canvas(element) {
+            return new Promise((resolve) => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                canvas.width = 800;
+                canvas.height = 600;
+                
+                // Draw background
+                ctx.fillStyle = '#1a1a1a';
+                ctx.fillRect(0, 0, 800, 600);
+                
+                // Draw gradient background
+                const gradient = ctx.createLinearGradient(0, 0, 800, 600);
+                gradient.addColorStop(0, '#1a1a1a');
+                gradient.addColorStop(1, '#2a2a2a');
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, 800, 600);
+                
+                // Draw floor
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(0, 500, 800, 100);
+                
+                // Draw stairs
+                ctx.fillStyle = '#8B4513';
+                ctx.beginPath();
+                ctx.moveTo(20, 500);
+                ctx.lineTo(140, 500);
+                ctx.lineTo(112, 300);
+                ctx.lineTo(20, 300);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Draw window
+                ctx.fillStyle = '#87CEEB';
+                ctx.fillRect(600, 100, 150, 200);
+                ctx.strokeStyle = '#696969';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(600, 100, 150, 200);
+                
+                // Window cross
+                ctx.beginPath();
+                ctx.moveTo(675, 100);
+                ctx.lineTo(675, 300);
+                ctx.moveTo(600, 200);
+                ctx.lineTo(750, 200);
+                ctx.stroke();
+                
+                // Draw furniture
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(300, 350, 200, 150);
+                ctx.fillRect(320, 320, 160, 30);
+                
+                // Draw light
+                ctx.fillStyle = '#FFFF00';
+                ctx.beginPath();
+                ctx.arc(400, 80, 30, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                // Add glow effect
+                ctx.shadowColor = '#FFFF00';
+                ctx.shadowBlur = 30;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                
+                // Add text
+                ctx.fillStyle = '#00ff00';
+                ctx.font = '24px Courier New';
+                ctx.fillText('UPSTAIRS - Fiat Zone', 20, 40);
+                
+                resolve(canvas);
+            });
+        }
+    </script>
+</body>
+</html> 
