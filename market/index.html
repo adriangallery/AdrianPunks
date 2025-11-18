@@ -2240,9 +2240,40 @@
 
     // Funciones auxiliares
     function formatADRIAN(weiString) {
-      const wei = ethers.BigNumber.from(weiString);
-      const adrian = parseFloat(ethers.utils.formatUnits(wei, 18));
-      return adrian.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      try {
+        // Convertir a string si viene como número
+        let weiStr = String(weiString);
+        
+        // Si viene en notación científica, convertir a decimal
+        if (weiStr.includes('e') || weiStr.includes('E')) {
+          const num = parseFloat(weiStr);
+          // Convertir a string sin notación científica
+          weiStr = num.toLocaleString('fullwide', { useGrouping: false, maximumFractionDigits: 0 });
+        }
+        
+        // Remover comas si las hay
+        weiStr = weiStr.replace(/,/g, '');
+        
+        // Verificar que sea un número válido
+        if (!/^\d+$/.test(weiStr)) {
+          console.warn('Invalid wei value:', weiString);
+          return '0.00';
+        }
+        
+        const wei = ethers.BigNumber.from(weiStr);
+        const adrian = parseFloat(ethers.utils.formatUnits(wei, 18));
+        return adrian.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      } catch (error) {
+        console.error('Error formatting ADRIAN:', error, 'Value:', weiString);
+        // Intentar conversión directa si falla BigNumber
+        try {
+          const num = parseFloat(weiString);
+          const adrian = num / 1e18;
+          return adrian.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } catch (e) {
+          return '0.00';
+        }
+      }
     }
 
     function shortAddress(address) {
