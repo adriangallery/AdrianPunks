@@ -7,6 +7,7 @@ on:
     paths:
       - 'market/index.html'
       - '.github/workflows/deploy-market.yml'
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -17,8 +18,25 @@ jobs:
 
       - name: Inject Supabase credentials
         run: |
+          if [ -z "${{ secrets.SUPABASE_URL }}" ] || [ -z "${{ secrets.SUPABASE_ANON_KEY }}" ]; then
+            echo "Error: SUPABASE_URL or SUPABASE_ANON_KEY secrets are not set"
+            exit 1
+          fi
           sed -i "s|YOUR_SUPABASE_URL|${{ secrets.SUPABASE_URL }}|g" market/index.html
           sed -i "s|YOUR_SUPABASE_ANON_KEY|${{ secrets.SUPABASE_ANON_KEY }}|g" market/index.html
+          echo "Credentials injected successfully"
+
+      - name: Verify injection
+        run: |
+          if grep -q "YOUR_SUPABASE_URL" market/index.html; then
+            echo "Warning: YOUR_SUPABASE_URL still found in file"
+            exit 1
+          fi
+          if grep -q "YOUR_SUPABASE_ANON_KEY" market/index.html; then
+            echo "Warning: YOUR_SUPABASE_ANON_KEY still found in file"
+            exit 1
+          fi
+          echo "Verification passed: credentials replaced"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
