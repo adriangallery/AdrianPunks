@@ -175,6 +175,52 @@
     .activity-card:hover img {
       border-color: var(--badge-bg);
     }
+
+    /* Statistics Cards Styles */
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      text-align: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--text-color);
+      opacity: 0.7;
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-value {
+      font-size: 1.25rem;
+      font-weight: bold;
+      color: var(--text-color);
+    }
+
+    .stat-value.positive {
+      color: #28a745;
+    }
+
+    .stat-value.negative {
+      color: #dc3545;
+    }
+
+    @media (max-width: 768px) {
+      .stat-card {
+        margin-bottom: 1rem;
+      }
+      
+      .stat-value {
+        font-size: 1.1rem;
+      }
+    }
     @media (max-width: 768px) {
       #tokenBalance {
         margin-top: 70px;
@@ -404,6 +450,63 @@
         <button class="btn btn-outline-secondary" onclick="closeActivityPage()">
           <i class="bi bi-arrow-left"></i> Back to Marketplace
         </button>
+      </div>
+
+      <!-- Estadísticas del FloorEngine -->
+      <div class="card mb-4 bg-light">
+        <div class="card-body">
+          <h5 class="card-title mb-3">FloorEngine Statistics</h5>
+          <div id="engineStats" class="row g-3">
+            <div class="col-md-3">
+              <div class="stat-card">
+                <div class="stat-label">Total Invested</div>
+                <div class="stat-value" id="statTotalInvested">Loading...</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card">
+                <div class="stat-label">Total Earned</div>
+                <div class="stat-value" id="statTotalEarned">Loading...</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card">
+                <div class="stat-label">Net Profit</div>
+                <div class="stat-value" id="statNetProfit">Loading...</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card">
+                <div class="stat-label">ROI</div>
+                <div class="stat-value" id="statROI">Loading...</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card">
+                <div class="stat-label">Punks Bought</div>
+                <div class="stat-value" id="statPunksBought">Loading...</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card">
+                <div class="stat-label">Punks Sold</div>
+                <div class="stat-value" id="statPunksSold">Loading...</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card">
+                <div class="stat-label">Currently Listed</div>
+                <div class="stat-value" id="statCurrentlyListed">Loading...</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card">
+                <div class="stat-label">Listings Value</div>
+                <div class="stat-value" id="statListingsValue">Loading...</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Filtros -->
@@ -2004,6 +2107,9 @@
       activityHasMore = true;
       document.getElementById('activityList').innerHTML = '';
       
+      // Cargar estadísticas del engine
+      loadEngineStats();
+      
       // Cargar primera página
       loadActivityEvents();
       
@@ -2364,6 +2470,115 @@
       if (activityScrollHandler) {
         window.removeEventListener('scroll', activityScrollHandler);
         activityScrollHandler = null;
+      }
+    }
+
+    // Función auxiliar para formatear wei strings (maneja notación científica)
+    function formatWeiString(weiValue) {
+      let weiStr = String(weiValue);
+      if (weiStr.includes('e') || weiStr.includes('E')) {
+        const num = parseFloat(weiStr);
+        weiStr = num.toLocaleString('fullwide', { useGrouping: false, maximumFractionDigits: 0 });
+      }
+      weiStr = weiStr.replace(/,/g, '');
+      return weiStr;
+    }
+
+    // Función para cargar estadísticas del FloorEngine
+    async function loadEngineStats() {
+      if (!supabaseClient) return;
+      
+      try {
+        // 1. Total invertido (suma de buy_price_wei de sweep_events)
+        const { data: sweeps, error: sweepsError } = await supabaseClient
+          .from('sweep_events')
+          .select('buy_price_wei');
+        
+        let totalInvested = ethers.BigNumber.from(0);
+        if (sweeps && !sweepsError) {
+          sweeps.forEach(sweep => {
+            try {
+              const buyPrice = formatWeiString(sweep.buy_price_wei);
+              totalInvested = totalInvested.add(ethers.BigNumber.from(buyPrice));
+            } catch (e) {
+              console.warn('Error processing sweep buy_price:', e);
+            }
+          });
+        }
+        
+        // 2. Total ganado (suma de price_wei de trade_events donde is_contract_owned = true)
+        const { data: trades, error: tradesError } = await supabaseClient
+          .from('trade_events')
+          .select('price_wei, is_contract_owned');
+        
+        let totalEarned = ethers.BigNumber.from(0);
+        let punksSold = 0;
+        if (trades && !tradesError) {
+          trades.forEach(trade => {
+            if (trade.is_contract_owned) {
+              try {
+                const price = formatWeiString(trade.price_wei);
+                totalEarned = totalEarned.add(ethers.BigNumber.from(price));
+                punksSold++;
+              } catch (e) {
+                console.warn('Error processing trade price:', e);
+              }
+            }
+          });
+        }
+        
+        // 3. Punks comprados (count de sweep_events)
+        const punksBought = sweeps ? sweeps.length : 0;
+        
+        // 4. Punks actualmente listados (punk_listings donde is_contract_owned = true y is_listed = true)
+        const { data: listings, error: listingsError } = await supabaseClient
+          .from('punk_listings')
+          .select('price_wei')
+          .eq('is_contract_owned', true)
+          .eq('is_listed', true);
+        
+        let currentlyListed = 0;
+        let listingsValue = ethers.BigNumber.from(0);
+        if (listings && !listingsError) {
+          currentlyListed = listings.length;
+          listings.forEach(listing => {
+            try {
+              const price = formatWeiString(listing.price_wei);
+              listingsValue = listingsValue.add(ethers.BigNumber.from(price));
+            } catch (e) {
+              console.warn('Error processing listing price:', e);
+            }
+          });
+        }
+        
+        // 5. Calcular beneficio neto y ROI
+        const netProfit = totalEarned.sub(totalInvested);
+        const roi = totalInvested.gt(0) 
+          ? netProfit.mul(10000).div(totalInvested).toNumber() / 100 
+          : 0;
+        
+        // 6. Actualizar UI
+        document.getElementById('statTotalInvested').textContent = formatADRIAN(totalInvested.toString());
+        document.getElementById('statTotalEarned').textContent = formatADRIAN(totalEarned.toString());
+        
+        const netProfitEl = document.getElementById('statNetProfit');
+        netProfitEl.textContent = formatADRIAN(netProfit.toString());
+        netProfitEl.className = 'stat-value ' + (netProfit.gte(0) ? 'positive' : 'negative');
+        
+        const roiEl = document.getElementById('statROI');
+        roiEl.textContent = roi.toFixed(2) + '%';
+        roiEl.className = 'stat-value ' + (roi >= 0 ? 'positive' : 'negative');
+        
+        document.getElementById('statPunksBought').textContent = punksBought;
+        document.getElementById('statPunksSold').textContent = punksSold;
+        document.getElementById('statCurrentlyListed').textContent = currentlyListed;
+        document.getElementById('statListingsValue').textContent = formatADRIAN(listingsValue.toString());
+        
+      } catch (error) {
+        console.error('Error loading engine stats:', error);
+        // Mostrar errores en UI
+        document.getElementById('engineStats').innerHTML = 
+          '<div class="col-12"><div class="alert alert-danger">Error loading statistics: ' + error.message + '</div></div>';
       }
     }
   </script>
