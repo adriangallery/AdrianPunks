@@ -1,0 +1,30 @@
+name: Deploy Market to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'market/index.html'
+      - '.github/workflows/deploy-market.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Inject Supabase credentials
+        run: |
+          sed -i "s|YOUR_SUPABASE_URL|${{ secrets.SUPABASE_URL }}|g" market/index.html
+          sed -i "s|YOUR_SUPABASE_ANON_KEY|${{ secrets.SUPABASE_ANON_KEY }}|g" market/index.html
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          keep_files: true
+          force_orphan: false
+
