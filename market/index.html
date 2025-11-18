@@ -166,6 +166,15 @@
       transform: translateY(-2px);
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
+
+    .activity-card img {
+      border: 2px solid var(--border-color);
+      transition: border-color 0.2s;
+    }
+
+    .activity-card:hover img {
+      border-color: var(--badge-bg);
+    }
     @media (max-width: 768px) {
       #tokenBalance {
         margin-top: 70px;
@@ -2212,15 +2221,30 @@
         addresses = { caller: event.caller };
       }
       
+      // Obtener URL de la imagen del token
+      const tokenId = event.token_id;
+      const nftObj = { name: `AdrianPunk #${tokenId}` };
+      const imgUrl = getImageUrl(nftObj);
+      
       card.innerHTML = `
         <div class="card-body">
-          <div class="d-flex justify-content-between align-items-start">
-            <div>
-              <h6 class="card-title mb-1">
-                <span class="badge bg-${getEventBadgeColor(eventType)} me-2">${eventType}</span>
-                ${title}
-              </h6>
-              <p class="text-muted mb-1"><small>${date.toLocaleString()}</small></p>
+          <div class="d-flex align-items-start">
+            <div class="me-3" style="flex-shrink: 0;">
+              <img src="${imgUrl}" alt="AdrianPunk #${tokenId}" class="rounded" style="width: 80px; height: 80px; object-fit: cover;" onerror="this.src='./adrianpunksimages/${tokenId}.png'; this.onerror=null;">
+            </div>
+            <div class="flex-grow-1">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                  <h6 class="card-title mb-1">
+                    <span class="badge bg-${getEventBadgeColor(eventType)} me-2">${eventType}</span>
+                    ${title}
+                  </h6>
+                  <p class="text-muted mb-1"><small>${date.toLocaleString()}</small></p>
+                </div>
+                <a href="https://basescan.org/tx/${event.tx_hash}" target="_blank" class="btn btn-sm btn-outline-primary">
+                  View TX
+                </a>
+              </div>
               ${price ? `<p class="mb-1"><strong>Price:</strong> ${price} $ADRIAN</p>` : ''}
               ${addresses.seller ? `<p class="mb-1"><strong>Seller:</strong> <code>${shortAddress(addresses.seller)}</code></p>` : ''}
               ${addresses.buyer ? `<p class="mb-1"><strong>Buyer:</strong> <code>${shortAddress(addresses.buyer)}</code></p>` : ''}
@@ -2228,9 +2252,6 @@
               ${event.caller_reward_wei ? `<p class="mb-1"><strong>Reward:</strong> ${formatADRIAN(event.caller_reward_wei)} $ADRIAN</p>` : ''}
               ${event.relist_price_wei ? `<p class="mb-1"><strong>Relist Price:</strong> ${formatADRIAN(event.relist_price_wei)} $ADRIAN</p>` : ''}
             </div>
-            <a href="https://basescan.org/tx/${event.tx_hash}" target="_blank" class="btn btn-sm btn-outline-primary">
-              View TX
-            </a>
           </div>
         </div>
       `;
