@@ -54,14 +54,11 @@ jobs:
           echo "First 20 chars of URL: $(grep -o "window.SUPABASE_URL = '[^']*'" market/supabase-config.js | sed "s/.*'\(.\{20\}\).*/\1/")"
           echo "First 20 chars of KEY: $(grep -o "window.SUPABASE_ANON_KEY = '[^']*'" market/supabase-config.js | sed "s/.*'\(.\{20\}\).*/\1/")"
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .
-          publish_branch: gh-pages
-          keep_files: true
-          force_orphan: false
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
+      - name: Commit and push config file to main
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add market/supabase-config.js
+          git diff --staged --quiet || git commit -m "chore: Update Supabase config [skip ci]"
+          git push origin main
 
