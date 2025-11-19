@@ -31,6 +31,10 @@
       --badge-text: #ffffff;
     }
 
+    .bg-purple {
+      background-color: #9c27b0 !important;
+    }
+
     body {
       background-color: var(--bg-color);
       color: var(--text-color);
@@ -453,6 +457,113 @@
         </div>
       </div>
     </div>
+
+    <!-- AdrianLABCore Statistics Section -->
+    <div class="section-header">
+      <h2><i class="bi bi-palette"></i> AdrianLABCore (AdrianZERO) Statistics</h2>
+    </div>
+    <div id="adrianlabcoreStats" class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Supply</div>
+          <div class="stat-value" id="alcTotalSupply">Loading...</div>
+          <div class="stat-subtitle">Minted - Burned</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Minted</div>
+          <div class="stat-value" id="alcTotalMinted">Loading...</div>
+          <div class="stat-subtitle">All time</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Burned</div>
+          <div class="stat-value" id="alcTotalBurned">Loading...</div>
+          <div class="stat-subtitle">All time</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Unique Holders</div>
+          <div class="stat-value" id="alcUniqueHolders">Loading...</div>
+          <div class="stat-subtitle">Addresses</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Transfers</div>
+          <div class="stat-value" id="alcTotalTransfers">Loading...</div>
+          <div class="stat-subtitle">All time</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Skins Assigned</div>
+          <div class="stat-value" id="alcSkinsAssigned">Loading...</div>
+          <div class="stat-subtitle">Total assignments</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Tokens Mutated</div>
+          <div class="stat-value" id="alcTokensMutated">Loading...</div>
+          <div class="stat-subtitle">With mutations</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Serums Applied</div>
+          <div class="stat-value" id="alcSerumsApplied">Loading...</div>
+          <div class="stat-subtitle">Total serums</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AdrianLABCore Charts -->
+    <div class="row mb-5">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Minting Activity Over Time</h5>
+            <div class="chart-container">
+              <canvas id="alcMintingChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Skin Distribution</h5>
+            <div class="chart-container">
+              <canvas id="alcSkinChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Mutation Distribution</h5>
+            <div class="chart-container">
+              <canvas id="alcMutationChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Transfer Activity</h5>
+            <div class="chart-container">
+              <canvas id="alcTransferChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
       </div> <!-- End Stats Tab -->
 
       <!-- Raw Activity Tab -->
@@ -472,6 +583,7 @@
                   <option value="all">All Contracts</option>
                   <option value="floorengine">FloorEngine</option>
                   <option value="erc20">$ADRIAN Token</option>
+                  <option value="adrianlabcore">AdrianLABCore (AdrianZERO)</option>
                 </select>
               </div>
               <div class="col-md-3">
@@ -491,6 +603,14 @@
                   <option value="BurnFeeUpdated">Burn Fee Updated</option>
                   <option value="PremiumUpdated">Premium Updated</option>
                   <option value="MaxBuyPriceUpdated">Max Buy Price Updated</option>
+                  <option value="TokenMinted">Token Minted</option>
+                  <option value="TokenBurnt">Token Burnt</option>
+                  <option value="SkinAssigned">Skin Assigned</option>
+                  <option value="SkinCreated">Skin Created</option>
+                  <option value="MutationAssigned">Mutation Assigned</option>
+                  <option value="MutationNameAssigned">Mutation Name Assigned</option>
+                  <option value="SerumApplied">Serum Applied</option>
+                  <option value="SpecialSkinApplied">Special Skin Applied</option>
                 </select>
               </div>
               <div class="col-md-2">
@@ -542,6 +662,7 @@
     const ERC20_ADDRESS = '0x7e99075ce287f1cf8cbcaaa6a1c7894e404fd7ea';
     const BURN_ADDRESS = '0x0000000000000000000000000000000000000000';
     const FLOOR_ENGINE_ADDRESS = '0x0351F7cBA83277E891D4a85Da498A7eACD764D58';
+    const ADRIANLABCORE_ADDRESS = '0x6e369bf0e4e0c106192d606fb6d85836d684da75';
 
     // Supabase configuration
     const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
@@ -607,6 +728,10 @@
     let tokenTransactionsChart = null;
     let tokenSupplyChart = null;
     let tokenStakingChart = null;
+    let alcMintingChart = null;
+    let alcSkinChart = null;
+    let alcMutationChart = null;
+    let alcTransferChart = null;
 
     // Load FloorEngine Statistics
     async function loadFloorEngineStats() {
@@ -930,6 +1055,292 @@
       } catch (error) {
         console.error('Error loading token stats:', error);
       }
+    }
+
+    // Load AdrianLABCore Statistics
+    async function loadAdrianLABCoreStats() {
+      if (!supabaseClient) return;
+      
+      try {
+        // Total minted
+        const { data: mints, error: mintsError } = await supabaseClient
+          .from('erc721_custom_events')
+          .select('event_data, created_at')
+          .eq('contract_address', ADRIANLABCORE_ADDRESS)
+          .eq('event_name', 'TokenMinted');
+        
+        let totalMinted = 0;
+        const mintingData = [];
+        if (mints && !mintsError) {
+          totalMinted = mints.length;
+          const grouped = {};
+          mints.forEach(mint => {
+            const date = new Date(mint.created_at).toISOString().split('T')[0];
+            grouped[date] = (grouped[date] || 0) + 1;
+          });
+          mintingData.push(...Object.entries(grouped).map(([date, count]) => ({ date, count })));
+        }
+        
+        // Total burned
+        const { data: burns, error: burnsError } = await supabaseClient
+          .from('erc721_custom_events')
+          .select('*')
+          .eq('contract_address', ADRIANLABCORE_ADDRESS)
+          .eq('event_name', 'TokenBurnt');
+        
+        const totalBurned = burns && !burnsError ? burns.length : 0;
+        const totalSupply = totalMinted - totalBurned;
+        
+        // Unique holders
+        const { data: transfers } = await supabaseClient
+          .from('erc721_transfers')
+          .select('to_address')
+          .eq('contract_address', ADRIANLABCORE_ADDRESS)
+          .neq('to_address', BURN_ADDRESS);
+        
+        const uniqueHolders = new Set();
+        if (transfers) {
+          transfers.forEach(t => uniqueHolders.add(t.to_address));
+        }
+        
+        // Total transfers
+        const { data: allTransfers } = await supabaseClient
+          .from('erc721_transfers')
+          .select('created_at')
+          .eq('contract_address', ADRIANLABCORE_ADDRESS);
+        
+        const totalTransfers = allTransfers ? allTransfers.length : 0;
+        
+        // Skins assigned
+        const { data: skins } = await supabaseClient
+          .from('erc721_custom_events')
+          .select('event_data')
+          .eq('contract_address', ADRIANLABCORE_ADDRESS)
+          .eq('event_name', 'SkinAssigned');
+        
+        const skinsAssigned = skins ? skins.length : 0;
+        const skinDistribution = {};
+        if (skins) {
+          skins.forEach(skin => {
+            const skinName = skin.event_data?.name || 'Unknown';
+            skinDistribution[skinName] = (skinDistribution[skinName] || 0) + 1;
+          });
+        }
+        
+        // Tokens mutated
+        const { data: mutations } = await supabaseClient
+          .from('erc721_custom_events')
+          .select('event_data')
+          .eq('contract_address', ADRIANLABCORE_ADDRESS)
+          .eq('event_name', 'MutationNameAssigned');
+        
+        const tokensMutated = mutations ? mutations.length : 0;
+        const mutationDistribution = {};
+        if (mutations) {
+          mutations.forEach(mutation => {
+            const mutationName = mutation.event_data?.newMutation || 'Unknown';
+            mutationDistribution[mutationName] = (mutationDistribution[mutationName] || 0) + 1;
+          });
+        }
+        
+        // Serums applied
+        const { data: serums } = await supabaseClient
+          .from('erc721_custom_events')
+          .select('*')
+          .eq('contract_address', ADRIANLABCORE_ADDRESS)
+          .eq('event_name', 'SerumApplied');
+        
+        const serumsApplied = serums ? serums.length : 0;
+        
+        // Transfer activity over time
+        const transferData = [];
+        if (allTransfers) {
+          const grouped = {};
+          allTransfers.forEach(transfer => {
+            const date = new Date(transfer.created_at).toISOString().split('T')[0];
+            grouped[date] = (grouped[date] || 0) + 1;
+          });
+          transferData.push(...Object.entries(grouped).map(([date, count]) => ({ date, count })));
+        }
+        
+        // Update UI
+        document.getElementById('alcTotalSupply').textContent = totalSupply.toLocaleString();
+        document.getElementById('alcTotalMinted').textContent = totalMinted.toLocaleString();
+        document.getElementById('alcTotalBurned').textContent = totalBurned.toLocaleString();
+        document.getElementById('alcUniqueHolders').textContent = uniqueHolders.size.toLocaleString();
+        document.getElementById('alcTotalTransfers').textContent = totalTransfers.toLocaleString();
+        document.getElementById('alcSkinsAssigned').textContent = skinsAssigned.toLocaleString();
+        document.getElementById('alcTokensMutated').textContent = tokensMutated.toLocaleString();
+        document.getElementById('alcSerumsApplied').textContent = serumsApplied.toLocaleString();
+
+        // Create charts
+        createALCMintingChart(mintingData);
+        createALCSkinChart(skinDistribution);
+        createALCMutationChart(mutationDistribution);
+        createALCTransferChart(transferData);
+        
+      } catch (error) {
+        console.error('Error loading AdrianLABCore stats:', error);
+      }
+    }
+
+    function createALCMintingChart(data) {
+      const ctx = document.getElementById('alcMintingChart');
+      if (!ctx) return;
+      
+      const labels = data.map(d => d.date).sort();
+      const counts = labels.map(date => {
+        const item = data.find(d => d.date === date);
+        return item ? item.count : 0;
+      });
+      
+      if (alcMintingChart) {
+        alcMintingChart.destroy();
+      }
+      
+      alcMintingChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Tokens Minted',
+            data: counts,
+            borderColor: '#9c27b0',
+            backgroundColor: 'rgba(156, 39, 176, 0.1)',
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    function createALCSkinChart(distribution) {
+      const ctx = document.getElementById('alcSkinChart');
+      if (!ctx) return;
+      
+      const labels = Object.keys(distribution).slice(0, 10);
+      const counts = labels.map(label => distribution[label]);
+      
+      if (alcSkinChart) {
+        alcSkinChart.destroy();
+      }
+      
+      alcSkinChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: counts,
+            backgroundColor: [
+              '#9c27b0', '#e91e63', '#f44336', '#ff9800', '#ffc107',
+              '#4caf50', '#2196f3', '#3f51b5', '#673ab7', '#795548'
+            ]
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom'
+            }
+          }
+        }
+      });
+    }
+
+    function createALCMutationChart(distribution) {
+      const ctx = document.getElementById('alcMutationChart');
+      if (!ctx) return;
+      
+      const labels = Object.keys(distribution).slice(0, 10);
+      const counts = labels.map(label => distribution[label]);
+      
+      if (alcMutationChart) {
+        alcMutationChart.destroy();
+      }
+      
+      alcMutationChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Mutations',
+            data: counts,
+            backgroundColor: '#9c27b0'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+
+    function createALCTransferChart(data) {
+      const ctx = document.getElementById('alcTransferChart');
+      if (!ctx) return;
+      
+      const labels = data.map(d => d.date).sort();
+      const counts = labels.map(date => {
+        const item = data.find(d => d.date === date);
+        return item ? item.count : 0;
+      });
+      
+      if (alcTransferChart) {
+        alcTransferChart.destroy();
+      }
+      
+      alcTransferChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Transfers',
+            data: counts,
+            borderColor: '#9c27b0',
+            backgroundColor: 'rgba(156, 39, 176, 0.1)',
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
     }
 
     // Chart creation functions
@@ -1528,6 +1939,107 @@
           }
         }
         
+        // Load AdrianLABCore events
+        if (rawActivityFilters.contract === 'all' || rawActivityFilters.contract === 'adrianlabcore') {
+          // ERC721 Transfers
+          if (rawActivityFilters.eventType === 'all' || rawActivityFilters.eventType === 'Transfer') {
+            let query = supabaseClient
+              .from('erc721_transfers')
+              .select('*')
+              .eq('contract_address', ADRIANLABCORE_ADDRESS)
+              .order('created_at', { ascending: false })
+              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+            
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            if (rawActivityFilters.address) {
+              query = query.or(`from_address.ilike.%${rawActivityFilters.address}%,to_address.ilike.%${rawActivityFilters.address}%`);
+            }
+            
+            const { data: transfers } = await query;
+            if (transfers) {
+              transfers.forEach(event => {
+                allEvents.push({
+                  type: 'AdrianLABCore',
+                  eventType: 'Transfer',
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+          
+          // ERC721 Approvals
+          if (rawActivityFilters.eventType === 'all' || rawActivityFilters.eventType === 'Approval') {
+            let query = supabaseClient
+              .from('erc721_approvals')
+              .select('*')
+              .eq('contract_address', ADRIANLABCORE_ADDRESS)
+              .order('created_at', { ascending: false })
+              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+            
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            if (rawActivityFilters.address) {
+              query = query.or(`owner.ilike.%${rawActivityFilters.address}%,approved.ilike.%${rawActivityFilters.address}%`);
+            }
+            
+            const { data: approvals } = await query;
+            if (approvals) {
+              approvals.forEach(event => {
+                allEvents.push({
+                  type: 'AdrianLABCore',
+                  eventType: 'Approval',
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+          
+          // Custom events
+          const customEventTypes = ['TokenMinted', 'TokenBurnt', 'SkinAssigned', 'SkinCreated', 'MutationAssigned', 
+                                   'MutationNameAssigned', 'SerumApplied', 'SpecialSkinApplied'];
+          if (rawActivityFilters.eventType === 'all' || customEventTypes.includes(rawActivityFilters.eventType)) {
+            let query = supabaseClient
+              .from('erc721_custom_events')
+              .select('*')
+              .eq('contract_address', ADRIANLABCORE_ADDRESS)
+              .order('created_at', { ascending: false })
+              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+            
+            if (rawActivityFilters.eventType !== 'all') {
+              query = query.eq('event_name', rawActivityFilters.eventType);
+            }
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            
+            const { data: customs } = await query;
+            if (customs) {
+              customs.forEach(event => {
+                allEvents.push({
+                  type: 'AdrianLABCore',
+                  eventType: event.event_name,
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+        }
+        
         // Sort by timestamp (most recent first)
         allEvents.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
@@ -1567,8 +2079,18 @@
       const div = document.createElement('div');
       div.className = 'activity-item';
       
-      const badgeColor = event.type === 'FloorEngine' ? 'bg-primary' : 'bg-success';
-      const badgeText = event.type === 'FloorEngine' ? 'FloorEngine' : '$ADRIAN';
+      let badgeColor = 'bg-secondary';
+      let badgeText = event.type;
+      if (event.type === 'FloorEngine') {
+        badgeColor = 'bg-primary';
+        badgeText = 'FloorEngine';
+      } else if (event.type === 'ERC20') {
+        badgeColor = 'bg-success';
+        badgeText = '$ADRIAN';
+      } else if (event.type === 'AdrianLABCore') {
+        badgeColor = 'bg-purple';
+        badgeText = 'AdrianZERO';
+      }
       
       const date = new Date(event.timestamp);
       const dateStr = date.toLocaleString('es-ES', { 
@@ -1634,6 +2156,57 @@
             if (eventData.newTaxFee) details += ` - Tax Fee: ${eventData.newTaxFee} bps`;
             if (eventData.newCreatorFee) details += ` - Creator Fee: ${eventData.newCreatorFee} bps`;
             if (eventData.newBurnFee) details += ` - Burn Fee: ${eventData.newBurnFee} bps`;
+          }
+          txHash = event.data.tx_hash;
+        }
+      } else if (event.type === 'AdrianLABCore') {
+        if (event.eventType === 'Transfer') {
+          details = `Token #${event.data.token_id} - Transfer from ${shortAddress(event.data.from_address)} to ${shortAddress(event.data.to_address)}`;
+          txHash = event.data.tx_hash;
+        } else if (event.eventType === 'Approval') {
+          details = `Token #${event.data.token_id} - Approval by ${shortAddress(event.data.owner)} to ${shortAddress(event.data.approved)}`;
+          txHash = event.data.tx_hash;
+        } else if (event.eventType === 'TokenMinted') {
+          const tokenId = event.data.event_data?.tokenId || 'N/A';
+          const to = event.data.event_data?.to || 'N/A';
+          details = `Token #${tokenId} - Minted to ${shortAddress(to)}`;
+          txHash = event.data.tx_hash;
+        } else if (event.eventType === 'TokenBurnt') {
+          const tokenId = event.data.event_data?.tokenId || 'N/A';
+          const burner = event.data.event_data?.burner || 'N/A';
+          details = `Token #${tokenId} - Burnt by ${shortAddress(burner)}`;
+          txHash = event.data.tx_hash;
+        } else if (event.eventType === 'SkinAssigned') {
+          const tokenId = event.data.event_data?.tokenId || 'N/A';
+          const skinName = event.data.event_data?.name || 'Unknown';
+          details = `Token #${tokenId} - Skin "${skinName}" assigned`;
+          txHash = event.data.tx_hash;
+        } else if (event.eventType === 'SkinCreated') {
+          const skinId = event.data.event_data?.skinId || 'N/A';
+          const skinName = event.data.event_data?.name || 'Unknown';
+          const rarity = event.data.event_data?.rarity || 'N/A';
+          details = `Skin #${skinId} "${skinName}" created - Rarity: ${rarity}`;
+          txHash = event.data.tx_hash;
+        } else if (event.eventType === 'MutationNameAssigned') {
+          const tokenId = event.data.event_data?.tokenId || 'N/A';
+          const mutation = event.data.event_data?.newMutation || 'Unknown';
+          details = `Token #${tokenId} - Mutation "${mutation}" assigned`;
+          txHash = event.data.tx_hash;
+        } else if (event.eventType === 'SerumApplied') {
+          const tokenId = event.data.event_data?.tokenId || 'N/A';
+          const serumId = event.data.event_data?.serumId || 'N/A';
+          details = `Token #${tokenId} - Serum #${serumId} applied`;
+          txHash = event.data.tx_hash;
+        } else if (event.eventType === 'SpecialSkinApplied') {
+          const tokenId = event.data.event_data?.tokenId || 'N/A';
+          const skinId = event.data.event_data?.skinId || 'N/A';
+          const mutation = event.data.event_data?.mutation || 'Unknown';
+          details = `Token #${tokenId} - Special skin #${skinId} applied (${mutation})`;
+          txHash = event.data.tx_hash;
+        } else {
+          details = `${event.eventType}`;
+          if (event.data.event_data) {
+            details += ` - ${JSON.stringify(event.data.event_data)}`;
           }
           txHash = event.data.tx_hash;
         }
@@ -1708,7 +2281,8 @@
       if (supabaseClient) {
         await Promise.all([
           loadFloorEngineStats(),
-          loadTokenStats()
+          loadTokenStats(),
+          loadAdrianLABCoreStats()
         ]);
         
         // Load raw activity when tab is shown
