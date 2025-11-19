@@ -127,6 +127,64 @@
       padding: 2rem;
     }
 
+    /* Activity List */
+    .activity-list {
+      max-height: 800px;
+      overflow-y: auto;
+    }
+
+    .activity-item {
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      background-color: var(--card-bg);
+      transition: box-shadow 0.2s;
+    }
+
+    .activity-item:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .activity-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .activity-badge {
+      padding: 0.25rem 0.75rem;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .activity-details {
+      font-size: 0.9rem;
+      color: var(--text-color);
+      opacity: 0.8;
+    }
+
+    .activity-details strong {
+      opacity: 1;
+    }
+
+    .activity-date {
+      font-size: 0.85rem;
+      color: var(--text-color);
+      opacity: 0.6;
+    }
+
+    .activity-link {
+      color: #007bff;
+      text-decoration: none;
+    }
+
+    .activity-link:hover {
+      text-decoration: underline;
+    }
+
     @media (max-width: 768px) {
       body {
         padding-top: 60px;
@@ -178,6 +236,24 @@
       <p class="text-muted">Comprehensive analytics for the $ADRIAN ecosystem</p>
     </div>
 
+    <!-- Tabs Navigation -->
+    <ul class="nav nav-tabs mb-4" id="mainTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="stats-tab" data-bs-toggle="tab" data-bs-target="#stats" type="button" role="tab">
+          <i class="bi bi-graph-up"></i> Statistics
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="activity-tab" data-bs-toggle="tab" data-bs-target="#activity" type="button" role="tab">
+          <i class="bi bi-list-ul"></i> Raw Activity
+        </button>
+      </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="mainTabsContent">
+      <!-- Stats Tab -->
+      <div class="tab-pane fade show active" id="stats" role="tabpanel">
     <!-- FloorEngine Statistics Section -->
     <div class="section-header">
       <h2><i class="bi bi-graph-up"></i> FloorEngine Statistics</h2>
@@ -377,6 +453,87 @@
         </div>
       </div>
     </div>
+      </div> <!-- End Stats Tab -->
+
+      <!-- Raw Activity Tab -->
+      <div class="tab-pane fade" id="activity" role="tabpanel">
+        <div class="section-header">
+          <h2><i class="bi bi-list-ul"></i> Raw Activity</h2>
+        </div>
+
+        <!-- Filters -->
+        <div class="card mb-4">
+          <div class="card-body">
+            <h5 class="card-title mb-3">Filters</h5>
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label for="filterContract" class="form-label">Contract</label>
+                <select class="form-select" id="filterContract">
+                  <option value="all">All Contracts</option>
+                  <option value="floorengine">FloorEngine</option>
+                  <option value="erc20">$ADRIAN Token</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label for="filterEventType" class="form-label">Event Type</label>
+                <select class="form-select" id="filterEventType">
+                  <option value="all">All Events</option>
+                  <option value="Listed">Listed</option>
+                  <option value="Cancelled">Cancelled</option>
+                  <option value="Bought">Bought</option>
+                  <option value="FloorSweep">Floor Sweep</option>
+                  <option value="Transfer">Transfer</option>
+                  <option value="Approval">Approval</option>
+                  <option value="Staked">Staked</option>
+                  <option value="WithdrawnStake">Withdrawn Stake</option>
+                  <option value="TaxFeeUpdated">Tax Fee Updated</option>
+                  <option value="CreatorFeeUpdated">Creator Fee Updated</option>
+                  <option value="BurnFeeUpdated">Burn Fee Updated</option>
+                  <option value="PremiumUpdated">Premium Updated</option>
+                  <option value="MaxBuyPriceUpdated">Max Buy Price Updated</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label for="filterDateFrom" class="form-label">From Date</label>
+                <input type="date" class="form-control" id="filterDateFrom">
+              </div>
+              <div class="col-md-2">
+                <label for="filterDateTo" class="form-label">To Date</label>
+                <input type="date" class="form-control" id="filterDateTo">
+              </div>
+              <div class="col-md-2">
+                <label for="filterAddress" class="form-label">Address</label>
+                <input type="text" class="form-control" id="filterAddress" placeholder="0x...">
+              </div>
+            </div>
+            <div class="row mt-3">
+              <div class="col-12">
+                <button class="btn btn-primary" onclick="applyRawActivityFilters()">Apply Filters</button>
+                <button class="btn btn-secondary" onclick="clearRawActivityFilters()">Clear</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Activity List -->
+        <div class="card">
+          <div class="card-body">
+            <div id="rawActivityList" class="activity-list">
+              <div class="loading-spinner">
+                <div class="spinner-border" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+              </div>
+            </div>
+            <div id="rawActivityLoading" class="text-center mt-3" style="display: none;">
+              <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading more...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div> <!-- End Raw Activity Tab -->
+    </div> <!-- End Tab Content -->
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -1111,6 +1268,439 @@
       }
     }
 
+    // Raw Activity Variables
+    let rawActivityPage = 0;
+    let rawActivityHasMore = true;
+    let rawActivityFilters = {
+      contract: 'all',
+      eventType: 'all',
+      dateFrom: null,
+      dateTo: null,
+      address: null
+    };
+    let rawActivityScrollHandler = null;
+
+    // Load Raw Activity
+    async function loadRawActivity(reset = false) {
+      if (!supabaseClient) return;
+      
+      if (reset) {
+        rawActivityPage = 0;
+        rawActivityHasMore = true;
+        document.getElementById('rawActivityList').innerHTML = '<div class="loading-spinner"><div class="spinner-border" role="status"></div></div>';
+      }
+      
+      if (!rawActivityHasMore) return;
+      
+      document.getElementById('rawActivityLoading').style.display = 'block';
+      
+      try {
+        const pageSize = 50;
+        const allEvents = [];
+        
+        // Load FloorEngine events
+        if (rawActivityFilters.contract === 'all' || rawActivityFilters.contract === 'floorengine') {
+          // Listing events
+          if (rawActivityFilters.eventType === 'all' || rawActivityFilters.eventType === 'Listed' || rawActivityFilters.eventType === 'Cancelled') {
+            let query = supabaseClient
+              .from('listing_events')
+              .select('*')
+              .order('created_at', { ascending: false })
+              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+            
+            if (rawActivityFilters.eventType !== 'all') {
+              query = query.eq('event_type', rawActivityFilters.eventType);
+            }
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            if (rawActivityFilters.address) {
+              query = query.or(`seller.ilike.%${rawActivityFilters.address}%`);
+            }
+            
+            const { data: listings } = await query;
+            if (listings) {
+              listings.forEach(event => {
+                allEvents.push({
+                  type: 'FloorEngine',
+                  eventType: event.event_type,
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+          
+          // Trade events
+          if (rawActivityFilters.eventType === 'all' || rawActivityFilters.eventType === 'Bought') {
+            let query = supabaseClient
+              .from('trade_events')
+              .select('*')
+              .order('created_at', { ascending: false })
+              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+            
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            if (rawActivityFilters.address) {
+              query = query.or(`buyer.ilike.%${rawActivityFilters.address}%,seller.ilike.%${rawActivityFilters.address}%`);
+            }
+            
+            const { data: trades } = await query;
+            if (trades) {
+              trades.forEach(event => {
+                allEvents.push({
+                  type: 'FloorEngine',
+                  eventType: 'Bought',
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+          
+          // Sweep events
+          if (rawActivityFilters.eventType === 'all' || rawActivityFilters.eventType === 'FloorSweep') {
+            let query = supabaseClient
+              .from('sweep_events')
+              .select('*')
+              .order('created_at', { ascending: false })
+              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+            
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            if (rawActivityFilters.address) {
+              query = query.ilike('caller', `%${rawActivityFilters.address}%`);
+            }
+            
+            const { data: sweeps } = await query;
+            if (sweeps) {
+              sweeps.forEach(event => {
+                allEvents.push({
+                  type: 'FloorEngine',
+                  eventType: 'FloorSweep',
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+          
+          // Config events
+          if (rawActivityFilters.eventType === 'all' || rawActivityFilters.eventType === 'PremiumUpdated' || rawActivityFilters.eventType === 'MaxBuyPriceUpdated') {
+            let query = supabaseClient
+              .from('engine_config_events')
+              .select('*')
+              .order('created_at', { ascending: false })
+              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+            
+            if (rawActivityFilters.eventType !== 'all') {
+              query = query.eq('event_name', rawActivityFilters.eventType);
+            }
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            
+            const { data: configs } = await query;
+            if (configs) {
+              configs.forEach(event => {
+                allEvents.push({
+                  type: 'FloorEngine',
+                  eventType: event.event_name,
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+        }
+        
+        // Load ERC20 events
+        if (rawActivityFilters.contract === 'all' || rawActivityFilters.contract === 'erc20') {
+          // Transfers
+          if (rawActivityFilters.eventType === 'all' || rawActivityFilters.eventType === 'Transfer') {
+            let query = supabaseClient
+              .from('erc20_transfers')
+              .select('*')
+              .eq('contract_address', ERC20_ADDRESS)
+              .order('created_at', { ascending: false })
+              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+            
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            if (rawActivityFilters.address) {
+              query = query.or(`from_address.ilike.%${rawActivityFilters.address}%,to_address.ilike.%${rawActivityFilters.address}%`);
+            }
+            
+            const { data: transfers } = await query;
+            if (transfers) {
+              transfers.forEach(event => {
+                allEvents.push({
+                  type: 'ERC20',
+                  eventType: 'Transfer',
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+          
+          // Approvals
+          if (rawActivityFilters.eventType === 'all' || rawActivityFilters.eventType === 'Approval') {
+            let query = supabaseClient
+              .from('erc20_approvals')
+              .select('*')
+              .eq('contract_address', ERC20_ADDRESS)
+              .order('created_at', { ascending: false })
+              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+            
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            if (rawActivityFilters.address) {
+              query = query.or(`owner.ilike.%${rawActivityFilters.address}%,spender.ilike.%${rawActivityFilters.address}%`);
+            }
+            
+            const { data: approvals } = await query;
+            if (approvals) {
+              approvals.forEach(event => {
+                allEvents.push({
+                  type: 'ERC20',
+                  eventType: 'Approval',
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+          
+          // Custom events
+          const customEventTypes = ['Staked', 'WithdrawnStake', 'TaxFeeUpdated', 'CreatorFeeUpdated', 'BurnFeeUpdated'];
+          if (rawActivityFilters.eventType === 'all' || customEventTypes.includes(rawActivityFilters.eventType)) {
+            let query = supabaseClient
+              .from('erc20_custom_events')
+              .select('*')
+              .eq('contract_address', ERC20_ADDRESS)
+              .order('created_at', { ascending: false })
+              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+            
+            if (rawActivityFilters.eventType !== 'all') {
+              query = query.eq('event_name', rawActivityFilters.eventType);
+            }
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            
+            const { data: customs } = await query;
+            if (customs) {
+              customs.forEach(event => {
+                allEvents.push({
+                  type: 'ERC20',
+                  eventType: event.event_name,
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+        }
+        
+        // Sort by timestamp (most recent first)
+        allEvents.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
+        // Render events
+        if (reset) {
+          document.getElementById('rawActivityList').innerHTML = '';
+        }
+        
+        renderRawActivityEvents(allEvents);
+        
+        // Check if there's more data
+        if (allEvents.length < pageSize) {
+          rawActivityHasMore = false;
+        } else {
+          rawActivityPage++;
+        }
+        
+      } catch (error) {
+        console.error('Error loading raw activity:', error);
+        document.getElementById('rawActivityList').innerHTML = 
+          '<div class="alert alert-danger">Error loading activity: ' + error.message + '</div>';
+      } finally {
+        document.getElementById('rawActivityLoading').style.display = 'none';
+      }
+    }
+
+    function renderRawActivityEvents(events) {
+      const container = document.getElementById('rawActivityList');
+      
+      events.forEach(event => {
+        const item = createRawActivityItem(event);
+        container.appendChild(item);
+      });
+    }
+
+    function createRawActivityItem(event) {
+      const div = document.createElement('div');
+      div.className = 'activity-item';
+      
+      const badgeColor = event.type === 'FloorEngine' ? 'bg-primary' : 'bg-success';
+      const badgeText = event.type === 'FloorEngine' ? 'FloorEngine' : '$ADRIAN';
+      
+      const date = new Date(event.timestamp);
+      const dateStr = date.toLocaleString('es-ES', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      
+      let details = '';
+      let txHash = '';
+      
+      if (event.type === 'FloorEngine') {
+        if (event.eventType === 'Listed' || event.eventType === 'Cancelled') {
+          details = `Token #${event.data.token_id} - ${event.eventType} by ${shortAddress(event.data.seller)}`;
+          if (event.data.price_wei) {
+            details += ` - Price: ${formatADRIAN(event.data.price_wei)} $ADRIAN`;
+          }
+          txHash = event.data.tx_hash;
+        } else if (event.eventType === 'Bought') {
+          details = `Token #${event.data.token_id} - Bought by ${shortAddress(event.data.buyer)} from ${shortAddress(event.data.seller)}`;
+          if (event.data.price_wei) {
+            details += ` - Price: ${formatADRIAN(event.data.price_wei)} $ADRIAN`;
+          }
+          txHash = event.data.tx_hash;
+        } else if (event.eventType === 'FloorSweep') {
+          details = `Token #${event.data.token_id} - Sweep by ${shortAddress(event.data.caller)}`;
+          if (event.data.buy_price_wei) {
+            details += ` - Buy: ${formatADRIAN(event.data.buy_price_wei)} $ADRIAN`;
+          }
+          if (event.data.caller_reward_wei) {
+            details += ` - Reward: ${formatADRIAN(event.data.caller_reward_wei)} $ADRIAN`;
+          }
+          txHash = event.data.tx_hash;
+        } else {
+          details = `${event.eventType}`;
+          if (event.data.event_data) {
+            details += ` - ${JSON.stringify(event.data.event_data)}`;
+          }
+          txHash = event.data.tx_hash;
+        }
+      } else if (event.type === 'ERC20') {
+        if (event.eventType === 'Transfer') {
+          details = `Transfer from ${shortAddress(event.data.from_address)} to ${shortAddress(event.data.to_address)}`;
+          if (event.data.value_wei) {
+            details += ` - Amount: ${formatADRIAN(event.data.value_wei)} $ADRIAN`;
+          }
+          txHash = event.data.tx_hash;
+        } else if (event.eventType === 'Approval') {
+          details = `Approval by ${shortAddress(event.data.owner)} to ${shortAddress(event.data.spender)}`;
+          if (event.data.value_wei) {
+            details += ` - Amount: ${formatADRIAN(event.data.value_wei)} $ADRIAN`;
+          }
+          txHash = event.data.tx_hash;
+        } else {
+          details = `${event.eventType}`;
+          if (event.data.event_data) {
+            const eventData = event.data.event_data;
+            if (eventData.staker) details += ` - Staker: ${shortAddress(eventData.staker)}`;
+            if (eventData.amount) details += ` - Amount: ${formatADRIAN(eventData.amount)} $ADRIAN`;
+            if (eventData.reward) details += ` - Reward: ${formatADRIAN(eventData.reward)} $ADRIAN`;
+            if (eventData.newTaxFee) details += ` - Tax Fee: ${eventData.newTaxFee} bps`;
+            if (eventData.newCreatorFee) details += ` - Creator Fee: ${eventData.newCreatorFee} bps`;
+            if (eventData.newBurnFee) details += ` - Burn Fee: ${eventData.newBurnFee} bps`;
+          }
+          txHash = event.data.tx_hash;
+        }
+      }
+      
+      div.innerHTML = `
+        <div class="activity-header">
+          <div>
+            <span class="badge ${badgeColor} activity-badge">${badgeText}</span>
+            <span class="badge bg-secondary activity-badge ms-2">${event.eventType}</span>
+          </div>
+          <div class="activity-date">${dateStr}</div>
+        </div>
+        <div class="activity-details">${details}</div>
+        ${txHash ? `<div class="mt-2"><a href="https://basescan.org/tx/${txHash}" target="_blank" class="activity-link">View on Basescan <i class="bi bi-box-arrow-up-right"></i></a></div>` : ''}
+      `;
+      
+      return div;
+    }
+
+    function applyRawActivityFilters() {
+      rawActivityFilters.contract = document.getElementById('filterContract').value;
+      rawActivityFilters.eventType = document.getElementById('filterEventType').value;
+      rawActivityFilters.dateFrom = document.getElementById('filterDateFrom').value || null;
+      rawActivityFilters.dateTo = document.getElementById('filterDateTo').value || null;
+      rawActivityFilters.address = document.getElementById('filterAddress').value.trim() || null;
+      
+      loadRawActivity(true);
+    }
+
+    function clearRawActivityFilters() {
+      document.getElementById('filterContract').value = 'all';
+      document.getElementById('filterEventType').value = 'all';
+      document.getElementById('filterDateFrom').value = '';
+      document.getElementById('filterDateTo').value = '';
+      document.getElementById('filterAddress').value = '';
+      
+      rawActivityFilters = {
+        contract: 'all',
+        eventType: 'all',
+        dateFrom: null,
+        dateTo: null,
+        address: null
+      };
+      
+      loadRawActivity(true);
+    }
+
+    function setupRawActivityScroll() {
+      const list = document.getElementById('rawActivityList');
+      if (!list) return;
+      
+      rawActivityScrollHandler = () => {
+        const scrollTop = list.scrollTop;
+        const scrollHeight = list.scrollHeight;
+        const clientHeight = list.clientHeight;
+        
+        if (scrollTop + clientHeight >= scrollHeight - 100) {
+          if (rawActivityHasMore) {
+            loadRawActivity(false);
+          }
+        }
+      };
+      
+      list.addEventListener('scroll', rawActivityScrollHandler);
+    }
+
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', async () => {
       initSupabase();
@@ -1120,6 +1710,16 @@
           loadFloorEngineStats(),
           loadTokenStats()
         ]);
+        
+        // Load raw activity when tab is shown
+        const activityTab = document.getElementById('activity-tab');
+        activityTab.addEventListener('shown.bs.tab', () => {
+          if (document.getElementById('rawActivityList').children.length === 0 || 
+              document.getElementById('rawActivityList').querySelector('.loading-spinner')) {
+            loadRawActivity(true);
+            setupRawActivityScroll();
+          }
+        });
       } else {
         console.error('Supabase not initialized');
         document.body.innerHTML = '<div class="container mt-5"><div class="alert alert-danger">Error: Supabase credentials not configured</div></div>';
