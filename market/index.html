@@ -857,7 +857,115 @@
       "function totalMinted() view returns (uint256)"
     ];
     
+    /*********** Rate Limiter & Cache System ***********/
+    
+    // Rate Limiter: controla la velocidad de las solicitudes
+    class RateLimiter {
+      constructor(maxRequests = 25, windowMs = 1000) {
+        this.maxRequests = maxRequests;
+        this.windowMs = windowMs;
+        this.requests = [];
+      }
+      
+      async waitForSlot() {
+        const now = Date.now();
+        // Limpiar requests antiguos
+        this.requests = this.requests.filter(time => now - time < this.windowMs);
+        
+        if (this.requests.length >= this.maxRequests) {
+          const oldestRequest = this.requests[0];
+          const waitTime = this.windowMs - (now - oldestRequest);
+          console.log(`⏳ Rate limit alcanzado, esperando ${waitTime}ms...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          return this.waitForSlot();
+        }
+        
+        this.requests.push(now);
+      }
+    }
+    
+    // Retry Logic con Exponential Backoff
+    async function retryWithBackoff(fn, maxRetries = 5, baseDelay = 1000) {
+      for (let i = 0; i < maxRetries; i++) {
+        try {
+          await rateLimiter.waitForSlot();
+          return await fn();
+        } catch (error) {
+          if (error.status === 429 || (error.message && error.message.includes('429'))) {
+            const delay = baseDelay * Math.pow(2, i) + Math.random() * 1000;
+            console.warn(`⚠️ Error 429, reintentando en ${Math.round(delay)}ms... (intento ${i + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          } else {
+            throw error;
+          }
+        }
+      }
+      throw new Error('Max retries alcanzado');
+    }
+    
+    // Sistema de caché simple
+    class SimpleCache {
+      constructor(ttlMs = 30000) {
+        this.cache = new Map();
+        this.ttlMs = ttlMs;
+        this.hits = 0;
+        this.misses = 0;
+      }
+      
+      get(key) {
+        const item = this.cache.get(key);
+        if (!item) {
+          this.misses++;
+          return null;
+        }
+        
+        if (Date.now() - item.timestamp > this.ttlMs) {
+          this.cache.delete(key);
+          this.misses++;
+          return null;
+        }
+        
+        this.hits++;
+        return item.value;
+      }
+      
+      set(key, value) {
+        this.cache.set(key, {
+          value,
+          timestamp: Date.now()
+        });
+      }
+      
+      clear() {
+        this.cache.clear();
+        console.log(`📊 Cache Stats: ${this.hits} hits, ${this.misses} misses (${this.hits > 0 ? ((this.hits / (this.hits + this.misses)) * 100).toFixed(1) : 0}% hit rate)`);
+        this.hits = 0;
+        this.misses = 0;
+      }
+      
+      getStats() {
+        return {
+          hits: this.hits,
+          misses: this.misses,
+          hitRate: this.hits > 0 ? ((this.hits / (this.hits + this.misses)) * 100).toFixed(1) : 0,
+          size: this.cache.size
+        };
+      }
+    }
+    
+    const rateLimiter = new RateLimiter(25, 1000); // 25 requests por segundo
+    const contractCache = new SimpleCache(30000); // 30 segundos TTL
+    
     async function initContracts() {
+      // OPTIMIZACIÓN: No reinicializar si ya está configurado
+      if (readProvider && tokenReadContract) {
+        console.log('✅ Contratos ya inicializados, saltando...');
+        if (userAccount) {
+          updateTokenBalance();
+        }
+        return;
+      }
+      
       // Configurar el provider de Alchemy para lecturas (fallback a Infura si no está configurado)
       const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
       readProvider = new ethers.providers.JsonRpcProvider(rpcUrl, {
@@ -896,13 +1004,13 @@
           multicallContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, signer);
           updateTokenBalance();
           updateFloorEngineBalance();
+        } else {
+          // Solo actualizar balance si no hay usuario conectado
+          updateFloorEngineBalance();
         }
       } else {
         console.error("Ethereum provider not found.");
-      }
-      
-      // Update FloorEngine balance even if user not connected
-      if (readProvider) {
+        // Update FloorEngine balance even if user not connected
         updateFloorEngineBalance();
       }
     }
@@ -1006,23 +1114,57 @@
     
     async function loadActiveListings() {
       try {
-        // Get all listed token IDs from FloorEngine
-        const listedTokenIds = await floorEngineReadContract.getListedTokenIds();
-        console.log(`Found ${listedTokenIds.length} listed tokens on FloorEngine`);
-        
-        // For each listed token, get its listing details
-        activeListingsData = [];
-        for (const tokenId of listedTokenIds) {
-          const listing = await floorEngineReadContract.listings(tokenId);
-          activeListingsData.push({
-            tokenId: tokenId.toNumber(),
-            seller: listing.seller,
-            price: listing.price,
-            isContractOwned: listing.isContractOwned
-          });
+        // Verificar caché primero
+        const cacheKey = 'activeListings';
+        const cached = contractCache.get(cacheKey);
+        if (cached) {
+          console.log('✅ Usando listings cacheados');
+          activeListingsData = cached;
+          return;
         }
         
-        console.log("Active listings loaded from FloorEngine:", activeListingsData);
+        // Get all listed token IDs from FloorEngine
+        const listedTokenIds = await retryWithBackoff(() => 
+          floorEngineReadContract.getListedTokenIds()
+        );
+        console.log(`Found ${listedTokenIds.length} listed tokens on FloorEngine`);
+        
+        if (listedTokenIds.length === 0) {
+          activeListingsData = [];
+          contractCache.set(cacheKey, []);
+          return;
+        }
+        
+        // OPTIMIZACIÓN: Usar Multicall3 para obtener todos los listings en una sola llamada
+        const iface = new ethers.utils.Interface(FLOOR_ENGINE_ABI);
+        const calls = listedTokenIds.map(tokenId => ({
+          target: FLOOR_ENGINE_ADDRESS,
+          allowFailure: true,
+          callData: iface.encodeFunctionData('listings', [tokenId])
+        }));
+        
+        // Hacer la llamada batch con Multicall3
+        const results = await retryWithBackoff(() => 
+          multicallReadContract.aggregate3(calls)
+        );
+        
+        // Procesar resultados
+        activeListingsData = [];
+        for (let i = 0; i < results.length; i++) {
+          if (results[i].success) {
+            const listing = iface.decodeFunctionResult('listings', results[i].returnData);
+            activeListingsData.push({
+              tokenId: listedTokenIds[i].toNumber(),
+              seller: listing.seller,
+              price: listing.price,
+              isContractOwned: listing.isContractOwned
+            });
+          }
+        }
+        
+        // Guardar en caché
+        contractCache.set(cacheKey, activeListingsData);
+        console.log("✅ Active listings loaded from FloorEngine:", activeListingsData.length);
       } catch (error) {
         console.error("Error loading active listings:", error);
         activeListingsData = [];
@@ -1033,8 +1175,11 @@
     // Funciona sin wallet conectada - solo lectura de datos
     async function loadNFTs() {
       try {
-        // Asegurar que readProvider esté inicializado
+        console.log('📦 Cargando NFTs...');
+        
+        // OPTIMIZACIÓN: Asegurar que readProvider esté inicializado solo UNA VEZ
         if (!readProvider) {
+          console.log('⚠️ ReadProvider no inicializado, inicializando...');
           const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
           readProvider = new ethers.providers.JsonRpcProvider(rpcUrl, {
             name: "base",
@@ -1043,6 +1188,7 @@
           nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
           floorEngineReadContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
           tokenReadContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
+          multicallReadContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
         }
         
         // Total minted es inmutable: 1000 punks
@@ -1058,7 +1204,10 @@
           const tokenId = parseInt(tokenIdStr);
           return tokenId <= mintedCount;
         });
-        await loadActiveListings(); // Ya funciona sin wallet
+        
+        // Cargar listings (con caché y multicall optimizado)
+        await loadActiveListings();
+        
         extractTraits(nftData);
         renderTraitFilters();
         filterAndDisplayNFTs();
@@ -1193,7 +1342,7 @@
             }
             nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
           }
-          const owner = await nftReadContract.ownerOf(tokenId);
+          const owner = await retryWithBackoff(() => nftReadContract.ownerOf(tokenId));
           if (userAccount) {
           isOwner = owner.toLowerCase() === userAccount.toLowerCase();
           ownershipStatus = isOwner ? `<div class="alert alert-success">You are the owner of this token</div>` : `<div class="alert alert-info">Owner: ${owner.substring(0, 6)}...${owner.substring(38)}</div>`;
@@ -1207,9 +1356,9 @@
         // Check if token is listed on FloorEngine
         let tokenListing = null;
         try {
-          const isListed = await floorEngineReadContract.isListed(tokenId);
+          const isListed = await retryWithBackoff(() => floorEngineReadContract.isListed(tokenId));
           if (isListed) {
-            const listing = await floorEngineReadContract.listings(tokenId);
+            const listing = await retryWithBackoff(() => floorEngineReadContract.listings(tokenId));
             tokenListing = {
               price: listing.price,
               seller: listing.seller,
@@ -1417,7 +1566,12 @@
     
     async function updateTokenBalance() {
       try {
-        const balanceRaw = await tokenContract.balanceOf(userAccount);
+        if (!userAccount) return;
+        
+        // OPTIMIZACIÓN: Usar readContract para evitar prompts de wallet
+        const balanceRaw = await retryWithBackoff(() => 
+          tokenReadContract.balanceOf(userAccount)
+        );
         const balance = parseFloat(ethers.utils.formatUnits(balanceRaw, 18));
         let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
                               balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
@@ -1431,11 +1585,24 @@
     
     async function updateFloorEngineBalance() {
       try {
-        const contractBalance = await tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS);
+        // OPTIMIZACIÓN: Verificar caché primero
+        const cacheKey = 'floorEngineBalance';
+        const cached = contractCache.get(cacheKey);
+        if (cached) {
+          document.getElementById("floorEngineBalance").innerHTML = `<span>💰 FloorEngine: ${cached} $ADRIAN</span>`;
+          return;
+        }
+        
+        const contractBalance = await retryWithBackoff(() => 
+          tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS)
+        );
         const balance = parseFloat(ethers.utils.formatUnits(contractBalance, 18));
         let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
                               balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
                               balance.toFixed(1);
+        
+        // Guardar en caché
+        contractCache.set(cacheKey, formattedBalance);
         document.getElementById("floorEngineBalance").innerHTML = `<span>💰 FloorEngine: ${formattedBalance} $ADRIAN</span>`;
       } catch (error) {
         console.error("Error fetching FloorEngine balance:", error);
@@ -1478,79 +1645,171 @@
       try {
         if (!floorEngineReadContract) return;
         
-        // Get contract balance
-        const contractBalance = await tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS);
+        // OPTIMIZACIÓN: Verificar caché primero
+        const cacheKey = 'sweepFloorInfo';
+        const cached = contractCache.get(cacheKey);
+        if (cached) {
+          updateSweepFloorUI(cached);
+          return;
+        }
+        
+        // Get contract balance and config usando multicall3
+        const iface = new ethers.utils.Interface(FLOOR_ENGINE_ABI);
+        const tokenIface = new ethers.utils.Interface(TOKEN_ABI);
+        
+        const configCalls = [
+          {
+            target: TOKEN_ADDRESS,
+            allowFailure: false,
+            callData: tokenIface.encodeFunctionData('balanceOf', [FLOOR_ENGINE_ADDRESS])
+          },
+          {
+            target: FLOOR_ENGINE_ADDRESS,
+            allowFailure: false,
+            callData: iface.encodeFunctionData('getListedTokenIds', [])
+          },
+          {
+            target: FLOOR_ENGINE_ADDRESS,
+            allowFailure: false,
+            callData: iface.encodeFunctionData('premiumBps', [])
+          },
+          {
+            target: FLOOR_ENGINE_ADDRESS,
+            allowFailure: false,
+            callData: iface.encodeFunctionData('callerRewardBps', [])
+          },
+          {
+            target: FLOOR_ENGINE_ADDRESS,
+            allowFailure: false,
+            callData: iface.encodeFunctionData('callerRewardIsPercentage', [])
+          },
+          {
+            target: FLOOR_ENGINE_ADDRESS,
+            allowFailure: false,
+            callData: iface.encodeFunctionData('callerRewardFixed', [])
+          }
+        ];
+        
+        const configResults = await retryWithBackoff(() => 
+          multicallReadContract.aggregate3(configCalls)
+        );
+        
+        const contractBalance = tokenIface.decodeFunctionResult('balanceOf', configResults[0].returnData)[0];
+        const listedTokenIds = iface.decodeFunctionResult('getListedTokenIds', configResults[1].returnData)[0];
+        const premiumBps = iface.decodeFunctionResult('premiumBps', configResults[2].returnData)[0];
+        const callerRewardBps = iface.decodeFunctionResult('callerRewardBps', configResults[3].returnData)[0];
+        const callerRewardIsPercentage = iface.decodeFunctionResult('callerRewardIsPercentage', configResults[4].returnData)[0];
+        const callerRewardFixed = iface.decodeFunctionResult('callerRewardFixed', configResults[5].returnData)[0];
+        
         const balanceFormatted = parseFloat(ethers.utils.formatUnits(contractBalance, 18)).toFixed(2);
         
-        // Get cheapest external listing (if any)
-        const listedTokenIds = await floorEngineReadContract.getListedTokenIds();
+        // OPTIMIZACIÓN: Usar activeListingsData si ya está cargado
         let cheapestPrice = null;
         let cheapestTokenId = null;
         
-        for (const tokenId of listedTokenIds) {
-          const listing = await floorEngineReadContract.listings(tokenId);
-          if (!listing.isContractOwned) {
-            const price = listing.price;
-            if (!cheapestPrice || price.lt(cheapestPrice)) {
-              cheapestPrice = price;
-              cheapestTokenId = tokenId.toNumber();
+        if (activeListingsData && activeListingsData.length > 0) {
+          // Usar datos ya cargados
+          for (const listing of activeListingsData) {
+            if (!listing.isContractOwned) {
+              if (!cheapestPrice || listing.price.lt(cheapestPrice)) {
+                cheapestPrice = listing.price;
+                cheapestTokenId = listing.tokenId;
+              }
+            }
+          }
+        } else if (listedTokenIds.length > 0) {
+          // Si no hay datos cargados, usar multicall3 para obtener los listings
+          const listingCalls = listedTokenIds.map(tokenId => ({
+            target: FLOOR_ENGINE_ADDRESS,
+            allowFailure: true,
+            callData: iface.encodeFunctionData('listings', [tokenId])
+          }));
+          
+          const listingResults = await retryWithBackoff(() => 
+            multicallReadContract.aggregate3(listingCalls)
+          );
+          
+          for (let i = 0; i < listingResults.length; i++) {
+            if (listingResults[i].success) {
+              const listing = iface.decodeFunctionResult('listings', listingResults[i].returnData);
+              if (!listing.isContractOwned) {
+                const price = listing.price;
+                if (!cheapestPrice || price.lt(cheapestPrice)) {
+                  cheapestPrice = price;
+                  cheapestTokenId = listedTokenIds[i].toNumber();
+                }
+              }
             }
           }
         }
         
-        // Update UI
-        const infoDiv = document.getElementById('sweepFloorInfo');
-        if (!infoDiv) return;
+        const sweepData = {
+          contractBalance,
+          balanceFormatted,
+          cheapestPrice,
+          cheapestTokenId,
+          premiumBps,
+          callerRewardBps,
+          callerRewardIsPercentage,
+          callerRewardFixed
+        };
         
-        if (!cheapestPrice) {
-          infoDiv.innerHTML = '<p class="text-muted mb-0">No external listings available for sweeping</p>';
-          document.getElementById('sweepFloorBtn').disabled = true;
-        return;
-      }
-        
-        const cheapestFormatted = parseFloat(ethers.utils.formatUnits(cheapestPrice, 18)).toFixed(2);
-        
-        // Calculate estimated reward
-        const premiumBps = await floorEngineReadContract.premiumBps();
-        const callerRewardBps = await floorEngineReadContract.callerRewardBps();
-        const callerRewardIsPercentage = await floorEngineReadContract.callerRewardIsPercentage();
-        const callerRewardFixed = await floorEngineReadContract.callerRewardFixed();
-        
-        let rewardFormatted = "0";
-        if (callerRewardIsPercentage) {
-          const rewardEstimate = cheapestPrice.mul(callerRewardBps).div(10000);
-          rewardFormatted = parseFloat(ethers.utils.formatUnits(rewardEstimate, 18)).toFixed(2);
-        } else {
-          rewardFormatted = parseFloat(ethers.utils.formatUnits(callerRewardFixed, 18)).toFixed(2);
-        }
-        
-        const premiumBpsNumber = typeof premiumBps.toNumber === 'function' ? premiumBps.toNumber() : Number(premiumBps);
-        const relistPrice = cheapestPrice.mul(10000 + premiumBpsNumber).div(10000);
-        const relistFormatted = parseFloat(ethers.utils.formatUnits(relistPrice, 18)).toFixed(2);
-        
-        // Check if contract has enough balance
-        const canExecute = contractBalance.gte(cheapestPrice);
-        
-        infoDiv.innerHTML = `
-          <div class="mb-2">
-            <strong>Cheapest Listing:</strong> Token #${cheapestTokenId} - ${cheapestFormatted} $ADRIAN
-                </div>
-          <div class="mb-2">
-            <strong>Contract Balance:</strong> ${balanceFormatted} $ADRIAN
-              </div>
-          <div class="mb-2">
-            <strong>Your Reward:</strong> ~${rewardFormatted} $ADRIAN
-          </div>
-          <div class="mb-2">
-            <strong>Relist Price:</strong> ${relistFormatted} $ADRIAN
-          </div>
-          ${!canExecute ? '<div class="alert alert-warning mb-0 p-2">Insufficient contract balance</div>' : ''}
-        `;
-        
-        document.getElementById('sweepFloorBtn').disabled = !canExecute;
+        // Guardar en caché
+        contractCache.set(cacheKey, sweepData);
+        updateSweepFloorUI(sweepData);
       } catch (error) {
         console.error("Error updating sweep floor info:", error);
       }
+    }
+    
+    function updateSweepFloorUI(sweepData) {
+      const { contractBalance, balanceFormatted, cheapestPrice, cheapestTokenId, premiumBps, callerRewardBps, callerRewardIsPercentage, callerRewardFixed } = sweepData;
+      const infoDiv = document.getElementById('sweepFloorInfo');
+      if (!infoDiv) return;
+      
+      if (!cheapestPrice) {
+        infoDiv.innerHTML = '<p class="text-muted mb-0">No external listings available for sweeping</p>';
+        const sweepBtn = document.getElementById('sweepFloorBtn');
+        if (sweepBtn) sweepBtn.disabled = true;
+        return;
+      }
+      
+      const cheapestFormatted = parseFloat(ethers.utils.formatUnits(cheapestPrice, 18)).toFixed(2);
+      
+      // Calculate estimated reward
+      let rewardFormatted = "0";
+      if (callerRewardIsPercentage) {
+        const rewardEstimate = cheapestPrice.mul(callerRewardBps).div(10000);
+        rewardFormatted = parseFloat(ethers.utils.formatUnits(rewardEstimate, 18)).toFixed(2);
+      } else {
+        rewardFormatted = parseFloat(ethers.utils.formatUnits(callerRewardFixed, 18)).toFixed(2);
+      }
+      
+      const premiumBpsNumber = typeof premiumBps.toNumber === 'function' ? premiumBps.toNumber() : Number(premiumBps);
+      const relistPrice = cheapestPrice.mul(10000 + premiumBpsNumber).div(10000);
+      const relistFormatted = parseFloat(ethers.utils.formatUnits(relistPrice, 18)).toFixed(2);
+      
+      // Check if contract has enough balance
+      const canExecute = contractBalance.gte(cheapestPrice);
+      
+      infoDiv.innerHTML = `
+        <div class="mb-2">
+          <strong>Cheapest Listing:</strong> Token #${cheapestTokenId} - ${cheapestFormatted} $ADRIAN
+        </div>
+        <div class="mb-2">
+          <strong>Contract Balance:</strong> ${balanceFormatted} $ADRIAN
+        </div>
+        <div class="mb-2">
+          <strong>Your Reward:</strong> ~${rewardFormatted} $ADRIAN
+        </div>
+        <div class="mb-2">
+          <strong>Relist Price:</strong> ${relistFormatted} $ADRIAN
+        </div>
+        ${!canExecute ? '<div class="alert alert-warning mb-0 p-2">Insufficient contract balance</div>' : ''}
+      `;
+      
+      const sweepBtn = document.getElementById('sweepFloorBtn');
+      if (sweepBtn) sweepBtn.disabled = !canExecute;
     }
     
     function closeAndShowNFTDetails(nftName) {
@@ -1686,9 +1945,22 @@
     }
     
     document.addEventListener('DOMContentLoaded', async () => {
+      console.log('🚀 Iniciando aplicación con optimizaciones...');
+      console.log('✅ Rate Limiter: 25 req/segundo con exponential backoff');
+      console.log('✅ Cache: 30 segundos TTL');
+      console.log('✅ Multicall3: Batch requests optimizadas');
+      
       initSupabase();
       await initContracts();
       loadNFTs();
+      
+      // Mostrar estadísticas de caché cada 60 segundos
+      setInterval(() => {
+        const stats = contractCache.getStats();
+        if (stats.hits + stats.misses > 0) {
+          console.log(`📊 Cache Stats: ${stats.hits} hits, ${stats.misses} misses (${stats.hitRate}% hit rate), ${stats.size} items`);
+        }
+      }, 60000);
       
       // Escuchar eventos de cambio de cuenta desde MetaMask
       if (window.ethereum) {
@@ -1699,13 +1971,22 @@
             window.userAccount = accounts[0];
             userAccount = window.userAccount;
             
+            // OPTIMIZACIÓN: Limpiar caché al cambiar de cuenta
+            contractCache.clear();
+            
             // Reinicializar los contratos con la nueva cuenta
-            await initContracts();
+            tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+            nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
+            floorEngineContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, signer);
+            multicallContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, signer);
+            
+            updateTokenBalance();
             loadNFTs();
           } else {
             // Desconexión
             window.userAccount = null;
             userAccount = null;
+            contractCache.clear();
             location.reload();
           }
         });
