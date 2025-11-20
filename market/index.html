@@ -1329,12 +1329,11 @@
                   
                   // Re-render NFTs con datos actualizados
                   if (wasSorted) {
-                    // Re-aplicar sort por floor price manteniendo el orden actual
-                    sortByFloorPrice();
+                    // Re-aplicar sort por floor price manteniendo el orden actual (sin toggle)
+                    applySortByFloorPrice(currentSortOrder);
                   } else {
                     // Aplicar sort por defecto (ascendente) como en la carga inicial
-                    currentSortOrder = 'desc'; // Set to desc so sortByFloorPrice toggles it to 'asc'
-                    sortByFloorPrice();
+                    applySortByFloorPrice('asc');
                   }
                 } else {
                   console.log('✅ Datos de Supabase están sincronizados');
@@ -1404,8 +1403,7 @@
         filterAndDisplayNFTs();
         
         // Ordenar automáticamente por Floor Price (ascendente) al cargar
-        currentSortOrder = 'desc'; // Set to desc so sortByFloorPrice toggles it to 'asc'
-        sortByFloorPrice();
+        applySortByFloorPrice('asc');
       } catch (error) {
         console.error('Error:', error);
         document.getElementById('nftGrid').innerHTML = `<div class="alert alert-danger">Error loading NFTs: ${error.message}</div>`;
@@ -2204,9 +2202,10 @@
       }
     }
     
-    async function sortByFloorPrice() {
+    // Función auxiliar para aplicar sort sin hacer toggle (preserva el orden)
+    function applySortByFloorPrice(order) {
       const button = document.querySelector('button[onclick="sortByFloorPrice()"]');
-      currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+      currentSortOrder = order; // Establecer orden sin toggle
       button.classList.remove('btn-outline-primary');
       button.classList.add('btn-primary');
       const arrowDirection = currentSortOrder === 'asc' ? '↑' : '↓';
@@ -2227,6 +2226,12 @@
         return currentSortOrder === 'asc' ? priceA - priceB : priceB - priceA;
       });
       displayNFTs(sortedNFTs);
+    }
+
+    async function sortByFloorPrice() {
+      // Toggle del orden cuando el usuario hace click
+      const newOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+      applySortByFloorPrice(newOrder);
     }
 
     // Función para mostrar notificaciones
