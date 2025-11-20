@@ -796,21 +796,55 @@
 
     // Función auxiliar para convertir notación científica a string decimal completo
     function convertToDecimalString(value) {
+      // Si es null o undefined, retornar "0"
+      if (value == null) return "0";
+      
+      // Si ya es string
       if (typeof value === 'string') {
-        // Si ya es string, verificar si tiene notación científica
+        // Verificar si tiene notación científica
         if (value.includes('e+') || value.includes('e-') || value.includes('E+') || value.includes('E-')) {
-          // Convertir notación científica a decimal
-          const num = parseFloat(value);
-          // Usar toFixed con suficientes decimales y luego quitar trailing zeros
-          return num.toFixed(0);
+          // Convertir notación científica a decimal completo
+          const parts = value.toLowerCase().split('e');
+          const base = parseFloat(parts[0]);
+          const exponent = parseInt(parts[1] || '0');
+          
+          if (exponent === 0) return parts[0];
+          
+          // Convertir a string con todos los decimales
+          const baseStr = base.toString();
+          const [integerPart, decimalPart = ''] = baseStr.split('.');
+          
+          if (exponent > 0) {
+            // e+ : mover decimal hacia la derecha
+            const totalDecimals = decimalPart.length;
+            if (exponent >= totalDecimals) {
+              // No hay suficientes decimales, agregar zeros
+              return integerPart + decimalPart + '0'.repeat(exponent - totalDecimals);
+            } else {
+              // Mover el punto decimal
+              const newInteger = integerPart + decimalPart.substring(0, exponent);
+              const newDecimal = decimalPart.substring(exponent);
+              return newInteger + (newDecimal ? '.' + newDecimal : '');
+            }
+          } else {
+            // e- : mover decimal hacia la izquierda
+            const absExp = Math.abs(exponent);
+            return '0.' + '0'.repeat(absExp - 1) + integerPart.replace('-', '') + decimalPart;
+          }
         }
         return value;
       }
       
       // Si es número, convertir a string sin notación científica
       if (typeof value === 'number') {
-        // Para números grandes, usar toFixed para evitar notación científica
-        if (value >= 1e15 || value <= -1e15) {
+        // Para números grandes, usar toFixed(0) para evitar notación científica
+        if (Math.abs(value) >= 1e15) {
+          // Usar una conversión más robusta para números muy grandes
+          const str = value.toString();
+          if (str.includes('e+') || str.includes('e-')) {
+            // Si toString() devuelve notación científica, usar el método manual
+            return convertToDecimalString(str);
+          }
           return value.toFixed(0);
         }
         return String(value);
