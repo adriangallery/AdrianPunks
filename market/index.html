@@ -1848,7 +1848,23 @@
     
     async function updateSweepFloorInfo() {
       try {
-        if (!floorEngineReadContract) return;
+        // Asegurar que readProvider y contratos estén inicializados
+        if (!readProvider) {
+          console.log('⚠️ ReadProvider no inicializado en updateSweepFloorInfo, inicializando...');
+          const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
+          readProvider = new ethers.providers.JsonRpcProvider(rpcUrl, {
+            name: "base",
+            chainId: 8453
+          });
+        }
+        
+        if (!floorEngineReadContract) {
+          floorEngineReadContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
+        }
+        
+        if (!multicallReadContract) {
+          multicallReadContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+        }
         
         // OPTIMIZACIÓN: Verificar caché primero
         const cacheKey = 'sweepFloorInfo';
