@@ -578,6 +578,111 @@
         </div>
       </div>
     </div>
+
+    <!-- ERC1155 (AdrianLAB) Statistics Section -->
+    <div class="section-header">
+      <h2><i class="bi bi-box"></i> AdrianLAB (ERC1155) Statistics</h2>
+    </div>
+    <div id="erc1155Stats" class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Assets Minted</div>
+          <div class="stat-value" id="erc1155TotalMinted">Loading...</div>
+          <div class="stat-subtitle">All time</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Transfers</div>
+          <div class="stat-value" id="erc1155TotalTransfers">Loading...</div>
+          <div class="stat-subtitle">All time</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Unique Holders</div>
+          <div class="stat-value" id="erc1155UniqueHolders">Loading...</div>
+          <div class="stat-subtitle">Addresses</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Asset Types</div>
+          <div class="stat-value" id="erc1155AssetTypes">Loading...</div>
+          <div class="stat-subtitle">Different types</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TraitsExtensions Statistics Section -->
+    <div class="section-header">
+      <h2><i class="bi bi-puzzle"></i> TraitsExtensions Statistics</h2>
+    </div>
+    <div id="traitsExtensionsStats" class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Traits Applied</div>
+          <div class="stat-value" id="traitsTotalApplied">Loading...</div>
+          <div class="stat-subtitle">All time</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Assets Added</div>
+          <div class="stat-value" id="traitsAssetsAdded">Loading...</div>
+          <div class="stat-subtitle">To inventory</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Trait Types</div>
+          <div class="stat-value" id="traitsTraitTypes">Loading...</div>
+          <div class="stat-subtitle">Different types</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Events</div>
+          <div class="stat-value" id="traitsTotalEvents">Loading...</div>
+          <div class="stat-subtitle">All time</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AdrianShop Statistics Section -->
+    <div class="section-header">
+      <h2><i class="bi bi-cart"></i> AdrianShop Statistics</h2>
+    </div>
+    <div id="adrianShopStats" class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Purchases</div>
+          <div class="stat-value" id="shopTotalPurchases">Loading...</div>
+          <div class="stat-subtitle">All time</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Revenue</div>
+          <div class="stat-value" id="shopTotalRevenue">Loading...</div>
+          <div class="stat-subtitle">$ADRIAN</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Unique Buyers</div>
+          <div class="stat-value" id="shopUniqueBuyers">Loading...</div>
+          <div class="stat-subtitle">Addresses</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Items Sold</div>
+          <div class="stat-value" id="shopItemsSold">Loading...</div>
+          <div class="stat-subtitle">Total quantity</div>
+        </div>
+      </div>
+    </div>
       </div> <!-- End Stats Tab -->
 
       <!-- Raw Activity Tab -->
@@ -1201,6 +1306,202 @@
         
       } catch (error) {
         console.error('Error loading AdrianLABCore stats:', error);
+      }
+    }
+
+    // Load ERC1155 (AdrianLAB) Statistics
+    async function loadERC1155Stats() {
+      if (!supabaseClient) return;
+      
+      try {
+        // Total minted
+        const { data: mints, error: mintsError } = await supabaseClient
+          .from('erc1155_custom_events')
+          .select('event_data, created_at')
+          .eq('contract_address', ERC1155_ADDRESS)
+          .eq('event_name', 'AssetMinted');
+        
+        let totalMinted = 0;
+        if (mints && !mintsError) {
+          totalMinted = mints.reduce((sum, mint) => {
+            const amount = parseInt(mint.event_data?.amount || '0', 10);
+            return sum + (isNaN(amount) ? 0 : amount);
+          }, 0);
+        }
+        
+        // Total transfers
+        const { data: transfers, error: transfersError } = await supabaseClient
+          .from('erc1155_transfers_single')
+          .select('*')
+          .eq('contract_address', ERC1155_ADDRESS);
+        
+        const totalTransfers = transfers && !transfersError ? transfers.length : 0;
+        
+        // Unique holders
+        const { data: allTransfers } = await supabaseClient
+          .from('erc1155_transfers_single')
+          .select('to_address')
+          .eq('contract_address', ERC1155_ADDRESS)
+          .neq('to_address', BURN_ADDRESS);
+        
+        const uniqueHolders = new Set();
+        if (allTransfers) {
+          allTransfers.forEach(t => uniqueHolders.add(t.to_address.toLowerCase()));
+        }
+        
+        // Asset types
+        const { data: assetTypes } = await supabaseClient
+          .from('erc1155_custom_events')
+          .select('event_data')
+          .eq('contract_address', ERC1155_ADDRESS)
+          .eq('event_name', 'AssetMinted');
+        
+        const typesSet = new Set();
+        if (assetTypes) {
+          assetTypes.forEach(a => {
+            const assetType = a.event_data?.assetType || 'Unknown';
+            typesSet.add(assetType);
+          });
+        }
+        
+        // Update UI
+        document.getElementById('erc1155TotalMinted').textContent = totalMinted.toLocaleString();
+        document.getElementById('erc1155TotalTransfers').textContent = totalTransfers.toLocaleString();
+        document.getElementById('erc1155UniqueHolders').textContent = uniqueHolders.size.toLocaleString();
+        document.getElementById('erc1155AssetTypes').textContent = typesSet.size.toLocaleString();
+        
+      } catch (error) {
+        console.error('Error loading ERC1155 stats:', error);
+      }
+    }
+
+    // Load TraitsExtensions Statistics
+    async function loadTraitsExtensionsStats() {
+      if (!supabaseClient) return;
+      
+      try {
+        // Traits applied
+        const { data: traitsApplied, error: traitsError } = await supabaseClient
+          .from('traits_extensions_events')
+          .select('*')
+          .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS)
+          .eq('event_name', 'TraitApplied');
+        
+        const totalApplied = traitsApplied && !traitsError ? traitsApplied.length : 0;
+        
+        // Assets added
+        const { data: assetsAdded, error: assetsError } = await supabaseClient
+          .from('traits_extensions_events')
+          .select('event_data')
+          .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS)
+          .eq('event_name', 'AssetAddedToInventory');
+        
+        let totalAssetsAdded = 0;
+        if (assetsAdded && !assetsError) {
+          totalAssetsAdded = assetsAdded.reduce((sum, asset) => {
+            const amount = parseInt(asset.event_data?.amount || '0', 10);
+            return sum + (isNaN(amount) ? 0 : amount);
+          }, 0);
+        }
+        
+        // Trait types
+        const { data: traitTypes } = await supabaseClient
+          .from('traits_extensions_events')
+          .select('event_data')
+          .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS)
+          .eq('event_name', 'TraitApplied');
+        
+        const typesSet = new Set();
+        if (traitTypes) {
+          traitTypes.forEach(t => {
+            const traitType = t.event_data?.traitType || 'Unknown';
+            typesSet.add(traitType);
+          });
+        }
+        
+        // Total events
+        const { count: totalEvents } = await supabaseClient
+          .from('traits_extensions_events')
+          .select('*', { count: 'exact', head: true })
+          .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS);
+        
+        // Update UI
+        document.getElementById('traitsTotalApplied').textContent = totalApplied.toLocaleString();
+        document.getElementById('traitsAssetsAdded').textContent = totalAssetsAdded.toLocaleString();
+        document.getElementById('traitsTraitTypes').textContent = typesSet.size.toLocaleString();
+        document.getElementById('traitsTotalEvents').textContent = (totalEvents || 0).toLocaleString();
+        
+      } catch (error) {
+        console.error('Error loading TraitsExtensions stats:', error);
+      }
+    }
+
+    // Load AdrianShop Statistics
+    async function loadAdrianShopStats() {
+      if (!supabaseClient) return;
+      
+      try {
+        // Total purchases
+        const { data: purchases, error: purchasesError } = await supabaseClient
+          .from('shop_events')
+          .select('*')
+          .eq('contract_address', ADRIAN_SHOP_ADDRESS)
+          .in('event_name', ['ItemPurchased', 'BatchPurchase']);
+        
+        const totalPurchases = purchases && !purchasesError ? purchases.length : 0;
+        
+        // Total revenue
+        let totalRevenue = 0n;
+        if (purchases && !purchasesError) {
+          purchases.forEach(purchase => {
+            const cost = purchase.event_data?.totalCost;
+            if (cost) {
+              try {
+                const costStr = String(cost).replace(/,/g, '');
+                if (costStr.includes('e') || costStr.includes('E')) {
+                  const num = parseFloat(costStr);
+                  totalRevenue += BigInt(num.toLocaleString('fullwide', { useGrouping: false, maximumFractionDigits: 0 }));
+                } else {
+                  totalRevenue += BigInt(costStr);
+                }
+              } catch (e) {
+                console.warn('Error parsing cost:', cost);
+              }
+            }
+          });
+        }
+        
+        // Unique buyers
+        const buyersSet = new Set();
+        if (purchases && !purchasesError) {
+          purchases.forEach(purchase => {
+            const buyer = purchase.event_data?.buyer;
+            if (buyer) {
+              buyersSet.add(buyer.toLowerCase());
+            }
+          });
+        }
+        
+        // Items sold (total quantity)
+        let itemsSold = 0;
+        if (purchases && !purchasesError) {
+          purchases.forEach(purchase => {
+            const quantity = purchase.event_data?.quantity;
+            if (quantity) {
+              const qty = parseInt(String(quantity), 10);
+              itemsSold += isNaN(qty) ? 0 : qty;
+            }
+          });
+        }
+        
+        // Update UI
+        document.getElementById('shopTotalPurchases').textContent = totalPurchases.toLocaleString();
+        document.getElementById('shopTotalRevenue').textContent = formatADRIAN(totalRevenue.toString());
+        document.getElementById('shopUniqueBuyers').textContent = buyersSet.size.toLocaleString();
+        document.getElementById('shopItemsSold').textContent = itemsSold.toLocaleString();
+        
+      } catch (error) {
+        console.error('Error loading AdrianShop stats:', error);
       }
     }
 
@@ -2410,11 +2711,12 @@
           txHash = event.data.tx_hash;
         }
       } else if (event.type === 'ERC1155' || event.type === 'TraitsExtensions' || event.type === 'AdrianShop') {
-        // Nuevos tipos de eventos - extraer tokenId si está disponible
+        // Nuevos tipos de eventos - NO mostrar imágenes de AdrianPunks (son NFTs diferentes)
+        // ERC1155 son AdrianLAB, no AdrianPunks
         if (event.data?.token_id) {
-          tokenId = event.data.token_id;
+          // No asignar tokenId para ERC1155 - son NFTs diferentes
         } else if (event.data?.event_data?.tokenId) {
-          tokenId = event.data.event_data.tokenId;
+          // No asignar tokenId para eventos custom de ERC1155
         }
         details = `${event.eventType}`;
         if (event.data?.event_data) {
@@ -2423,8 +2725,11 @@
         txHash = event.data?.tx_hash || '';
       }
       
-      // Crear imagen del NFT si hay tokenId
-      const nftImage = tokenId ? createNFTImage(tokenId) : '';
+      // Crear imagen del NFT SOLO para FloorEngine y AdrianLABCore (ERC721)
+      // NO para ERC1155, TraitsExtensions o AdrianShop (son NFTs diferentes)
+      const nftImage = (tokenId && (event.type === 'FloorEngine' || event.type === 'AdrianLABCore')) 
+        ? createNFTImage(tokenId) 
+        : '';
       
       div.innerHTML = `
         <div class="activity-header">
@@ -2499,7 +2804,10 @@
         await Promise.all([
           loadFloorEngineStats(),
           loadTokenStats(),
-          loadAdrianLABCoreStats()
+          loadAdrianLABCoreStats(),
+          loadERC1155Stats(),
+          loadTraitsExtensionsStats(),
+          loadAdrianShopStats()
         ]);
         
         // Load raw activity when tab is shown
