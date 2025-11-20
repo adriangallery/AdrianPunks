@@ -379,6 +379,9 @@
       <h2 id="tokenBalance" class="mb-2">Balance: Loading...</h2>
         <div class="text-secondary" id="floorEngineBalance">
           <span>FloorEngine: Loading...</span>
+          <span id="syncStatus" class="ms-2 badge bg-secondary" style="display: none;">
+            <i class="bi bi-arrow-repeat"></i> Verificando...
+          </span>
       </div>
     </div>
 
@@ -791,6 +794,58 @@
       }
     }
 
+    // Supabase Data Layer para NFTs
+    async function loadListingsFromSupabase() {
+      if (!supabaseClient) return null;
+      
+      try {
+        // Cargar todos los listings desde Supabase
+        const { data: listings, error } = await supabaseClient
+          .from('punk_listings')
+          .select('token_id, seller, price_wei, is_contract_owned, is_listed, block_number')
+          .eq('is_listed', true)
+          .order('block_number', { ascending: false });
+        
+        if (error) throw error;
+        
+        // Convertir a formato compatible con activeListingsData
+        return {
+          listings: listings.map(l => ({
+            tokenId: l.token_id,
+            seller: l.seller,
+            price: ethers.BigNumber.from(l.price_wei),
+            isContractOwned: l.is_contract_owned
+          })),
+          lastBlock: listings[0]?.block_number || 0
+        };
+      } catch (error) {
+        console.error('Error loading from Supabase:', error);
+        return null;
+      }
+    }
+
+    async function getLatestBlockFromChain() {
+      try {
+        const currentBlock = await readProvider.getBlockNumber();
+        return currentBlock;
+      } catch (error) {
+        console.error('Error getting current block:', error);
+        return null;
+      }
+    }
+
+    async function checkNeedSync(supabaseLastBlock) {
+      const chainBlock = await getLatestBlockFromChain();
+      if (!chainBlock) return true; // Si falla, forzar sync
+      
+      const blockDiff = chainBlock - supabaseLastBlock;
+      const needSync = blockDiff > 10; // Sync si hay más de 10 bloques de diferencia
+      
+      console.log(`📊 Supabase block: ${supabaseLastBlock}, Chain block: ${chainBlock}, Diff: ${blockDiff}, Need sync: ${needSync}`);
+      
+      return needSync;
+    }
+
     // Variables para manejar las rutas de imagen
     let currentImageCollection = 'adrianpunks'; // Por defecto
     // Array para rotar entre las colecciones disponibles en el orden correcto
@@ -1112,6 +1167,35 @@
     let activeListingsData = [];
     let currentSortOrder = 'asc';
     
+    // Función auxiliar para sincronizar con blockchain
+    async function syncListingsFromChain() {
+      try {
+        const listedTokenIds = await retryWithBackoff(() => 
+          floorEngineReadContract.getListedTokenIds()
+        );
+        
+        console.log(`Found ${listedTokenIds.length} listed tokens on FloorEngine`);
+        
+        const listings = [];
+        for (const tokenId of listedTokenIds) {
+          const listing = await retryWithBackoff(() =>
+            floorEngineReadContract.listings(tokenId)
+          );
+          listings.push({
+            tokenId: tokenId.toNumber(),
+            seller: listing.seller,
+            price: listing.price,
+            isContractOwned: listing.isContractOwned
+          });
+        }
+        
+        return listings;
+      } catch (error) {
+        console.error('Error syncing from chain:', error);
+        return null;
+      }
+    }
+
     async function loadActiveListings() {
       try {
         // Verificar caché primero
@@ -1123,29 +1207,52 @@
           return;
         }
         
-        // Get all listed token IDs from FloorEngine
-        const listedTokenIds = await retryWithBackoff(() => 
-          floorEngineReadContract.getListedTokenIds()
-        );
-        console.log(`Found ${listedTokenIds.length} listed tokens on FloorEngine`);
+        // PASO 1: Intentar cargar desde Supabase primero
+        console.log('📦 Cargando listings desde Supabase...');
+        const supabaseData = await loadListingsFromSupabase();
         
-        // For each listed token, get its listing details (versión simple que funciona)
-        activeListingsData = [];
-        for (const tokenId of listedTokenIds) {
-          const listing = await retryWithBackoff(() =>
-            floorEngineReadContract.listings(tokenId)
-          );
-          activeListingsData.push({
-            tokenId: tokenId.toNumber(),
-            seller: listing.seller,
-            price: listing.price,
-            isContractOwned: listing.isContractOwned
-          });
+        if (supabaseData && supabaseData.listings.length > 0) {
+          activeListingsData = supabaseData.listings;
+          console.log(`✅ Cargados ${activeListingsData.length} listings desde Supabase`);
+          
+          // PASO 2: Verificar si necesita sincronización en background
+          const needSync = await checkNeedSync(supabaseData.lastBlock);
+          
+          if (needSync) {
+            console.log('🔄 Sincronizando con blockchain en background...');
+            // Mostrar indicador de verificación
+            const syncStatus = document.getElementById('syncStatus');
+            if (syncStatus) syncStatus.style.display = 'inline';
+            
+            // Sincronizar en background sin bloquear UI
+            syncListingsFromChain().then(chainListings => {
+              if (syncStatus) syncStatus.style.display = 'none';
+              
+              if (chainListings && chainListings.length !== activeListingsData.length) {
+                console.log('🔄 Actualizando con datos frescos del blockchain');
+                activeListingsData = chainListings;
+                contractCache.set(cacheKey, chainListings);
+                // Re-render NFTs con datos actualizados
+                filterAndDisplayNFTs();
+              } else {
+                console.log('✅ Datos de Supabase están sincronizados');
+              }
+            });
+          }
+          
+          // Guardar en caché
+          contractCache.set(cacheKey, activeListingsData);
+          return;
         }
         
-        // Guardar en caché
-        contractCache.set(cacheKey, activeListingsData);
-        console.log("✅ Active listings loaded from FloorEngine:", activeListingsData.length);
+        // PASO 3: Fallback - cargar directamente desde blockchain
+        console.log('⚠️ Supabase no disponible, cargando desde blockchain...');
+        const chainListings = await syncListingsFromChain();
+        if (chainListings) {
+          activeListingsData = chainListings;
+          contractCache.set(cacheKey, chainListings);
+        }
+        
       } catch (error) {
         console.error("Error loading active listings:", error);
         activeListingsData = [];
