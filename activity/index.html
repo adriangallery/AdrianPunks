@@ -168,10 +168,24 @@
       font-size: 0.9rem;
       color: var(--text-color);
       opacity: 0.8;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
 
     .activity-details strong {
       opacity: 1;
+    }
+
+    .nft-thumbnail {
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .nft-thumbnail:hover {
+      transform: scale(1.1);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
 
     .activity-date {
@@ -584,6 +598,9 @@
                   <option value="floorengine">FloorEngine</option>
                   <option value="erc20">$ADRIAN Token</option>
                   <option value="adrianlabcore">AdrianLABCore (AdrianZERO)</option>
+                  <option value="erc1155">AdrianLAB (ERC1155)</option>
+                  <option value="traitsextensions">TraitsExtensions</option>
+                  <option value="adrianshop">AdrianShop</option>
                 </select>
               </div>
               <div class="col-md-3">
@@ -658,11 +675,14 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // Constants
-    const ERC20_ADDRESS = '0x7e99075ce287f1cf8cbcaaa6a1c7894e404fd7ea';
+    // Constants - Updated según instruccions.md
+    const ERC20_ADDRESS = '0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea';
     const BURN_ADDRESS = '0x0000000000000000000000000000000000000000';
     const FLOOR_ENGINE_ADDRESS = '0x0351F7cBA83277E891D4a85Da498A7eACD764D58';
-    const ADRIANLABCORE_ADDRESS = '0x6e369bf0e4e0c106192d606fb6d85836d684da75';
+    const ADRIANLABCORE_ADDRESS = '0x6e369bf0e4e0c106192d606fb6d85836d684da75'; // AdrianZERO
+    const ERC1155_ADDRESS = '0x90546848474fb3c9fda3fdad887969bb244e7e58'; // AdrianLAB
+    const TRAITS_EXTENSIONS_ADDRESS = '0x0995c0dA1ca071b792E852b6Ec531b7cD7d1F8D6';
+    const ADRIAN_SHOP_ADDRESS = '0x4b265927b1521995ce416bba3bed98231d2e946b';
 
     // Supabase configuration
     const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
@@ -2040,6 +2060,147 @@
           }
         }
         
+        // Load ERC1155 events (AdrianLAB)
+        if (rawActivityFilters.contract === 'all' || rawActivityFilters.contract === 'erc1155') {
+          // Single transfers
+          if (rawActivityFilters.eventType === 'all' || rawActivityFilters.eventType === 'TransferSingle') {
+            let query = supabaseClient
+              .from('erc1155_transfers_single')
+              .select('*')
+              .eq('contract_address', ERC1155_ADDRESS)
+              .order('created_at', { ascending: false })
+              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+            
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            if (rawActivityFilters.address) {
+              query = query.or(`from_address.ilike.%${rawActivityFilters.address}%,to_address.ilike.%${rawActivityFilters.address}%`);
+            }
+            
+            const { data: transfers } = await query;
+            if (transfers) {
+              transfers.forEach(event => {
+                allEvents.push({
+                  type: 'ERC1155',
+                  eventType: 'TransferSingle',
+                  data: { ...event, token_id: event.token_id },
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+          
+          // Custom events
+          const customEventTypes = ['AssetMinted', 'AssetBurned', 'PackOpened', 'SerumUsed'];
+          if (rawActivityFilters.eventType === 'all' || customEventTypes.includes(rawActivityFilters.eventType)) {
+            let query = supabaseClient
+              .from('erc1155_custom_events')
+              .select('*')
+              .eq('contract_address', ERC1155_ADDRESS)
+              .order('created_at', { ascending: false })
+              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+            
+            if (rawActivityFilters.eventType !== 'all') {
+              query = query.eq('event_name', rawActivityFilters.eventType);
+            }
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            
+            const { data: customs } = await query;
+            if (customs) {
+              customs.forEach(event => {
+                allEvents.push({
+                  type: 'ERC1155',
+                  eventType: event.event_name,
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+        }
+        
+        // Load TraitsExtensions events
+        if (rawActivityFilters.contract === 'all' || rawActivityFilters.contract === 'traitsextensions') {
+          const customEventTypes = ['TraitApplied', 'AssetAddedToInventory', 'TraitRemoved'];
+          if (rawActivityFilters.eventType === 'all' || customEventTypes.includes(rawActivityFilters.eventType)) {
+            let query = supabaseClient
+              .from('traits_extensions_events')
+              .select('*')
+              .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS)
+              .order('created_at', { ascending: false })
+              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+            
+            if (rawActivityFilters.eventType !== 'all') {
+              query = query.eq('event_name', rawActivityFilters.eventType);
+            }
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            
+            const { data: customs } = await query;
+            if (customs) {
+              customs.forEach(event => {
+                allEvents.push({
+                  type: 'TraitsExtensions',
+                  eventType: event.event_name,
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+        }
+        
+        // Load AdrianShop events
+        if (rawActivityFilters.contract === 'all' || rawActivityFilters.contract === 'adrianshop') {
+          const customEventTypes = ['ItemPurchased', 'BatchPurchase', 'ItemListed', 'ItemDelisted'];
+          if (rawActivityFilters.eventType === 'all' || customEventTypes.includes(rawActivityFilters.eventType)) {
+            let query = supabaseClient
+              .from('shop_events')
+              .select('*')
+              .eq('contract_address', ADRIAN_SHOP_ADDRESS)
+              .order('created_at', { ascending: false })
+              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+            
+            if (rawActivityFilters.eventType !== 'all') {
+              query = query.eq('event_name', rawActivityFilters.eventType);
+            }
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            if (rawActivityFilters.address) {
+              query = query.ilike('event_data->>buyer', `%${rawActivityFilters.address}%`);
+            }
+            
+            const { data: shopEvents } = await query;
+            if (shopEvents) {
+              shopEvents.forEach(event => {
+                allEvents.push({
+                  type: 'AdrianShop',
+                  eventType: event.event_name,
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+        }
+        
         // Sort by timestamp (most recent first)
         allEvents.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
@@ -2075,6 +2236,29 @@
       });
     }
 
+    // Función auxiliar para obtener URL de imagen del NFT
+    function getNFTImageUrl(tokenId) {
+      if (!tokenId || tokenId === 'N/A') return null;
+      // Las imágenes están en market/adrianpunksimages/{tokenId}.png
+      return `../market/adrianpunksimages/${tokenId}.png`;
+    }
+
+    // Función auxiliar para crear elemento de imagen del NFT
+    function createNFTImage(tokenId, size = 48) {
+      const imgUrl = getNFTImageUrl(tokenId);
+      if (!imgUrl) return '';
+      
+      return `
+        <img 
+          src="${imgUrl}" 
+          alt="Punk #${tokenId}" 
+          class="nft-thumbnail me-2"
+          style="width: ${size}px; height: ${size}px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color);"
+          onerror="this.style.display='none'"
+        />
+      `;
+    }
+
     function createRawActivityItem(event) {
       const div = document.createElement('div');
       div.className = 'activity-item';
@@ -2090,6 +2274,15 @@
       } else if (event.type === 'AdrianLABCore') {
         badgeColor = 'bg-purple';
         badgeText = 'AdrianZERO';
+      } else if (event.type === 'ERC1155') {
+        badgeColor = 'bg-info';
+        badgeText = 'AdrianLAB';
+      } else if (event.type === 'TraitsExtensions') {
+        badgeColor = 'bg-warning';
+        badgeText = 'Traits';
+      } else if (event.type === 'AdrianShop') {
+        badgeColor = 'bg-danger';
+        badgeText = 'Shop';
       }
       
       const date = new Date(event.timestamp);
@@ -2103,22 +2296,26 @@
       
       let details = '';
       let txHash = '';
+      let tokenId = null; // Para mostrar imagen del NFT
       
       if (event.type === 'FloorEngine') {
         if (event.eventType === 'Listed' || event.eventType === 'Cancelled') {
-          details = `Token #${event.data.token_id} - ${event.eventType} by ${shortAddress(event.data.seller)}`;
+          tokenId = event.data.token_id;
+          details = `Token #${tokenId} - ${event.eventType} by ${shortAddress(event.data.seller)}`;
           if (event.data.price_wei) {
             details += ` - Price: ${formatADRIAN(event.data.price_wei)} $ADRIAN`;
           }
           txHash = event.data.tx_hash;
         } else if (event.eventType === 'Bought') {
-          details = `Token #${event.data.token_id} - Bought by ${shortAddress(event.data.buyer)} from ${shortAddress(event.data.seller)}`;
+          tokenId = event.data.token_id;
+          details = `Token #${tokenId} - Bought by ${shortAddress(event.data.buyer)} from ${shortAddress(event.data.seller)}`;
           if (event.data.price_wei) {
             details += ` - Price: ${formatADRIAN(event.data.price_wei)} $ADRIAN`;
           }
           txHash = event.data.tx_hash;
         } else if (event.eventType === 'FloorSweep') {
-          details = `Token #${event.data.token_id} - Sweep by ${shortAddress(event.data.caller)}`;
+          tokenId = event.data.token_id;
+          details = `Token #${tokenId} - Sweep by ${shortAddress(event.data.caller)}`;
           if (event.data.buy_price_wei) {
             details += ` - Buy: ${formatADRIAN(event.data.buy_price_wei)} $ADRIAN`;
           }
@@ -2161,25 +2358,27 @@
         }
       } else if (event.type === 'AdrianLABCore') {
         if (event.eventType === 'Transfer') {
-          details = `Token #${event.data.token_id} - Transfer from ${shortAddress(event.data.from_address)} to ${shortAddress(event.data.to_address)}`;
+          tokenId = event.data.token_id;
+          details = `Token #${tokenId} - Transfer from ${shortAddress(event.data.from_address)} to ${shortAddress(event.data.to_address)}`;
           txHash = event.data.tx_hash;
         } else if (event.eventType === 'Approval') {
-          details = `Token #${event.data.token_id} - Approval by ${shortAddress(event.data.owner)} to ${shortAddress(event.data.approved)}`;
+          tokenId = event.data.token_id;
+          details = `Token #${tokenId} - Approval by ${shortAddress(event.data.owner)} to ${shortAddress(event.data.approved)}`;
           txHash = event.data.tx_hash;
         } else if (event.eventType === 'TokenMinted') {
-          const tokenId = event.data.event_data?.tokenId || 'N/A';
+          tokenId = event.data.event_data?.tokenId || null;
           const to = event.data.event_data?.to || 'N/A';
-          details = `Token #${tokenId} - Minted to ${shortAddress(to)}`;
+          details = `Token #${tokenId || 'N/A'} - Minted to ${shortAddress(to)}`;
           txHash = event.data.tx_hash;
         } else if (event.eventType === 'TokenBurnt') {
-          const tokenId = event.data.event_data?.tokenId || 'N/A';
+          tokenId = event.data.event_data?.tokenId || null;
           const burner = event.data.event_data?.burner || 'N/A';
-          details = `Token #${tokenId} - Burnt by ${shortAddress(burner)}`;
+          details = `Token #${tokenId || 'N/A'} - Burnt by ${shortAddress(burner)}`;
           txHash = event.data.tx_hash;
         } else if (event.eventType === 'SkinAssigned') {
-          const tokenId = event.data.event_data?.tokenId || 'N/A';
+          tokenId = event.data.event_data?.tokenId || null;
           const skinName = event.data.event_data?.name || 'Unknown';
-          details = `Token #${tokenId} - Skin "${skinName}" assigned`;
+          details = `Token #${tokenId || 'N/A'} - Skin "${skinName}" assigned`;
           txHash = event.data.tx_hash;
         } else if (event.eventType === 'SkinCreated') {
           const skinId = event.data.event_data?.skinId || 'N/A';
@@ -2188,20 +2387,20 @@
           details = `Skin #${skinId} "${skinName}" created - Rarity: ${rarity}`;
           txHash = event.data.tx_hash;
         } else if (event.eventType === 'MutationNameAssigned') {
-          const tokenId = event.data.event_data?.tokenId || 'N/A';
+          tokenId = event.data.event_data?.tokenId || null;
           const mutation = event.data.event_data?.newMutation || 'Unknown';
-          details = `Token #${tokenId} - Mutation "${mutation}" assigned`;
+          details = `Token #${tokenId || 'N/A'} - Mutation "${mutation}" assigned`;
           txHash = event.data.tx_hash;
         } else if (event.eventType === 'SerumApplied') {
-          const tokenId = event.data.event_data?.tokenId || 'N/A';
+          tokenId = event.data.event_data?.tokenId || null;
           const serumId = event.data.event_data?.serumId || 'N/A';
-          details = `Token #${tokenId} - Serum #${serumId} applied`;
+          details = `Token #${tokenId || 'N/A'} - Serum #${serumId} applied`;
           txHash = event.data.tx_hash;
         } else if (event.eventType === 'SpecialSkinApplied') {
-          const tokenId = event.data.event_data?.tokenId || 'N/A';
+          tokenId = event.data.event_data?.tokenId || null;
           const skinId = event.data.event_data?.skinId || 'N/A';
           const mutation = event.data.event_data?.mutation || 'Unknown';
-          details = `Token #${tokenId} - Special skin #${skinId} applied (${mutation})`;
+          details = `Token #${tokenId || 'N/A'} - Special skin #${skinId} applied (${mutation})`;
           txHash = event.data.tx_hash;
         } else {
           details = `${event.eventType}`;
@@ -2210,7 +2409,22 @@
           }
           txHash = event.data.tx_hash;
         }
+      } else if (event.type === 'ERC1155' || event.type === 'TraitsExtensions' || event.type === 'AdrianShop') {
+        // Nuevos tipos de eventos - extraer tokenId si está disponible
+        if (event.data?.token_id) {
+          tokenId = event.data.token_id;
+        } else if (event.data?.event_data?.tokenId) {
+          tokenId = event.data.event_data.tokenId;
+        }
+        details = `${event.eventType}`;
+        if (event.data?.event_data) {
+          details += ` - ${JSON.stringify(event.data.event_data)}`;
+        }
+        txHash = event.data?.tx_hash || '';
       }
+      
+      // Crear imagen del NFT si hay tokenId
+      const nftImage = tokenId ? createNFTImage(tokenId) : '';
       
       div.innerHTML = `
         <div class="activity-header">
@@ -2220,7 +2434,10 @@
           </div>
           <div class="activity-date">${dateStr}</div>
         </div>
-        <div class="activity-details">${details}</div>
+        <div class="activity-details d-flex align-items-center">
+          ${nftImage}
+          <span>${details}</span>
+        </div>
         ${txHash ? `<div class="mt-2"><a href="https://basescan.org/tx/${txHash}" target="_blank" class="activity-link">View on Basescan <i class="bi bi-box-arrow-up-right"></i></a></div>` : ''}
       `;
       
