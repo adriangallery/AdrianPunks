@@ -794,6 +794,31 @@
       }
     }
 
+    // Función auxiliar para convertir notación científica a string decimal completo
+    function convertToDecimalString(value) {
+      if (typeof value === 'string') {
+        // Si ya es string, verificar si tiene notación científica
+        if (value.includes('e+') || value.includes('e-') || value.includes('E+') || value.includes('E-')) {
+          // Convertir notación científica a decimal
+          const num = parseFloat(value);
+          // Usar toFixed con suficientes decimales y luego quitar trailing zeros
+          return num.toFixed(0);
+        }
+        return value;
+      }
+      
+      // Si es número, convertir a string sin notación científica
+      if (typeof value === 'number') {
+        // Para números grandes, usar toFixed para evitar notación científica
+        if (value >= 1e15 || value <= -1e15) {
+          return value.toFixed(0);
+        }
+        return String(value);
+      }
+      
+      return String(value);
+    }
+
     // Supabase Data Layer para NFTs
     async function loadListingsFromSupabase() {
       if (!supabaseClient) return null;
@@ -811,10 +836,8 @@
         // Convertir a formato compatible con activeListingsData
         return {
           listings: listings.map(l => {
-            // Convertir price_wei a string para evitar overflow con notación científica
-            const priceWeiStr = typeof l.price_wei === 'string' 
-              ? l.price_wei 
-              : String(l.price_wei);
+            // Convertir price_wei a string decimal completo (sin notación científica)
+            const priceWeiStr = convertToDecimalString(l.price_wei);
             
             return {
               tokenId: l.token_id,
