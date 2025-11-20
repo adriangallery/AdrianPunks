@@ -1371,14 +1371,37 @@
             syncListingsFromChain().then(chainListings => {
               if (syncStatus) syncStatus.style.display = 'none';
               
-              if (chainListings && chainListings.length !== activeListingsData.length) {
-                console.log('🔄 Actualizando con datos frescos del blockchain');
-                activeListingsData = chainListings;
-                contractCache.set(cacheKey, chainListings);
-                // Re-render NFTs con datos actualizados
-                filterAndDisplayNFTs();
-              } else {
-                console.log('✅ Datos de Supabase están sincronizados');
+              if (chainListings) {
+                // Verificar si hay cambios (no solo en cantidad, sino también en contenido)
+                const hasChanges = chainListings.length !== activeListingsData.length ||
+                  chainListings.some((listing, idx) => {
+                    const existing = activeListingsData[idx];
+                    return !existing || 
+                      existing.tokenId !== listing.tokenId ||
+                      !existing.price.eq(listing.price) ||
+                      existing.seller !== listing.seller;
+                  });
+                
+                if (hasChanges) {
+                  console.log('🔄 Actualizando con datos frescos del blockchain');
+                  activeListingsData = chainListings;
+                  contractCache.set(cacheKey, chainListings);
+                  
+                  // Preservar estado del sort si estaba activo
+                  const sortButton = document.querySelector('button[onclick="sortByFloorPrice()"]');
+                  const wasSorted = sortButton && sortButton.classList.contains('btn-primary');
+                  
+                  // Re-render NFTs con datos actualizados
+                  if (wasSorted) {
+                    // Re-aplicar sort por floor price
+                    sortByFloorPrice();
+                  } else {
+                    // Solo re-render sin cambiar el sort
+                    filterAndDisplayNFTs();
+                  }
+                } else {
+                  console.log('✅ Datos de Supabase están sincronizados');
+                }
               }
             });
           }
