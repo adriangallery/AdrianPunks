@@ -1144,7 +1144,7 @@
         }
       } else {
         console.error("Ethereum provider not found.");
-        // Update FloorEngine balance even if user not connected
+      // Update FloorEngine balance even if user not connected
         updateFloorEngineBalance();
       }
     }
@@ -1327,10 +1327,26 @@
                   const sortButton = document.querySelector('button[onclick="sortByFloorPrice()"]');
                   const wasSorted = sortButton && sortButton.classList.contains('btn-primary');
                   
+                  // Leer el orden actual desde el botón HTML en lugar de la variable
+                  let currentOrder = 'asc'; // default
+                  if (wasSorted) {
+                    // Leer el orden desde el contenido del botón (↑ = asc, ↓ = desc)
+                    const buttonText = sortButton.innerHTML;
+                    if (buttonText.includes('↓')) {
+                      currentOrder = 'desc';
+                    } else if (buttonText.includes('↑')) {
+                      currentOrder = 'asc';
+                    }
+                    console.log(`🔍 Sort detectado: botón activo, orden leído desde HTML: ${currentOrder} (${currentOrder === 'asc' ? '↑' : '↓'})`);
+                  } else {
+                    console.log('🔍 Sort detectado: botón inactivo, usando orden por defecto: asc (↑)');
+                  }
+                  
                   // Re-render NFTs con datos actualizados
                   if (wasSorted) {
                     // Re-aplicar sort por floor price manteniendo el orden actual (sin toggle)
-                    applySortByFloorPrice(currentSortOrder);
+                    console.log(`🔄 Preservando sort: ${currentOrder === 'asc' ? 'ascendente (↑)' : 'descendente (↓)'}`);
+                    applySortByFloorPrice(currentOrder);
                   } else {
                     // Aplicar sort por defecto (ascendente) como en la carga inicial
                     applySortByFloorPrice('asc');
@@ -1921,10 +1937,10 @@
           for (let i = 0; i < listingResults.length; i++) {
             if (listingResults[i].success) {
               const listing = iface.decodeFunctionResult('listings', listingResults[i].returnData);
-              if (!listing.isContractOwned) {
-                const price = listing.price;
-                if (!cheapestPrice || price.lt(cheapestPrice)) {
-                  cheapestPrice = price;
+          if (!listing.isContractOwned) {
+            const price = listing.price;
+            if (!cheapestPrice || price.lt(cheapestPrice)) {
+              cheapestPrice = price;
                   cheapestTokenId = listedTokenIds[i].toNumber();
                 }
               }
@@ -1953,50 +1969,50 @@
     
     function updateSweepFloorUI(sweepData) {
       const { contractBalance, balanceFormatted, cheapestPrice, cheapestTokenId, premiumBps, callerRewardBps, callerRewardIsPercentage, callerRewardFixed } = sweepData;
-      const infoDiv = document.getElementById('sweepFloorInfo');
-      if (!infoDiv) return;
-      
-      if (!cheapestPrice) {
-        infoDiv.innerHTML = '<p class="text-muted mb-0">No external listings available for sweeping</p>';
+        const infoDiv = document.getElementById('sweepFloorInfo');
+        if (!infoDiv) return;
+        
+        if (!cheapestPrice) {
+          infoDiv.innerHTML = '<p class="text-muted mb-0">No external listings available for sweeping</p>';
         const sweepBtn = document.getElementById('sweepFloorBtn');
         if (sweepBtn) sweepBtn.disabled = true;
         return;
       }
-      
-      const cheapestFormatted = parseFloat(ethers.utils.formatUnits(cheapestPrice, 18)).toFixed(2);
-      
-      // Calculate estimated reward
-      let rewardFormatted = "0";
-      if (callerRewardIsPercentage) {
-        const rewardEstimate = cheapestPrice.mul(callerRewardBps).div(10000);
-        rewardFormatted = parseFloat(ethers.utils.formatUnits(rewardEstimate, 18)).toFixed(2);
-      } else {
-        rewardFormatted = parseFloat(ethers.utils.formatUnits(callerRewardFixed, 18)).toFixed(2);
-      }
-      
-      const premiumBpsNumber = typeof premiumBps.toNumber === 'function' ? premiumBps.toNumber() : Number(premiumBps);
-      const relistPrice = cheapestPrice.mul(10000 + premiumBpsNumber).div(10000);
-      const relistFormatted = parseFloat(ethers.utils.formatUnits(relistPrice, 18)).toFixed(2);
-      
-      // Check if contract has enough balance
-      const canExecute = contractBalance.gte(cheapestPrice);
-      
-      infoDiv.innerHTML = `
-        <div class="mb-2">
-          <strong>Cheapest Listing:</strong> Token #${cheapestTokenId} - ${cheapestFormatted} $ADRIAN
-        </div>
-        <div class="mb-2">
-          <strong>Contract Balance:</strong> ${balanceFormatted} $ADRIAN
-        </div>
-        <div class="mb-2">
-          <strong>Your Reward:</strong> ~${rewardFormatted} $ADRIAN
-        </div>
-        <div class="mb-2">
-          <strong>Relist Price:</strong> ${relistFormatted} $ADRIAN
-        </div>
-        ${!canExecute ? '<div class="alert alert-warning mb-0 p-2">Insufficient contract balance</div>' : ''}
-      `;
-      
+        
+        const cheapestFormatted = parseFloat(ethers.utils.formatUnits(cheapestPrice, 18)).toFixed(2);
+        
+        // Calculate estimated reward
+        let rewardFormatted = "0";
+        if (callerRewardIsPercentage) {
+          const rewardEstimate = cheapestPrice.mul(callerRewardBps).div(10000);
+          rewardFormatted = parseFloat(ethers.utils.formatUnits(rewardEstimate, 18)).toFixed(2);
+        } else {
+          rewardFormatted = parseFloat(ethers.utils.formatUnits(callerRewardFixed, 18)).toFixed(2);
+        }
+        
+        const premiumBpsNumber = typeof premiumBps.toNumber === 'function' ? premiumBps.toNumber() : Number(premiumBps);
+        const relistPrice = cheapestPrice.mul(10000 + premiumBpsNumber).div(10000);
+        const relistFormatted = parseFloat(ethers.utils.formatUnits(relistPrice, 18)).toFixed(2);
+        
+        // Check if contract has enough balance
+        const canExecute = contractBalance.gte(cheapestPrice);
+        
+        infoDiv.innerHTML = `
+          <div class="mb-2">
+            <strong>Cheapest Listing:</strong> Token #${cheapestTokenId} - ${cheapestFormatted} $ADRIAN
+                </div>
+          <div class="mb-2">
+            <strong>Contract Balance:</strong> ${balanceFormatted} $ADRIAN
+              </div>
+          <div class="mb-2">
+            <strong>Your Reward:</strong> ~${rewardFormatted} $ADRIAN
+          </div>
+          <div class="mb-2">
+            <strong>Relist Price:</strong> ${relistFormatted} $ADRIAN
+          </div>
+          ${!canExecute ? '<div class="alert alert-warning mb-0 p-2">Insufficient contract balance</div>' : ''}
+        `;
+        
       const sweepBtn = document.getElementById('sweepFloorBtn');
       if (sweepBtn) sweepBtn.disabled = !canExecute;
     }
@@ -2204,12 +2220,16 @@
     
     // Función auxiliar para aplicar sort sin hacer toggle (preserva el orden)
     function applySortByFloorPrice(order) {
+      console.log(`🔧 applySortByFloorPrice llamado con orden: ${order}`);
       const button = document.querySelector('button[onclick="sortByFloorPrice()"]');
+      const oldOrder = currentSortOrder;
       currentSortOrder = order; // Establecer orden sin toggle
+      console.log(`🔧 currentSortOrder cambió de ${oldOrder} a ${currentSortOrder}`);
       button.classList.remove('btn-outline-primary');
       button.classList.add('btn-primary');
       const arrowDirection = currentSortOrder === 'asc' ? '↑' : '↓';
       button.innerHTML = `<span class="d-none d-md-inline">Sort by FP</span><span class="d-md-none">Sort FP</span> ${arrowDirection}`;
+      console.log(`🔧 Botón actualizado con flecha: ${arrowDirection}`);
       const priceMap = new Map();
       activeListingsData.forEach(listing => {
         const currentPrice = priceMap.get(listing.tokenId.toString());
@@ -2225,6 +2245,7 @@
         const priceB = priceMap.get(tokenIdB) || Number.MAX_VALUE;
         return currentSortOrder === 'asc' ? priceA - priceB : priceB - priceA;
       });
+      console.log(`🔧 NFTs ordenados: ${sortedNFTs.length} items con orden ${currentSortOrder}`);
       displayNFTs(sortedNFTs);
     }
 
