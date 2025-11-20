@@ -194,6 +194,21 @@
       opacity: 0.6;
     }
 
+    .address-container {
+      display: inline-block;
+    }
+
+    .address-short,
+    .address-full {
+      font-family: monospace;
+      font-size: 0.9em;
+    }
+
+    .address-short:hover,
+    .address-full:hover {
+      opacity: 0.8;
+    }
+
     .activity-link {
       color: #007bff;
       text-decoration: none;
@@ -2537,14 +2552,21 @@
       });
     }
 
-    // Función auxiliar para obtener URL de imagen del NFT
+    // Función auxiliar para obtener URL de imagen del NFT (AdrianPunks)
     function getNFTImageUrl(tokenId) {
       if (!tokenId || tokenId === 'N/A') return null;
       // Las imágenes están en market/adrianpunksimages/{tokenId}.png
       return `../market/adrianpunksimages/${tokenId}.png`;
     }
 
-    // Función auxiliar para crear elemento de imagen del NFT
+    // Función auxiliar para obtener URL de imagen de AdrianLAB (ERC1155)
+    function getAdrianLABImageUrl(tokenId) {
+      if (!tokenId || tokenId === 'N/A') return null;
+      // Las imágenes están en https://adrianzero.com/traitlab/assets/traits/{tokenId}.svg
+      return `https://adrianzero.com/traitlab/assets/traits/${tokenId}.svg`;
+    }
+
+    // Función auxiliar para crear elemento de imagen del NFT (AdrianPunks)
     function createNFTImage(tokenId, size = 48) {
       const imgUrl = getNFTImageUrl(tokenId);
       if (!imgUrl) return '';
@@ -2557,6 +2579,37 @@
           style="width: ${size}px; height: ${size}px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color);"
           onerror="this.style.display='none'"
         />
+      `;
+    }
+
+    // Función auxiliar para crear elemento de imagen de AdrianLAB (ERC1155)
+    function createAdrianLABImage(tokenId, size = 48) {
+      const imgUrl = getAdrianLABImageUrl(tokenId);
+      if (!imgUrl) return '';
+      
+      return `
+        <img 
+          src="${imgUrl}" 
+          alt="AdrianLAB #${tokenId}" 
+          class="nft-thumbnail me-2"
+          style="width: ${size}px; height: ${size}px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg);"
+          onerror="this.style.display='none'"
+        />
+      `;
+    }
+
+    // Función auxiliar para crear dirección colapsable
+    function createCollapsibleAddress(address, label = '') {
+      if (!address) return '';
+      const shortAddr = shortAddress(address);
+      const addressId = `addr-${Math.random().toString(36).substr(2, 9)}`;
+      
+      return `
+        <span class="address-container">
+          ${label ? `<strong>${label}:</strong> ` : ''}
+          <span class="address-short" id="${addressId}-short" onclick="this.style.display='none'; document.getElementById('${addressId}-full').style.display='inline';" style="cursor: pointer; text-decoration: underline;">${shortAddr}</span>
+          <span class="address-full" id="${addressId}-full" onclick="this.style.display='none'; document.getElementById('${addressId}-short').style.display='inline';" style="display: none; cursor: pointer; text-decoration: underline; word-break: break-all;">${address}</span>
+        </span>
       `;
     }
 
@@ -2710,26 +2763,91 @@
           }
           txHash = event.data.tx_hash;
         }
-      } else if (event.type === 'ERC1155' || event.type === 'TraitsExtensions' || event.type === 'AdrianShop') {
-        // Nuevos tipos de eventos - NO mostrar imágenes de AdrianPunks (son NFTs diferentes)
-        // ERC1155 son AdrianLAB, no AdrianPunks
-        if (event.data?.token_id) {
-          // No asignar tokenId para ERC1155 - son NFTs diferentes
-        } else if (event.data?.event_data?.tokenId) {
-          // No asignar tokenId para eventos custom de ERC1155
+      } else if (event.type === 'ERC1155') {
+        // ERC1155 (AdrianLAB) - usar token_id para mostrar imagen de AdrianLAB
+        if (event.eventType === 'TransferSingle') {
+          tokenId = event.data?.token_id || null;
+          const from = event.data?.from_address || 'N/A';
+          const to = event.data?.to_address || 'N/A';
+          const value = event.data?.value || '0';
+          
+          // Si hay múltiples tokens, solo mostrar el primero (token_id ya es el primero)
+          details = `Token #${tokenId || 'N/A'} - Transfer from ${createCollapsibleAddress(from)} to ${createCollapsibleAddress(to)}`;
+          if (value && value !== '0') {
+            details += ` - Amount: ${value}`;
+          }
+          txHash = event.data?.tx_hash || '';
+        } else {
+          // Eventos custom de ERC1155
+          tokenId = event.data?.event_data?.tokenId || event.data?.event_data?.assetId || null;
+          // Si hay múltiples tokens en event_data, solo tomar el primero
+          if (Array.isArray(tokenId)) {
+            tokenId = tokenId[0];
+          }
+          
+          details = `${event.eventType}`;
+          if (event.data?.event_data) {
+            const eventData = event.data.event_data;
+            // Formatear direcciones si existen
+            if (eventData.from) {
+              details += ` - From: ${createCollapsibleAddress(eventData.from)}`;
+            }
+            if (eventData.to) {
+              details += ` - To: ${createCollapsibleAddress(eventData.to)}`;
+            }
+            if (eventData.buyer) {
+              details += ` - Buyer: ${createCollapsibleAddress(eventData.buyer)}`;
+            }
+            if (eventData.seller) {
+              details += ` - Seller: ${createCollapsibleAddress(eventData.seller)}`;
+            }
+            // Agregar otros campos sin direcciones
+            if (eventData.amount && !eventData.from && !eventData.to) {
+              details += ` - Amount: ${eventData.amount}`;
+            }
+            if (eventData.assetType) {
+              details += ` - Type: ${eventData.assetType}`;
+            }
+          }
+          txHash = event.data?.tx_hash || '';
         }
+      } else if (event.type === 'TraitsExtensions' || event.type === 'AdrianShop') {
+        // TraitsExtensions y AdrianShop - sin imágenes
         details = `${event.eventType}`;
         if (event.data?.event_data) {
-          details += ` - ${JSON.stringify(event.data.event_data)}`;
+          const eventData = event.data.event_data;
+          // Formatear direcciones si existen
+          if (eventData.buyer) {
+            details += ` - Buyer: ${createCollapsibleAddress(eventData.buyer)}`;
+          }
+          if (eventData.seller) {
+            details += ` - Seller: ${createCollapsibleAddress(eventData.seller)}`;
+          }
+          if (eventData.from) {
+            details += ` - From: ${createCollapsibleAddress(eventData.from)}`;
+          }
+          if (eventData.to) {
+            details += ` - To: ${createCollapsibleAddress(eventData.to)}`;
+          }
+          // Otros campos
+          if (eventData.amount) {
+            details += ` - Amount: ${eventData.amount}`;
+          }
+          if (eventData.totalCost) {
+            details += ` - Cost: ${formatADRIAN(eventData.totalCost)} $ADRIAN`;
+          }
         }
         txHash = event.data?.tx_hash || '';
       }
       
-      // Crear imagen del NFT SOLO para FloorEngine y AdrianLABCore (ERC721)
-      // NO para ERC1155, TraitsExtensions o AdrianShop (son NFTs diferentes)
-      const nftImage = (tokenId && (event.type === 'FloorEngine' || event.type === 'AdrianLABCore')) 
-        ? createNFTImage(tokenId) 
-        : '';
+      // Crear imagen del NFT para FloorEngine y AdrianLABCore (ERC721 - AdrianPunks)
+      let nftImage = '';
+      if (tokenId && (event.type === 'FloorEngine' || event.type === 'AdrianLABCore')) {
+        nftImage = createNFTImage(tokenId);
+      } else if (tokenId && event.type === 'ERC1155') {
+        // Imagen de AdrianLAB para ERC1155
+        nftImage = createAdrianLABImage(tokenId);
+      }
       
       div.innerHTML = `
         <div class="activity-header">
