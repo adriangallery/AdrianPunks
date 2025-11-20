@@ -1114,6 +1114,20 @@
     
     async function loadActiveListings() {
       try {
+        // OPTIMIZACIÓN: Asegurar que los contratos de lectura estén inicializados
+        if (!readProvider || !multicallReadContract) {
+          console.log('⚠️ Inicializando contratos de lectura para listings...');
+          const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
+          readProvider = new ethers.providers.JsonRpcProvider(rpcUrl, {
+            name: "base",
+            chainId: 8453
+          });
+          nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+          floorEngineReadContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
+          tokenReadContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
+          multicallReadContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+        }
+        
         // Verificar caché primero
         const cacheKey = 'activeListings';
         const cached = contractCache.get(cacheKey);
