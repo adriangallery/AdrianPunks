@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verificar Configuración de Alchemy</title>
+  <style>
+    body {
+      font-family: 'Courier New', monospace;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #1a1a1a;
+      color: #00ff00;
+    }
+    .result {
+      background: #000;
+      border: 2px solid #00ff00;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+    }
+    .success { color: #00ff00; }
+    .error { color: #ff0000; }
+    .warning { color: #ffaa00; }
+    .info { color: #00aaff; }
+    button {
+      background: #00ff00;
+      color: #000;
+      border: none;
+      padding: 15px 30px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 5px;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #00cc00;
+    }
+    pre {
+      background: #0a0a0a;
+      padding: 10px;
+      border-left: 3px solid #00ff00;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 Verificar Configuración de Alchemy</h1>
+  
+  <div class="result">
+    <h2>Configuración Actual:</h2>
+    <div id="currentConfig"></div>
+  </div>
+
+  <button onclick="verificarConexion()">🔗 Verificar Conexión</button>
+  <button onclick="verificarRateLimits()">⚡ Probar Rate Limits</button>
+  <button onclick="abrirDashboard()">📊 Abrir Dashboard Alchemy</button>
+
+  <div class="result" id="resultados" style="display:none;">
+    <h2>Resultados:</h2>
+    <div id="output"></div>
+  </div>
+
+  <div class="result">
+    <h2>📋 Verificación Manual:</h2>
+    <ol>
+      <li class="info">Ve a: <a href="https://dashboard.alchemy.com" target="_blank" style="color: #00aaff;">https://dashboard.alchemy.com</a></li>
+      <li class="info">Busca tu app en Base Mainnet</li>
+      <li class="info">Verifica:
+        <ul>
+          <li>Plan actual (Free / Growth / Scale / Enterprise)</li>
+          <li>Límites de requests por segundo</li>
+          <li>Compute Units disponibles</li>
+          <li>Restricciones de dominio/IP</li>
+        </ul>
+      </li>
+      <li class="warning">Si sigues en FREE tier:
+        <ul>
+          <li>Límite: ~25-100 requests/seg (varía)</li>
+          <li>Compute Units: 300M/mes</li>
+        </ul>
+      </li>
+      <li class="success">Si estás en GROWTH tier:
+        <ul>
+          <li>Límite: ~330 requests/seg</li>
+          <li>Compute Units: 3B/mes</li>
+        </ul>
+      </li>
+    </ol>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="./supabase-config.js"></script>
+  <script>
+    const ALCHEMY_API_KEY = window.ALCHEMY_API_KEY || 'NO_KEY_FOUND';
+    const ALCHEMY_RPC_URL = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+    const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
+
+    // Mostrar configuración actual
+    document.getElementById('currentConfig').innerHTML = `
+      <pre>
+<span class="info">API Key:</span> ${ALCHEMY_API_KEY.substring(0, 8)}...${ALCHEMY_API_KEY.substring(ALCHEMY_API_KEY.length - 4)}
+<span class="info">Endpoint:</span> ${ALCHEMY_RPC_URL}
+<span class="info">Network:</span> Base Mainnet (Chain ID: 8453)
+      </pre>
+    `;
+
+    async function verificarConexion() {
+      const output = document.getElementById('output');
+      const resultados = document.getElementById('resultados');
+      resultados.style.display = 'block';
+      output.innerHTML = '<p class="info">🔄 Verificando conexión...</p>';
+
+      try {
+        // Crear provider con Alchemy
+        const provider = new ethers.providers.JsonRpcProvider(ALCHEMY_RPC_URL, {
+          name: "base",
+          chainId: 8453
+        });
+
+        // Test 1: Obtener número de bloque
+        const startTime = Date.now();
+        const blockNumber = await provider.getBlockNumber();
+        const latency = Date.now() - startTime;
+
+        // Test 2: Obtener info de red
+        const network = await provider.getNetwork();
+
+        // Test 3: Obtener balance de una address conocida
+        const testAddress = "0x0351F7cBA83277E891D4a85Da498A7eACD764D58"; // FloorEngine
+        const balance = await provider.getBalance(testAddress);
+
+        output.innerHTML = `
+          <p class="success">✅ Conexión exitosa con Alchemy!</p>
+          <pre>
+<span class="success">Block Number:</span> ${blockNumber}
+<span class="success">Network:</span> ${network.name} (Chain ID: ${network.chainId})
+<span class="success">Latencia:</span> ${latency}ms
+<span class="success">Test Balance:</span> ${ethers.utils.formatEther(balance)} ETH
+          </pre>
+          <p class="info">💡 La API key está funcionando correctamente</p>
+        `;
+      } catch (error) {
+        output.innerHTML = `
+          <p class="error">❌ Error de conexión:</p>
+          <pre>${error.message}</pre>
+          <p class="warning">⚠️ Posibles causas:</p>
+          <ul>
+            <li>API key inválida o expirada</li>
+            <li>API key restringida por dominio</li>
+            <li>Problemas de red</li>
+            <li>Endpoint incorrecto</li>
+          </ul>
+        `;
+      }
+    }
+
+    async function verificarRateLimits() {
+      const output = document.getElementById('output');
+      const resultados = document.getElementById('resultados');
+      resultados.style.display = 'block';
+      output.innerHTML = '<p class="info">🔄 Probando límites de rate...</p>';
+
+      try {
+        const provider = new ethers.providers.JsonRpcProvider(ALCHEMY_RPC_URL, {
+          name: "base",
+          chainId: 8453
+        });
+
+        // Hacer 50 requests simultáneos para probar límites
+        const startTime = Date.now();
+        const requests = [];
+        for (let i = 0; i < 50; i++) {
+          requests.push(provider.getBlockNumber());
+        }
+
+        let successCount = 0;
+        let errorCount = 0;
+        let error429Count = 0;
+
+        const results = await Promise.allSettled(requests);
+        results.forEach(result => {
+          if (result.status === 'fulfilled') {
+            successCount++;
+          } else {
+            errorCount++;
+            if (result.reason && (result.reason.status === 429 || result.reason.message.includes('429'))) {
+              error429Count++;
+            }
+          }
+        });
+
+        const totalTime = Date.now() - startTime;
+
+        let statusClass = 'success';
+        let statusMessage = '✅ Rate limits parecen adecuados';
+        if (error429Count > 0) {
+          statusClass = 'error';
+          statusMessage = '❌ Límites alcanzados - posiblemente FREE tier';
+        } else if (errorCount > 0) {
+          statusClass = 'warning';
+          statusMessage = '⚠️ Algunos errores detectados';
+        }
+
+        output.innerHTML = `
+          <p class="${statusClass}">${statusMessage}</p>
+          <pre>
+<span class="info">Requests enviados:</span> 50
+<span class="success">Exitosos:</span> ${successCount}
+<span class="error">Fallidos:</span> ${errorCount}
+<span class="error">Errores 429:</span> ${error429Count}
+<span class="info">Tiempo total:</span> ${totalTime}ms
+<span class="info">Promedio:</span> ${(totalTime / 50).toFixed(2)}ms por request
+          </pre>
+          ${error429Count > 0 ? `
+            <p class="warning">⚠️ IMPORTANTE: Detectamos errores 429</p>
+            <ul>
+              <li>Verifica tu plan en Alchemy Dashboard</li>
+              <li>Asegúrate de estar en Growth tier o superior</li>
+              <li>Las optimizaciones ayudan, pero necesitas más CU</li>
+            </ul>
+          ` : `
+            <p class="success">✅ Tu configuración puede manejar bursts de requests</p>
+          `}
+        `;
+      } catch (error) {
+        output.innerHTML = `
+          <p class="error">❌ Error durante prueba:</p>
+          <pre>${error.message}</pre>
+        `;
+      }
+    }
+
+    function abrirDashboard() {
+      window.open('https://dashboard.alchemy.com', '_blank');
+    }
+
+    // Verificación automática al cargar
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(verificarConexion, 500);
+    });
+  </script>
+</body>
+</html>
+
