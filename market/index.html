@@ -819,34 +819,112 @@
       return String(value);
     }
 
-    // Supabase Data Layer para NFTs
+    // Supabase Data Layer para NFTs - Reconstruir estado desde historial
     async function loadListingsFromSupabase() {
       if (!supabaseClient) return null;
       
       try {
-        // Cargar todos los listings desde Supabase
-        const { data: listings, error } = await supabaseClient
-          .from('punk_listings')
-          .select('token_id, seller, price_wei, is_contract_owned, is_listed, last_block_number')
-          .eq('is_listed', true)
-          .order('last_block_number', { ascending: false });
+        console.log('📚 Cargando historial completo de eventos...');
         
-        if (error) throw error;
+        // PASO 1: Cargar todos los eventos Listed
+        const { data: listedEvents, error: listedError } = await supabaseClient
+          .from('listing_events')
+          .select('token_id, seller, price_wei, is_contract_owned, block_number, event_type')
+          .eq('event_type', 'Listed')
+          .order('block_number', { ascending: true });
         
-        // Convertir a formato compatible con activeListingsData
-        return {
-          listings: listings.map(l => {
-            // Convertir price_wei a string decimal completo (sin notación científica)
-            const priceWeiStr = convertToDecimalString(l.price_wei);
+        if (listedError) throw listedError;
+        
+        // PASO 2: Cargar eventos Cancelled y Bought para saber cuándo se cancelaron/vendieron
+        const { data: cancelledEvents, error: cancelledError } = await supabaseClient
+          .from('listing_events')
+          .select('token_id, block_number, event_type')
+          .in('event_type', ['Cancelled', 'Bought'])
+          .order('block_number', { ascending: true });
+        
+        if (cancelledError) throw cancelledError;
+        
+        // PASO 3: Cargar eventos FloorSweep (también crean listings)
+        const { data: sweepEvents, error: sweepError } = await supabaseClient
+          .from('sweep_events')
+          .select('token_id, relist_price_wei, block_number')
+          .order('block_number', { ascending: true });
+        
+        if (sweepError) throw sweepError;
+        
+        console.log(`📊 Eventos cargados: ${listedEvents?.length || 0} Listed, ${cancelledEvents?.length || 0} Cancelled/Bought, ${sweepEvents?.length || 0} Sweeps`);
+        
+        // PASO 4: Construir mapa de último estado por token_id
+        const tokenStates = new Map();
+        let maxBlock = 0;
+        
+        // Procesar eventos Listed
+        if (listedEvents) {
+          listedEvents.forEach(event => {
+            const tokenId = event.token_id;
+            const blockNumber = event.block_number;
+            maxBlock = Math.max(maxBlock, blockNumber);
             
-            return {
-              tokenId: l.token_id,
-              seller: l.seller,
-              price: ethers.BigNumber.from(priceWeiStr),
-              isContractOwned: l.is_contract_owned
-            };
-          }),
-          lastBlock: listings[0]?.last_block_number || 0
+            tokenStates.set(tokenId, {
+              tokenId: tokenId,
+              seller: event.seller,
+              price: convertToDecimalString(event.price_wei),
+              isContractOwned: event.is_contract_owned,
+              blockNumber: blockNumber,
+              isActive: true
+            });
+          });
+        }
+        
+        // Procesar eventos FloorSweep (sobrescriben con nuevo precio)
+        if (sweepEvents) {
+          sweepEvents.forEach(sweep => {
+            const tokenId = sweep.token_id;
+            const blockNumber = sweep.block_number;
+            maxBlock = Math.max(maxBlock, blockNumber);
+            
+            // FloorSweep siempre crea un listing del contrato
+            tokenStates.set(tokenId, {
+              tokenId: tokenId,
+              seller: FLOOR_ENGINE_ADDRESS, // FloorEngine es el seller después de sweep
+              price: convertToDecimalString(sweep.relist_price_wei),
+              isContractOwned: true,
+              blockNumber: blockNumber,
+              isActive: true
+            });
+          });
+        }
+        
+        // Procesar eventos Cancelled/Bought (marcan como inactivos)
+        if (cancelledEvents) {
+          cancelledEvents.forEach(event => {
+            const tokenId = event.token_id;
+            const blockNumber = event.block_number;
+            maxBlock = Math.max(maxBlock, blockNumber);
+            
+            const existing = tokenStates.get(tokenId);
+            // Solo cancelar si el evento es más reciente que el listing
+            if (existing && blockNumber > existing.blockNumber) {
+              existing.isActive = false;
+            }
+          });
+        }
+        
+        // PASO 5: Filtrar solo listings activos y convertir a formato
+        const activeListings = Array.from(tokenStates.values())
+          .filter(state => state.isActive)
+          .map(state => ({
+            tokenId: state.tokenId,
+            seller: state.seller,
+            price: ethers.BigNumber.from(state.price),
+            isContractOwned: state.isContractOwned
+          }));
+        
+        console.log(`✅ Estado calculado: ${activeListings.length} listings activos (último bloque: ${maxBlock})`);
+        
+        return {
+          listings: activeListings,
+          lastBlock: maxBlock
         };
       } catch (error) {
         console.error('Error loading from Supabase:', error);
