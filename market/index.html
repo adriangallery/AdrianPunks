@@ -1114,20 +1114,6 @@
     
     async function loadActiveListings() {
       try {
-        // OPTIMIZACIÓN: Asegurar que los contratos de lectura estén inicializados
-        if (!readProvider || !multicallReadContract) {
-          console.log('⚠️ Inicializando contratos de lectura para listings...');
-          const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
-          readProvider = new ethers.providers.JsonRpcProvider(rpcUrl, {
-            name: "base",
-            chainId: 8453
-          });
-          nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
-          floorEngineReadContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
-          tokenReadContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
-          multicallReadContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
-        }
-        
         // Verificar caché primero
         const cacheKey = 'activeListings';
         const cached = contractCache.get(cacheKey);
@@ -1143,37 +1129,18 @@
         );
         console.log(`Found ${listedTokenIds.length} listed tokens on FloorEngine`);
         
-        if (listedTokenIds.length === 0) {
-          activeListingsData = [];
-          contractCache.set(cacheKey, []);
-          return;
-        }
-        
-        // OPTIMIZACIÓN: Usar Multicall3 para obtener todos los listings en una sola llamada
-        const iface = new ethers.utils.Interface(FLOOR_ENGINE_ABI);
-        const calls = listedTokenIds.map(tokenId => ({
-          target: FLOOR_ENGINE_ADDRESS,
-          allowFailure: true,
-          callData: iface.encodeFunctionData('listings', [tokenId])
-        }));
-        
-        // Hacer la llamada batch con Multicall3
-        const results = await retryWithBackoff(() => 
-          multicallReadContract.aggregate3(calls)
-        );
-        
-        // Procesar resultados
+        // For each listed token, get its listing details (versión simple que funciona)
         activeListingsData = [];
-        for (let i = 0; i < results.length; i++) {
-          if (results[i].success) {
-            const listing = iface.decodeFunctionResult('listings', results[i].returnData);
-            activeListingsData.push({
-              tokenId: listedTokenIds[i].toNumber(),
-              seller: listing.seller,
-              price: listing.price,
-              isContractOwned: listing.isContractOwned
-            });
-          }
+        for (const tokenId of listedTokenIds) {
+          const listing = await retryWithBackoff(() =>
+            floorEngineReadContract.listings(tokenId)
+          );
+          activeListingsData.push({
+            tokenId: tokenId.toNumber(),
+            seller: listing.seller,
+            price: listing.price,
+            isContractOwned: listing.isContractOwned
+          });
         }
         
         // Guardar en caché
