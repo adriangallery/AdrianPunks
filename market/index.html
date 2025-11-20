@@ -810,12 +810,19 @@
         
         // Convertir a formato compatible con activeListingsData
         return {
-          listings: listings.map(l => ({
-            tokenId: l.token_id,
-            seller: l.seller,
-            price: ethers.BigNumber.from(l.price_wei),
-            isContractOwned: l.is_contract_owned
-          })),
+          listings: listings.map(l => {
+            // Convertir price_wei a string para evitar overflow con notación científica
+            const priceWeiStr = typeof l.price_wei === 'string' 
+              ? l.price_wei 
+              : String(l.price_wei);
+            
+            return {
+              tokenId: l.token_id,
+              seller: l.seller,
+              price: ethers.BigNumber.from(priceWeiStr),
+              isContractOwned: l.is_contract_owned
+            };
+          }),
           lastBlock: listings[0]?.last_block_number || 0
         };
       } catch (error) {
