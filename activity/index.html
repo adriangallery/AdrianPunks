@@ -1436,6 +1436,19 @@
         filtered = filtered.filter(e => new Date(e.timestamp) <= new Date(filters.dateTo + 'T23:59:59Z'));
       }
       
+      // Deduplicar eventos ERC20 basado en tx_hash y log_index
+      const seenEvents = new Map();
+      filtered = filtered.filter(e => {
+        if (e.type === 'ERC20' && e.data?.tx_hash && e.data?.log_index !== undefined) {
+          const key = `${e.data.tx_hash}-${e.data.log_index}`;
+          if (seenEvents.has(key)) {
+            return false; // Duplicado, remover
+          }
+          seenEvents.set(key, true);
+        }
+        return true;
+      });
+      
       // Aplicar reglas de eventos
       filtered = applyEventFilteringRules(filtered);
       applyContextualTagging(filtered);
@@ -1711,9 +1724,22 @@
       // TraitsAppliedBatch: imagen dinámica
       if (event.type === 'TraitsExtensions' && event.eventType === 'TraitsAppliedBatch') {
         if (eventImages.TraitsAppliedBatch && eventImages.TraitsAppliedBatch.dynamic) {
-          const tokenId = event.data?.token_id || event.data?.tokenId || '0';
-          const traitIds = event.data?.trait_ids || event.data?.traitIds || [];
-          if (Array.isArray(traitIds) && traitIds.length > 0) {
+          // Extraer tokenId y traitIds de diferentes posibles ubicaciones en los datos
+          const tokenId = event.data?.token_id || event.data?.tokenId || event.data?.event_data?.tokenId || event.data?.event_data?.token_id || '0';
+          // traitIds puede venir como array o como string separado por comas
+          let traitIds = event.data?.trait_ids || event.data?.traitIds || event.data?.event_data?.traitIds || event.data?.event_data?.trait_ids || [];
+          
+          // Si es string, convertir a array
+          if (typeof traitIds === 'string') {
+            traitIds = traitIds.split(',').map(id => id.trim()).filter(id => id);
+          }
+          
+          // Asegurar que sea array
+          if (!Array.isArray(traitIds)) {
+            traitIds = [];
+          }
+          
+          if (traitIds.length > 0) {
             const traitParams = traitIds.map(id => `trait=${id}`).join('&');
             const imageUrl = `${eventImages.TraitsAppliedBatch.baseUrl}${tokenId}?${traitParams}`;
             return `<img src="${imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Custom Trait" onerror="this.style.display='none'">`;
@@ -1730,13 +1756,12 @@
         }
       }
       
-      // AdrianLABCore (ERC721): imagen del NFT
+      // AdrianLABCore (ERC721/AdrianZERO): usar API de render de AdrianZERO
       if (event.type === 'AdrianLABCore' && event.data?.token_id) {
         const tokenId = event.data.token_id;
-        const imageUrl = getNFTImageUrl(tokenId);
-        if (imageUrl) {
-          return `<img src="${imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Token #${tokenId}" onerror="this.style.display='none'" onclick="window.open('${imageUrl}', '_blank')">`;
-        }
+        // AdrianZERO usa la API de render: https://adrianlab.vercel.app/api/render/{tokenId}.png
+        const imageUrl = `https://adrianlab.vercel.app/api/render/${tokenId}.png`;
+        return `<img src="${imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Token #${tokenId}" onerror="this.style.display='none'" onclick="window.open('${imageUrl}', '_blank')">`;
       }
       
       // ERC1155: imagen de AdrianLAB con carga controlada (5 SVG a la vez)
