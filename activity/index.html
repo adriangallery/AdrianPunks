@@ -470,34 +470,77 @@
       
       // FloorEngine events
       if (filters.contract === 'all' || filters.contract === 'floorengine') {
-          // Listing events
-            let query = supabaseClient
-              .from('listing_events')
-              .select('*')
-              .order('created_at', { ascending: false })
-          .limit(fetchLimit);
-        
-        if (filters.eventType !== 'all') {
-          query = query.eq('event_type', filters.eventType);
-        }
-        if (filters.dateFrom) {
-          query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
-        }
-        if (filters.dateTo) {
-          query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
-            }
-            
-            const { data: listings } = await query;
-            if (listings) {
-              listings.forEach(event => {
-            events.push({
-                  type: 'FloorEngine',
-                  eventType: event.event_type,
-                  data: event,
-                  timestamp: event.created_at
-                });
-              });
+        // Active listings from punk_listings (estado actual)
+        if (filters.eventType === 'all' || filters.eventType === 'Listed') {
+          let query = supabaseClient
+            .from('punk_listings')
+            .select('*')
+            .eq('is_listed', true)
+            .order('updated_at', { ascending: false })
+            .limit(fetchLimit);
+          
+          if (filters.dateFrom) {
+            query = query.gte('updated_at', filters.dateFrom + 'T00:00:00Z');
           }
+          if (filters.dateTo) {
+            query = query.lte('updated_at', filters.dateTo + 'T23:59:59Z');
+          }
+          if (filters.address) {
+            query = query.ilike('seller', `%${filters.address}%`);
+          }
+          
+          const { data: activeListings } = await query;
+          if (activeListings) {
+            activeListings.forEach(listing => {
+              events.push({
+                type: 'FloorEngine',
+                eventType: listing.last_event || 'Listed',
+                data: {
+                  token_id: listing.token_id,
+                  seller: listing.seller,
+                  price_wei: listing.price_wei,
+                  is_contract_owned: listing.is_contract_owned,
+                  is_listed: listing.is_listed,
+                  last_event: listing.last_event,
+                  last_tx_hash: listing.last_tx_hash,
+                  last_block_number: listing.last_block_number,
+                  created_at: listing.updated_at, // Usar updated_at como timestamp
+                  tx_hash: listing.last_tx_hash
+                },
+                timestamp: listing.updated_at
+              });
+            });
+          }
+        }
+        
+        // Listing events históricos (para eventos Cancelled)
+        if (filters.eventType === 'all' || filters.eventType === 'Cancelled') {
+          let query = supabaseClient
+            .from('listing_events')
+            .select('*')
+            .eq('event_type', 'Cancelled')
+            .order('created_at', { ascending: false })
+            .limit(fetchLimit);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          
+          const { data: cancelledListings } = await query;
+          if (cancelledListings) {
+            cancelledListings.forEach(event => {
+              events.push({
+                type: 'FloorEngine',
+                eventType: event.event_type,
+                data: event,
+                timestamp: event.created_at
+              });
+            });
+          }
+        }
           
           // Trade events
         query = supabaseClient
