@@ -215,12 +215,8 @@
         </div>
       </div>
 
-      <!-- Load More Button -->
-      <div id="loadMoreContainer" class="load-more-container" style="display: none;">
-        <button class="btn btn-primary btn-lg" onclick="loadMore()">
-          <i class="bi bi-arrow-down-circle"></i> Load More
-        </button>
-      </div>
+      <!-- Sentinel para Intersection Observer (scroll infinito) -->
+      <div id="scrollSentinel" style="height: 1px; visibility: hidden;"></div>
     </div>
   </div>
 
@@ -255,6 +251,7 @@
     let addressTagsRules = {};
     let imageRules = {};
     let eventRules = {};
+    let intersectionObserver = null;
 
     // Filters
     const filters = {
@@ -286,6 +283,9 @@
 
       // Cargar primera página
       await loadFirstPage();
+      
+      // Setup scroll infinito
+      setupInfiniteScroll();
     }
 
     // ============================================
@@ -337,7 +337,6 @@
       if (isLoading || !hasMore) return;
       
       isLoading = true;
-      updateLoadMoreButton();
 
       try {
         const pageSize = PAGE_SIZE;
@@ -352,6 +351,9 @@
           
           // Aplicar filtros y renderizar
           applyFiltersAndRender();
+          
+          // Mover sentinel al final
+          moveSentinelToEnd();
         }
       } catch (error) {
         console.error('Error cargando eventos:', error);
@@ -359,7 +361,6 @@
       } finally {
         isLoading = false;
         hideLoading();
-        updateLoadMoreButton();
       }
     }
 
@@ -538,6 +539,9 @@
       // Limpiar y agregar
       container.innerHTML = '';
       container.appendChild(fragment);
+      
+      // Mover sentinel al final
+      moveSentinelToEnd();
     }
 
     function createEventItem(event) {
@@ -615,6 +619,44 @@
           const fromTag = getAddressTagBadge(event.data.from_address, event.contextualTag);
           const toTag = getAddressTagBadge(event.data.to_address);
           return `Transfer from ${from}${fromTag} to ${to}${toTag}${amount ? ' - Amount: ' + amount + ' $ADRIAN' : ''}`;
+        } else if (event.eventType === 'Approval') {
+          const owner = shortAddress(event.data.owner);
+          const spender = shortAddress(event.data.spender);
+          const amount = event.data.value_wei ? formatADRIAN(event.data.value_wei) : '';
+          const ownerTag = getAddressTagBadge(event.data.owner);
+          const spenderTag = getAddressTagBadge(event.data.spender);
+          return `Approval by ${owner}${ownerTag} to ${spender}${spenderTag}${amount ? ' - Amount: ' + amount + ' $ADRIAN' : ''}`;
+        }
+      } else if (event.type === 'AdrianLABCore') {
+        const tokenId = event.data?.token_id || event.data?.event_data?.tokenId;
+        if (event.eventType === 'Transfer') {
+          const from = shortAddress(event.data.from_address);
+          const to = shortAddress(event.data.to_address);
+          return `Token #${tokenId || 'N/A'} - Transfer from ${from} to ${to}`;
+        } else if (event.eventType === 'TokenMinted') {
+          const to = shortAddress(event.data.event_data?.to);
+          return `Token #${tokenId || 'N/A'} - Minted to ${to}`;
+        }
+      } else if (event.type === 'ERC1155') {
+        const tokenId = event.data?.token_id || event.data?.tokenId;
+        if (event.eventType === 'TransferSingle') {
+          const from = shortAddress(event.data.from_address);
+          const to = shortAddress(event.data.to_address);
+          const value = event.data.value || '0';
+          return `Token #${tokenId || 'N/A'} - Transfer ${value} from ${from} to ${to}`;
+        } else if (event.eventType === 'AssetMinted') {
+          const to = shortAddress(event.data.event_data?.to);
+          return `Token #${tokenId || 'N/A'} - Minted to ${to}`;
+        }
+      } else if (event.type === 'TraitsExtensions') {
+        if (event.eventType === 'TraitApplied') {
+          const tokenId = event.data?.event_data?.tokenId;
+          const traitId = event.data?.event_data?.traitId;
+          return `Trait #${traitId || 'N/A'} applied to Token #${tokenId || 'N/A'}`;
+        } else if (event.eventType === 'TraitsAppliedBatch') {
+          const tokenId = event.data?.event_data?.tokenId;
+          const traitIds = event.data?.event_data?.traitIds;
+          return `Traits ${traitIds ? traitIds.join(', ') : 'N/A'} applied to Token #${tokenId || 'N/A'}`;
         }
       }
       
@@ -622,9 +664,138 @@
     }
 
     function getEventImage(event) {
-      // Implementar lógica de imágenes según imageRules
-      // Por ahora, retornar vacío
+      // TraitsAppliedBatch - imagen dinámica
+      if (event.type === 'TraitsExtensions' && event.eventType === 'TraitsAppliedBatch') {
+        return createTraitsAppliedBatchImage(event);
+      }
+      
+      // TraitApplied - mannequin
+      if (event.type === 'TraitsExtensions' && event.eventType === 'TraitApplied') {
+        return createEventImage('TraitApplied');
+      }
+      
+      // ERC20 - ADRIAN Coin
+      if (event.type === 'ERC20') {
+        return createEventImage('ERC20');
+      }
+      
+      // FloorEngine o AdrianLABCore - imagen del NFT
+      let tokenId = null;
+      if (event.type === 'FloorEngine') {
+        tokenId = event.data?.token_id;
+      } else if (event.type === 'AdrianLABCore') {
+        tokenId = event.data?.token_id || event.data?.event_data?.tokenId;
+      }
+      
+      if (tokenId) {
+        return createNFTImage(tokenId);
+      }
+      
+      // ERC1155 - imagen de AdrianLAB
+      if (event.type === 'ERC1155') {
+        tokenId = event.data?.token_id || event.data?.tokenId;
+        if (tokenId) {
+          return createAdrianLABImage(tokenId);
+        }
+      }
+      
       return '';
+    }
+    
+    // Funciones de imágenes
+    function getNFTImageUrl(tokenId) {
+      if (!tokenId || tokenId === 'N/A') return null;
+      if (imageRules.adrianPunks) {
+        return `${imageRules.adrianPunks.baseUrl}${tokenId}${imageRules.adrianPunks.extension}`;
+      }
+      return `../market/adrianpunksimages/${tokenId}.png`;
+    }
+    
+    function createNFTImage(tokenId, size = 48) {
+      const imgUrl = getNFTImageUrl(tokenId);
+      if (!imgUrl) return '';
+      return `<img src="${imgUrl}" alt="Punk #${tokenId}" class="nft-thumbnail" style="width: ${size}px; height: ${size}px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color);" loading="lazy" decoding="async" onerror="this.style.display='none'" />`;
+    }
+    
+    function getAdrianLABImageUrls(tokenId) {
+      if (!tokenId || tokenId === 'N/A') return [];
+      const urls = [];
+      if (imageRules.adrianLAB) {
+        const baseUrl = imageRules.adrianLAB.baseUrl;
+        const primaryExtension = imageRules.adrianLAB.extension;
+        const fallbackExtensions = imageRules.adrianLAB.fallbackExtensions || [];
+        urls.push(`${baseUrl}${tokenId}${primaryExtension}`);
+        fallbackExtensions.forEach(ext => {
+          urls.push(`${baseUrl}${tokenId}${ext}`);
+        });
+      } else {
+        urls.push(`https://adrianzero.com/traitlab/assets/traits/${tokenId}.svg`);
+        urls.push(`https://adrianzero.com/traitlab/assets/traits/${tokenId}.png`);
+        urls.push(`https://adrianzero.com/traitlab/assets/traits/${tokenId}.gif`);
+      }
+      return urls;
+    }
+    
+    function createAdrianLABImage(tokenId, size = 48) {
+      const urls = getAdrianLABImageUrls(tokenId);
+      if (!urls || urls.length === 0) return '';
+      if (urls.length === 1) {
+        return `<img src="${urls[0]}" alt="AdrianLAB #${tokenId}" class="nft-thumbnail" style="width: ${size}px; height: ${size}px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg);" loading="lazy" decoding="async" onerror="this.style.display='none'" />`;
+      }
+      const imageId = `adrianlab-img-${tokenId}-${Date.now()}`;
+      const urlsJson = JSON.stringify(urls).replace(/"/g, '&quot;');
+      return `<img id="${imageId}" src="${urls[0]}" alt="AdrianLAB #${tokenId}" class="nft-thumbnail" style="width: ${size}px; height: ${size}px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg);" data-fallback-urls="${urlsJson}" data-current-index="0" onerror="tryNextAdrianLABImage(this)" />`;
+    }
+    
+    function tryNextAdrianLABImage(img) {
+      if (!img) return;
+      try {
+        const urlsJson = img.getAttribute('data-fallback-urls');
+        if (!urlsJson) {
+          img.style.display = 'none';
+          return;
+        }
+        const urls = JSON.parse(urlsJson.replace(/&quot;/g, '"'));
+        let currentIndex = parseInt(img.getAttribute('data-current-index') || '0', 10);
+        currentIndex++;
+        if (currentIndex < urls.length) {
+          img.setAttribute('data-current-index', currentIndex.toString());
+          img.src = urls[currentIndex];
+        } else {
+          img.style.display = 'none';
+        }
+      } catch (error) {
+        img.style.display = 'none';
+      }
+    }
+    
+    function getEventImageUrl(eventType) {
+      if (!imageRules.eventImages || !imageRules.eventImages[eventType]) {
+        return null;
+      }
+      return imageRules.eventImages[eventType].imageUrl;
+    }
+    
+    function createEventImage(eventType, size = 48) {
+      const imageUrl = getEventImageUrl(eventType);
+      if (!imageUrl) return '';
+      return `<img src="${imageUrl}" alt="${eventType}" class="nft-thumbnail" style="width: ${size}px; height: ${size}px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg);" loading="lazy" decoding="async" onerror="this.style.display='none'" />`;
+    }
+    
+    function createTraitsAppliedBatchImage(event, size = 48) {
+      if (!event.data?.event_data) return '';
+      const eventData = event.data.event_data;
+      const tokenId = eventData.tokenId;
+      const traitIds = eventData.traitIds;
+      if (!tokenId || !traitIds || !Array.isArray(traitIds) || traitIds.length === 0) {
+        return '';
+      }
+      const baseUrl = imageRules.eventImages?.TraitsAppliedBatch?.baseUrl || 
+                      'https://adrianlab.vercel.app/api/render/custom/';
+      const timestamp = Date.now();
+      const traitParams = traitIds.map(traitId => `trait=${traitId}`).join('&');
+      const imageUrl = `${baseUrl}${tokenId}?${traitParams}&_t=${timestamp}`;
+      return `<img src="${imageUrl}" alt="AdrianZERO #${tokenId} with traits ${traitIds.join(', ')}" class="nft-thumbnail" style="width: ${size}px; height: ${size}px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg);" loading="lazy" decoding="async" onerror="this.style.display='none'" />`;
     }
 
     // ============================================
@@ -662,12 +833,116 @@
     }
 
     function applyEventFilteringRules(events) {
-      // Implementar filtrado según eventRules
-      return events;
+      if (!eventRules.filtering) return events;
+      
+      const filteredEvents = [];
+      const eventsToRemove = new Set();
+      
+      // Aplicar regla de mints redundantes
+      if (eventRules.filtering.redundantMints?.enabled) {
+        const rule = eventRules.filtering.redundantMints.rules[0];
+        if (rule) {
+          const sourceEvents = new Map();
+          const conflictEvents = new Map();
+          
+          // Identificar eventos fuente (TransferSingle desde 0x0000...0000)
+          events.forEach(event => {
+            if (event.type === rule.sourceEvent.type && 
+                event.eventType === rule.sourceEvent.eventType) {
+              const from = (event.data?.from_address || '').toLowerCase();
+              if (from === rule.sourceEvent.conditions.from_address.toLowerCase()) {
+                const tokenId = event.data?.token_id || event.data?.tokenId || null;
+                const to = (event.data?.to_address || '').toLowerCase();
+                if (tokenId) {
+                  const key = `${tokenId}-${to}`;
+                  if (!sourceEvents.has(key)) {
+                    sourceEvents.set(key, []);
+                  }
+                  sourceEvents.get(key).push(event);
+                }
+              }
+            }
+            
+            // Identificar eventos de conflicto (AssetMinted)
+            if (event.type === rule.conflictEvent.type && 
+                event.eventType === rule.conflictEvent.eventType) {
+              const tokenId = event.data?.event_data?.assetId || event.data?.event_data?.tokenId || null;
+              const to = (event.data?.event_data?.to || '').toLowerCase();
+              if (tokenId) {
+                const key = `${tokenId}-${to}`;
+                conflictEvents.set(key, event);
+              }
+            }
+          });
+          
+          // Marcar eventos fuente para remover si hay conflicto
+          sourceEvents.forEach((sourceList, key) => {
+            if (conflictEvents.has(key)) {
+              sourceList.forEach(sourceEvent => {
+                eventsToRemove.add(sourceEvent);
+              });
+            }
+          });
+        }
+      }
+      
+      // Filtrar eventos
+      events.forEach(event => {
+        if (!eventsToRemove.has(event)) {
+          filteredEvents.push(event);
+        }
+      });
+      
+      return filteredEvents;
     }
 
     function applyContextualTagging(events) {
-      // Implementar etiquetado contextual según eventRules
+      if (!eventRules.contextualTagging) return;
+      
+      // Aplicar regla de FloorSweep
+      if (eventRules.contextualTagging.floorSweep?.enabled) {
+        const rule = eventRules.contextualTagging.floorSweep.rules[0];
+        if (rule) {
+          // Encontrar todos los FloorSweep
+          const floorSweeps = events.filter(e => 
+            e.type === rule.triggerEvent.type && 
+            e.eventType === rule.triggerEvent.eventType
+          );
+          
+          floorSweeps.forEach(sweepEvent => {
+            const sweepData = sweepEvent.data;
+            const sweepTimestamp = new Date(sweepEvent.timestamp).getTime();
+            const callerAddress = (sweepData?.caller || '').toLowerCase();
+            const rewardAmount = String(sweepData?.caller_reward_wei || '0');
+            const buyAmount = String(sweepData?.buy_price_wei || '0');
+            
+            // Buscar transfers de ERC20 relacionados
+            rule.targetEvents.forEach(targetRule => {
+              events.forEach(event => {
+                if (event.type === targetRule.type && 
+                    event.eventType === targetRule.eventType) {
+                  const eventFrom = (event.data?.from_address || '').toLowerCase();
+                  const eventTo = (event.data?.to_address || '').toLowerCase();
+                  const eventTimestamp = new Date(event.timestamp).getTime();
+                  const eventAmount = String(event.data?.value_wei || '0');
+                  
+                  // Verificar condiciones
+                  if (eventFrom === targetRule.conditions.from_address.toLowerCase() &&
+                      eventTo === callerAddress &&
+                      Math.abs(eventTimestamp - sweepTimestamp) < 60000 && // Dentro de 1 minuto
+                      eventAmount === (targetRule.conditions.matchAmount === 'caller_reward_wei' ? rewardAmount : buyAmount)) {
+                    
+                    // Asignar tag contextual al evento
+                    if (!event.contextualTag) {
+                      event.contextualTag = targetRule.tag;
+                    }
+                  }
+                }
+              });
+            });
+          });
+        }
+      }
     }
 
     function cleanupOldItems() {
@@ -699,13 +974,43 @@
       }
     }
 
-    function updateLoadMoreButton() {
-      const container = document.getElementById('loadMoreContainer');
-      if (container) {
-        if (hasMore && !isLoading) {
-          container.style.display = 'block';
+    // ============================================
+    // INFINITE SCROLL
+    // ============================================
+    function setupInfiniteScroll() {
+      // Limpiar observer anterior si existe
+      if (intersectionObserver) {
+        intersectionObserver.disconnect();
+        intersectionObserver = null;
+      }
+      
+      const sentinel = document.getElementById('scrollSentinel');
+      if (!sentinel) return;
+      
+      // Crear Intersection Observer
+      intersectionObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting && hasMore && !isLoading) {
+            loadMore();
+          }
+        });
+      }, {
+        root: null, // viewport
+        rootMargin: '100px', // Cargar cuando esté a 100px del viewport
+        threshold: 0.1
+      });
+      
+      intersectionObserver.observe(sentinel);
+    }
+    
+    function moveSentinelToEnd() {
+      const container = document.getElementById('activityListContainer');
+      const sentinel = document.getElementById('scrollSentinel');
+      if (container && sentinel) {
+        if (container.contains(sentinel)) {
+          container.appendChild(sentinel);
         } else {
-          container.style.display = 'none';
+          container.appendChild(sentinel);
         }
       }
     }
