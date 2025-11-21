@@ -3198,6 +3198,41 @@
       `;
     }
 
+    // Función auxiliar para crear imagen dinámica de TraitsAppliedBatch
+    function createTraitsAppliedBatchImage(event, size = 48) {
+      if (!event.data?.event_data) return '';
+      
+      const eventData = event.data.event_data;
+      const tokenId = eventData.tokenId;
+      const traitIds = eventData.traitIds;
+      
+      if (!tokenId || !traitIds || !Array.isArray(traitIds) || traitIds.length === 0) {
+        console.warn('⚠️ TraitsAppliedBatch sin tokenId o traitIds válidos:', { tokenId, traitIds });
+        return '';
+      }
+      
+      // Construir URL con tokenId y traitIds
+      const baseUrl = imageRules.eventImages?.TraitsAppliedBatch?.baseUrl || 
+                      'https://adrianlab.vercel.app/api/render/custom/';
+      const timestamp = Date.now(); // Para evitar caché
+      
+      // Construir query string con todos los traits
+      const traitParams = traitIds.map(traitId => `trait=${traitId}`).join('&');
+      const imageUrl = `${baseUrl}${tokenId}?${traitParams}&_t=${timestamp}`;
+      
+      console.log('🖼️ Creando imagen dinámica TraitsAppliedBatch:', imageUrl);
+      
+      return `
+        <img 
+          src="${imageUrl}" 
+          alt="AdrianZERO #${tokenId} with traits ${traitIds.join(', ')}" 
+          class="nft-thumbnail me-2"
+          style="width: ${size}px; height: ${size}px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg);"
+          onerror="this.style.display='none'"
+        />
+      `;
+    }
+
     // Función auxiliar para crear elemento de imagen de AdrianLAB (ERC1155) con fallbacks
     function createAdrianLABImage(tokenId, size = 48) {
       const urls = getAdrianLABImageUrls(tokenId);
@@ -3610,28 +3645,33 @@
       // Crear imagen del NFT según las reglas de imágenes
       let nftImage = '';
       
-      // Primero verificar si hay una imagen específica para este tipo de evento
-      const eventImageUrl = getEventImageUrl(event.eventType);
-      if (eventImageUrl) {
-        nftImage = createEventImage(event.eventType);
-      } else if (event.type === 'ERC20') {
-        // Imagen de $ADRIAN coin para eventos ERC20
-        const erc20ImageUrl = getEventImageUrl('ERC20');
-        if (erc20ImageUrl) {
-          nftImage = createEventImage('ERC20');
+      // Verificar si es TraitsAppliedBatch (imagen dinámica)
+      if (event.type === 'TraitsExtensions' && event.eventType === 'TraitsAppliedBatch') {
+        nftImage = createTraitsAppliedBatchImage(event);
+      } else {
+        // Primero verificar si hay una imagen específica para este tipo de evento
+        const eventImageUrl = getEventImageUrl(event.eventType);
+        if (eventImageUrl) {
+          nftImage = createEventImage(event.eventType);
+        } else if (event.type === 'ERC20') {
+          // Imagen de $ADRIAN coin para eventos ERC20
+          const erc20ImageUrl = getEventImageUrl('ERC20');
+          if (erc20ImageUrl) {
+            nftImage = createEventImage('ERC20');
+          }
+        } else if (tokenId && (event.type === 'FloorEngine' || event.type === 'AdrianLABCore')) {
+          // Imagen de AdrianPunks para FloorEngine y AdrianLABCore
+          nftImage = createNFTImage(tokenId);
+        } else if (tokenId && event.type === 'ERC1155') {
+          // Imagen de AdrianLAB para ERC1155
+          console.log('🖼️ Creando imagen AdrianLAB para tokenId:', tokenId, 'eventType:', event.eventType);
+          nftImage = createAdrianLABImage(tokenId);
+          if (!nftImage) {
+            console.warn('⚠️ No se pudo crear imagen para tokenId:', tokenId);
+          }
+        } else if (event.type === 'ERC1155' && !tokenId) {
+          console.warn('⚠️ ERC1155 sin tokenId para imagen:', { eventType: event.eventType, data: event.data });
         }
-      } else if (tokenId && (event.type === 'FloorEngine' || event.type === 'AdrianLABCore')) {
-        // Imagen de AdrianPunks para FloorEngine y AdrianLABCore
-        nftImage = createNFTImage(tokenId);
-      } else if (tokenId && event.type === 'ERC1155') {
-        // Imagen de AdrianLAB para ERC1155
-        console.log('🖼️ Creando imagen AdrianLAB para tokenId:', tokenId, 'eventType:', event.eventType);
-        nftImage = createAdrianLABImage(tokenId);
-        if (!nftImage) {
-          console.warn('⚠️ No se pudo crear imagen para tokenId:', tokenId);
-        }
-      } else if (event.type === 'ERC1155' && !tokenId) {
-        console.warn('⚠️ ERC1155 sin tokenId para imagen:', { eventType: event.eventType, data: event.data });
       }
       
       div.innerHTML = `
