@@ -2028,7 +2028,7 @@
             filtered = filtered.filter(e => {
               if (e.type === rule.sourceEvent.type && e.eventType === rule.sourceEvent.eventType) {
                 const tokenId = e.data.token_id || e.data.tokenId;
-                const toAddress = e.data.to_address?.toLowerCase();
+                const toAddress = (e.data.to_address || '').toLowerCase();
                 if (tokenId && toAddress) {
                   const key = `${tokenId}-${toAddress}`;
                   if (mintedMap.has(key)) {
@@ -2069,8 +2069,19 @@
               
               rule.targetEvents.forEach(targetRule => {
                 if (targetRule.type === 'ERC20' && targetRule.eventType === 'Transfer') {
+                  // Verificar condición de from_address si existe en la regla
+                  const requiredFromAddress = targetRule.conditions?.from_address?.toLowerCase();
+                  
                   events.forEach(event => {
                     if (event.type === targetRule.type && event.eventType === targetRule.eventType) {
+                      // Verificar from_address si está especificado en la regla
+                      if (requiredFromAddress) {
+                        const eventFromAddress = event.data.from_address?.toLowerCase();
+                        if (eventFromAddress !== requiredFromAddress) {
+                          return; // No coincide, saltar este evento
+                        }
+                      }
+                      
                       const eventTimestamp = new Date(event.timestamp);
                       const timeDiff = Math.abs(eventTimestamp - sweepTimestamp);
                       
