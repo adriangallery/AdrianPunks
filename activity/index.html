@@ -2369,6 +2369,38 @@
             }
           }
           
+          // ERC721 ApprovalForAll
+          if (rawActivityFilters.eventType === 'all' || rawActivityFilters.eventType === 'ApprovalForAll') {
+            let query = supabaseClient
+              .from('erc721_approvals_for_all')
+              .select('*')
+              .eq('contract_address', ADRIANLABCORE_ADDRESS)
+              .order('created_at', { ascending: false })
+              .limit(pageSize * 2);
+            
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            if (rawActivityFilters.address) {
+              query = query.or(`owner.ilike.%${rawActivityFilters.address}%,operator.ilike.%${rawActivityFilters.address}%`);
+            }
+            
+            const { data: approvalsForAll } = await query;
+            if (approvalsForAll) {
+              approvalsForAll.forEach(event => {
+                allEvents.push({
+                  type: 'AdrianLABCore',
+                  eventType: 'ApprovalForAll',
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+          
           // Custom events - Cargar TODOS si eventType es 'all', no solo los de la lista
           if (rawActivityFilters.eventType === 'all') {
             // Cargar TODOS los eventos custom sin filtrar por nombre
@@ -2466,7 +2498,7 @@
             }
           }
           
-          // Batch transfers (FALTA - agregar)
+          // Batch transfers
           if (rawActivityFilters.eventType === 'all' || rawActivityFilters.eventType === 'TransferBatch') {
             let query = supabaseClient
               .from('erc1155_transfers_batch')
@@ -2496,6 +2528,67 @@
                   type: 'ERC1155',
                   eventType: 'TransferBatch',
                   data: { ...event, token_id: firstTokenId, token_ids: tokenIds },
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+          
+          // ERC1155 ApprovalForAll
+          if (rawActivityFilters.eventType === 'all' || rawActivityFilters.eventType === 'ApprovalForAll') {
+            let query = supabaseClient
+              .from('erc1155_approvals_for_all')
+              .select('*')
+              .eq('contract_address', ERC1155_ADDRESS)
+              .order('created_at', { ascending: false })
+              .limit(pageSize * 2);
+            
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            if (rawActivityFilters.address) {
+              query = query.or(`owner.ilike.%${rawActivityFilters.address}%,operator.ilike.%${rawActivityFilters.address}%`);
+            }
+            
+            const { data: approvalsForAll } = await query;
+            if (approvalsForAll) {
+              approvalsForAll.forEach(event => {
+                allEvents.push({
+                  type: 'ERC1155',
+                  eventType: 'ApprovalForAll',
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+          
+          // ERC1155 URI Updates
+          if (rawActivityFilters.eventType === 'all' || rawActivityFilters.eventType === 'URI') {
+            let query = supabaseClient
+              .from('erc1155_uri_updates')
+              .select('*')
+              .eq('contract_address', ERC1155_ADDRESS)
+              .order('created_at', { ascending: false })
+              .limit(pageSize * 2);
+            
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            
+            const { data: uriUpdates } = await query;
+            if (uriUpdates) {
+              uriUpdates.forEach(event => {
+                allEvents.push({
+                  type: 'ERC1155',
+                  eventType: 'URI',
+                  data: event,
                   timestamp: event.created_at
                 });
               });
@@ -2898,6 +2991,12 @@
           tokenId = event.data.token_id;
           details = `Token #${tokenId} - Approval by ${shortAddress(event.data.owner)} to ${shortAddress(event.data.approved)}`;
           txHash = event.data.tx_hash;
+        } else if (event.eventType === 'ApprovalForAll') {
+          const owner = event.data.owner || 'N/A';
+          const operator = event.data.operator || 'N/A';
+          const approved = event.data.approved || false;
+          details = `ApprovalForAll by ${createCollapsibleAddress(owner)} to ${createCollapsibleAddress(operator)} - Approved: ${approved}`;
+          txHash = event.data.tx_hash;
         } else if (event.eventType === 'TokenMinted') {
           tokenId = event.data.event_data?.tokenId || null;
           const to = event.data.event_data?.to || 'N/A';
@@ -2969,6 +3068,17 @@
           if (tokenCount > 0 && tokenId) {
             details += ` - First token: #${tokenId}`;
           }
+          txHash = event.data?.tx_hash || '';
+        } else if (event.eventType === 'ApprovalForAll') {
+          const owner = event.data?.owner || 'N/A';
+          const operator = event.data?.operator || 'N/A';
+          const approved = event.data?.approved || false;
+          details = `ApprovalForAll by ${createCollapsibleAddress(owner)} to ${createCollapsibleAddress(operator)} - Approved: ${approved}`;
+          txHash = event.data?.tx_hash || '';
+        } else if (event.eventType === 'URI') {
+          const uri = event.data?.uri || 'N/A';
+          const id = event.data?.id || 'N/A';
+          details = `URI Updated - ID: ${id} - URI: ${uri.length > 50 ? uri.substring(0, 50) + '...' : uri}`;
           txHash = event.data?.tx_hash || '';
         } else {
           // Eventos custom de ERC1155
