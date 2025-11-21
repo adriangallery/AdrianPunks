@@ -2401,23 +2401,23 @@
                 .order('created_at', { ascending: false })
                 .limit(pageSize * 2);
               
-              if (rawActivityFilters.dateFrom) {
-                query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
-              }
-              if (rawActivityFilters.dateTo) {
-                query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
-              }
-              
-              const { data: customs } = await query;
-              if (customs) {
-                customs.forEach(event => {
-                  allEvents.push({
-                    type: 'ERC20',
-                    eventType: event.event_name,
-                    data: event,
-                    timestamp: event.created_at
-                  });
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            
+            const { data: customs } = await query;
+            if (customs) {
+              customs.forEach(event => {
+                allEvents.push({
+                  type: 'ERC20',
+                  eventType: event.event_name,
+                  data: event,
+                  timestamp: event.created_at
                 });
+              });
               }
             }
           }
@@ -2551,34 +2551,34 @@
             }
           } else {
             // Si hay un filtro específico, usar la lista de tipos conocidos
-            const customEventTypes = ['TokenMinted', 'TokenBurnt', 'SkinAssigned', 'SkinCreated', 'MutationAssigned', 
-                                     'MutationNameAssigned', 'SerumApplied', 'SpecialSkinApplied'];
+          const customEventTypes = ['TokenMinted', 'TokenBurnt', 'SkinAssigned', 'SkinCreated', 'MutationAssigned', 
+                                   'MutationNameAssigned', 'SerumApplied', 'SpecialSkinApplied'];
             if (customEventTypes.includes(rawActivityFilters.eventType)) {
-              let query = supabaseClient
-                .from('erc721_custom_events')
-                .select('*')
-                .eq('contract_address', ADRIANLABCORE_ADDRESS)
+            let query = supabaseClient
+              .from('erc721_custom_events')
+              .select('*')
+              .eq('contract_address', ADRIANLABCORE_ADDRESS)
                 .eq('event_name', rawActivityFilters.eventType)
-                .order('created_at', { ascending: false })
+              .order('created_at', { ascending: false })
                 .limit(pageSize * 2);
-              
-              if (rawActivityFilters.dateFrom) {
-                query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
-              }
-              if (rawActivityFilters.dateTo) {
-                query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
-              }
-              
-              const { data: customs } = await query;
-              if (customs) {
-                customs.forEach(event => {
-                  allEvents.push({
-                    type: 'AdrianLABCore',
-                    eventType: event.event_name,
-                    data: event,
-                    timestamp: event.created_at
-                  });
+            
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            
+            const { data: customs } = await query;
+            if (customs) {
+              customs.forEach(event => {
+                allEvents.push({
+                  type: 'AdrianLABCore',
+                  eventType: event.event_name,
+                  data: event,
+                  timestamp: event.created_at
                 });
+              });
               }
             }
           }
@@ -2918,11 +2918,69 @@
           }
         }
         
+        // Filtrar TransferSingle redundantes cuando hay AssetMinted relacionado
+        // Un TransferSingle desde 0x0000...0000 es un mint, y si hay un AssetMinted relacionado, omitir el TransferSingle
+        const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+        const filteredEvents = [];
+        const mintTransfers = new Map(); // tokenId -> TransferSingle event
+        
+        // Primero, identificar todos los TransferSingle que son mints
+        allEvents.forEach(event => {
+          if (event.type === 'ERC1155' && event.eventType === 'TransferSingle') {
+            const from = (event.data?.from_address || '').toLowerCase();
+            if (from === ZERO_ADDRESS.toLowerCase()) {
+              const tokenId = event.data?.token_id || event.data?.tokenId || null;
+              const to = (event.data?.to_address || '').toLowerCase();
+              if (tokenId) {
+                const key = `${tokenId}-${to}`;
+                if (!mintTransfers.has(key)) {
+                  mintTransfers.set(key, []);
+                }
+                mintTransfers.get(key).push(event);
+              }
+            }
+          }
+        });
+        
+        // Crear un mapa de AssetMinted por tokenId y to_address
+        const assetMintedMap = new Map();
+        allEvents.forEach(event => {
+          if (event.type === 'ERC1155' && event.eventType === 'AssetMinted') {
+            const tokenId = event.data?.event_data?.assetId || event.data?.event_data?.tokenId || null;
+            const to = (event.data?.event_data?.to || '').toLowerCase();
+            if (tokenId) {
+              const key = `${tokenId}-${to}`;
+              assetMintedMap.set(key, event);
+            }
+          }
+        });
+        
+        // Filtrar eventos: omitir TransferSingle si hay AssetMinted relacionado
+        const eventsToRemove = new Set();
+        mintTransfers.forEach((transfers, key) => {
+          if (assetMintedMap.has(key)) {
+            // Hay un AssetMinted relacionado, marcar los TransferSingle para remover
+            transfers.forEach(transfer => {
+              eventsToRemove.add(transfer);
+            });
+            console.log(`🔍 Omitiendo TransferSingle redundante (mint) para tokenId: ${key.split('-')[0]}, hay AssetMinted relacionado`);
+          }
+        });
+        
+        // Filtrar eventos removiendo los TransferSingle redundantes
+        allEvents.forEach(event => {
+          if (!eventsToRemove.has(event)) {
+            filteredEvents.push(event);
+          }
+        });
+        
         // Sort by timestamp (most recent first)
-        allEvents.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        filteredEvents.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
         console.log('📋 Total eventos cargados:', allEvents.length);
-        console.log('📋 Distribución por tipo:', allEvents.reduce((acc, e) => {
+        console.log('📋 Eventos después de filtrar TransferSingle redundantes:', filteredEvents.length);
+        console.log('📋 TransferSingle omitidos:', allEvents.length - filteredEvents.length);
+        console.log('📋 Distribución por tipo:', filteredEvents.reduce((acc, e) => {
           acc[e.type] = (acc[e.type] || 0) + 1;
           return acc;
         }, {}));
@@ -2932,10 +2990,10 @@
           document.getElementById('rawActivityList').innerHTML = '';
         }
         
-        renderRawActivityEvents(allEvents);
+        renderRawActivityEvents(filteredEvents);
         
         // Check if there's more data
-        if (allEvents.length < pageSize) {
+        if (filteredEvents.length < pageSize) {
           rawActivityHasMore = false;
         } else {
           rawActivityPage++;
