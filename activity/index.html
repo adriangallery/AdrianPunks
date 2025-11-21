@@ -174,6 +174,17 @@
     .activity-list {
       max-height: 800px;
       overflow-y: auto;
+      /* Optimizaciones para scroll suave */
+      -webkit-overflow-scrolling: touch;
+      will-change: scroll-position;
+    }
+    
+    @media (max-width: 768px) {
+      .activity-list {
+        max-height: none;
+        overflow-y: visible;
+        /* Eliminar scroll anidado en móviles - usar scroll de página completa */
+      }
     }
 
     .activity-item {
@@ -412,6 +423,14 @@
                 <span class="visually-hidden">Loading more...</span>
               </div>
             </div>
+            <!-- Botón Load More para móviles -->
+            <div id="rawActivityLoadMoreBtn" class="text-center mt-4" style="display: none;">
+              <button class="btn btn-primary btn-lg" onclick="loadMoreRawActivity()">
+                <i class="bi bi-arrow-down-circle"></i> Load More
+              </button>
+            </div>
+            <!-- Sentinel para Intersection Observer -->
+            <div id="rawActivitySentinel" style="height: 1px; visibility: hidden;"></div>
           </div>
         </div>
       </div> <!-- End Raw Activity Tab -->
@@ -2404,9 +2423,13 @@
     let rawActivityScrollHandler = null;
     let isLoadingRawActivity = false;
     let scrollThrottleTimeout = null;
-    const MAX_VISIBLE_ITEMS = 100; // Límite máximo de items en el DOM
+    let intersectionObserver = null;
+    const MAX_VISIBLE_ITEMS = 100; // Límite máximo de items en el DOM (desktop)
+    const MOBILE_MAX_ITEMS = 50; // Límite máximo de items en móviles
     const MOBILE_PAGE_SIZE = 20; // Tamaño de página reducido para móviles
     const DESKTOP_PAGE_SIZE = 50;
+    const VIEWPORT_BUFFER = 15; // Buffer de elementos fuera del viewport a mantener
+    const USE_PAGINATION_MOBILE = true; // Usar botón "Load More" en móviles
     
     // Detectar si es móvil
     function isMobile() {
@@ -2416,6 +2439,16 @@
     // Obtener tamaño de página según dispositivo
     function getPageSize() {
       return isMobile() ? MOBILE_PAGE_SIZE : DESKTOP_PAGE_SIZE;
+    }
+    
+    // Obtener máximo de items según dispositivo
+    function getMaxVisibleItems() {
+      return isMobile() ? MOBILE_MAX_ITEMS : MAX_VISIBLE_ITEMS;
+    }
+    
+    // Determinar si usar paginación con botón
+    function shouldUsePagination() {
+      return USE_PAGINATION_MOBILE && isMobile();
     }
 
     // Load Raw Activity
@@ -3263,10 +3296,8 @@
         
         renderRawActivityEvents(filteredEvents);
         
-        // Limpiar elementos antiguos si excedemos el límite (solo en móviles)
-        if (isMobile()) {
-          cleanupOldItems();
-        }
+        // Limpiar elementos antiguos si excedemos el límite
+        cleanupOldItems();
         
         // Check if there's more data
         if (filteredEvents.length < pageSize) {
@@ -3287,33 +3318,102 @@
       }
     }
     
-    // Limpiar elementos antiguos para mantener el DOM ligero en móviles
+    // Limpiar elementos antiguos para mantener el DOM ligero (optimizado con RAF y viewport)
     function cleanupOldItems() {
-      const container = document.getElementById('rawActivityList');
-      const items = container.querySelectorAll('.activity-item');
-      
-      if (items.length > MAX_VISIBLE_ITEMS) {
-        const itemsToRemove = items.length - MAX_VISIBLE_ITEMS;
-        for (let i = 0; i < itemsToRemove; i++) {
-          items[i].remove();
+      // Usar requestAnimationFrame para evitar layout thrashing
+      requestAnimationFrame(() => {
+        const container = document.getElementById('rawActivityList');
+        if (!container) return;
+        
+        const items = Array.from(container.querySelectorAll('.activity-item'));
+        const maxItems = getMaxVisibleItems();
+        
+        if (items.length <= maxItems) return;
+        
+        // Calcular viewport visible
+        const containerRect = container.getBoundingClientRect();
+        const viewportTop = containerRect.top;
+        const viewportBottom = containerRect.bottom;
+        
+        // Encontrar el primer item visible
+        let firstVisibleIndex = -1;
+        for (let i = 0; i < items.length; i++) {
+          const itemRect = items[i].getBoundingClientRect();
+          if (itemRect.bottom >= viewportTop && itemRect.top <= viewportBottom) {
+            firstVisibleIndex = i;
+            break;
+          }
         }
-        console.log(`🧹 Limpiados ${itemsToRemove} elementos antiguos. Items restantes: ${items.length - itemsToRemove}`);
-      }
+        
+        // Si no hay items visibles, no limpiar
+        if (firstVisibleIndex === -1) return;
+        
+        // Mantener buffer de seguridad: no limpiar los últimos VIEWPORT_BUFFER items visibles
+        const safeStartIndex = Math.max(0, firstVisibleIndex - VIEWPORT_BUFFER);
+        const itemsToKeep = items.length - safeStartIndex;
+        
+        // Solo limpiar si excedemos el máximo
+        if (itemsToKeep > maxItems) {
+          const itemsToRemove = itemsToKeep - maxItems;
+          for (let i = safeStartIndex; i < safeStartIndex + itemsToRemove; i++) {
+            if (items[i]) {
+              items[i].remove();
+            }
+          }
+          console.log(`🧹 Limpiados ${itemsToRemove} elementos antiguos. Items restantes: ${items.length - itemsToRemove}`);
+        }
+      });
     }
 
     function renderRawActivityEvents(events) {
       const container = document.getElementById('rawActivityList');
+      if (!container) return;
       
-      // Usar DocumentFragment para renderizado más eficiente
-      const fragment = document.createDocumentFragment();
+      // Usar requestIdleCallback para renderizado no crítico si está disponible
+      const renderFunction = () => {
+        // Usar DocumentFragment para renderizado más eficiente
+        const fragment = document.createDocumentFragment();
+        
+        events.forEach(event => {
+          const item = createRawActivityItem(event);
+          fragment.appendChild(item);
+        });
+        
+        // Agregar todos los elementos de una vez
+        container.appendChild(fragment);
+        
+        // Actualizar botón Load More en móviles
+        if (shouldUsePagination()) {
+          updateLoadMoreButton();
+        }
+      };
       
-      events.forEach(event => {
-        const item = createRawActivityItem(event);
-        fragment.appendChild(item);
-      });
+      // Usar requestIdleCallback si está disponible, sino renderizar inmediatamente
+      if (window.requestIdleCallback) {
+        requestIdleCallback(renderFunction, { timeout: 1000 });
+      } else {
+        // Fallback: usar setTimeout para no bloquear el hilo principal
+        setTimeout(renderFunction, 0);
+      }
+    }
+    
+    // Actualizar visibilidad del botón Load More
+    function updateLoadMoreButton() {
+      const loadMoreBtn = document.getElementById('rawActivityLoadMoreBtn');
+      if (!loadMoreBtn) return;
       
-      // Agregar todos los elementos de una vez
-      container.appendChild(fragment);
+      if (rawActivityHasMore && !isLoadingRawActivity) {
+        loadMoreBtn.style.display = 'block';
+      } else {
+        loadMoreBtn.style.display = 'none';
+      }
+    }
+    
+    // Función para cargar más (usada por el botón)
+    function loadMoreRawActivity() {
+      if (!isLoadingRawActivity && rawActivityHasMore) {
+        loadRawActivity(false);
+      }
     }
 
     // Función auxiliar para obtener URL de imagen del NFT (AdrianPunks)
@@ -3925,7 +4025,46 @@
       loadRawActivity(true);
     }
 
+    // Setup Intersection Observer para infinite scroll (más eficiente que scroll events)
+    function setupIntersectionObserver() {
+      // Limpiar observer anterior si existe
+      if (intersectionObserver) {
+        intersectionObserver.disconnect();
+        intersectionObserver = null;
+      }
+      
+      // En móviles con paginación, no usar Intersection Observer
+      if (shouldUsePagination()) {
+        return;
+      }
+      
+      const sentinel = document.getElementById('rawActivitySentinel');
+      if (!sentinel) return;
+      
+      // Crear Intersection Observer
+      intersectionObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting && rawActivityHasMore && !isLoadingRawActivity) {
+            loadRawActivity(false);
+          }
+        });
+      }, {
+        root: isMobile() ? null : document.getElementById('rawActivityList'), // null = viewport en móviles
+        rootMargin: '100px', // Cargar cuando esté a 100px del viewport
+        threshold: 0.1
+      });
+      
+      intersectionObserver.observe(sentinel);
+    }
+    
+    // Mantener función legacy para compatibilidad (solo desktop con scroll anidado)
     function setupRawActivityScroll() {
+      // Solo usar scroll events en desktop con scroll anidado
+      if (isMobile()) {
+        setupIntersectionObserver();
+        return;
+      }
+      
       const list = document.getElementById('rawActivityList');
       if (!list) return;
       
@@ -3934,30 +4073,27 @@
         list.removeEventListener('scroll', rawActivityScrollHandler);
       }
       
-      // Throttle del scroll handler para mejor rendimiento en móviles
+      // Throttle del scroll handler para mejor rendimiento
       rawActivityScrollHandler = () => {
         // Limpiar timeout anterior
         if (scrollThrottleTimeout) {
           clearTimeout(scrollThrottleTimeout);
         }
         
-        // Throttle: ejecutar después de 200ms sin scroll (móviles) o 100ms (desktop)
-        const throttleDelay = isMobile() ? 200 : 100;
-        
+        // Throttle: ejecutar después de 100ms sin scroll
         scrollThrottleTimeout = setTimeout(() => {
           const scrollTop = list.scrollTop;
           const scrollHeight = list.scrollHeight;
           const clientHeight = list.clientHeight;
           
-          // Threshold más grande en móviles para evitar cargas frecuentes
-          const threshold = isMobile() ? 300 : 100;
+          const threshold = 100;
           
           if (scrollTop + clientHeight >= scrollHeight - threshold) {
             if (rawActivityHasMore && !isLoadingRawActivity) {
               loadRawActivity(false);
             }
           }
-        }, throttleDelay);
+        }, 100);
       };
       
       // Usar passive listener para mejor rendimiento
@@ -3983,7 +4119,16 @@
         
         // Load raw activity automatically (it's now the main tab)
         loadRawActivity(true);
-        setupRawActivityScroll();
+        
+        // Setup scroll/infinite scroll según dispositivo
+        if (shouldUsePagination()) {
+          // En móviles con paginación, solo mostrar botón
+          updateLoadMoreButton();
+        } else {
+          // En desktop o móviles sin paginación, usar Intersection Observer o scroll
+          setupIntersectionObserver();
+          setupRawActivityScroll();
+        }
         
         // Also load when tab is shown (in case user switches tabs)
         const activityTab = document.getElementById('activity-tab');
@@ -3991,7 +4136,13 @@
           if (document.getElementById('rawActivityList').children.length === 0 || 
               document.getElementById('rawActivityList').querySelector('.loading-spinner')) {
             loadRawActivity(true);
-            setupRawActivityScroll();
+            
+            if (shouldUsePagination()) {
+              updateLoadMoreButton();
+            } else {
+              setupIntersectionObserver();
+              setupRawActivityScroll();
+            }
           }
         });
       } else {
