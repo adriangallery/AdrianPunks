@@ -2402,11 +2402,32 @@
       address: null
     };
     let rawActivityScrollHandler = null;
+    let isLoadingRawActivity = false;
+    let scrollThrottleTimeout = null;
+    const MAX_VISIBLE_ITEMS = 100; // Límite máximo de items en el DOM
+    const MOBILE_PAGE_SIZE = 20; // Tamaño de página reducido para móviles
+    const DESKTOP_PAGE_SIZE = 50;
+    
+    // Detectar si es móvil
+    function isMobile() {
+      return window.innerWidth <= 768;
+    }
+    
+    // Obtener tamaño de página según dispositivo
+    function getPageSize() {
+      return isMobile() ? MOBILE_PAGE_SIZE : DESKTOP_PAGE_SIZE;
+    }
 
     // Load Raw Activity
     async function loadRawActivity(reset = false) {
       if (!supabaseClient) {
         console.error('❌ loadRawActivity: supabaseClient no disponible');
+        return;
+      }
+      
+      // Prevenir múltiples cargas simultáneas
+      if (isLoadingRawActivity) {
+        console.log('⏳ loadRawActivity: Ya hay una carga en progreso');
         return;
       }
       
@@ -2423,10 +2444,11 @@
         return;
       }
       
+      isLoadingRawActivity = true;
       document.getElementById('rawActivityLoading').style.display = 'block';
       
       try {
-        const pageSize = 50;
+        const pageSize = getPageSize();
         const allEvents = [];
         console.log('📋 Filtros activos:', rawActivityFilters);
         
@@ -2438,7 +2460,7 @@
               .from('listing_events')
               .select('*')
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2);
+              .limit(pageSize);
             
             if (rawActivityFilters.eventType !== 'all') {
               query = query.eq('event_type', rawActivityFilters.eventType);
@@ -2472,7 +2494,7 @@
               .from('trade_events')
               .select('*')
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2);
+              .limit(pageSize);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2503,7 +2525,7 @@
               .from('sweep_events')
               .select('*')
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2);
+              .limit(pageSize);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2534,7 +2556,7 @@
               .from('engine_config_events')
               .select('*')
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2);
+              .limit(pageSize);
             
             if (rawActivityFilters.eventType !== 'all') {
               query = query.eq('event_name', rawActivityFilters.eventType);
@@ -2571,7 +2593,7 @@
               .select('*')
               .eq('contract_address', ERC20_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2);
+              .limit(pageSize);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2608,7 +2630,7 @@
               .select('*')
               .eq('contract_address', ERC20_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2);
+              .limit(pageSize);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2646,7 +2668,7 @@
               .select('*')
               .eq('contract_address', ERC20_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2);
+              .limit(pageSize);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2681,7 +2703,7 @@
                 .eq('contract_address', ERC20_ADDRESS.toLowerCase())
                 .eq('event_name', rawActivityFilters.eventType)
                 .order('created_at', { ascending: false })
-                .limit(pageSize * 2);
+                .limit(pageSize);
               
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2714,7 +2736,7 @@
               .select('*')
               .eq('contract_address', ADRIANLABCORE_ADDRESS)
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2);
+              .limit(pageSize);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2746,7 +2768,7 @@
               .select('*')
               .eq('contract_address', ADRIANLABCORE_ADDRESS)
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2);
+              .limit(pageSize);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2778,7 +2800,7 @@
               .select('*')
               .eq('contract_address', ADRIANLABCORE_ADDRESS)
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2);
+              .limit(pageSize);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2811,7 +2833,7 @@
               .select('*')
               .eq('contract_address', ADRIANLABCORE_ADDRESS)
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2);
+              .limit(pageSize);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2842,7 +2864,7 @@
               .eq('contract_address', ADRIANLABCORE_ADDRESS)
                 .eq('event_name', rawActivityFilters.eventType)
               .order('created_at', { ascending: false })
-                .limit(pageSize * 2);
+                .limit(pageSize);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2875,7 +2897,7 @@
               .select('*')
               .eq('contract_address', ERC1155_ADDRESS)
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2); // Aumentar límite para compensar múltiples consultas
+              .limit(pageSize); // Aumentar límite para compensar múltiples consultas
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2916,7 +2938,7 @@
               .select('*')
               .eq('contract_address', ERC1155_ADDRESS)
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2);
+              .limit(pageSize);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2952,7 +2974,7 @@
               .select('*')
               .eq('contract_address', ERC1155_ADDRESS)
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2);
+              .limit(pageSize);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2984,7 +3006,7 @@
               .select('*')
               .eq('contract_address', ERC1155_ADDRESS)
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2);
+              .limit(pageSize);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -3014,7 +3036,7 @@
               .select('*')
               .eq('contract_address', ERC1155_ADDRESS)
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2);
+              .limit(pageSize);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -3044,7 +3066,7 @@
                 .eq('contract_address', ERC1155_ADDRESS)
                 .eq('event_name', rawActivityFilters.eventType)
                 .order('created_at', { ascending: false })
-                .limit(pageSize * 2);
+                .limit(pageSize);
               
               if (rawActivityFilters.dateFrom) {
                 query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -3081,7 +3103,7 @@
               .select('*')
               .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2);
+              .limit(pageSize);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -3117,7 +3139,7 @@
                 .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS.toLowerCase())
                 .eq('event_name', rawActivityFilters.eventType)
                 .order('created_at', { ascending: false })
-                .limit(pageSize * 2);
+                .limit(pageSize);
               
               if (rawActivityFilters.dateFrom) {
                 query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -3157,7 +3179,7 @@
               .select('*')
               .eq('contract_address', ADRIAN_SHOP_ADDRESS)
               .order('created_at', { ascending: false })
-              .limit(pageSize * 2);
+              .limit(pageSize);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -3190,7 +3212,7 @@
                 .eq('contract_address', ADRIAN_SHOP_ADDRESS)
                 .eq('event_name', rawActivityFilters.eventType)
                 .order('created_at', { ascending: false })
-                .limit(pageSize * 2);
+                .limit(pageSize);
               
               if (rawActivityFilters.dateFrom) {
                 query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -3241,6 +3263,11 @@
         
         renderRawActivityEvents(filteredEvents);
         
+        // Limpiar elementos antiguos si excedemos el límite (solo en móviles)
+        if (isMobile()) {
+          cleanupOldItems();
+        }
+        
         // Check if there's more data
         if (filteredEvents.length < pageSize) {
           rawActivityHasMore = false;
@@ -3255,17 +3282,38 @@
         document.getElementById('rawActivityList').innerHTML = 
           '<div class="alert alert-danger">Error loading activity: ' + error.message + '</div>';
       } finally {
+        isLoadingRawActivity = false;
         document.getElementById('rawActivityLoading').style.display = 'none';
+      }
+    }
+    
+    // Limpiar elementos antiguos para mantener el DOM ligero en móviles
+    function cleanupOldItems() {
+      const container = document.getElementById('rawActivityList');
+      const items = container.querySelectorAll('.activity-item');
+      
+      if (items.length > MAX_VISIBLE_ITEMS) {
+        const itemsToRemove = items.length - MAX_VISIBLE_ITEMS;
+        for (let i = 0; i < itemsToRemove; i++) {
+          items[i].remove();
+        }
+        console.log(`🧹 Limpiados ${itemsToRemove} elementos antiguos. Items restantes: ${items.length - itemsToRemove}`);
       }
     }
 
     function renderRawActivityEvents(events) {
       const container = document.getElementById('rawActivityList');
       
+      // Usar DocumentFragment para renderizado más eficiente
+      const fragment = document.createDocumentFragment();
+      
       events.forEach(event => {
         const item = createRawActivityItem(event);
-        container.appendChild(item);
+        fragment.appendChild(item);
       });
+      
+      // Agregar todos los elementos de una vez
+      container.appendChild(fragment);
     }
 
     // Función auxiliar para obtener URL de imagen del NFT (AdrianPunks)
@@ -3377,6 +3425,8 @@
           alt="AdrianZERO #${tokenId} with traits ${traitIds.join(', ')}" 
           class="nft-thumbnail me-2"
           style="width: ${size}px; height: ${size}px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg);"
+          loading="lazy"
+          decoding="async"
           onerror="this.style.display='none'"
         />
       `;
@@ -3395,6 +3445,8 @@
             alt="AdrianLAB #${tokenId}" 
             class="nft-thumbnail me-2"
             style="width: ${size}px; height: ${size}px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg);"
+            loading="lazy"
+            decoding="async"
             onerror="this.style.display='none'"
           />
         `;
@@ -3873,19 +3925,39 @@
       const list = document.getElementById('rawActivityList');
       if (!list) return;
       
+      // Remover handler anterior si existe
+      if (rawActivityScrollHandler) {
+        list.removeEventListener('scroll', rawActivityScrollHandler);
+      }
+      
+      // Throttle del scroll handler para mejor rendimiento en móviles
       rawActivityScrollHandler = () => {
-        const scrollTop = list.scrollTop;
-        const scrollHeight = list.scrollHeight;
-        const clientHeight = list.clientHeight;
-        
-        if (scrollTop + clientHeight >= scrollHeight - 100) {
-          if (rawActivityHasMore) {
-            loadRawActivity(false);
-          }
+        // Limpiar timeout anterior
+        if (scrollThrottleTimeout) {
+          clearTimeout(scrollThrottleTimeout);
         }
+        
+        // Throttle: ejecutar después de 200ms sin scroll (móviles) o 100ms (desktop)
+        const throttleDelay = isMobile() ? 200 : 100;
+        
+        scrollThrottleTimeout = setTimeout(() => {
+          const scrollTop = list.scrollTop;
+          const scrollHeight = list.scrollHeight;
+          const clientHeight = list.clientHeight;
+          
+          // Threshold más grande en móviles para evitar cargas frecuentes
+          const threshold = isMobile() ? 300 : 100;
+          
+          if (scrollTop + clientHeight >= scrollHeight - threshold) {
+            if (rawActivityHasMore && !isLoadingRawActivity) {
+              loadRawActivity(false);
+            }
+          }
+        }, throttleDelay);
       };
       
-      list.addEventListener('scroll', rawActivityScrollHandler);
+      // Usar passive listener para mejor rendimiento
+      list.addEventListener('scroll', rawActivityScrollHandler, { passive: true });
     }
 
     // Initialize on page load
