@@ -1,0 +1,74 @@
+{
+  "eventRules": {
+    "filtering": {
+      "redundantMints": {
+        "enabled": true,
+        "description": "Omitir TransferSingle cuando hay AssetMinted relacionado (mismo tokenId y to_address)",
+        "rules": [
+          {
+            "sourceEvent": {
+              "type": "ERC1155",
+              "eventType": "TransferSingle",
+              "conditions": {
+                "from_address": "0x0000000000000000000000000000000000000000"
+              }
+            },
+            "conflictEvent": {
+              "type": "ERC1155",
+              "eventType": "AssetMinted"
+            },
+            "matchBy": ["tokenId", "to_address"],
+            "action": "remove_source"
+          }
+        ]
+      }
+    },
+    "contextualTagging": {
+      "floorSweep": {
+        "enabled": true,
+        "description": "Etiquetar transfers de ERC20 relacionados con FloorSweep",
+        "rules": [
+          {
+            "triggerEvent": {
+              "type": "FloorEngine",
+              "eventType": "FloorSweep"
+            },
+            "targetEvents": [
+              {
+                "type": "ERC20",
+                "eventType": "Transfer",
+                "conditions": {
+                  "from_address": "0x0351f7cba83277e891d4a85da498a7eacd764d58",
+                  "matchBy": ["timestamp", "to_address"],
+                  "amountField": "value_wei",
+                  "matchAmount": "caller_reward_wei"
+                },
+                "tag": {
+                  "tag": "Reward",
+                  "color": "success",
+                  "description": "Sweep Reward"
+                }
+              },
+              {
+                "type": "ERC20",
+                "eventType": "Transfer",
+                "conditions": {
+                  "from_address": "0x0351f7cba83277e891d4a85da498a7eacd764d58",
+                  "matchBy": ["timestamp", "to_address"],
+                  "amountField": "value_wei",
+                  "matchAmount": "buy_price_wei"
+                },
+                "tag": {
+                  "tag": "EngineBuy",
+                  "color": "info",
+                  "description": "Engine Purchase"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
+

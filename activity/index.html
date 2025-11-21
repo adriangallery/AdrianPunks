@@ -811,6 +811,7 @@
     let supabaseClient = null;
     let addressTagsRules = {};
     let imageRules = {};
+    let eventRules = {};
 
     // Cargar reglas desde archivos JSON
     async function loadRules() {
@@ -834,6 +835,16 @@
         } else {
           console.warn('⚠️ No se pudo cargar image-rules.json');
         }
+
+        // Cargar reglas de eventos
+        const eventsResponse = await fetch('./rules/event-rules.json');
+        if (eventsResponse.ok) {
+          const eventsData = await eventsResponse.json();
+          eventRules = eventsData.eventRules || {};
+          console.log('✅ Reglas de eventos cargadas:', Object.keys(eventRules).length, 'categorías');
+        } else {
+          console.warn('⚠️ No se pudo cargar event-rules.json');
+        }
       } catch (error) {
         console.error('❌ Error cargando reglas:', error);
       }
@@ -846,12 +857,134 @@
       return addressTagsRules[addrLower] || null;
     }
 
-    // Función para crear badge de tag
-    function createAddressTagBadge(address) {
+    // Función para crear badge de tag (puede recibir tag contextual o usar dirección)
+    function createAddressTagBadge(address, contextualTag = null) {
+      // Si hay un tag contextual, usarlo en lugar del tag de dirección
+      if (contextualTag) {
+        return `<span class="badge bg-${contextualTag.color} ms-2">${contextualTag.tag}</span>`;
+      }
+      
       const tagInfo = getAddressTag(address);
       if (!tagInfo) return '';
       
       return `<span class="badge bg-${tagInfo.color} ms-2">${tagInfo.tag}</span>`;
+    }
+
+    // Función para aplicar reglas de filtrado de eventos
+    function applyEventFilteringRules(events) {
+      if (!eventRules.filtering) return events;
+      
+      const filteredEvents = [];
+      const eventsToRemove = new Set();
+      
+      // Aplicar regla de mints redundantes
+      if (eventRules.filtering.redundantMints?.enabled) {
+        const rule = eventRules.filtering.redundantMints.rules[0];
+        if (rule) {
+          const sourceEvents = new Map();
+          const conflictEvents = new Map();
+          
+          // Identificar eventos fuente (TransferSingle desde 0x0000...0000)
+          events.forEach(event => {
+            if (event.type === rule.sourceEvent.type && 
+                event.eventType === rule.sourceEvent.eventType) {
+              const from = (event.data?.from_address || '').toLowerCase();
+              if (from === rule.sourceEvent.conditions.from_address.toLowerCase()) {
+                const tokenId = event.data?.token_id || event.data?.tokenId || null;
+                const to = (event.data?.to_address || '').toLowerCase();
+                if (tokenId) {
+                  const key = `${tokenId}-${to}`;
+                  if (!sourceEvents.has(key)) {
+                    sourceEvents.set(key, []);
+                  }
+                  sourceEvents.get(key).push(event);
+                }
+              }
+            }
+            
+            // Identificar eventos de conflicto (AssetMinted)
+            if (event.type === rule.conflictEvent.type && 
+                event.eventType === rule.conflictEvent.eventType) {
+              const tokenId = event.data?.event_data?.assetId || event.data?.event_data?.tokenId || null;
+              const to = (event.data?.event_data?.to || '').toLowerCase();
+              if (tokenId) {
+                const key = `${tokenId}-${to}`;
+                conflictEvents.set(key, event);
+              }
+            }
+          });
+          
+          // Marcar eventos fuente para remover si hay conflicto
+          sourceEvents.forEach((sourceList, key) => {
+            if (conflictEvents.has(key)) {
+              sourceList.forEach(sourceEvent => {
+                eventsToRemove.add(sourceEvent);
+              });
+              console.log(`🔍 Omitiendo TransferSingle redundante (mint) para tokenId: ${key.split('-')[0]}, hay AssetMinted relacionado`);
+            }
+          });
+        }
+      }
+      
+      // Filtrar eventos
+      events.forEach(event => {
+        if (!eventsToRemove.has(event)) {
+          filteredEvents.push(event);
+        }
+      });
+      
+      return filteredEvents;
+    }
+
+    // Función para aplicar etiquetado contextual
+    function applyContextualTagging(events) {
+      if (!eventRules.contextualTagging) return;
+      
+      // Aplicar regla de FloorSweep
+      if (eventRules.contextualTagging.floorSweep?.enabled) {
+        const rule = eventRules.contextualTagging.floorSweep.rules[0];
+        if (rule) {
+          // Encontrar todos los FloorSweep
+          const floorSweeps = events.filter(e => 
+            e.type === rule.triggerEvent.type && 
+            e.eventType === rule.triggerEvent.eventType
+          );
+          
+          floorSweeps.forEach(sweepEvent => {
+            const sweepData = sweepEvent.data;
+            const sweepTimestamp = new Date(sweepEvent.timestamp).getTime();
+            const callerAddress = (sweepData?.caller || '').toLowerCase();
+            const rewardAmount = String(sweepData?.caller_reward_wei || '0');
+            const buyAmount = String(sweepData?.buy_price_wei || '0');
+            
+            // Buscar transfers de ERC20 relacionados
+            rule.targetEvents.forEach(targetRule => {
+              events.forEach(event => {
+                if (event.type === targetRule.type && 
+                    event.eventType === targetRule.eventType) {
+                  const eventFrom = (event.data?.from_address || '').toLowerCase();
+                  const eventTo = (event.data?.to_address || '').toLowerCase();
+                  const eventTimestamp = new Date(event.timestamp).getTime();
+                  const eventAmount = String(event.data?.value_wei || '0');
+                  
+                  // Verificar condiciones
+                  if (eventFrom === targetRule.conditions.from_address.toLowerCase() &&
+                      eventTo === callerAddress &&
+                      Math.abs(eventTimestamp - sweepTimestamp) < 60000 && // Dentro de 1 minuto
+                      eventAmount === (targetRule.conditions.matchAmount === 'caller_reward_wei' ? rewardAmount : buyAmount)) {
+                    
+                    // Asignar tag contextual al evento
+                    if (!event.contextualTag) {
+                      event.contextualTag = targetRule.tag;
+                      console.log(`🏷️ Tag contextual aplicado: ${targetRule.tag.tag} para transfer de ${eventAmount}`);
+                    }
+                  }
+                }
+              });
+            });
+          });
+        }
+      }
     }
 
     function initSupabase() {
@@ -2935,61 +3068,11 @@
           }
         }
         
-        // Filtrar TransferSingle redundantes cuando hay AssetMinted relacionado
-        // Un TransferSingle desde 0x0000...0000 es un mint, y si hay un AssetMinted relacionado, omitir el TransferSingle
-        const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
-        const filteredEvents = [];
-        const mintTransfers = new Map(); // tokenId -> TransferSingle event
+        // Aplicar reglas de filtrado desde event-rules.json
+        let filteredEvents = applyEventFilteringRules(allEvents);
         
-        // Primero, identificar todos los TransferSingle que son mints
-        allEvents.forEach(event => {
-          if (event.type === 'ERC1155' && event.eventType === 'TransferSingle') {
-            const from = (event.data?.from_address || '').toLowerCase();
-            if (from === ZERO_ADDRESS.toLowerCase()) {
-              const tokenId = event.data?.token_id || event.data?.tokenId || null;
-              const to = (event.data?.to_address || '').toLowerCase();
-              if (tokenId) {
-                const key = `${tokenId}-${to}`;
-                if (!mintTransfers.has(key)) {
-                  mintTransfers.set(key, []);
-                }
-                mintTransfers.get(key).push(event);
-              }
-            }
-          }
-        });
-        
-        // Crear un mapa de AssetMinted por tokenId y to_address
-        const assetMintedMap = new Map();
-        allEvents.forEach(event => {
-          if (event.type === 'ERC1155' && event.eventType === 'AssetMinted') {
-            const tokenId = event.data?.event_data?.assetId || event.data?.event_data?.tokenId || null;
-            const to = (event.data?.event_data?.to || '').toLowerCase();
-            if (tokenId) {
-              const key = `${tokenId}-${to}`;
-              assetMintedMap.set(key, event);
-            }
-          }
-        });
-        
-        // Filtrar eventos: omitir TransferSingle si hay AssetMinted relacionado
-        const eventsToRemove = new Set();
-        mintTransfers.forEach((transfers, key) => {
-          if (assetMintedMap.has(key)) {
-            // Hay un AssetMinted relacionado, marcar los TransferSingle para remover
-            transfers.forEach(transfer => {
-              eventsToRemove.add(transfer);
-            });
-            console.log(`🔍 Omitiendo TransferSingle redundante (mint) para tokenId: ${key.split('-')[0]}, hay AssetMinted relacionado`);
-          }
-        });
-        
-        // Filtrar eventos removiendo los TransferSingle redundantes
-        allEvents.forEach(event => {
-          if (!eventsToRemove.has(event)) {
-            filteredEvents.push(event);
-          }
-        });
+        // Aplicar etiquetado contextual desde event-rules.json
+        applyContextualTagging(filteredEvents);
         
         // Sort by timestamp (most recent first)
         filteredEvents.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -3273,7 +3356,8 @@
         if (event.eventType === 'Transfer') {
           const from = event.data.from_address || 'N/A';
           const to = event.data.to_address || 'N/A';
-          const fromTag = createAddressTagBadge(from);
+          // Usar tag contextual si existe, de lo contrario usar tag de dirección
+          const fromTag = createAddressTagBadge(from, event.contextualTag);
           const toTag = createAddressTagBadge(to);
           
           details = `Transfer from ${shortAddress(from)}${fromTag} to ${shortAddress(to)}${toTag}`;
