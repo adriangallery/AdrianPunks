@@ -316,6 +316,10 @@
     let activeSVGLoads = 0; // Contador de imágenes SVG cargando
     let svgLoadQueue = []; // Cola de imágenes SVG pendientes de cargar
     
+    // Caché de imágenes ya cargadas (reutilización)
+    const imageCache = new Map(); // tokenId -> HTML string de la imagen
+    const loadedImagesCache = new Map(); // tokenId -> elemento img ya cargado (para clonar)
+    
     // Detectar si es móvil y desactivar SVG
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
     const LOAD_SVG_ON_MOBILE = false; // Desactivar SVG en móviles hasta encontrar el issue
@@ -1789,14 +1793,35 @@
     function createAdrianLABImage(tokenId) {
       if (!tokenId || tokenId === 'N/A') return '';
       
+      // OPTIMIZACIÓN: Reutilizar imagen del caché si ya existe
+      if (imageCache.has(tokenId)) {
+        // Si la imagen ya está cargada, clonar el elemento
+        const cachedImg = loadedImagesCache.get(tokenId);
+        if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
+          // Clonar el elemento img ya cargado (más eficiente que crear nuevo)
+          const cloned = cachedImg.cloneNode(true);
+          cloned.id = `adrianlab-img-${tokenId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          // Convertir a string HTML para insertar
+          const tempDiv = document.createElement('div');
+          tempDiv.appendChild(cloned);
+          return tempDiv.innerHTML;
+        }
+        // Si está en caché pero aún no cargada, usar el HTML del caché
+        return imageCache.get(tokenId);
+      }
+      
       const urls = getAdrianLABImageUrls(tokenId);
       if (!urls || urls.length === 0) return '';
       
       // Crear imagen con data-src para carga diferida controlada
       const imageId = `adrianlab-img-${tokenId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const urlsAttr = urls.map(url => url.replace(/"/g, '&quot;')).join(',');
+      const imageHTML = `<img id="${imageId}" data-src="${urls[0]}" class="nft-thumbnail adrianlab-image" loading="lazy" decoding="async" alt="Trait #${tokenId}" data-fallback-urls="${urlsAttr}" data-current-index="0" data-token-id="${tokenId}" style="display: block; background: var(--card-bg); min-width: 48px; min-height: 48px;" onerror="tryNextAdrianLABImage(this)" onclick="if(this.src) window.open(this.src, '_blank')">`;
       
-      return `<img id="${imageId}" data-src="${urls[0]}" class="nft-thumbnail adrianlab-image" loading="lazy" decoding="async" alt="Trait #${tokenId}" data-fallback-urls="${urlsAttr}" data-current-index="0" data-token-id="${tokenId}" style="display: block; background: var(--card-bg); min-width: 48px; min-height: 48px;" onerror="tryNextAdrianLABImage(this)" onclick="if(this.src) window.open(this.src, '_blank')">`;
+      // Guardar en caché para reutilización
+      imageCache.set(tokenId, imageHTML);
+      
+      return imageHTML;
     }
     
     // Función para cargar imagen SVG con control de concurrencia (máximo 5)
@@ -1834,6 +1859,13 @@
         clearTimeout(timeoutId);
         activeSVGLoads--;
         this.style.display = 'block';
+        
+        // OPTIMIZACIÓN: Guardar imagen cargada en caché para reutilización
+        const tokenId = this.getAttribute('data-token-id');
+        if (tokenId && !loadedImagesCache.has(tokenId)) {
+          loadedImagesCache.set(tokenId, this);
+        }
+        
         processSVGQueue(); // Procesar siguiente en cola
       };
       
