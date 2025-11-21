@@ -809,6 +809,50 @@
     const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
 
     let supabaseClient = null;
+    let addressTagsRules = {};
+    let imageRules = {};
+
+    // Cargar reglas desde archivos JSON
+    async function loadRules() {
+      try {
+        // Cargar reglas de tags de direcciones
+        const tagsResponse = await fetch('./rules/address-tags.json');
+        if (tagsResponse.ok) {
+          const tagsData = await tagsResponse.json();
+          addressTagsRules = tagsData.addressTags || {};
+          console.log('✅ Reglas de tags de direcciones cargadas:', Object.keys(addressTagsRules).length, 'direcciones');
+        } else {
+          console.warn('⚠️ No se pudo cargar address-tags.json');
+        }
+
+        // Cargar reglas de imágenes
+        const imagesResponse = await fetch('./rules/image-rules.json');
+        if (imagesResponse.ok) {
+          const imagesData = await imagesResponse.json();
+          imageRules = imagesData.imageRules || {};
+          console.log('✅ Reglas de imágenes cargadas:', Object.keys(imageRules).length, 'tipos');
+        } else {
+          console.warn('⚠️ No se pudo cargar image-rules.json');
+        }
+      } catch (error) {
+        console.error('❌ Error cargando reglas:', error);
+      }
+    }
+
+    // Función para obtener tag de una dirección
+    function getAddressTag(address) {
+      if (!address) return null;
+      const addrLower = address.toLowerCase();
+      return addressTagsRules[addrLower] || null;
+    }
+
+    // Función para crear badge de tag
+    function createAddressTagBadge(address) {
+      const tagInfo = getAddressTag(address);
+      if (!tagInfo) return '';
+      
+      return `<span class="badge bg-${tagInfo.color} ms-2">${tagInfo.tag}</span>`;
+    }
 
     function initSupabase() {
       if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
@@ -2920,14 +2964,22 @@
     // Función auxiliar para obtener URL de imagen del NFT (AdrianPunks)
     function getNFTImageUrl(tokenId) {
       if (!tokenId || tokenId === 'N/A') return null;
-      // Las imágenes están en market/adrianpunksimages/{tokenId}.png
+      // Usar reglas desde JSON si están disponibles
+      if (imageRules.adrianPunks) {
+        return `${imageRules.adrianPunks.baseUrl}${tokenId}${imageRules.adrianPunks.extension}`;
+      }
+      // Fallback a valor hardcodeado
       return `../market/adrianpunksimages/${tokenId}.png`;
     }
 
     // Función auxiliar para obtener URL de imagen de AdrianLAB (ERC1155)
     function getAdrianLABImageUrl(tokenId) {
       if (!tokenId || tokenId === 'N/A') return null;
-      // Las imágenes están en https://adrianzero.com/traitlab/assets/traits/{tokenId}.svg
+      // Usar reglas desde JSON si están disponibles
+      if (imageRules.adrianLAB) {
+        return `${imageRules.adrianLAB.baseUrl}${tokenId}${imageRules.adrianLAB.extension}`;
+      }
+      // Fallback a valor hardcodeado
       return `https://adrianzero.com/traitlab/assets/traits/${tokenId}.svg`;
     }
 
@@ -3324,6 +3376,9 @@
 
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', async () => {
+      // Cargar reglas primero
+      await loadRules();
+      
       initSupabase();
       
       if (supabaseClient) {
