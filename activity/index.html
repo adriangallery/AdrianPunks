@@ -242,25 +242,30 @@
   </style>
 </head>
 <body>
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="/">$ADRIAN Ecosystem</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav ms-auto">
-          <li class="nav-item">
-            <a class="nav-link" href="/market/">Market</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link active" href="/activity/">Stats</a>
-          </li>
-        </ul>
-      </div>
-    </div>
-  </nav>
+  <!-- Include the menu -->
+  <div id="menu-container"></div>
+  <script>
+    // Load the menu with relative path
+    fetch('../market/components/menu.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('menu-container').innerHTML = html;
+        
+        // Asegurar que el menú tenga el estilo correcto
+        const menu = document.querySelector('.navbar');
+        if (menu) {
+          menu.classList.add('navbar-dark', 'bg-dark');
+        }
+        
+        // Verificar si el script ya ha sido cargado para evitar duplicación
+        if (!document.querySelector('script[src="../market/components/menu.js"]')) {
+          const script = document.createElement('script');
+          script.src = '../market/components/menu.js';
+          document.head.appendChild(script);
+        }
+      })
+      .catch(error => console.error('Error loading menu:', error));
+  </script>
 
   <div class="container mt-4">
     <!-- Page Header -->
@@ -272,21 +277,104 @@
     <!-- Tabs Navigation -->
     <ul class="nav nav-tabs mb-4" id="mainTabs" role="tablist">
       <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="stats-tab" data-bs-toggle="tab" data-bs-target="#stats" type="button" role="tab">
-          <i class="bi bi-graph-up"></i> Statistics
+        <button class="nav-link active" id="activity-tab" data-bs-toggle="tab" data-bs-target="#activity" type="button" role="tab">
+          <i class="bi bi-list-ul"></i> Raw Activity
         </button>
       </li>
       <li class="nav-item" role="presentation">
-        <button class="nav-link" id="activity-tab" data-bs-toggle="tab" data-bs-target="#activity" type="button" role="tab">
-          <i class="bi bi-list-ul"></i> Raw Activity
+        <button class="nav-link" id="stats-tab" data-bs-toggle="tab" data-bs-target="#stats" type="button" role="tab">
+          <i class="bi bi-graph-up"></i> Statistics
         </button>
       </li>
     </ul>
 
     <!-- Tab Content -->
     <div class="tab-content" id="mainTabsContent">
-      <!-- Stats Tab -->
-      <div class="tab-pane fade show active" id="stats" role="tabpanel">
+      <!-- Raw Activity Tab (Principal) -->
+      <div class="tab-pane fade show active" id="activity" role="tabpanel">
+        <div class="section-header">
+          <h2><i class="bi bi-list-ul"></i> Raw Activity</h2>
+        </div>
+
+        <!-- Filters -->
+        <div class="card mb-4">
+          <div class="card-body">
+            <h5 class="card-title mb-3">Filters</h5>
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label for="filterContract" class="form-label">Contract</label>
+                <select class="form-select" id="filterContract">
+                  <option value="all">All Contracts</option>
+                  <option value="floorengine">FloorEngine</option>
+                  <option value="erc20">$ADRIAN Token</option>
+                  <option value="adrianlabcore">AdrianLABCore (AdrianZERO)</option>
+                  <option value="erc1155">AdrianLAB (ERC1155)</option>
+                  <option value="traitsextensions">TraitsExtensions</option>
+                  <option value="adrianshop">AdrianShop</option>
+                  <option value="adriannameregistry">AdrianNameRegistry</option>
+                  <option value="adrianserummodule">AdrianSerumModule</option>
+                  <option value="punkquest">PunkQuest</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label for="filterEventType" class="form-label">Event Type</label>
+                <select class="form-select" id="filterEventType">
+                  <option value="all">All Events</option>
+                  <option value="Listed">Listed</option>
+                  <option value="Cancelled">Cancelled</option>
+                  <option value="Bought">Bought</option>
+                  <option value="FloorSweep">Floor Sweep</option>
+                  <option value="Transfer">Transfer</option>
+                  <option value="Approval">Approval</option>
+                  <option value="Staked">Staked</option>
+                  <option value="WithdrawnStake">Withdrawn Stake</option>
+                  <option value="TaxFeeUpdated">Tax Fee Updated</option>
+                  <option value="CreatorFeeUpdated">Creator Fee Updated</option>
+                  <option value="BurnFeeUpdated">Burn Fee Updated</option>
+                  <option value="TraitApplied">Trait Applied</option>
+                  <option value="TraitsAppliedBatch">Traits Applied Batch</option>
+                  <option value="AssetAddedToInventory">Asset Added</option>
+                  <option value="TraitRemoved">Trait Removed</option>
+                  <option value="ItemPurchased">Item Purchased</option>
+                  <option value="BatchPurchase">Batch Purchase</option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label for="filterDateFrom" class="form-label">From Date</label>
+                <input type="date" class="form-control" id="filterDateFrom">
+              </div>
+              <div class="col-md-2">
+                <label for="filterDateTo" class="form-label">To Date</label>
+                <input type="date" class="form-control" id="filterDateTo">
+              </div>
+              <div class="col-md-2">
+                <label for="filterAddress" class="form-label">Address</label>
+                <input type="text" class="form-control" id="filterAddress" placeholder="0x...">
+              </div>
+            </div>
+            <div class="row mt-3">
+              <div class="col-12">
+                <button class="btn btn-primary" onclick="applyRawActivityFilters()">Apply Filters</button>
+                <button class="btn btn-secondary ms-2" onclick="clearRawActivityFilters()">Clear</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Activity List -->
+        <div id="rawActivityLoading" class="loading-spinner" style="display: none;">
+          <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+        <div id="rawActivityList" class="activity-list"></div>
+        <div id="rawActivityLoadMore" class="text-center mt-4" style="display: none;">
+          <button class="btn btn-outline-primary" onclick="loadMoreRawActivity()">Load More</button>
+        </div>
+      </div> <!-- End Raw Activity Tab -->
+
+      <!-- Stats Tab (Secundario) -->
+      <div class="tab-pane fade" id="stats" role="tabpanel">
     <!-- FloorEngine Statistics Section -->
     <div class="section-header">
       <h2><i class="bi bi-graph-up"></i> FloorEngine Statistics</h2>
@@ -698,98 +786,112 @@
         </div>
       </div>
     </div>
+
+    <!-- AdrianNameRegistry Statistics Section -->
+    <div class="section-header">
+      <h2><i class="bi bi-tag"></i> AdrianNameRegistry Statistics</h2>
+    </div>
+    <div id="nameRegistryStats" class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Names</div>
+          <div class="stat-value" id="nameRegistryTotalNames">Loading...</div>
+          <div class="stat-subtitle">All time</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Tokens with Names</div>
+          <div class="stat-value" id="nameRegistryTokensWithNames">Loading...</div>
+          <div class="stat-subtitle">Unique tokens</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Paid Names</div>
+          <div class="stat-value" id="nameRegistryPaidNames">Loading...</div>
+          <div class="stat-subtitle">Revenue generated</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Revenue</div>
+          <div class="stat-value" id="nameRegistryTotalRevenue">Loading...</div>
+          <div class="stat-subtitle">$ADRIAN</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AdrianSerumModule Statistics Section -->
+    <div class="section-header">
+      <h2><i class="bi bi-flask"></i> AdrianSerumModule Statistics</h2>
+    </div>
+    <div id="serumModuleStats" class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Applications</div>
+          <div class="stat-value" id="serumModuleTotalApplications">Loading...</div>
+          <div class="stat-subtitle">All time</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Success Rate</div>
+          <div class="stat-value" id="serumModuleSuccessRate">Loading...</div>
+          <div class="stat-subtitle">Percentage</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Successful</div>
+          <div class="stat-value" id="serumModuleSuccessful">Loading...</div>
+          <div class="stat-subtitle">Applications</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Failed</div>
+          <div class="stat-value" id="serumModuleFailed">Loading...</div>
+          <div class="stat-subtitle">Applications</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PunkQuest Statistics Section -->
+    <div class="section-header">
+      <h2><i class="bi bi-sword"></i> PunkQuest Statistics</h2>
+    </div>
+    <div id="punkQuestStats" class="row g-3 mb-4">
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Stakes</div>
+          <div class="stat-value" id="punkQuestTotalStakes">Loading...</div>
+          <div class="stat-subtitle">All time</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Currently Staked</div>
+          <div class="stat-value" id="punkQuestCurrentlyStaked">Loading...</div>
+          <div class="stat-subtitle">Tokens</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Total Rewards</div>
+          <div class="stat-value" id="punkQuestTotalRewards">Loading...</div>
+          <div class="stat-subtitle">$ADRIAN</div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="stat-label">Items Purchased</div>
+          <div class="stat-value" id="punkQuestItemsPurchased">Loading...</div>
+          <div class="stat-subtitle">Total quantity</div>
+        </div>
+      </div>
+    </div>
       </div> <!-- End Stats Tab -->
-
-      <!-- Raw Activity Tab -->
-      <div class="tab-pane fade" id="activity" role="tabpanel">
-        <div class="section-header">
-          <h2><i class="bi bi-list-ul"></i> Raw Activity</h2>
-        </div>
-
-        <!-- Filters -->
-        <div class="card mb-4">
-          <div class="card-body">
-            <h5 class="card-title mb-3">Filters</h5>
-            <div class="row g-3">
-              <div class="col-md-3">
-                <label for="filterContract" class="form-label">Contract</label>
-                <select class="form-select" id="filterContract">
-                  <option value="all">All Contracts</option>
-                  <option value="floorengine">FloorEngine</option>
-                  <option value="erc20">$ADRIAN Token</option>
-                  <option value="adrianlabcore">AdrianLABCore (AdrianZERO)</option>
-                  <option value="erc1155">AdrianLAB (ERC1155)</option>
-                  <option value="traitsextensions">TraitsExtensions</option>
-                  <option value="adrianshop">AdrianShop</option>
-                </select>
-              </div>
-              <div class="col-md-3">
-                <label for="filterEventType" class="form-label">Event Type</label>
-                <select class="form-select" id="filterEventType">
-                  <option value="all">All Events</option>
-                  <option value="Listed">Listed</option>
-                  <option value="Cancelled">Cancelled</option>
-                  <option value="Bought">Bought</option>
-                  <option value="FloorSweep">Floor Sweep</option>
-                  <option value="Transfer">Transfer</option>
-                  <option value="Approval">Approval</option>
-                  <option value="Staked">Staked</option>
-                  <option value="WithdrawnStake">Withdrawn Stake</option>
-                  <option value="TaxFeeUpdated">Tax Fee Updated</option>
-                  <option value="CreatorFeeUpdated">Creator Fee Updated</option>
-                  <option value="BurnFeeUpdated">Burn Fee Updated</option>
-                  <option value="PremiumUpdated">Premium Updated</option>
-                  <option value="MaxBuyPriceUpdated">Max Buy Price Updated</option>
-                  <option value="TokenMinted">Token Minted</option>
-                  <option value="TokenBurnt">Token Burnt</option>
-                  <option value="SkinAssigned">Skin Assigned</option>
-                  <option value="SkinCreated">Skin Created</option>
-                  <option value="MutationAssigned">Mutation Assigned</option>
-                  <option value="MutationNameAssigned">Mutation Name Assigned</option>
-                  <option value="SerumApplied">Serum Applied</option>
-                  <option value="SpecialSkinApplied">Special Skin Applied</option>
-                </select>
-              </div>
-              <div class="col-md-2">
-                <label for="filterDateFrom" class="form-label">From Date</label>
-                <input type="date" class="form-control" id="filterDateFrom">
-              </div>
-              <div class="col-md-2">
-                <label for="filterDateTo" class="form-label">To Date</label>
-                <input type="date" class="form-control" id="filterDateTo">
-              </div>
-              <div class="col-md-2">
-                <label for="filterAddress" class="form-label">Address</label>
-                <input type="text" class="form-control" id="filterAddress" placeholder="0x...">
-              </div>
-            </div>
-            <div class="row mt-3">
-              <div class="col-12">
-                <button class="btn btn-primary" onclick="applyRawActivityFilters()">Apply Filters</button>
-                <button class="btn btn-secondary" onclick="clearRawActivityFilters()">Clear</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Activity List -->
-        <div class="card">
-          <div class="card-body">
-            <div id="rawActivityList" class="activity-list">
-              <div class="loading-spinner">
-                <div class="spinner-border" role="status">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
-              </div>
-            </div>
-            <div id="rawActivityLoading" class="text-center mt-3" style="display: none;">
-              <div class="spinner-border" role="status">
-                <span class="visually-hidden">Loading more...</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div> <!-- End Raw Activity Tab -->
     </div> <!-- End Tab Content -->
   </div>
 
@@ -803,6 +905,10 @@
     const ERC1155_ADDRESS = '0x90546848474fb3c9fda3fdad887969bb244e7e58'; // AdrianLAB
     const TRAITS_EXTENSIONS_ADDRESS = '0x0995c0dA1ca071b792E852b6Ec531b7cD7d1F8D6';
     const ADRIAN_SHOP_ADDRESS = '0x4b265927b1521995ce416bba3bed98231d2e946b';
+    const ADRIAN_NAME_REGISTRY_ADDRESS = '0xaeC5ED33c88c1943BB7452aC4B571ad0b4c4068C';
+    // TODO: Agregar direcciones de AdrianSerumModule y PunkQuest cuando estén disponibles
+    const ADRIAN_SERUM_MODULE_ADDRESS = '0x0000000000000000000000000000000000000000'; // Placeholder
+    const PUNK_QUEST_ADDRESS = '0x0000000000000000000000000000000000000000'; // Placeholder
 
     // Supabase configuration
     const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
@@ -3756,7 +3862,11 @@
           loadAdrianShopStats()
         ]);
         
-        // Load raw activity when tab is shown
+        // Load raw activity automatically (it's now the main tab)
+        loadRawActivity(true);
+        setupRawActivityScroll();
+        
+        // Also load when tab is shown (in case user switches tabs)
         const activityTab = document.getElementById('activity-tab');
         activityTab.addEventListener('shown.bs.tab', () => {
           if (document.getElementById('rawActivityList').children.length === 0 || 
