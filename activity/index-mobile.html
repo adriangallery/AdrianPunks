@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>$ADRIAN Ecosystem Activity</title>
+  <link rel="icon" type="image/x-icon" href="../favicon.ico">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+  <script src="./supabase-config.js"></script>
+  <style>
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #333333;
+      --card-bg: #ffffff;
+      --border-color: #dee2e6;
+    }
+
+    [data-theme="dark"] {
+      --bg-color: #1a1a1a;
+      --text-color: #ffffff;
+      --card-bg: #2d2d2d;
+      --border-color: #404040;
+    }
+
+    .bg-purple {
+      background-color: #9c27b0 !important;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 0;
+    }
+
+    #menu-container {
+      margin: 0;
+      padding: 0;
+    }
+
+    #menu-container .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      width: 100%;
+      z-index: 1000;
+    }
+
+    .main-container {
+      padding-top: 80px;
+      min-height: 100vh;
+    }
+
+    @media (max-width: 768px) {
+      .main-container {
+        padding-top: 60px;
+      }
+    }
+
+    .activity-item {
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+      background-color: var(--card-bg);
+      transition: box-shadow 0.2s;
+    }
+
+    .activity-item:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .activity-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .activity-badge {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+    }
+
+    .activity-date {
+      font-size: 0.85rem;
+      color: #6c757d;
+    }
+
+    .activity-details {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .nft-thumbnail {
+      width: 48px;
+      height: 48px;
+      object-fit: contain;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+      background: var(--card-bg);
+      flex-shrink: 0;
+    }
+
+    .activity-link {
+      font-size: 0.85rem;
+      text-decoration: none;
+    }
+
+    .load-more-container {
+      text-align: center;
+      padding: 2rem 1rem;
+    }
+
+    .loading-spinner {
+      text-align: center;
+      padding: 2rem;
+    }
+
+    @media (max-width: 768px) {
+      .activity-item {
+        padding: 0.75rem;
+      }
+      
+      .activity-header {
+        font-size: 0.9rem;
+      }
+      
+      .activity-details {
+        font-size: 0.85rem;
+      }
+      
+      .nft-thumbnail {
+        width: 40px;
+        height: 40px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Menu -->
+  <div id="menu-container">
+    <object data="../market/components/menu.html" type="text/html" style="width: 100%; height: auto;">
+      <nav class="navbar navbar-expand-lg bg-light">
+        <div class="container-fluid">
+          <a class="navbar-brand" href="/">$ADRIAN</a>
+        </div>
+      </nav>
+    </object>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-container">
+    <div class="container py-4">
+      <h1 class="mb-4">Activity</h1>
+
+      <!-- Filters -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Contract</label>
+              <select id="filterContract" class="form-select">
+                <option value="all">All Contracts</option>
+                <option value="floorengine">FloorEngine</option>
+                <option value="erc20">ERC20</option>
+                <option value="adrianlabcore">AdrianZERO</option>
+                <option value="erc1155">AdrianLAB</option>
+                <option value="traitsextensions">Traits</option>
+                <option value="adrianshop">Shop</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Event Type</label>
+              <select id="filterEventType" class="form-select">
+                <option value="all">All Events</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Date From</label>
+              <input type="date" id="filterDateFrom" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Date To</label>
+              <input type="date" id="filterDateTo" class="form-control">
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Address</label>
+              <input type="text" id="filterAddress" class="form-control" placeholder="0x...">
+            </div>
+          </div>
+          <div class="row mt-3">
+            <div class="col-12">
+              <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
+              <button class="btn btn-secondary ms-2" onclick="clearFilters()">Clear</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity List -->
+      <div id="activityListContainer">
+        <div class="loading-spinner">
+          <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Load More Button -->
+      <div id="loadMoreContainer" class="load-more-container" style="display: none;">
+        <button class="btn btn-primary btn-lg" onclick="loadMore()">
+          <i class="bi bi-arrow-down-circle"></i> Load More
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // ============================================
+    // CONFIGURATION
+    // ============================================
+    const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
+    const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
+    
+    const PAGE_SIZE = 30; // Items por página
+    const MAX_ITEMS_IN_DOM = 100; // Máximo de items en el DOM (limpieza automática)
+    
+    // Contract addresses
+    const FLOOR_ENGINE_ADDRESS = '0x0351F7cBA83277E891D4a85Da498A7eACD764D58';
+    const ERC20_ADDRESS = '0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea';
+    const ADRIANLABCORE_ADDRESS = '0x6e369bf0e4e0c106192d606fb6d85836d684da75';
+    const ERC1155_ADDRESS = '0x90546848474fb3c9fda3fdad887969bb244e7e58';
+    const TRAITS_EXTENSIONS_ADDRESS = '0x0995c0dA1ca071b792E852b6Ec531b7cD7d1F8D6';
+    const ADRIAN_SHOP_ADDRESS = '0x4b265927b1521995ce416bba3bed98231d2e946b';
+
+    // ============================================
+    // STATE
+    // ============================================
+    let supabaseClient = null;
+    let currentPage = 0;
+    let hasMore = true;
+    let isLoading = false;
+    let allLoadedEvents = []; // Todos los eventos cargados
+    let displayedEvents = []; // Eventos mostrados actualmente
+    let addressTagsRules = {};
+    let imageRules = {};
+    let eventRules = {};
+
+    // Filters
+    const filters = {
+      contract: 'all',
+      eventType: 'all',
+      dateFrom: null,
+      dateTo: null,
+      address: null
+    };
+
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+    async function init() {
+      console.log('🚀 Inicializando aplicación...');
+      
+      // Inicializar Supabase
+      if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('✅ Supabase inicializado');
+      } else {
+        console.error('❌ Credenciales de Supabase no configuradas');
+        showError('Error: Credenciales de Supabase no configuradas');
+        return;
+      }
+
+      // Cargar reglas
+      await loadRules();
+
+      // Cargar primera página
+      await loadFirstPage();
+    }
+
+    // ============================================
+    // RULES LOADING
+    // ============================================
+    async function loadRules() {
+      try {
+        // Address tags
+        const tagsResponse = await fetch('./rules/address-tags.json');
+        if (tagsResponse.ok) {
+          const data = await tagsResponse.json();
+          addressTagsRules = data.addressTags || {};
+        }
+
+        // Image rules
+        const imagesResponse = await fetch('./rules/image-rules.json');
+        if (imagesResponse.ok) {
+          const data = await imagesResponse.json();
+          imageRules = data.imageRules || {};
+        }
+
+        // Event rules
+        const eventsResponse = await fetch('./rules/event-rules.json');
+        if (eventsResponse.ok) {
+          const data = await eventsResponse.json();
+          eventRules = data.eventRules || {};
+        }
+      } catch (error) {
+        console.error('Error cargando reglas:', error);
+      }
+    }
+
+    // ============================================
+    // DATA LOADING
+    // ============================================
+    async function loadFirstPage() {
+      if (isLoading) return;
+      
+      currentPage = 0;
+      hasMore = true;
+      allLoadedEvents = [];
+      displayedEvents = [];
+      
+      showLoading();
+      await loadMore();
+    }
+
+    async function loadMore() {
+      if (isLoading || !hasMore) return;
+      
+      isLoading = true;
+      updateLoadMoreButton();
+
+      try {
+        const pageSize = PAGE_SIZE;
+        const offset = currentPage * pageSize;
+        const newEvents = await fetchEvents(offset, pageSize);
+        
+        if (newEvents.length === 0) {
+          hasMore = false;
+        } else {
+          allLoadedEvents = allLoadedEvents.concat(newEvents);
+          currentPage++;
+          
+          // Aplicar filtros y renderizar
+          applyFiltersAndRender();
+        }
+      } catch (error) {
+        console.error('Error cargando eventos:', error);
+        showError('Error cargando eventos: ' + error.message);
+      } finally {
+        isLoading = false;
+        hideLoading();
+        updateLoadMoreButton();
+      }
+    }
+
+    async function fetchEvents(offset, limit) {
+      const events = [];
+      
+      // FloorEngine events
+      if (filters.contract === 'all' || filters.contract === 'floorengine') {
+        // Listing events
+        let query = supabaseClient
+          .from('listing_events')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1);
+        
+        if (filters.eventType !== 'all') {
+          query = query.eq('event_type', filters.eventType);
+        }
+        if (filters.dateFrom) {
+          query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+        }
+        if (filters.dateTo) {
+          query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+        }
+        
+        const { data: listings } = await query;
+        if (listings) {
+          listings.forEach(event => {
+            events.push({
+              type: 'FloorEngine',
+              eventType: event.event_type,
+              data: event,
+              timestamp: event.created_at
+            });
+          });
+        }
+
+        // Trade events
+        query = supabaseClient
+          .from('trade_events')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1);
+        
+        if (filters.dateFrom) {
+          query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+        }
+        if (filters.dateTo) {
+          query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+        }
+        
+        const { data: trades } = await query;
+        if (trades) {
+          trades.forEach(event => {
+            events.push({
+              type: 'FloorEngine',
+              eventType: 'Bought',
+              data: event,
+              timestamp: event.created_at
+            });
+          });
+        }
+
+        // Sweep events
+        query = supabaseClient
+          .from('sweep_events')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1);
+        
+        if (filters.dateFrom) {
+          query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+        }
+        if (filters.dateTo) {
+          query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+        }
+        
+        const { data: sweeps } = await query;
+        if (sweeps) {
+          sweeps.forEach(event => {
+            events.push({
+              type: 'FloorEngine',
+              eventType: 'FloorSweep',
+              data: event,
+              timestamp: event.created_at
+            });
+          });
+        }
+      }
+
+      // ERC20 events
+      if (filters.contract === 'all' || filters.contract === 'erc20') {
+        let query = supabaseClient
+          .from('erc20_transfers')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1);
+        
+        if (filters.dateFrom) {
+          query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+        }
+        if (filters.dateTo) {
+          query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+        }
+        if (filters.address) {
+          query = query.or(`from_address.ilike.%${filters.address}%,to_address.ilike.%${filters.address}%`);
+        }
+        
+        const { data: transfers } = await query;
+        if (transfers) {
+          transfers.forEach(event => {
+            events.push({
+              type: 'ERC20',
+              eventType: 'Transfer',
+              data: event,
+              timestamp: event.created_at
+            });
+          });
+        }
+      }
+
+      // Ordenar por timestamp descendente
+      events.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      
+      // Limitar a pageSize
+      return events.slice(0, limit);
+    }
+
+    // ============================================
+    // FILTERING & RENDERING
+    // ============================================
+    function applyFiltersAndRender() {
+      // Aplicar filtros a allLoadedEvents
+      let filtered = [...allLoadedEvents];
+      
+      // Aplicar filtros de fecha y dirección si existen
+      if (filters.dateFrom) {
+        filtered = filtered.filter(e => new Date(e.timestamp) >= new Date(filters.dateFrom + 'T00:00:00Z'));
+      }
+      if (filters.dateTo) {
+        filtered = filtered.filter(e => new Date(e.timestamp) <= new Date(filters.dateTo + 'T23:59:59Z'));
+      }
+      
+      // Aplicar reglas de eventos
+      filtered = applyEventFilteringRules(filtered);
+      applyContextualTagging(filtered);
+      
+      // Actualizar displayedEvents
+      displayedEvents = filtered;
+      
+      // Limpiar DOM si hay demasiados items
+      cleanupOldItems();
+      
+      // Renderizar
+      renderEvents();
+    }
+
+    function renderEvents() {
+      const container = document.getElementById('activityListContainer');
+      if (!container) return;
+      
+      // Si no hay eventos, mostrar mensaje
+      if (displayedEvents.length === 0) {
+        container.innerHTML = '<div class="text-center py-5"><p>No hay eventos para mostrar</p></div>';
+        return;
+      }
+      
+      // Crear fragment para renderizado eficiente
+      const fragment = document.createDocumentFragment();
+      
+      displayedEvents.forEach(event => {
+        const item = createEventItem(event);
+        fragment.appendChild(item);
+      });
+      
+      // Limpiar y agregar
+      container.innerHTML = '';
+      container.appendChild(fragment);
+    }
+
+    function createEventItem(event) {
+      const div = document.createElement('div');
+      div.className = 'activity-item';
+      
+      // Badge
+      let badgeColor = 'bg-secondary';
+      let badgeText = event.type;
+      if (event.type === 'FloorEngine') badgeColor = 'bg-primary';
+      else if (event.type === 'ERC20') badgeColor = 'bg-success';
+      else if (event.type === 'AdrianLABCore') badgeColor = 'bg-purple';
+      else if (event.type === 'ERC1155') badgeColor = 'bg-info';
+      else if (event.type === 'TraitsExtensions') badgeColor = 'bg-warning';
+      else if (event.type === 'AdrianShop') badgeColor = 'bg-danger';
+      
+      // Date
+      const date = new Date(event.timestamp);
+      const dateStr = date.toLocaleString('es-ES', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      
+      // Details
+      const details = formatEventDetails(event);
+      const image = getEventImage(event);
+      const txHash = event.data?.tx_hash || '';
+      
+      div.innerHTML = `
+        <div class="activity-header">
+          <div>
+            <span class="badge ${badgeColor} activity-badge">${badgeText}</span>
+            <span class="badge bg-secondary activity-badge ms-2">${event.eventType}</span>
+          </div>
+          <div class="activity-date">${dateStr}</div>
+        </div>
+        <div class="activity-details">
+          ${image}
+          <span>${details}</span>
+        </div>
+        ${txHash ? `<div class="mt-2"><a href="https://basescan.org/tx/${txHash}" target="_blank" class="activity-link">View on Basescan <i class="bi bi-box-arrow-up-right"></i></a></div>` : ''}
+      `;
+      
+      return div;
+    }
+
+    function formatEventDetails(event) {
+      if (event.type === 'FloorEngine') {
+        if (event.eventType === 'Listed' || event.eventType === 'Cancelled') {
+          const tokenId = event.data.token_id;
+          const seller = shortAddress(event.data.seller);
+          const price = event.data.price_wei ? formatADRIAN(event.data.price_wei) : '';
+          return `Token #${tokenId} - ${event.eventType} by ${seller}${price ? ' - Price: ' + price + ' $ADRIAN' : ''}`;
+        } else if (event.eventType === 'Bought') {
+          const tokenId = event.data.token_id;
+          const buyer = shortAddress(event.data.buyer);
+          const seller = shortAddress(event.data.seller);
+          const price = event.data.price_wei ? formatADRIAN(event.data.price_wei) : '';
+          return `Token #${tokenId} - Bought by ${buyer} from ${seller}${price ? ' - Price: ' + price + ' $ADRIAN' : ''}`;
+        } else if (event.eventType === 'FloorSweep') {
+          const tokenId = event.data.token_id;
+          const caller = shortAddress(event.data.caller);
+          const buyPrice = event.data.buy_price_wei ? formatADRIAN(event.data.buy_price_wei) : '';
+          const reward = event.data.caller_reward_wei ? formatADRIAN(event.data.caller_reward_wei) : '';
+          return `Token #${tokenId} - Sweep by ${caller}${buyPrice ? ' - Buy: ' + buyPrice + ' $ADRIAN' : ''}${reward ? ' - Reward: ' + reward + ' $ADRIAN' : ''}`;
+        }
+      } else if (event.type === 'ERC20') {
+        if (event.eventType === 'Transfer') {
+          const from = shortAddress(event.data.from_address);
+          const to = shortAddress(event.data.to_address);
+          const amount = event.data.value_wei ? formatADRIAN(event.data.value_wei) : '';
+          const fromTag = getAddressTagBadge(event.data.from_address, event.contextualTag);
+          const toTag = getAddressTagBadge(event.data.to_address);
+          return `Transfer from ${from}${fromTag} to ${to}${toTag}${amount ? ' - Amount: ' + amount + ' $ADRIAN' : ''}`;
+        }
+      }
+      
+      return `${event.eventType}`;
+    }
+
+    function getEventImage(event) {
+      // Implementar lógica de imágenes según imageRules
+      // Por ahora, retornar vacío
+      return '';
+    }
+
+    // ============================================
+    // UTILITY FUNCTIONS
+    // ============================================
+    function formatADRIAN(weiString) {
+      try {
+        let weiStr = String(weiString);
+        if (weiStr.includes('e') || weiStr.includes('E')) {
+          const num = parseFloat(weiStr);
+          weiStr = num.toLocaleString('fullwide', { useGrouping: false, maximumFractionDigits: 0 });
+        }
+        weiStr = weiStr.replace(/,/g, '');
+        if (!/^\d+$/.test(weiStr)) return '0.00';
+        const wei = ethers.BigNumber.from(weiStr);
+        const adrian = parseFloat(ethers.utils.formatUnits(wei, 18));
+        return adrian.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      } catch (error) {
+        return '0.00';
+      }
+    }
+
+    function shortAddress(address) {
+      if (!address) return 'N/A';
+      return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    }
+
+    function getAddressTagBadge(address, contextualTag) {
+      if (contextualTag) {
+        return `<span class="badge bg-${contextualTag.color} ms-2">${contextualTag.tag}</span>`;
+      }
+      const tagInfo = addressTagsRules[address?.toLowerCase()];
+      if (!tagInfo) return '';
+      return `<span class="badge bg-${tagInfo.color} ms-2">${tagInfo.tag}</span>`;
+    }
+
+    function applyEventFilteringRules(events) {
+      // Implementar filtrado según eventRules
+      return events;
+    }
+
+    function applyContextualTagging(events) {
+      // Implementar etiquetado contextual según eventRules
+    }
+
+    function cleanupOldItems() {
+      // Si hay más de MAX_ITEMS_IN_DOM, mantener solo los últimos
+      if (displayedEvents.length > MAX_ITEMS_IN_DOM) {
+        const toRemove = displayedEvents.length - MAX_ITEMS_IN_DOM;
+        displayedEvents = displayedEvents.slice(toRemove);
+      }
+    }
+
+    // ============================================
+    // UI HELPERS
+    // ============================================
+    function showLoading() {
+      const container = document.getElementById('activityListContainer');
+      if (container) {
+        container.innerHTML = '<div class="loading-spinner"><div class="spinner-border" role="status"></div></div>';
+      }
+    }
+
+    function hideLoading() {
+      // Loading se oculta cuando renderizamos
+    }
+
+    function showError(message) {
+      const container = document.getElementById('activityListContainer');
+      if (container) {
+        container.innerHTML = `<div class="alert alert-danger">${message}</div>`;
+      }
+    }
+
+    function updateLoadMoreButton() {
+      const container = document.getElementById('loadMoreContainer');
+      if (container) {
+        if (hasMore && !isLoading) {
+          container.style.display = 'block';
+        } else {
+          container.style.display = 'none';
+        }
+      }
+    }
+
+    // ============================================
+    // FILTER HANDLERS
+    // ============================================
+    function applyFilters() {
+      filters.contract = document.getElementById('filterContract').value;
+      filters.eventType = document.getElementById('filterEventType').value;
+      filters.dateFrom = document.getElementById('filterDateFrom').value || null;
+      filters.dateTo = document.getElementById('filterDateTo').value || null;
+      filters.address = document.getElementById('filterAddress').value.trim() || null;
+      
+      loadFirstPage();
+    }
+
+    function clearFilters() {
+      document.getElementById('filterContract').value = 'all';
+      document.getElementById('filterEventType').value = 'all';
+      document.getElementById('filterDateFrom').value = '';
+      document.getElementById('filterDateTo').value = '';
+      document.getElementById('filterAddress').value = '';
+      
+      filters.contract = 'all';
+      filters.eventType = 'all';
+      filters.dateFrom = null;
+      filters.dateTo = null;
+      filters.address = null;
+      
+      loadFirstPage();
+    }
+
+    // ============================================
+    // INITIALIZE ON LOAD
+    // ============================================
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
+
