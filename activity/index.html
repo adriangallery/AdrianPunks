@@ -1493,7 +1493,7 @@
         const { data: traitsApplied, error: traitsError } = await supabaseClient
           .from('traits_extensions_events')
           .select('*')
-          .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS)
+          .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS.toLowerCase())
           .eq('event_name', 'TraitApplied');
         
         const totalApplied = traitsApplied && !traitsError ? traitsApplied.length : 0;
@@ -1502,7 +1502,7 @@
         const { data: assetsAdded, error: assetsError } = await supabaseClient
           .from('traits_extensions_events')
           .select('event_data')
-          .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS)
+          .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS.toLowerCase())
           .eq('event_name', 'AssetAddedToInventory');
         
         let totalAssetsAdded = 0;
@@ -1517,13 +1517,13 @@
         const { data: traitTypes } = await supabaseClient
           .from('traits_extensions_events')
           .select('event_data')
-          .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS)
+          .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS.toLowerCase())
           .eq('event_name', 'TraitApplied');
         
         const typesSet = new Set();
         if (traitTypes) {
           traitTypes.forEach(t => {
-            const traitType = t.event_data?.traitType || 'Unknown';
+            const traitType = t.event_data?.category || t.event_data?.traitType || 'Unknown';
             typesSet.add(traitType);
           });
         }
@@ -1532,7 +1532,7 @@
         const { count: totalEvents } = await supabaseClient
           .from('traits_extensions_events')
           .select('*', { count: 'exact', head: true })
-          .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS);
+          .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS.toLowerCase());
         
         // Update UI
         document.getElementById('traitsTotalApplied').textContent = totalApplied.toLocaleString();
@@ -2788,12 +2788,16 @@
         
         // Load TraitsExtensions events - Cargar TODOS si eventType es 'all'
         if (rawActivityFilters.contract === 'all' || rawActivityFilters.contract === 'traitsextensions') {
+          console.log('🔍 Cargando eventos TraitsExtensions...');
+          console.log('🔍 Filtros:', { contract: rawActivityFilters.contract, eventType: rawActivityFilters.eventType });
+          console.log('🔍 TRAITS_EXTENSIONS_ADDRESS:', TRAITS_EXTENSIONS_ADDRESS);
+          
           if (rawActivityFilters.eventType === 'all') {
             // Cargar TODOS los eventos sin filtrar por nombre
             let query = supabaseClient
               .from('traits_extensions_events')
               .select('*')
-              .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS)
+              .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
               .limit(pageSize * 2);
             
@@ -2804,25 +2808,31 @@
               query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
             }
             
-            const { data: customs } = await query;
-            if (customs) {
-              customs.forEach(event => {
-                allEvents.push({
-                  type: 'TraitsExtensions',
-                  eventType: event.event_name,
-                  data: event,
-                  timestamp: event.created_at
+            const { data: customs, error: customsError } = await query;
+            if (customsError) {
+              console.error('❌ Error cargando TraitsExtensions events:', customsError);
+            } else {
+              console.log(`✅ TraitsExtensions events cargados: ${customs?.length || 0}`);
+              if (customs && customs.length > 0) {
+                console.log('📋 Tipos de eventos encontrados:', [...new Set(customs.map(e => e.event_name))]);
+                customs.forEach(event => {
+                  allEvents.push({
+                    type: 'TraitsExtensions',
+                    eventType: event.event_name,
+                    data: event,
+                    timestamp: event.created_at
+                  });
                 });
-              });
+              }
             }
           } else {
             // Si hay un filtro específico, usar la lista de tipos conocidos
-            const customEventTypes = ['TraitApplied', 'AssetAddedToInventory', 'TraitRemoved'];
+            const customEventTypes = ['TraitApplied', 'TraitsAppliedBatch', 'AssetAddedToInventory', 'TraitRemoved'];
             if (customEventTypes.includes(rawActivityFilters.eventType)) {
               let query = supabaseClient
                 .from('traits_extensions_events')
                 .select('*')
-                .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS)
+                .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS.toLowerCase())
                 .eq('event_name', rawActivityFilters.eventType)
                 .order('created_at', { ascending: false })
                 .limit(pageSize * 2);
@@ -2834,17 +2844,24 @@
                 query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
               }
               
-              const { data: customs } = await query;
-              if (customs) {
-                customs.forEach(event => {
-                  allEvents.push({
-                    type: 'TraitsExtensions',
-                    eventType: event.event_name,
-                    data: event,
-                    timestamp: event.created_at
+              const { data: customs, error: customsError } = await query;
+              if (customsError) {
+                console.error('❌ Error cargando TraitsExtensions events filtrados:', customsError);
+              } else {
+                console.log(`✅ TraitsExtensions events filtrados (${rawActivityFilters.eventType}): ${customs?.length || 0}`);
+                if (customs) {
+                  customs.forEach(event => {
+                    allEvents.push({
+                      type: 'TraitsExtensions',
+                      eventType: event.event_name,
+                      data: event,
+                      timestamp: event.created_at
+                    });
                   });
-                });
+                }
               }
+            } else {
+              console.warn(`⚠️ Tipo de evento TraitsExtensions desconocido: ${rawActivityFilters.eventType}`);
             }
           }
         }
@@ -3402,8 +3419,59 @@
           }
           txHash = event.data?.tx_hash || '';
         }
-      } else if (event.type === 'TraitsExtensions' || event.type === 'AdrianShop') {
-        // TraitsExtensions y AdrianShop - sin imágenes
+      } else if (event.type === 'TraitsExtensions') {
+        // TraitsExtensions - sin imágenes
+        details = `${event.eventType}`;
+        if (event.data?.event_data) {
+          const eventData = event.data.event_data;
+          
+          // Campos específicos de TraitsExtensions
+          if (eventData.tokenId) {
+            details += ` - Token #${eventData.tokenId}`;
+            tokenId = eventData.tokenId; // Para mostrar imagen si es necesario
+          }
+          
+          if (eventData.traitId) {
+            details += ` - Trait #${eventData.traitId}`;
+          }
+          
+          if (eventData.traitIds && Array.isArray(eventData.traitIds)) {
+            details += ` - Traits: ${eventData.traitIds.join(', ')}`;
+          }
+          
+          if (eventData.category) {
+            details += ` - Category: ${eventData.category}`;
+          }
+          
+          if (eventData.categories && Array.isArray(eventData.categories)) {
+            details += ` - Categories: ${eventData.categories.join(', ')}`;
+          }
+          
+          if (eventData.amount) {
+            details += ` - Amount: ${eventData.amount}`;
+          }
+          
+          // Formatear direcciones si existen (para otros tipos de eventos)
+          if (eventData.buyer) {
+            details += ` - Buyer: ${createCollapsibleAddress(eventData.buyer)}`;
+          }
+          if (eventData.seller) {
+            details += ` - Seller: ${createCollapsibleAddress(eventData.seller)}`;
+          }
+          if (eventData.from) {
+            details += ` - From: ${createCollapsibleAddress(eventData.from)}`;
+          }
+          if (eventData.to) {
+            details += ` - To: ${createCollapsibleAddress(eventData.to)}`;
+          }
+          
+          if (eventData.totalCost) {
+            details += ` - Cost: ${formatADRIAN(eventData.totalCost)} $ADRIAN`;
+          }
+        }
+        txHash = event.data?.tx_hash || '';
+      } else if (event.type === 'AdrianShop') {
+        // AdrianShop - sin imágenes
         details = `${event.eventType}`;
         if (event.data?.event_data) {
           const eventData = event.data.event_data;
