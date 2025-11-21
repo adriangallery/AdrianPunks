@@ -2469,7 +2469,15 @@
       if (reset) {
         rawActivityPage = 0;
         rawActivityHasMore = true;
-        document.getElementById('rawActivityList').innerHTML = '<div class="loading-spinner"><div class="spinner-border" role="status"></div></div>';
+        const container = document.getElementById('rawActivityList');
+        if (container) {
+          container.innerHTML = '<div class="loading-spinner"><div class="spinner-border" role="status"></div></div>';
+          // Asegurar que el sentinel esté presente
+          const sentinel = document.getElementById('rawActivitySentinel');
+          if (sentinel && !container.contains(sentinel)) {
+            container.appendChild(sentinel);
+          }
+        }
       }
       
       if (!rawActivityHasMore) {
@@ -3389,6 +3397,14 @@
         
         // Agregar todos los elementos de una vez
         container.appendChild(fragment);
+        
+        // Mover sentinel al final después de agregar elementos
+        const sentinel = document.getElementById('rawActivitySentinel');
+        if (sentinel && container.contains(sentinel)) {
+          container.appendChild(sentinel);
+        } else if (sentinel && !container.contains(sentinel)) {
+          container.appendChild(sentinel);
+        }
         
         // Actualizar botón Load More en móviles
         if (shouldUsePagination()) {
