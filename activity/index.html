@@ -370,8 +370,8 @@
       // Cargar reglas
       await loadRules();
 
-      // NO configurar Intersection Observer (desactivado para evitar crashes)
-      // setupIntersectionObserver();
+      // Configurar Intersection Observer para scroll infinito
+      setupIntersectionObserver();
 
       // Cargar primera página
       await loadFirstPage();
@@ -1462,6 +1462,19 @@
       container.innerHTML = '';
       container.appendChild(fragment);
       
+      // Agregar sentinel al final para Intersection Observer
+      const sentinel = document.createElement('div');
+      sentinel.id = 'scrollSentinel';
+      sentinel.style.height = '1px';
+      sentinel.style.visibility = 'hidden';
+      container.appendChild(sentinel);
+      
+      // Re-conectar Intersection Observer al sentinel
+      if (intersectionObserver && sentinel) {
+        intersectionObserver.observe(sentinel);
+        console.log('✅ Sentinel agregado y observado');
+      }
+      
       // Cargar imágenes AdrianLAB de forma diferida y controlada
       if (LOAD_IMAGES) {
         requestIdleCallback(() => {
@@ -1752,27 +1765,32 @@
         const primaryExtension = imageRules.adrianLAB.extension;
         const fallbackExtensions = imageRules.adrianLAB.fallbackExtensions || [];
         
-        // Si SKIP_SVG está activado, saltar SVG y empezar con PNG/GIF
-        if (SKIP_SVG && primaryExtension === '.svg') {
-          // Empezar con el primer fallback que no sea SVG
+        // SKIP_SVG activado: NO cargar SVG en absoluto, solo PNG y GIF
+        if (SKIP_SVG) {
+          // Filtrar y usar solo extensiones que NO sean SVG
           const nonSvgExtensions = fallbackExtensions.filter(ext => ext !== '.svg');
-          if (nonSvgExtensions.length > 0) {
+          if (primaryExtension !== '.svg' && nonSvgExtensions.length > 0) {
+            // Si la extensión principal no es SVG, usarla primero
+            urls.push(`${baseUrl}${tokenId}${primaryExtension}`);
+            nonSvgExtensions.forEach(ext => {
+              urls.push(`${baseUrl}${tokenId}${ext}`);
+            });
+          } else if (nonSvgExtensions.length > 0) {
+            // Si la principal es SVG, empezar con el primer fallback no-SVG
             urls.push(`${baseUrl}${tokenId}${nonSvgExtensions[0]}`);
-            // Agregar el resto de fallbacks (excepto SVG)
             nonSvgExtensions.slice(1).forEach(ext => {
               urls.push(`${baseUrl}${tokenId}${ext}`);
             });
           } else {
-            // Si no hay fallbacks, usar PNG directamente
+            // Si no hay fallbacks, usar PNG y GIF directamente
             urls.push(`${baseUrl}${tokenId}.png`);
             urls.push(`${baseUrl}${tokenId}.gif`);
           }
         } else {
+          // SVG permitido (comportamiento normal)
           urls.push(`${baseUrl}${tokenId}${primaryExtension}`);
           fallbackExtensions.forEach(ext => {
-            if (!SKIP_SVG || ext !== '.svg') {
-              urls.push(`${baseUrl}${tokenId}${ext}`);
-            }
+            urls.push(`${baseUrl}${tokenId}${ext}`);
           });
         }
       } else {
@@ -2016,11 +2034,6 @@
     }
     
     function setupIntersectionObserver() {
-      // DESACTIVADO para evitar crashes en móviles
-      // Usar botón "Load More" manual en su lugar
-      return;
-      
-      /* Código comentado por ahora
       if (!('IntersectionObserver' in window)) {
         console.warn('Intersection Observer no soportado, usando botón Load More');
         return;
@@ -2034,21 +2047,17 @@
       intersectionObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
           if (entry.isIntersecting && hasMore && !isLoading) {
+            console.log('📜 Sentinel visible, cargando más eventos...');
             loadMore();
           }
         });
       }, {
         root: null,
-        rootMargin: '100px',
+        rootMargin: '200px', // Cargar antes de llegar al final
         threshold: 0.1
       });
       
-      // Observar el sentinel cuando se renderice
-      const sentinel = document.getElementById('scrollSentinel');
-      if (sentinel) {
-        intersectionObserver.observe(sentinel);
-      }
-      */
+      console.log('✅ Intersection Observer configurado');
     }
     
     function showActivityTab() {
