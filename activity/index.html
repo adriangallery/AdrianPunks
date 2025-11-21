@@ -991,15 +991,28 @@
 
     // Load Token Statistics
     async function loadTokenStats() {
-      if (!supabaseClient) return;
+      if (!supabaseClient) {
+        console.error('❌ loadTokenStats: supabaseClient no disponible');
+        return;
+      }
+      
+      console.log('📊 loadTokenStats: Iniciando carga de estadísticas ERC20');
+      console.log('📊 ERC20_ADDRESS:', ERC20_ADDRESS);
+      console.log('📊 BURN_ADDRESS:', BURN_ADDRESS);
       
       try {
         // Total minted
+        console.log('📊 Consultando mints...');
         const { data: mints, error: mintsError } = await supabaseClient
           .from('erc20_transfers')
           .select('value_wei')
-          .eq('contract_address', ERC20_ADDRESS)
-          .eq('from_address', BURN_ADDRESS);
+          .eq('contract_address', ERC20_ADDRESS.toLowerCase())
+          .eq('from_address', BURN_ADDRESS.toLowerCase());
+        
+        console.log('📊 Mints resultado:', { count: mints?.length || 0, error: mintsError });
+        if (mintsError) {
+          console.error('❌ Error en mints:', mintsError);
+        }
         
         let totalMinted = ethers.BigNumber.from(0);
         if (mints && !mintsError) {
@@ -1014,11 +1027,17 @@
         }
         
         // Total burned
+        console.log('📊 Consultando burns...');
         const { data: burns, error: burnsError } = await supabaseClient
           .from('erc20_transfers')
           .select('value_wei')
-          .eq('contract_address', ERC20_ADDRESS)
-          .eq('to_address', BURN_ADDRESS);
+          .eq('contract_address', ERC20_ADDRESS.toLowerCase())
+          .eq('to_address', BURN_ADDRESS.toLowerCase());
+        
+        console.log('📊 Burns resultado:', { count: burns?.length || 0, error: burnsError });
+        if (burnsError) {
+          console.error('❌ Error en burns:', burnsError);
+        }
         
         let totalBurned = ethers.BigNumber.from(0);
         if (burns && !burnsError) {
@@ -1039,11 +1058,17 @@
         yesterday.setDate(yesterday.getDate() - 1);
         const yesterdayISO = yesterday.toISOString();
         
+        console.log('📊 Consultando transfers 24h...');
         const { data: transfers24h, error: transfers24hError } = await supabaseClient
           .from('erc20_transfers')
           .select('value_wei, created_at')
-          .eq('contract_address', ERC20_ADDRESS)
+          .eq('contract_address', ERC20_ADDRESS.toLowerCase())
           .gte('created_at', yesterdayISO);
+        
+        console.log('📊 Transfers 24h resultado:', { count: transfers24h?.length || 0, error: transfers24hError });
+        if (transfers24hError) {
+          console.error('❌ Error en transfers24h:', transfers24hError);
+        }
         
         let volume24h = ethers.BigNumber.from(0);
         let transactions24h = 0;
@@ -1067,17 +1092,23 @@
         
         // Total holders (unique addresses with balance > 0)
         // Calculate balances by summing received and subtracting sent
+        console.log('📊 Consultando received transfers...');
         const { data: received } = await supabaseClient
           .from('erc20_transfers')
           .select('to_address, value_wei')
-          .eq('contract_address', ERC20_ADDRESS)
-          .neq('to_address', BURN_ADDRESS);
+          .eq('contract_address', ERC20_ADDRESS.toLowerCase())
+          .neq('to_address', BURN_ADDRESS.toLowerCase());
         
+        console.log('📊 Received resultado:', { count: received?.length || 0 });
+        
+        console.log('📊 Consultando sent transfers...');
         const { data: sent } = await supabaseClient
           .from('erc20_transfers')
           .select('from_address, value_wei')
-          .eq('contract_address', ERC20_ADDRESS)
-          .neq('from_address', BURN_ADDRESS);
+          .eq('contract_address', ERC20_ADDRESS.toLowerCase())
+          .neq('from_address', BURN_ADDRESS.toLowerCase());
+        
+        console.log('📊 Sent resultado:', { count: sent?.length || 0 });
         
         const balances = new Map();
         
@@ -1177,13 +1208,25 @@
         document.getElementById('token24hTransactions').textContent = transactions24h.toLocaleString();
         document.getElementById('tokenTotalStaked').textContent = formatADRIAN(totalStaked.toString()) + ' $ADRIAN';
         document.getElementById('tokenTotalRewards').textContent = formatADRIAN(totalRewards.toString()) + ' $ADRIAN';
-        document.getElementById('tokenTotalTransfers').textContent = totalTransfers.toLocaleString();
+        document.getElementById('tokenTotalTransfers').textContent = (totalTransfers || 0).toLocaleString();
+        
+        console.log('📊 Estadísticas ERC20 calculadas:', {
+          totalMinted: totalMinted.toString(),
+          totalBurned: totalBurned.toString(),
+          totalSupply: totalSupply.toString(),
+          volume24h: volume24h.toString(),
+          transactions24h,
+          totalHolders: positiveBalances.length,
+          totalTransfers: totalTransfers || 0
+        });
 
         // Create charts
         createTokenVolumeChart(volumeData);
         createTokenTransactionsChart();
         createTokenSupplyChart(totalMinted, totalBurned, circulatingSupply);
         createTokenStakingChart();
+        
+        console.log('✅ loadTokenStats: Completado');
         
         // Load top holders (convert to array format)
         const holdersMap = new Map();
@@ -2029,7 +2072,12 @@
 
     // Load Raw Activity
     async function loadRawActivity(reset = false) {
-      if (!supabaseClient) return;
+      if (!supabaseClient) {
+        console.error('❌ loadRawActivity: supabaseClient no disponible');
+        return;
+      }
+      
+      console.log('📋 loadRawActivity: Iniciando carga', { reset, contract: rawActivityFilters.contract, eventType: rawActivityFilters.eventType });
       
       if (reset) {
         rawActivityPage = 0;
@@ -2037,13 +2085,17 @@
         document.getElementById('rawActivityList').innerHTML = '<div class="loading-spinner"><div class="spinner-border" role="status"></div></div>';
       }
       
-      if (!rawActivityHasMore) return;
+      if (!rawActivityHasMore) {
+        console.log('📋 loadRawActivity: No hay más datos');
+        return;
+      }
       
       document.getElementById('rawActivityLoading').style.display = 'block';
       
       try {
         const pageSize = 50;
         const allEvents = [];
+        console.log('📋 Filtros activos:', rawActivityFilters);
         
         // Load FloorEngine events
         if (rawActivityFilters.contract === 'all' || rawActivityFilters.contract === 'floorengine') {
@@ -2177,12 +2229,14 @@
         
         // Load ERC20 events
         if (rawActivityFilters.contract === 'all' || rawActivityFilters.contract === 'erc20') {
+          console.log('📋 Cargando eventos ERC20...');
           // Transfers
           if (rawActivityFilters.eventType === 'all' || rawActivityFilters.eventType === 'Transfer') {
+            console.log('📋 Consultando erc20_transfers...');
             let query = supabaseClient
               .from('erc20_transfers')
               .select('*')
-              .eq('contract_address', ERC20_ADDRESS)
+              .eq('contract_address', ERC20_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
               .limit(pageSize * 2);
             
@@ -2196,7 +2250,11 @@
               query = query.or(`from_address.ilike.%${rawActivityFilters.address}%,to_address.ilike.%${rawActivityFilters.address}%`);
             }
             
-            const { data: transfers } = await query;
+            const { data: transfers, error: transfersError } = await query;
+            console.log('📋 erc20_transfers resultado:', { count: transfers?.length || 0, error: transfersError });
+            if (transfersError) {
+              console.error('❌ Error en erc20_transfers:', transfersError);
+            }
             if (transfers) {
               transfers.forEach(event => {
                 allEvents.push({
@@ -2211,10 +2269,11 @@
           
           // Approvals
           if (rawActivityFilters.eventType === 'all' || rawActivityFilters.eventType === 'Approval') {
+            console.log('📋 Consultando erc20_approvals...');
             let query = supabaseClient
               .from('erc20_approvals')
               .select('*')
-              .eq('contract_address', ERC20_ADDRESS)
+              .eq('contract_address', ERC20_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
               .limit(pageSize * 2);
             
@@ -2228,7 +2287,11 @@
               query = query.or(`owner.ilike.%${rawActivityFilters.address}%,spender.ilike.%${rawActivityFilters.address}%`);
             }
             
-            const { data: approvals } = await query;
+            const { data: approvals, error: approvalsError } = await query;
+            console.log('📋 erc20_approvals resultado:', { count: approvals?.length || 0, error: approvalsError });
+            if (approvalsError) {
+              console.error('❌ Error en erc20_approvals:', approvalsError);
+            }
             if (approvals) {
               approvals.forEach(event => {
                 allEvents.push({
@@ -2243,11 +2306,12 @@
           
           // Custom events - Cargar TODOS si eventType es 'all', no solo los de la lista
           if (rawActivityFilters.eventType === 'all') {
+            console.log('📋 Consultando erc20_custom_events (todos)...');
             // Cargar TODOS los eventos custom sin filtrar por nombre
             let query = supabaseClient
               .from('erc20_custom_events')
               .select('*')
-              .eq('contract_address', ERC20_ADDRESS)
+              .eq('contract_address', ERC20_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
               .limit(pageSize * 2);
             
@@ -2258,8 +2322,13 @@
               query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
             }
             
-            const { data: customs } = await query;
+            const { data: customs, error: customsError } = await query;
+            console.log('📋 erc20_custom_events resultado:', { count: customs?.length || 0, error: customsError });
+            if (customsError) {
+              console.error('❌ Error en erc20_custom_events:', customsError);
+            }
             if (customs) {
+              console.log('📋 Tipos de eventos custom encontrados:', [...new Set(customs.map(e => e.event_name))]);
               customs.forEach(event => {
                 allEvents.push({
                   type: 'ERC20',
@@ -2792,6 +2861,12 @@
         // Sort by timestamp (most recent first)
         allEvents.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         
+        console.log('📋 Total eventos cargados:', allEvents.length);
+        console.log('📋 Distribución por tipo:', allEvents.reduce((acc, e) => {
+          acc[e.type] = (acc[e.type] || 0) + 1;
+          return acc;
+        }, {}));
+        
         // Render events
         if (reset) {
           document.getElementById('rawActivityList').innerHTML = '';
@@ -2805,6 +2880,8 @@
         } else {
           rawActivityPage++;
         }
+        
+        console.log('✅ loadRawActivity: Completado');
         
       } catch (error) {
         console.error('Error loading raw activity:', error);
