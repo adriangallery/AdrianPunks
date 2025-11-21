@@ -370,115 +370,702 @@
       // FloorEngine events
       if (filters.contract === 'all' || filters.contract === 'floorengine') {
         // Listing events
-        let query = supabaseClient
-          .from('listing_events')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .range(offset, offset + limit - 1);
-        
-        if (filters.eventType !== 'all') {
-          query = query.eq('event_type', filters.eventType);
-        }
-        if (filters.dateFrom) {
-          query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
-        }
-        if (filters.dateTo) {
-          query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
-        }
-        
-        const { data: listings } = await query;
-        if (listings) {
-          listings.forEach(event => {
-            events.push({
-              type: 'FloorEngine',
-              eventType: event.event_type,
-              data: event,
-              timestamp: event.created_at
+        if (filters.eventType === 'all' || filters.eventType === 'Listed' || filters.eventType === 'Cancelled') {
+          let query = supabaseClient
+            .from('listing_events')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          
+          if (filters.eventType !== 'all') {
+            query = query.eq('event_type', filters.eventType);
+          }
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          if (filters.address) {
+            query = query.ilike('seller', `%${filters.address}%`);
+          }
+          
+          const { data: listings } = await query;
+          if (listings) {
+            listings.forEach(event => {
+              events.push({
+                type: 'FloorEngine',
+                eventType: event.event_type,
+                data: event,
+                timestamp: event.created_at
+              });
             });
-          });
+          }
         }
 
         // Trade events
-        query = supabaseClient
-          .from('trade_events')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .range(offset, offset + limit - 1);
-        
-        if (filters.dateFrom) {
-          query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
-        }
-        if (filters.dateTo) {
-          query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
-        }
-        
-        const { data: trades } = await query;
-        if (trades) {
-          trades.forEach(event => {
-            events.push({
-              type: 'FloorEngine',
-              eventType: 'Bought',
-              data: event,
-              timestamp: event.created_at
+        if (filters.eventType === 'all' || filters.eventType === 'Bought') {
+          let query = supabaseClient
+            .from('trade_events')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          if (filters.address) {
+            query = query.or(`buyer.ilike.%${filters.address}%,seller.ilike.%${filters.address}%`);
+          }
+          
+          const { data: trades } = await query;
+          if (trades) {
+            trades.forEach(event => {
+              events.push({
+                type: 'FloorEngine',
+                eventType: 'Bought',
+                data: event,
+                timestamp: event.created_at
+              });
             });
-          });
+          }
         }
 
         // Sweep events
-        query = supabaseClient
-          .from('sweep_events')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .range(offset, offset + limit - 1);
-        
-        if (filters.dateFrom) {
-          query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
-        }
-        if (filters.dateTo) {
-          query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
-        }
-        
-        const { data: sweeps } = await query;
-        if (sweeps) {
-          sweeps.forEach(event => {
-            events.push({
-              type: 'FloorEngine',
-              eventType: 'FloorSweep',
-              data: event,
-              timestamp: event.created_at
+        if (filters.eventType === 'all' || filters.eventType === 'FloorSweep') {
+          let query = supabaseClient
+            .from('sweep_events')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          if (filters.address) {
+            query = query.ilike('caller', `%${filters.address}%`);
+          }
+          
+          const { data: sweeps } = await query;
+          if (sweeps) {
+            sweeps.forEach(event => {
+              events.push({
+                type: 'FloorEngine',
+                eventType: 'FloorSweep',
+                data: event,
+                timestamp: event.created_at
+              });
             });
-          });
+          }
         }
       }
 
       // ERC20 events
       if (filters.contract === 'all' || filters.contract === 'erc20') {
-        let query = supabaseClient
-          .from('erc20_transfers')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .range(offset, offset + limit - 1);
-        
-        if (filters.dateFrom) {
-          query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
-        }
-        if (filters.dateTo) {
-          query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
-        }
-        if (filters.address) {
-          query = query.or(`from_address.ilike.%${filters.address}%,to_address.ilike.%${filters.address}%`);
-        }
-        
-        const { data: transfers } = await query;
-        if (transfers) {
-          transfers.forEach(event => {
-            events.push({
-              type: 'ERC20',
-              eventType: 'Transfer',
-              data: event,
-              timestamp: event.created_at
+        // Transfers
+        if (filters.eventType === 'all' || filters.eventType === 'Transfer') {
+          let query = supabaseClient
+            .from('erc20_transfers')
+            .select('*')
+            .eq('contract_address', ERC20_ADDRESS.toLowerCase())
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          if (filters.address) {
+            query = query.or(`from_address.ilike.%${filters.address}%,to_address.ilike.%${filters.address}%`);
+          }
+          
+          const { data: transfers } = await query;
+          if (transfers) {
+            transfers.forEach(event => {
+              events.push({
+                type: 'ERC20',
+                eventType: 'Transfer',
+                data: event,
+                timestamp: event.created_at
+              });
             });
-          });
+          }
+        }
+        
+        // Approvals
+        if (filters.eventType === 'all' || filters.eventType === 'Approval') {
+          let query = supabaseClient
+            .from('erc20_approvals')
+            .select('*')
+            .eq('contract_address', ERC20_ADDRESS.toLowerCase())
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          if (filters.address) {
+            query = query.or(`owner.ilike.%${filters.address}%,spender.ilike.%${filters.address}%`);
+          }
+          
+          const { data: approvals } = await query;
+          if (approvals) {
+            approvals.forEach(event => {
+              events.push({
+                type: 'ERC20',
+                eventType: 'Approval',
+                data: event,
+                timestamp: event.created_at
+              });
+            });
+          }
+        }
+        
+        // Custom events
+        if (filters.eventType === 'all') {
+          let query = supabaseClient
+            .from('erc20_custom_events')
+            .select('*')
+            .eq('contract_address', ERC20_ADDRESS.toLowerCase())
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          
+          const { data: customs } = await query;
+          if (customs) {
+            customs.forEach(event => {
+              events.push({
+                type: 'ERC20',
+                eventType: event.event_name,
+                data: event,
+                timestamp: event.created_at
+              });
+            });
+          }
+        } else {
+          const customEventTypes = ['Staked', 'WithdrawnStake', 'TaxFeeUpdated', 'CreatorFeeUpdated', 'BurnFeeUpdated'];
+          if (customEventTypes.includes(filters.eventType)) {
+            let query = supabaseClient
+              .from('erc20_custom_events')
+              .select('*')
+              .eq('contract_address', ERC20_ADDRESS.toLowerCase())
+              .eq('event_name', filters.eventType)
+              .order('created_at', { ascending: false })
+              .range(offset, offset + limit - 1);
+            
+            if (filters.dateFrom) {
+              query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+            }
+            if (filters.dateTo) {
+              query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+            }
+            
+            const { data: customs } = await query;
+            if (customs) {
+              customs.forEach(event => {
+                events.push({
+                  type: 'ERC20',
+                  eventType: event.event_name,
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+        }
+      }
+
+      // AdrianLABCore events
+      if (filters.contract === 'all' || filters.contract === 'adrianlabcore') {
+        // ERC721 Transfers
+        if (filters.eventType === 'all' || filters.eventType === 'Transfer') {
+          let query = supabaseClient
+            .from('erc721_transfers')
+            .select('*')
+            .eq('contract_address', ADRIANLABCORE_ADDRESS)
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          if (filters.address) {
+            query = query.or(`from_address.ilike.%${filters.address}%,to_address.ilike.%${filters.address}%`);
+          }
+          
+          const { data: transfers } = await query;
+          if (transfers) {
+            transfers.forEach(event => {
+              events.push({
+                type: 'AdrianLABCore',
+                eventType: 'Transfer',
+                data: event,
+                timestamp: event.created_at
+              });
+            });
+          }
+        }
+        
+        // ERC721 Approvals
+        if (filters.eventType === 'all' || filters.eventType === 'Approval') {
+          let query = supabaseClient
+            .from('erc721_approvals')
+            .select('*')
+            .eq('contract_address', ADRIANLABCORE_ADDRESS)
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          if (filters.address) {
+            query = query.or(`owner.ilike.%${filters.address}%,approved.ilike.%${filters.address}%`);
+          }
+          
+          const { data: approvals } = await query;
+          if (approvals) {
+            approvals.forEach(event => {
+              events.push({
+                type: 'AdrianLABCore',
+                eventType: 'Approval',
+                data: event,
+                timestamp: event.created_at
+              });
+            });
+          }
+        }
+        
+        // ERC721 ApprovalForAll
+        if (filters.eventType === 'all' || filters.eventType === 'ApprovalForAll') {
+          let query = supabaseClient
+            .from('erc721_approvals_for_all')
+            .select('*')
+            .eq('contract_address', ADRIANLABCORE_ADDRESS)
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          if (filters.address) {
+            query = query.or(`owner.ilike.%${filters.address}%,operator.ilike.%${filters.address}%`);
+          }
+          
+          const { data: approvalsForAll } = await query;
+          if (approvalsForAll) {
+            approvalsForAll.forEach(event => {
+              events.push({
+                type: 'AdrianLABCore',
+                eventType: 'ApprovalForAll',
+                data: event,
+                timestamp: event.created_at
+              });
+            });
+          }
+        }
+        
+        // Custom events
+        if (filters.eventType === 'all') {
+          let query = supabaseClient
+            .from('erc721_custom_events')
+            .select('*')
+            .eq('contract_address', ADRIANLABCORE_ADDRESS)
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          
+          const { data: customs } = await query;
+          if (customs) {
+            customs.forEach(event => {
+              events.push({
+                type: 'AdrianLABCore',
+                eventType: event.event_name,
+                data: event,
+                timestamp: event.created_at
+              });
+            });
+          }
+        } else {
+          const customEventTypes = ['TokenMinted', 'TokenBurnt', 'SkinAssigned', 'SkinCreated', 'MutationAssigned', 
+                                   'MutationNameAssigned', 'SerumApplied', 'SpecialSkinApplied'];
+          if (customEventTypes.includes(filters.eventType)) {
+            let query = supabaseClient
+              .from('erc721_custom_events')
+              .select('*')
+              .eq('contract_address', ADRIANLABCORE_ADDRESS)
+              .eq('event_name', filters.eventType)
+              .order('created_at', { ascending: false })
+              .range(offset, offset + limit - 1);
+            
+            if (filters.dateFrom) {
+              query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+            }
+            if (filters.dateTo) {
+              query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+            }
+            
+            const { data: customs } = await query;
+            if (customs) {
+              customs.forEach(event => {
+                events.push({
+                  type: 'AdrianLABCore',
+                  eventType: event.event_name,
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+        }
+      }
+
+      // ERC1155 events (AdrianLAB)
+      if (filters.contract === 'all' || filters.contract === 'erc1155') {
+        // Single transfers
+        if (filters.eventType === 'all' || filters.eventType === 'TransferSingle') {
+          let query = supabaseClient
+            .from('erc1155_transfers_single')
+            .select('*')
+            .eq('contract_address', ERC1155_ADDRESS)
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          if (filters.address) {
+            query = query.or(`from_address.ilike.%${filters.address}%,to_address.ilike.%${filters.address}%`);
+          }
+          
+          const { data: transfers } = await query;
+          if (transfers) {
+            transfers.forEach(event => {
+              const tokenIdValue = event.token_id || event.tokenId || null;
+              events.push({
+                type: 'ERC1155',
+                eventType: 'TransferSingle',
+                data: { ...event, token_id: tokenIdValue },
+                timestamp: event.created_at
+              });
+            });
+          }
+        }
+        
+        // Batch transfers
+        if (filters.eventType === 'all' || filters.eventType === 'TransferBatch') {
+          let query = supabaseClient
+            .from('erc1155_transfers_batch')
+            .select('*')
+            .eq('contract_address', ERC1155_ADDRESS)
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          if (filters.address) {
+            query = query.or(`from_address.ilike.%${filters.address}%,to_address.ilike.%${filters.address}%`);
+          }
+          
+          const { data: batchTransfers } = await query;
+          if (batchTransfers) {
+            batchTransfers.forEach(event => {
+              const tokenIds = event.token_ids || [];
+              const firstTokenId = Array.isArray(tokenIds) && tokenIds.length > 0 ? tokenIds[0] : null;
+              events.push({
+                type: 'ERC1155',
+                eventType: 'TransferBatch',
+                data: { ...event, token_id: firstTokenId, token_ids: tokenIds },
+                timestamp: event.created_at
+              });
+            });
+          }
+        }
+        
+        // ApprovalForAll
+        if (filters.eventType === 'all' || filters.eventType === 'ApprovalForAll') {
+          let query = supabaseClient
+            .from('erc1155_approvals_for_all')
+            .select('*')
+            .eq('contract_address', ERC1155_ADDRESS)
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          if (filters.address) {
+            query = query.or(`owner.ilike.%${filters.address}%,operator.ilike.%${filters.address}%`);
+          }
+          
+          const { data: approvalsForAll } = await query;
+          if (approvalsForAll) {
+            approvalsForAll.forEach(event => {
+              events.push({
+                type: 'ERC1155',
+                eventType: 'ApprovalForAll',
+                data: event,
+                timestamp: event.created_at
+              });
+            });
+          }
+        }
+        
+        // URI Updates
+        if (filters.eventType === 'all' || filters.eventType === 'URI') {
+          let query = supabaseClient
+            .from('erc1155_uri_updates')
+            .select('*')
+            .eq('contract_address', ERC1155_ADDRESS)
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          
+          const { data: uriUpdates } = await query;
+          if (uriUpdates) {
+            uriUpdates.forEach(event => {
+              events.push({
+                type: 'ERC1155',
+                eventType: 'URI',
+                data: event,
+                timestamp: event.created_at
+              });
+            });
+          }
+        }
+        
+        // Custom events
+        if (filters.eventType === 'all') {
+          let query = supabaseClient
+            .from('erc1155_custom_events')
+            .select('*')
+            .eq('contract_address', ERC1155_ADDRESS)
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          
+          const { data: customs } = await query;
+          if (customs) {
+            customs.forEach(event => {
+              events.push({
+                type: 'ERC1155',
+                eventType: event.event_name,
+                data: event,
+                timestamp: event.created_at
+              });
+            });
+          }
+        } else {
+          const customEventTypes = ['AssetMinted', 'AssetBurned', 'PackOpened', 'SerumUsed'];
+          if (customEventTypes.includes(filters.eventType)) {
+            let query = supabaseClient
+              .from('erc1155_custom_events')
+              .select('*')
+              .eq('contract_address', ERC1155_ADDRESS)
+              .eq('event_name', filters.eventType)
+              .order('created_at', { ascending: false })
+              .range(offset, offset + limit - 1);
+            
+            if (filters.dateFrom) {
+              query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+            }
+            if (filters.dateTo) {
+              query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+            }
+            
+            const { data: customs } = await query;
+            if (customs) {
+              customs.forEach(event => {
+                events.push({
+                  type: 'ERC1155',
+                  eventType: event.event_name,
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+        }
+      }
+
+      // TraitsExtensions events
+      if (filters.contract === 'all' || filters.contract === 'traitsextensions') {
+        if (filters.eventType === 'all') {
+          let query = supabaseClient
+            .from('traits_extensions_events')
+            .select('*')
+            .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS.toLowerCase())
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          
+          const { data: customs } = await query;
+          if (customs) {
+            customs.forEach(event => {
+              events.push({
+                type: 'TraitsExtensions',
+                eventType: event.event_name,
+                data: event,
+                timestamp: event.created_at
+              });
+            });
+          }
+        } else {
+          const customEventTypes = ['TraitApplied', 'TraitsAppliedBatch', 'AssetAddedToInventory', 'TraitRemoved'];
+          if (customEventTypes.includes(filters.eventType)) {
+            let query = supabaseClient
+              .from('traits_extensions_events')
+              .select('*')
+              .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS.toLowerCase())
+              .eq('event_name', filters.eventType)
+              .order('created_at', { ascending: false })
+              .range(offset, offset + limit - 1);
+            
+            if (filters.dateFrom) {
+              query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+            }
+            if (filters.dateTo) {
+              query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+            }
+            
+            const { data: customs } = await query;
+            if (customs) {
+              customs.forEach(event => {
+                events.push({
+                  type: 'TraitsExtensions',
+                  eventType: event.event_name,
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+        }
+      }
+
+      // AdrianShop events
+      if (filters.contract === 'all' || filters.contract === 'adrianshop') {
+        if (filters.eventType === 'all') {
+          let query = supabaseClient
+            .from('shop_events')
+            .select('*')
+            .eq('contract_address', ADRIAN_SHOP_ADDRESS)
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          if (filters.address) {
+            query = query.ilike('event_data->>buyer', `%${filters.address}%`);
+          }
+          
+          const { data: shopEvents } = await query;
+          if (shopEvents) {
+            shopEvents.forEach(event => {
+              events.push({
+                type: 'AdrianShop',
+                eventType: event.event_name,
+                data: event,
+                timestamp: event.created_at
+              });
+            });
+          }
+        } else {
+          const customEventTypes = ['ItemPurchased', 'BatchPurchase', 'ItemListed', 'ItemDelisted'];
+          if (customEventTypes.includes(filters.eventType)) {
+            let query = supabaseClient
+              .from('shop_events')
+              .select('*')
+              .eq('contract_address', ADRIAN_SHOP_ADDRESS)
+              .eq('event_name', filters.eventType)
+              .order('created_at', { ascending: false })
+              .range(offset, offset + limit - 1);
+            
+            if (filters.dateFrom) {
+              query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+            }
+            if (filters.dateTo) {
+              query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+            }
+            if (filters.address) {
+              query = query.ilike('event_data->>buyer', `%${filters.address}%`);
+            }
+            
+            const { data: shopEvents } = await query;
+            if (shopEvents) {
+              shopEvents.forEach(event => {
+                events.push({
+                  type: 'AdrianShop',
+                  eventType: event.event_name,
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
         }
       }
 
@@ -610,6 +1197,8 @@
           const buyPrice = event.data.buy_price_wei ? formatADRIAN(event.data.buy_price_wei) : '';
           const reward = event.data.caller_reward_wei ? formatADRIAN(event.data.caller_reward_wei) : '';
           return `Token #${tokenId} - Sweep by ${caller}${buyPrice ? ' - Buy: ' + buyPrice + ' $ADRIAN' : ''}${reward ? ' - Reward: ' + reward + ' $ADRIAN' : ''}`;
+        } else {
+          return `${event.eventType}`;
         }
       } else if (event.type === 'ERC20') {
         if (event.eventType === 'Transfer') {
@@ -626,27 +1215,101 @@
           const ownerTag = getAddressTagBadge(event.data.owner);
           const spenderTag = getAddressTagBadge(event.data.spender);
           return `Approval by ${owner}${ownerTag} to ${spender}${spenderTag}${amount ? ' - Amount: ' + amount + ' $ADRIAN' : ''}`;
+        } else {
+          let details = `${event.eventType}`;
+          if (event.data?.event_data) {
+            const eventData = event.data.event_data;
+            if (eventData.staker) details += ` - Staker: ${shortAddress(eventData.staker)}`;
+            if (eventData.amount) details += ` - Amount: ${formatADRIAN(eventData.amount)} $ADRIAN`;
+            if (eventData.reward) details += ` - Reward: ${formatADRIAN(eventData.reward)} $ADRIAN`;
+            if (eventData.newTaxFee) details += ` - Tax Fee: ${eventData.newTaxFee} bps`;
+            if (eventData.newCreatorFee) details += ` - Creator Fee: ${eventData.newCreatorFee} bps`;
+            if (eventData.newBurnFee) details += ` - Burn Fee: ${eventData.newBurnFee} bps`;
+          }
+          return details;
         }
       } else if (event.type === 'AdrianLABCore') {
-        const tokenId = event.data?.token_id || event.data?.event_data?.tokenId;
+        let tokenId = event.data?.token_id || event.data?.event_data?.tokenId;
         if (event.eventType === 'Transfer') {
           const from = shortAddress(event.data.from_address);
           const to = shortAddress(event.data.to_address);
           return `Token #${tokenId || 'N/A'} - Transfer from ${from} to ${to}`;
+        } else if (event.eventType === 'Approval') {
+          const owner = shortAddress(event.data.owner);
+          const approved = shortAddress(event.data.approved);
+          return `Token #${tokenId || 'N/A'} - Approval by ${owner} to ${approved}`;
+        } else if (event.eventType === 'ApprovalForAll') {
+          const owner = shortAddress(event.data.owner);
+          const operator = shortAddress(event.data.operator);
+          const approved = event.data.approved || false;
+          return `ApprovalForAll by ${owner} to ${operator} - Approved: ${approved}`;
         } else if (event.eventType === 'TokenMinted') {
           const to = shortAddress(event.data.event_data?.to);
           return `Token #${tokenId || 'N/A'} - Minted to ${to}`;
+        } else if (event.eventType === 'TokenBurnt') {
+          const burner = shortAddress(event.data.event_data?.burner);
+          return `Token #${tokenId || 'N/A'} - Burnt by ${burner}`;
+        } else if (event.eventType === 'SkinAssigned') {
+          const skinName = event.data.event_data?.name || 'Unknown';
+          return `Token #${tokenId || 'N/A'} - Skin "${skinName}" assigned`;
+        } else if (event.eventType === 'SkinCreated') {
+          const skinId = event.data.event_data?.skinId || 'N/A';
+          const skinName = event.data.event_data?.name || 'Unknown';
+          const rarity = event.data.event_data?.rarity || 'N/A';
+          return `Skin #${skinId} "${skinName}" created - Rarity: ${rarity}`;
+        } else if (event.eventType === 'MutationNameAssigned') {
+          const mutation = event.data.event_data?.newMutation || 'Unknown';
+          return `Token #${tokenId || 'N/A'} - Mutation "${mutation}" assigned`;
+        } else if (event.eventType === 'SerumApplied') {
+          const serumId = event.data.event_data?.serumId || 'N/A';
+          return `Token #${tokenId || 'N/A'} - Serum #${serumId} applied`;
+        } else if (event.eventType === 'SpecialSkinApplied') {
+          const skinId = event.data.event_data?.skinId || 'N/A';
+          const mutation = event.data.event_data?.mutation || 'Unknown';
+          return `Token #${tokenId || 'N/A'} - Special skin #${skinId} applied (${mutation})`;
+        } else {
+          return `${event.eventType}`;
         }
       } else if (event.type === 'ERC1155') {
-        const tokenId = event.data?.token_id || event.data?.tokenId;
+        let tokenId = event.data?.token_id || event.data?.tokenId;
         if (event.eventType === 'TransferSingle') {
           const from = shortAddress(event.data.from_address);
           const to = shortAddress(event.data.to_address);
           const value = event.data.value || '0';
           return `Token #${tokenId || 'N/A'} - Transfer ${value} from ${from} to ${to}`;
+        } else if (event.eventType === 'TransferBatch') {
+          const tokenIds = event.data?.token_ids || [];
+          const from = shortAddress(event.data.from_address);
+          const to = shortAddress(event.data.to_address);
+          const tokenCount = Array.isArray(tokenIds) ? tokenIds.length : 0;
+          return `Batch Transfer (${tokenCount} tokens) - From ${from} to ${to}${tokenCount > 0 && tokenId ? ' - First token: #' + tokenId : ''}`;
+        } else if (event.eventType === 'ApprovalForAll') {
+          const owner = shortAddress(event.data.owner);
+          const operator = shortAddress(event.data.operator);
+          const approved = event.data.approved || false;
+          return `ApprovalForAll by ${owner} to ${operator} - Approved: ${approved}`;
+        } else if (event.eventType === 'URI') {
+          const uri = event.data?.uri || 'N/A';
+          const id = event.data?.id || 'N/A';
+          return `URI Updated - ID: ${id} - URI: ${uri.length > 50 ? uri.substring(0, 50) + '...' : uri}`;
         } else if (event.eventType === 'AssetMinted') {
+          tokenId = event.data?.event_data?.assetId || event.data?.event_data?.tokenId || tokenId;
           const to = shortAddress(event.data.event_data?.to);
           return `Token #${tokenId || 'N/A'} - Minted to ${to}`;
+        } else if (event.eventType === 'AssetBurned') {
+          tokenId = event.data?.event_data?.assetId || event.data?.event_data?.tokenId || tokenId;
+          const burner = shortAddress(event.data.event_data?.burner);
+          return `Token #${tokenId || 'N/A'} - Burned by ${burner}`;
+        } else if (event.eventType === 'PackOpened') {
+          tokenId = event.data?.event_data?.packId || tokenId;
+          const opener = shortAddress(event.data.event_data?.opener);
+          return `Pack #${tokenId || 'N/A'} opened by ${opener}`;
+        } else if (event.eventType === 'SerumUsed') {
+          tokenId = event.data?.event_data?.serumId || tokenId;
+          const user = shortAddress(event.data.event_data?.user);
+          return `Serum #${tokenId || 'N/A'} used by ${user}`;
+        } else {
+          return `${event.eventType}`;
         }
       } else if (event.type === 'TraitsExtensions') {
         if (event.eventType === 'TraitApplied') {
@@ -657,6 +1320,64 @@
           const tokenId = event.data?.event_data?.tokenId;
           const traitIds = event.data?.event_data?.traitIds;
           return `Traits ${traitIds ? traitIds.join(', ') : 'N/A'} applied to Token #${tokenId || 'N/A'}`;
+        } else if (event.eventType === 'AssetAddedToInventory') {
+          const tokenId = event.data?.event_data?.tokenId;
+          const assetId = event.data?.event_data?.assetId;
+          return `Asset #${assetId || 'N/A'} added to Token #${tokenId || 'N/A'}`;
+        } else if (event.eventType === 'TraitRemoved') {
+          const tokenId = event.data?.event_data?.tokenId;
+          const traitId = event.data?.event_data?.traitId;
+          return `Trait #${traitId || 'N/A'} removed from Token #${tokenId || 'N/A'}`;
+        } else {
+          let details = `${event.eventType}`;
+          if (event.data?.event_data) {
+            const eventData = event.data.event_data;
+            if (eventData.tokenId) details += ` - Token #${eventData.tokenId}`;
+            if (eventData.traitId) details += ` - Trait #${eventData.traitId}`;
+            if (eventData.traitIds && Array.isArray(eventData.traitIds)) {
+              details += ` - Traits: ${eventData.traitIds.join(', ')}`;
+            }
+            if (eventData.category) details += ` - Category: ${eventData.category}`;
+            if (eventData.categories && Array.isArray(eventData.categories)) {
+              details += ` - Categories: ${eventData.categories.join(', ')}`;
+            }
+            if (eventData.amount) details += ` - Amount: ${eventData.amount}`;
+            if (eventData.totalCost) details += ` - Cost: ${formatADRIAN(eventData.totalCost)} $ADRIAN`;
+          }
+          return details;
+        }
+      } else if (event.type === 'AdrianShop') {
+        if (event.eventType === 'ItemPurchased') {
+          const buyer = shortAddress(event.data.event_data?.buyer);
+          const itemId = event.data.event_data?.itemId || 'N/A';
+          const amount = event.data.event_data?.amount || '0';
+          const totalCost = event.data.event_data?.totalCost;
+          return `Item #${itemId} purchased by ${buyer} - Amount: ${amount}${totalCost ? ' - Cost: ' + formatADRIAN(totalCost) + ' $ADRIAN' : ''}`;
+        } else if (event.eventType === 'BatchPurchase') {
+          const buyer = shortAddress(event.data.event_data?.buyer);
+          const itemCount = event.data.event_data?.items?.length || 0;
+          const totalCost = event.data.event_data?.totalCost;
+          return `Batch purchase by ${buyer} - ${itemCount} items${totalCost ? ' - Cost: ' + formatADRIAN(totalCost) + ' $ADRIAN' : ''}`;
+        } else if (event.eventType === 'ItemListed') {
+          const seller = shortAddress(event.data.event_data?.seller);
+          const itemId = event.data.event_data?.itemId || 'N/A';
+          const price = event.data.event_data?.price;
+          return `Item #${itemId} listed by ${seller}${price ? ' - Price: ' + formatADRIAN(price) + ' $ADRIAN' : ''}`;
+        } else if (event.eventType === 'ItemDelisted') {
+          const seller = shortAddress(event.data.event_data?.seller);
+          const itemId = event.data.event_data?.itemId || 'N/A';
+          return `Item #${itemId} delisted by ${seller}`;
+        } else {
+          let details = `${event.eventType}`;
+          if (event.data?.event_data) {
+            const eventData = event.data.event_data;
+            if (eventData.buyer) details += ` - Buyer: ${shortAddress(eventData.buyer)}`;
+            if (eventData.seller) details += ` - Seller: ${shortAddress(eventData.seller)}`;
+            if (eventData.itemId) details += ` - Item #${eventData.itemId}`;
+            if (eventData.amount) details += ` - Amount: ${eventData.amount}`;
+            if (eventData.totalCost) details += ` - Cost: ${formatADRIAN(eventData.totalCost)} $ADRIAN`;
+          }
+          return details;
         }
       }
       
@@ -693,7 +1414,7 @@
       
       // ERC1155 - imagen de AdrianLAB
       if (event.type === 'ERC1155') {
-        tokenId = event.data?.token_id || event.data?.tokenId;
+        tokenId = event.data?.token_id || event.data?.tokenId || event.data?.event_data?.assetId || event.data?.event_data?.tokenId;
         if (tokenId) {
           return createAdrianLABImage(tokenId);
         }
