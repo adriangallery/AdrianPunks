@@ -311,6 +311,10 @@
     const PAGE_SIZE = 10; // Items por página
     const MAX_ITEMS_IN_DOM = 50; // Máximo de items en el DOM
     const LOAD_IMAGES = true; // Activar carga de imágenes
+    const SKIP_SVG = true; // Saltar SVG en AdrianLAB (causa crashes en móviles)
+    const IMAGE_LOAD_TIMEOUT = 5000; // Timeout de 5 segundos para imágenes
+    const MAX_CONCURRENT_IMAGES = 3; // Máximo de imágenes cargando simultáneamente
+    let activeImageLoads = 0; // Contador de imágenes cargando
     
     // Contract addresses
     const FLOOR_ENGINE_ADDRESS = '0x0351F7cBA83277E891D4a85Da498A7eACD764D58';
@@ -1458,7 +1462,44 @@
       container.innerHTML = '';
       container.appendChild(fragment);
       
+      // Cargar imágenes AdrianLAB de forma diferida y controlada
+      if (LOAD_IMAGES) {
+        requestIdleCallback(() => {
+          loadAdrianLABImagesLazy();
+        }, { timeout: 1000 });
+      }
+      
       console.log(`✅ Renderizados ${displayedEvents.length} eventos`);
+    }
+    
+    function loadAdrianLABImagesLazy() {
+      const images = document.querySelectorAll('img[data-token-id]');
+      let index = 0;
+      
+      function loadNext() {
+        if (index >= images.length) return;
+        
+        // Cargar hasta MAX_CONCURRENT_IMAGES imágenes a la vez
+        const batch = [];
+        while (batch.length < MAX_CONCURRENT_IMAGES && index < images.length) {
+          const img = images[index];
+          if (img && !img.src && img.getAttribute('data-fallback-urls')) {
+            batch.push(img);
+          }
+          index++;
+        }
+        
+        batch.forEach(img => {
+          loadAdrianLABImageWithTimeout(img);
+        });
+        
+        // Si hay más imágenes, cargar siguiente batch después de un delay
+        if (index < images.length) {
+          setTimeout(loadNext, 300);
+        }
+      }
+      
+      loadNext();
     }
 
     function createEventItem(event) {
@@ -1705,32 +1746,101 @@
         const primaryExtension = imageRules.adrianLAB.extension;
         const fallbackExtensions = imageRules.adrianLAB.fallbackExtensions || [];
         
-        urls.push(`${baseUrl}${tokenId}${primaryExtension}`);
-        fallbackExtensions.forEach(ext => {
-          urls.push(`${baseUrl}${tokenId}${ext}`);
-        });
+        // Si SKIP_SVG está activado, saltar SVG y empezar con PNG/GIF
+        if (SKIP_SVG && primaryExtension === '.svg') {
+          // Empezar con el primer fallback que no sea SVG
+          const nonSvgExtensions = fallbackExtensions.filter(ext => ext !== '.svg');
+          if (nonSvgExtensions.length > 0) {
+            urls.push(`${baseUrl}${tokenId}${nonSvgExtensions[0]}`);
+            // Agregar el resto de fallbacks (excepto SVG)
+            nonSvgExtensions.slice(1).forEach(ext => {
+              urls.push(`${baseUrl}${tokenId}${ext}`);
+            });
+          } else {
+            // Si no hay fallbacks, usar PNG directamente
+            urls.push(`${baseUrl}${tokenId}.png`);
+            urls.push(`${baseUrl}${tokenId}.gif`);
+          }
+        } else {
+          urls.push(`${baseUrl}${tokenId}${primaryExtension}`);
+          fallbackExtensions.forEach(ext => {
+            if (!SKIP_SVG || ext !== '.svg') {
+              urls.push(`${baseUrl}${tokenId}${ext}`);
+            }
+          });
+        }
       } else {
-        // Fallback hardcodeado
-        urls.push(`https://adrianzero.com/traitlab/assets/traits/${tokenId}.svg`);
-        urls.push(`https://adrianzero.com/traitlab/assets/traits/${tokenId}.png`);
-        urls.push(`https://adrianzero.com/traitlab/assets/traits/${tokenId}.gif`);
+        // Fallback hardcodeado - saltar SVG si está activado
+        if (SKIP_SVG) {
+          urls.push(`https://adrianzero.com/traitlab/assets/traits/${tokenId}.png`);
+          urls.push(`https://adrianzero.com/traitlab/assets/traits/${tokenId}.gif`);
+        } else {
+          urls.push(`https://adrianzero.com/traitlab/assets/traits/${tokenId}.svg`);
+          urls.push(`https://adrianzero.com/traitlab/assets/traits/${tokenId}.png`);
+          urls.push(`https://adrianzero.com/traitlab/assets/traits/${tokenId}.gif`);
+        }
       }
       
-      // Retornar HTML string en lugar de elemento DOM para mejor rendimiento
+      // Retornar HTML con timeout y carga controlada
       const urlsAttr = urls.map(url => url.replace(/"/g, '&quot;')).join(',');
-      return `<img src="${urls[0]}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Trait #${tokenId}" data-fallback-urls="${urlsAttr}" data-current-index="0" onerror="tryNextAdrianLABImage(this)" onclick="window.open(this.src, '_blank')" style="display: block;">`;
+      const uniqueId = `img-${tokenId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      return `<img id="${uniqueId}" src="" class="nft-thumbnail" loading="lazy" decoding="async" alt="Trait #${tokenId}" data-fallback-urls="${urlsAttr}" data-current-index="0" data-token-id="${tokenId}" style="display: block; background: var(--card-bg);" onerror="tryNextAdrianLABImage(this)" onclick="window.open(this.src, '_blank')">`;
+    }
+    
+    // Función para cargar imagen con timeout y control de concurrencia
+    function loadAdrianLABImageWithTimeout(img) {
+      if (activeImageLoads >= MAX_CONCURRENT_IMAGES) {
+        // Esperar un poco antes de intentar cargar
+        setTimeout(() => loadAdrianLABImageWithTimeout(img), 200);
+        return;
+      }
+      
+      activeImageLoads++;
+      const urlsStr = img.getAttribute('data-fallback-urls') || '';
+      const urls = urlsStr.split(',').map(url => url.trim()).filter(url => url);
+      const currentIndex = parseInt(img.getAttribute('data-current-index') || '0');
+      
+      if (urls.length === 0 || currentIndex >= urls.length) {
+        activeImageLoads--;
+        img.style.display = 'none';
+        return;
+      }
+      
+      const url = urls[currentIndex];
+      const timeoutId = setTimeout(() => {
+        activeImageLoads--;
+        // Si la imagen no cargó en el timeout, intentar siguiente o ocultar
+        if (!img.complete || img.naturalWidth === 0) {
+          tryNextAdrianLABImage(img);
+        }
+      }, IMAGE_LOAD_TIMEOUT);
+      
+      img.onload = function() {
+        clearTimeout(timeoutId);
+        activeImageLoads--;
+        this.style.display = 'block';
+      };
+      
+      img.onerror = function() {
+        clearTimeout(timeoutId);
+        activeImageLoads--;
+        tryNextAdrianLABImage(this);
+      };
+      
+      img.src = url;
     }
     
     function tryNextAdrianLABImage(img) {
       try {
         const urlsStr = img.getAttribute('data-fallback-urls') || '';
-        const urls = urlsStr.split(',').map(url => url.trim());
+        const urls = urlsStr.split(',').map(url => url.trim()).filter(url => url);
         const currentIndex = parseInt(img.getAttribute('data-current-index') || '0');
         
         if (currentIndex < urls.length - 1) {
           const nextIndex = currentIndex + 1;
           img.setAttribute('data-current-index', nextIndex.toString());
-          img.src = urls[nextIndex];
+          // Usar la función con timeout para la siguiente imagen
+          loadAdrianLABImageWithTimeout(img);
         } else {
           // Si no hay más fallbacks, ocultar la imagen
           img.style.display = 'none';
@@ -1738,6 +1848,7 @@
       } catch (error) {
         console.warn('Error en tryNextAdrianLABImage:', error);
         img.style.display = 'none';
+        if (activeImageLoads > 0) activeImageLoads--;
       }
     }
     
