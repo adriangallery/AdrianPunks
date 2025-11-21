@@ -308,9 +308,9 @@
     const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
     const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
 
-    const PAGE_SIZE = 10; // Items por página (mínimo para debug)
-    const MAX_ITEMS_IN_DOM = 30; // Máximo de items en el DOM (reducido para debug)
-    const LOAD_IMAGES = false; // Desactivar carga de imágenes por ahora para debug
+    const PAGE_SIZE = 10; // Items por página
+    const MAX_ITEMS_IN_DOM = 50; // Máximo de items en el DOM
+    const LOAD_IMAGES = true; // Activar carga de imágenes
     
     // Contract addresses
     const FLOOR_ENGINE_ADDRESS = '0x0351F7cBA83277E891D4a85Da498A7eACD764D58';
@@ -461,6 +461,13 @@
     async function fetchEvents(offset, limit) {
       const events = [];
       
+      // Para paginación correcta con múltiples tablas, necesitamos:
+      // 1. Cargar más eventos de cada tabla (limit * 2 para asegurar suficientes)
+      // 2. Combinar todos
+      // 3. Ordenar por timestamp
+      // 4. Tomar slice(offset, offset + limit)
+      const fetchLimit = limit * 2;
+      
       // FloorEngine events
       if (filters.contract === 'all' || filters.contract === 'floorengine') {
           // Listing events
@@ -468,7 +475,7 @@
               .from('listing_events')
               .select('*')
               .order('created_at', { ascending: false })
-          .range(offset, offset + limit - 1);
+          .limit(fetchLimit);
         
         if (filters.eventType !== 'all') {
           query = query.eq('event_type', filters.eventType);
@@ -497,7 +504,7 @@
               .from('trade_events')
               .select('*')
               .order('created_at', { ascending: false })
-          .range(offset, offset + limit - 1);
+          .limit(fetchLimit);
         
         if (filters.dateFrom) {
           query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -518,12 +525,12 @@
               });
           }
           
-          // Sweep events
+        // Sweep events
         query = supabaseClient
-          .from('sweep_events')
+              .from('sweep_events')
               .select('*')
               .order('created_at', { ascending: false })
-          .range(offset, offset + limit - 1);
+          .limit(fetchLimit);
         
         if (filters.dateFrom) {
           query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -550,11 +557,11 @@
         // Transfers
         if (filters.eventType === 'all' || filters.eventType === 'Transfer') {
           let query = supabaseClient
-          .from('erc20_transfers')
+            .from('erc20_transfers')
             .select('*')
             .eq('contract_address', ERC20_ADDRESS.toLowerCase())
             .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -586,7 +593,7 @@
             .select('*')
             .eq('contract_address', ERC20_ADDRESS.toLowerCase())
             .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -613,12 +620,12 @@
 
         // Custom events
         if (filters.eventType === 'all') {
-          let query = supabaseClient
-          .from('erc20_custom_events')
-            .select('*')
-            .eq('contract_address', ERC20_ADDRESS.toLowerCase())
-            .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            let query = supabaseClient
+              .from('erc20_custom_events')
+              .select('*')
+              .eq('contract_address', ERC20_ADDRESS.toLowerCase())
+              .order('created_at', { ascending: false })
+              .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -676,11 +683,11 @@
         // Transfers
         if (filters.eventType === 'all' || filters.eventType === 'Transfer') {
           let query = supabaseClient
-          .from('erc721_transfers')
+            .from('erc721_transfers')
             .select('*')
-          .eq('contract_address', ADRIANLABCORE_ADDRESS)
+            .eq('contract_address', ADRIANLABCORE_ADDRESS)
             .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -709,10 +716,10 @@
         if (filters.eventType === 'all' || filters.eventType === 'Approval') {
           let query = supabaseClient
             .from('erc721_approvals')
-          .select('*')
-          .eq('contract_address', ADRIANLABCORE_ADDRESS)
+            .select('*')
+            .eq('contract_address', ADRIANLABCORE_ADDRESS)
             .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -744,7 +751,7 @@
             .select('*')
             .eq('contract_address', ADRIANLABCORE_ADDRESS)
             .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -776,7 +783,7 @@
             .select('*')
             .eq('contract_address', ADRIANLABCORE_ADDRESS)
             .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -805,7 +812,7 @@
               .eq('contract_address', ADRIANLABCORE_ADDRESS)
               .eq('event_name', filters.eventType)
               .order('created_at', { ascending: false })
-              .range(offset, offset + limit - 1);
+              .limit(fetchLimit);
             
             if (filters.dateFrom) {
               query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -838,7 +845,7 @@
             .select('*')
             .eq('contract_address', ERC1155_ADDRESS)
             .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -871,7 +878,7 @@
             .select('*')
             .eq('contract_address', ERC1155_ADDRESS)
             .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -905,7 +912,7 @@
             .select('*')
             .eq('contract_address', ERC1155_ADDRESS)
             .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -937,7 +944,7 @@
             .select('*')
             .eq('contract_address', ERC1155_ADDRESS)
             .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -995,7 +1002,7 @@
               .eq('contract_address', ERC1155_ADDRESS)
               .eq('event_name', filters.eventType)
               .order('created_at', { ascending: false })
-              .range(offset, offset + limit - 1);
+              .limit(fetchLimit);
             
             if (filters.dateFrom) {
               query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -1022,12 +1029,12 @@
       // TraitsExtensions events
       if (filters.contract === 'all' || filters.contract === 'traitsextensions') {
         if (filters.eventType === 'all') {
-            let query = supabaseClient
+          let query = supabaseClient
             .from('traits_extensions_events')
-              .select('*')
+            .select('*')
             .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -1056,7 +1063,7 @@
               .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS.toLowerCase())
               .eq('event_name', filters.eventType)
               .order('created_at', { ascending: false })
-              .range(offset, offset + limit - 1);
+              .limit(fetchLimit);
             
             if (filters.dateFrom) {
               query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -1083,12 +1090,12 @@
       // AdrianShop events
       if (filters.contract === 'all' || filters.contract === 'adrianshop') {
         if (filters.eventType === 'all') {
-            let query = supabaseClient
+          let query = supabaseClient
             .from('shop_events')
-              .select('*')
+            .select('*')
             .eq('contract_address', ADRIAN_SHOP_ADDRESS)
               .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -1120,7 +1127,7 @@
               .eq('contract_address', ADRIAN_SHOP_ADDRESS)
               .eq('event_name', filters.eventType)
               .order('created_at', { ascending: false })
-              .range(offset, offset + limit - 1);
+              .limit(fetchLimit);
             
             if (filters.dateFrom) {
               query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -1150,12 +1157,12 @@
       // AdrianNameRegistry events (NUEVO)
       if (filters.contract === 'all' || filters.contract === 'adriannameregistry') {
         if (filters.eventType === 'all') {
-            let query = supabaseClient
+          let query = supabaseClient
             .from('name_registry_events')
-              .select('*')
+            .select('*')
             .eq('contract_address', ADRIAN_NAME_REGISTRY_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -1182,12 +1189,12 @@
           
         // Config events
         if (filters.eventType === 'all' || filters.eventType === 'PriceUpdated' || filters.eventType === 'TreasuryUpdated') {
-            let query = supabaseClient
+          let query = supabaseClient
             .from('name_registry_config_events')
-              .select('*')
+            .select('*')
             .eq('contract_address', ADRIAN_NAME_REGISTRY_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.eventType !== 'all') {
             query = query.eq('event_type', filters.eventType);
@@ -1216,12 +1223,12 @@
       // AdrianSerumModule events (NUEVO)
       if (filters.contract === 'all' || filters.contract === 'adrianserummodule') {
         if (ADRIAN_SERUM_MODULE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
-            let query = supabaseClient
+          let query = supabaseClient
             .from('serum_module_events')
-              .select('*')
+            .select('*')
             .eq('contract_address', ADRIAN_SERUM_MODULE_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -1251,12 +1258,12 @@
       if (filters.contract === 'all' || filters.contract === 'punkquest') {
         if (PUNK_QUEST_ADDRESS !== '0x0000000000000000000000000000000000000000') {
           // Staking events
-            let query = supabaseClient
+          let query = supabaseClient
             .from('punk_quest_staking_events')
-              .select('*')
+            .select('*')
             .eq('contract_address', PUNK_QUEST_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -1283,10 +1290,10 @@
           // Item events
           query = supabaseClient
             .from('punk_quest_item_events')
-              .select('*')
+            .select('*')
             .eq('contract_address', PUNK_QUEST_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
@@ -1313,10 +1320,10 @@
           // Event events
           query = supabaseClient
             .from('punk_quest_event_events')
-              .select('*')
+            .select('*')
             .eq('contract_address', PUNK_QUEST_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1);
+            .limit(fetchLimit);
           
           if (filters.dateFrom) {
             query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
