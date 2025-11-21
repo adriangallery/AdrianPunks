@@ -276,19 +276,19 @@
 
         <!-- Activity List - Fuera de contenedores anidados para mejor rendimiento -->
         <div id="activityListContainer" class="activity-list-container">
-          <div class="loading-spinner">
-            <div class="spinner-border" role="status">
-              <span class="visually-hidden">Loading...</span>
+              <div class="loading-spinner">
+                <div class="spinner-border" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
 
         <!-- Load More Button -->
         <div id="loadMoreContainer" class="load-more-container" style="display: none;">
           <button class="btn btn-primary btn-lg" onclick="loadMore()">
             <i class="bi bi-arrow-down-circle"></i> Load More
           </button>
-        </div>
+              </div>
       </div> <!-- End Activity Tab -->
 
       <!-- Statistics Tab Content -->
@@ -316,6 +316,10 @@
     let activeSVGLoads = 0; // Contador de imágenes SVG cargando
     let svgLoadQueue = []; // Cola de imágenes SVG pendientes de cargar
     
+    // Detectar si es móvil y desactivar SVG
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+    const LOAD_SVG_ON_MOBILE = false; // Desactivar SVG en móviles hasta encontrar el issue
+    
     // Contract addresses
     const FLOOR_ENGINE_ADDRESS = '0x0351F7cBA83277E891D4a85Da498A7eACD764D58';
     const ERC20_ADDRESS = '0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea';
@@ -337,6 +341,7 @@
     let isLoading = false;
     let allLoadedEvents = []; // Todos los eventos cargados
     let displayedEvents = []; // Eventos mostrados actualmente
+    let renderedEventsCount = 0; // Contador de eventos ya renderizados (para optimización)
     let addressTagsRules = {};
     let imageRules = {};
     let eventRules = {};
@@ -417,6 +422,7 @@
       hasMore = true;
       allLoadedEvents = [];
       displayedEvents = [];
+      renderedEventsCount = 0; // Resetear contador al limpiar filtros
       
       showLoading();
       await loadMore();
@@ -604,7 +610,7 @@
         // Transfers
         if (filters.eventType === 'all' || filters.eventType === 'Transfer') {
           let query = supabaseClient
-            .from('erc20_transfers')
+          .from('erc20_transfers')
             .select('*')
             .eq('contract_address', ERC20_ADDRESS.toLowerCase())
             .order('created_at', { ascending: false })
@@ -637,7 +643,7 @@
         if (filters.eventType === 'all' || filters.eventType === 'Approval') {
           let query = supabaseClient
             .from('erc20_approvals')
-            .select('*')
+          .select('*')
             .eq('contract_address', ERC20_ADDRESS.toLowerCase())
             .order('created_at', { ascending: false })
             .limit(fetchLimit);
@@ -669,7 +675,7 @@
         if (filters.eventType === 'all') {
             let query = supabaseClient
               .from('erc20_custom_events')
-              .select('*')
+          .select('*')
               .eq('contract_address', ERC20_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
               .limit(fetchLimit);
@@ -1076,9 +1082,9 @@
       // TraitsExtensions events
       if (filters.contract === 'all' || filters.contract === 'traitsextensions') {
         if (filters.eventType === 'all') {
-          let query = supabaseClient
+            let query = supabaseClient
             .from('traits_extensions_events')
-            .select('*')
+              .select('*')
             .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
             .limit(fetchLimit);
@@ -1137,9 +1143,9 @@
       // AdrianShop events
       if (filters.contract === 'all' || filters.contract === 'adrianshop') {
         if (filters.eventType === 'all') {
-          let query = supabaseClient
+            let query = supabaseClient
             .from('shop_events')
-            .select('*')
+              .select('*')
             .eq('contract_address', ADRIAN_SHOP_ADDRESS)
               .order('created_at', { ascending: false })
             .limit(fetchLimit);
@@ -1204,9 +1210,9 @@
       // AdrianNameRegistry events (NUEVO)
       if (filters.contract === 'all' || filters.contract === 'adriannameregistry') {
         if (filters.eventType === 'all') {
-          let query = supabaseClient
+            let query = supabaseClient
             .from('name_registry_events')
-            .select('*')
+              .select('*')
             .eq('contract_address', ADRIAN_NAME_REGISTRY_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
             .limit(fetchLimit);
@@ -1236,9 +1242,9 @@
           
         // Config events
         if (filters.eventType === 'all' || filters.eventType === 'PriceUpdated' || filters.eventType === 'TreasuryUpdated') {
-          let query = supabaseClient
+            let query = supabaseClient
             .from('name_registry_config_events')
-            .select('*')
+              .select('*')
             .eq('contract_address', ADRIAN_NAME_REGISTRY_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
             .limit(fetchLimit);
@@ -1270,9 +1276,9 @@
       // AdrianSerumModule events (NUEVO)
       if (filters.contract === 'all' || filters.contract === 'adrianserummodule') {
         if (ADRIAN_SERUM_MODULE_ADDRESS !== '0x0000000000000000000000000000000000000000') {
-          let query = supabaseClient
+            let query = supabaseClient
             .from('serum_module_events')
-            .select('*')
+              .select('*')
             .eq('contract_address', ADRIAN_SERUM_MODULE_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
             .limit(fetchLimit);
@@ -1305,9 +1311,9 @@
       if (filters.contract === 'all' || filters.contract === 'punkquest') {
         if (PUNK_QUEST_ADDRESS !== '0x0000000000000000000000000000000000000000') {
           // Staking events
-          let query = supabaseClient
+            let query = supabaseClient
             .from('punk_quest_staking_events')
-            .select('*')
+              .select('*')
             .eq('contract_address', PUNK_QUEST_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
             .limit(fetchLimit);
@@ -1337,7 +1343,7 @@
           // Item events
           query = supabaseClient
             .from('punk_quest_item_events')
-            .select('*')
+              .select('*')
             .eq('contract_address', PUNK_QUEST_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
             .limit(fetchLimit);
@@ -1367,7 +1373,7 @@
           // Event events
           query = supabaseClient
             .from('punk_quest_event_events')
-            .select('*')
+              .select('*')
             .eq('contract_address', PUNK_QUEST_ADDRESS.toLowerCase())
               .order('created_at', { ascending: false })
             .limit(fetchLimit);
@@ -1447,20 +1453,44 @@
       // Si no hay eventos, mostrar mensaje
       if (displayedEvents.length === 0) {
         container.innerHTML = '<div class="text-center py-5"><p>No hay eventos para mostrar</p></div>';
+        renderedEventsCount = 0;
         return;
       }
       
-      // Renderizar eventos uno por uno, cada uno completamente independiente
-      const fragment = document.createDocumentFragment();
+      // OPTIMIZACIÓN: Solo renderizar nuevos eventos, no re-renderizar todo
+      const newEventsCount = displayedEvents.length - renderedEventsCount;
       
-      displayedEvents.forEach((event) => {
-        const item = createEventItem(event);
-        fragment.appendChild(item);
-      });
-      
-      // Limpiar y agregar
-      container.innerHTML = '';
-      container.appendChild(fragment);
+      if (renderedEventsCount === 0) {
+        // Primera carga: renderizar todo
+        const fragment = document.createDocumentFragment();
+        
+        displayedEvents.forEach((event) => {
+          const item = createEventItem(event);
+          fragment.appendChild(item);
+        });
+        
+        container.innerHTML = '';
+        container.appendChild(fragment);
+        renderedEventsCount = displayedEvents.length;
+      } else if (newEventsCount > 0) {
+        // Cargas posteriores: solo agregar nuevos eventos
+        const fragment = document.createDocumentFragment();
+        const newEvents = displayedEvents.slice(renderedEventsCount);
+        
+        // Remover sentinel anterior si existe
+        const oldSentinel = document.getElementById('scrollSentinel');
+        if (oldSentinel) {
+          oldSentinel.remove();
+        }
+        
+        newEvents.forEach((event) => {
+          const item = createEventItem(event);
+          fragment.appendChild(item);
+        });
+        
+        container.appendChild(fragment);
+        renderedEventsCount = displayedEvents.length;
+      }
       
       // Agregar sentinel al final para Intersection Observer
       const sentinel = document.createElement('div');
@@ -1476,13 +1506,14 @@
       }
       
       // Cargar imágenes AdrianLAB de forma controlada (5 SVG a la vez)
-      if (LOAD_IMAGES) {
+      // Desactivado en móviles hasta encontrar el issue
+      if (LOAD_IMAGES && (!isMobile || LOAD_SVG_ON_MOBILE)) {
         requestIdleCallback(() => {
           loadAdrianLABImagesLazy();
         }, { timeout: 1000 });
       }
       
-      console.log(`✅ Renderizados ${displayedEvents.length} eventos`);
+      console.log(`✅ Renderizados ${displayedEvents.length} eventos (${newEventsCount > 0 ? `+${newEventsCount} nuevos` : 'sin cambios'})`);
     }
     
     function createEventItem(event) {
@@ -1705,7 +1736,12 @@
       }
       
       // ERC1155: imagen de AdrianLAB con carga controlada (5 SVG a la vez)
+      // Desactivado en móviles hasta encontrar el issue
       if (event.type === 'ERC1155' && (event.data?.token_id || event.data?.tokenId)) {
+        if (isMobile && !LOAD_SVG_ON_MOBILE) {
+          // En móviles, no cargar imágenes SVG por ahora
+          return '';
+        }
         const tokenId = event.data.token_id || event.data.tokenId;
         return createAdrianLABImage(tokenId);
       }
@@ -1853,7 +1889,7 @@
           img.setAttribute('data-current-index', nextIndex.toString());
           // Intentar siguiente URL
           loadAdrianLABImageWithTimeout(img);
-        } else {
+      } else {
           // Si no hay más fallbacks, ocultar la imagen
           img.style.display = 'none';
           processSVGQueue(); // Procesar siguiente en cola
