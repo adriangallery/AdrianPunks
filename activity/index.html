@@ -1473,7 +1473,7 @@
     }
     
     function loadAdrianLABImagesLazy() {
-      const images = document.querySelectorAll('img[data-token-id]');
+      const images = document.querySelectorAll('img.adrianlab-image[data-token-id]');
       let index = 0;
       
       function loadNext() {
@@ -1483,14 +1483,20 @@
         const batch = [];
         while (batch.length < MAX_CONCURRENT_IMAGES && index < images.length) {
           const img = images[index];
-          if (img && !img.src && img.getAttribute('data-fallback-urls')) {
+          // Solo cargar si tiene data-src y aún no tiene src asignado
+          if (img && img.getAttribute('data-src') && !img.src) {
             batch.push(img);
           }
           index++;
         }
         
         batch.forEach(img => {
-          loadAdrianLABImageWithTimeout(img);
+          // Mover data-src a src y cargar
+          const dataSrc = img.getAttribute('data-src');
+          if (dataSrc) {
+            img.removeAttribute('data-src');
+            loadAdrianLABImageWithTimeout(img);
+          }
         });
         
         // Si hay más imágenes, cargar siguiente batch después de un delay
