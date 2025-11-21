@@ -61,6 +61,13 @@
       }
     }
 
+    /* Contenedor de lista de actividades - sin anidados */
+    .activity-list-container {
+      width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
     .activity-item {
       border: 1px solid var(--border-color);
       border-radius: 8px;
@@ -68,6 +75,10 @@
       margin-bottom: 1rem;
       background-color: var(--card-bg);
       transition: box-shadow 0.2s;
+      /* Espacio independiente para cada evento */
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .activity-item:hover {
@@ -258,24 +269,21 @@
           </div>
         </div>
 
-        <!-- Activity List -->
-      <div id="activityListContainer">
-              <div class="loading-spinner">
-                <div class="spinner-border" role="status">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
-              </div>
+        <!-- Activity List - Fuera de contenedores anidados para mejor rendimiento -->
+        <div id="activityListContainer" class="activity-list-container">
+          <div class="loading-spinner">
+            <div class="spinner-border" role="status">
+              <span class="visually-hidden">Loading...</span>
             </div>
+          </div>
+        </div>
 
-      <!-- Load More Button -->
-      <div id="loadMoreContainer" class="load-more-container" style="display: none;">
-        <button class="btn btn-primary btn-lg" onclick="loadMore()">
-          <i class="bi bi-arrow-down-circle"></i> Load More
-        </button>
-              </div>
-
-      <!-- Sentinel para Intersection Observer -->
-      <div id="scrollSentinel" style="height: 1px; visibility: hidden;"></div>
+        <!-- Load More Button -->
+        <div id="loadMoreContainer" class="load-more-container" style="display: none;">
+          <button class="btn btn-primary btn-lg" onclick="loadMore()">
+            <i class="bi bi-arrow-down-circle"></i> Load More
+          </button>
+        </div>
       </div> <!-- End Activity Tab -->
 
       <!-- Statistics Tab Content -->
@@ -295,8 +303,11 @@
     const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
     const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
 
-    const PAGE_SIZE = 30; // Items por página
-    const MAX_ITEMS_IN_DOM = 100; // Máximo de items en el DOM (limpieza automática)
+    const PAGE_SIZE = 20; // Items por página (reducido para móviles)
+    const MAX_ITEMS_IN_DOM = 50; // Máximo de items en el DOM (reducido para móviles)
+    const IMAGE_BATCH_SIZE = 5; // Cargar imágenes en batches de 5
+    let imageLoadQueue = [];
+    let isProcessingImages = false;
     
     // Contract addresses
     const FLOOR_ENGINE_ADDRESS = '0x0351F7cBA83277E891D4a85Da498A7eACD764D58';
@@ -352,8 +363,8 @@
       // Cargar reglas
       await loadRules();
 
-      // Configurar Intersection Observer
-      setupIntersectionObserver();
+      // NO configurar Intersection Observer (desactivado para evitar crashes)
+      // setupIntersectionObserver();
 
       // Cargar primera página
       await loadFirstPage();
@@ -1361,31 +1372,64 @@
         return;
       }
       
-      // Crear fragment para renderizado eficiente
+      // Renderizar sin imágenes primero (más rápido)
       const fragment = document.createDocumentFragment();
       
-      displayedEvents.forEach(event => {
-        const item = createEventItem(event);
+      displayedEvents.forEach((event, index) => {
+        const item = createEventItem(event, false); // false = sin imagen por ahora
         fragment.appendChild(item);
       });
-      
-      // Agregar sentinel al final para Intersection Observer
-      const sentinel = document.getElementById('scrollSentinel');
-      if (sentinel) {
-        fragment.appendChild(sentinel);
-      }
       
       // Limpiar y agregar
       container.innerHTML = '';
       container.appendChild(fragment);
       
-      // Re-conectar Intersection Observer al sentinel
-      if (sentinel && intersectionObserver) {
-        intersectionObserver.observe(sentinel);
+      // Cargar imágenes en batches después del renderizado inicial
+      requestIdleCallback(() => {
+        loadImagesInBatches();
+      }, { timeout: 1000 });
+    }
+    
+    function loadImagesInBatches() {
+      if (isProcessingImages) return;
+      isProcessingImages = true;
+      
+      const items = document.querySelectorAll('.activity-item');
+      let processed = 0;
+      
+      function processBatch() {
+        const batch = Array.from(items).slice(processed, processed + IMAGE_BATCH_SIZE);
+        
+        batch.forEach(item => {
+          const imgPlaceholder = item.querySelector('.image-placeholder');
+          if (imgPlaceholder) {
+            const eventIndex = parseInt(imgPlaceholder.getAttribute('data-event-index'));
+            const event = displayedEvents[eventIndex];
+            if (event) {
+              const imageHtml = getEventImage(event);
+              if (imageHtml) {
+                imgPlaceholder.outerHTML = imageHtml;
+              } else {
+                imgPlaceholder.remove();
+              }
+            }
+          }
+        });
+        
+        processed += batch.length;
+        
+        if (processed < items.length) {
+          // Procesar siguiente batch después de un pequeño delay
+          setTimeout(processBatch, 100);
+        } else {
+          isProcessingImages = false;
+        }
       }
+      
+      processBatch();
     }
 
-    function createEventItem(event) {
+    function createEventItem(event, includeImage = true) {
       const div = document.createElement('div');
       div.className = 'activity-item';
       
@@ -1414,7 +1458,8 @@
       
       // Details
       const details = formatEventDetails(event);
-      const image = getEventImage(event);
+      const eventIndex = displayedEvents.indexOf(event);
+      const image = includeImage ? getEventImage(event) : `<div class="image-placeholder" data-event-index="${eventIndex}" style="width: 48px; height: 48px; display: inline-block;"></div>`;
       const txHash = event.data?.tx_hash || '';
       
       div.innerHTML = `
@@ -1559,13 +1604,13 @@
       // TraitApplied: usar mannequin.svg
       if (event.type === 'TraitsExtensions' && event.eventType === 'TraitApplied') {
         if (eventImages.TraitApplied && eventImages.TraitApplied.imageUrl) {
-          return `<img src="${eventImages.TraitApplied.imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Mannequin">`;
+          return `<img src="${eventImages.TraitApplied.imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Mannequin" onerror="this.style.display='none'">`;
         }
       }
       
       // ERC20: usar ADRIAN_Coin.gif
       if (event.type === 'ERC20' && eventImages.ERC20 && eventImages.ERC20.imageUrl) {
-        return `<img src="${eventImages.ERC20.imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="ADRIAN Coin">`;
+        return `<img src="${eventImages.ERC20.imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="ADRIAN Coin" onerror="this.style.display='none'">`;
       }
       
       // TraitsAppliedBatch: imagen dinámica
@@ -1576,7 +1621,7 @@
           if (Array.isArray(traitIds) && traitIds.length > 0) {
             const traitParams = traitIds.map(id => `trait=${id}`).join('&');
             const imageUrl = `${eventImages.TraitsAppliedBatch.baseUrl}${tokenId}?${traitParams}`;
-            return `<img src="${imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Custom Trait">`;
+            return `<img src="${imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Custom Trait" onerror="this.style.display='none'">`;
           }
         }
       }
@@ -1586,7 +1631,7 @@
         const tokenId = event.data.token_id;
         const imageUrl = getNFTImageUrl(tokenId);
         if (imageUrl) {
-          return `<img src="${imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Token #${tokenId}" onclick="window.open('${imageUrl}', '_blank')">`;
+          return `<img src="${imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Token #${tokenId}" onerror="this.style.display='none'" onclick="window.open('${imageUrl}', '_blank')">`;
         }
       }
       
@@ -1595,7 +1640,7 @@
         const tokenId = event.data.token_id;
         const imageUrl = getNFTImageUrl(tokenId);
         if (imageUrl) {
-          return `<img src="${imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Token #${tokenId}" onclick="window.open('${imageUrl}', '_blank')">`;
+          return `<img src="${imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Token #${tokenId}" onerror="this.style.display='none'" onclick="window.open('${imageUrl}', '_blank')">`;
         }
       }
       
@@ -1636,30 +1681,33 @@
         urls.push(`https://adrianzero.com/traitlab/assets/traits/${tokenId}.gif`);
       }
       
-      const img = document.createElement('img');
-      img.className = 'nft-thumbnail';
-      img.loading = 'lazy';
-      img.decoding = 'async';
-      img.alt = `Trait #${tokenId}`;
-      img.setAttribute('data-fallback-urls', JSON.stringify(urls));
-      img.setAttribute('data-current-index', '0');
-      img.src = urls[0];
-      img.onerror = function() { tryNextAdrianLABImage(this); };
-      img.onclick = function() { window.open(this.src, '_blank'); };
-      
-      return img.outerHTML;
+      // Retornar HTML string en lugar de elemento DOM para mejor rendimiento
+      const urlsAttr = urls.map(url => url.replace(/"/g, '&quot;')).join(',');
+      return `<img src="${urls[0]}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Trait #${tokenId}" data-fallback-urls="${urlsAttr}" data-current-index="0" onerror="tryNextAdrianLABImage(this)" onclick="window.open(this.src, '_blank')" style="display: block;">`;
     }
     
     function tryNextAdrianLABImage(img) {
-      const urls = JSON.parse(img.getAttribute('data-fallback-urls') || '[]');
-      const currentIndex = parseInt(img.getAttribute('data-current-index') || '0');
-      
-      if (currentIndex < urls.length - 1) {
-        const nextIndex = currentIndex + 1;
-        img.setAttribute('data-current-index', nextIndex.toString());
-        img.src = urls[nextIndex];
+      try {
+        const urlsStr = img.getAttribute('data-fallback-urls') || '';
+        const urls = urlsStr.split(',').map(url => url.trim());
+        const currentIndex = parseInt(img.getAttribute('data-current-index') || '0');
+        
+        if (currentIndex < urls.length - 1) {
+          const nextIndex = currentIndex + 1;
+          img.setAttribute('data-current-index', nextIndex.toString());
+          img.src = urls[nextIndex];
+        } else {
+          // Si no hay más fallbacks, ocultar la imagen
+          img.style.display = 'none';
+        }
+      } catch (error) {
+        console.warn('Error en tryNextAdrianLABImage:', error);
+        img.style.display = 'none';
       }
     }
+    
+    // Hacer función global para que funcione desde onerror
+    window.tryNextAdrianLABImage = tryNextAdrianLABImage;
 
     // ============================================
     // UTILITY FUNCTIONS
@@ -1814,6 +1862,11 @@
     }
     
     function setupIntersectionObserver() {
+      // DESACTIVADO para evitar crashes en móviles
+      // Usar botón "Load More" manual en su lugar
+      return;
+      
+      /* Código comentado por ahora
       if (!('IntersectionObserver' in window)) {
         console.warn('Intersection Observer no soportado, usando botón Load More');
         return;
@@ -1841,6 +1894,7 @@
       if (sentinel) {
         intersectionObserver.observe(sentinel);
       }
+      */
     }
     
     function showActivityTab() {
