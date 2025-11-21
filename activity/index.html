@@ -3034,9 +3034,9 @@
         `;
       }
       
-      // Si hay múltiples URLs, usar JavaScript para intentar cada una
+      // Si hay múltiples URLs, usar data attribute para rastrear el índice actual
       const imageId = `adrianlab-img-${tokenId}-${Date.now()}`;
-      const urlsJson = JSON.stringify(urls);
+      const urlsJson = JSON.stringify(urls).replace(/"/g, '&quot;');
       
       return `
         <img 
@@ -3045,24 +3045,41 @@
           alt="AdrianLAB #${tokenId}" 
           class="nft-thumbnail me-2"
           style="width: ${size}px; height: ${size}px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg);"
-          onerror="tryNextImage('${imageId}', ${urlsJson})"
+          data-fallback-urls="${urlsJson}"
+          data-current-index="0"
+          onerror="tryNextAdrianLABImage(this)"
         />
       `;
     }
     
     // Función para intentar la siguiente imagen en caso de error
-    function tryNextImage(imgId, urls) {
-      const img = document.getElementById(imgId);
+    function tryNextAdrianLABImage(img) {
       if (!img) return;
       
-      const currentSrc = img.src;
-      const currentIndex = urls.findIndex(url => currentSrc.includes(url));
-      
-      if (currentIndex >= 0 && currentIndex < urls.length - 1) {
+      try {
+        const urlsJson = img.getAttribute('data-fallback-urls');
+        if (!urlsJson) {
+          img.style.display = 'none';
+          return;
+        }
+        
+        const urls = JSON.parse(urlsJson.replace(/&quot;/g, '"'));
+        let currentIndex = parseInt(img.getAttribute('data-current-index') || '0', 10);
+        
         // Intentar la siguiente URL
-        img.src = urls[currentIndex + 1];
-      } else {
-        // Si no hay más URLs, ocultar la imagen
+        currentIndex++;
+        
+        if (currentIndex < urls.length) {
+          img.setAttribute('data-current-index', currentIndex.toString());
+          img.src = urls[currentIndex];
+          console.log(`🖼️ Intentando fallback ${currentIndex + 1}/${urls.length} para AdrianLAB: ${urls[currentIndex]}`);
+        } else {
+          // Si no hay más URLs, ocultar la imagen
+          console.warn(`⚠️ No se encontró imagen para AdrianLAB en ninguna extensión:`, urls);
+          img.style.display = 'none';
+        }
+      } catch (error) {
+        console.error('❌ Error en tryNextAdrianLABImage:', error);
         img.style.display = 'none';
       }
     }
