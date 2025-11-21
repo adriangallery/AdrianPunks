@@ -2972,15 +2972,32 @@
       return `../market/adrianpunksimages/${tokenId}.png`;
     }
 
-    // Función auxiliar para obtener URL de imagen de AdrianLAB (ERC1155)
-    function getAdrianLABImageUrl(tokenId) {
-      if (!tokenId || tokenId === 'N/A') return null;
+    // Función auxiliar para obtener URLs de imagen de AdrianLAB (ERC1155) con fallbacks
+    function getAdrianLABImageUrls(tokenId) {
+      if (!tokenId || tokenId === 'N/A') return [];
+      
+      const urls = [];
       // Usar reglas desde JSON si están disponibles
       if (imageRules.adrianLAB) {
-        return `${imageRules.adrianLAB.baseUrl}${tokenId}${imageRules.adrianLAB.extension}`;
+        const baseUrl = imageRules.adrianLAB.baseUrl;
+        const primaryExtension = imageRules.adrianLAB.extension;
+        const fallbackExtensions = imageRules.adrianLAB.fallbackExtensions || [];
+        
+        // Agregar extensión principal primero
+        urls.push(`${baseUrl}${tokenId}${primaryExtension}`);
+        
+        // Agregar extensiones de fallback
+        fallbackExtensions.forEach(ext => {
+          urls.push(`${baseUrl}${tokenId}${ext}`);
+        });
+      } else {
+        // Fallback a valores hardcodeados
+        urls.push(`https://adrianzero.com/traitlab/assets/traits/${tokenId}.svg`);
+        urls.push(`https://adrianzero.com/traitlab/assets/traits/${tokenId}.png`);
+        urls.push(`https://adrianzero.com/traitlab/assets/traits/${tokenId}.gif`);
       }
-      // Fallback a valor hardcodeado
-      return `https://adrianzero.com/traitlab/assets/traits/${tokenId}.svg`;
+      
+      return urls;
     }
 
     // Función auxiliar para crear elemento de imagen del NFT (AdrianPunks)
@@ -2999,20 +3016,55 @@
       `;
     }
 
-    // Función auxiliar para crear elemento de imagen de AdrianLAB (ERC1155)
+    // Función auxiliar para crear elemento de imagen de AdrianLAB (ERC1155) con fallbacks
     function createAdrianLABImage(tokenId, size = 48) {
-      const imgUrl = getAdrianLABImageUrl(tokenId);
-      if (!imgUrl) return '';
+      const urls = getAdrianLABImageUrls(tokenId);
+      if (!urls || urls.length === 0) return '';
+      
+      // Si solo hay una URL, usar el método simple
+      if (urls.length === 1) {
+        return `
+          <img 
+            src="${urls[0]}" 
+            alt="AdrianLAB #${tokenId}" 
+            class="nft-thumbnail me-2"
+            style="width: ${size}px; height: ${size}px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg);"
+            onerror="this.style.display='none'"
+          />
+        `;
+      }
+      
+      // Si hay múltiples URLs, usar JavaScript para intentar cada una
+      const imageId = `adrianlab-img-${tokenId}-${Date.now()}`;
+      const urlsJson = JSON.stringify(urls);
       
       return `
         <img 
-          src="${imgUrl}" 
+          id="${imageId}"
+          src="${urls[0]}" 
           alt="AdrianLAB #${tokenId}" 
           class="nft-thumbnail me-2"
           style="width: ${size}px; height: ${size}px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border-color); background: var(--card-bg);"
-          onerror="this.style.display='none'"
+          onerror="tryNextImage('${imageId}', ${urlsJson})"
         />
       `;
+    }
+    
+    // Función para intentar la siguiente imagen en caso de error
+    function tryNextImage(imgId, urls) {
+      const img = document.getElementById(imgId);
+      if (!img) return;
+      
+      const currentSrc = img.src;
+      const currentIndex = urls.findIndex(url => currentSrc.includes(url));
+      
+      if (currentIndex >= 0 && currentIndex < urls.length - 1) {
+        // Intentar la siguiente URL
+        img.src = urls[currentIndex + 1];
+      } else {
+        // Si no hay más URLs, ocultar la imagen
+        img.style.display = 'none';
+      }
     }
 
     // Función auxiliar para crear dirección colapsable
