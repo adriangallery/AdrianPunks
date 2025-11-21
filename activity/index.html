@@ -2053,7 +2053,7 @@
               .from('listing_events')
               .select('*')
               .order('created_at', { ascending: false })
-              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+              .limit(pageSize * 2);
             
             if (rawActivityFilters.eventType !== 'all') {
               query = query.eq('event_type', rawActivityFilters.eventType);
@@ -2087,7 +2087,7 @@
               .from('trade_events')
               .select('*')
               .order('created_at', { ascending: false })
-              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+              .limit(pageSize * 2);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2118,7 +2118,7 @@
               .from('sweep_events')
               .select('*')
               .order('created_at', { ascending: false })
-              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+              .limit(pageSize * 2);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2149,7 +2149,7 @@
               .from('engine_config_events')
               .select('*')
               .order('created_at', { ascending: false })
-              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+              .limit(pageSize * 2);
             
             if (rawActivityFilters.eventType !== 'all') {
               query = query.eq('event_name', rawActivityFilters.eventType);
@@ -2184,7 +2184,7 @@
               .select('*')
               .eq('contract_address', ERC20_ADDRESS)
               .order('created_at', { ascending: false })
-              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+              .limit(pageSize * 2);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2216,7 +2216,7 @@
               .select('*')
               .eq('contract_address', ERC20_ADDRESS)
               .order('created_at', { ascending: false })
-              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+              .limit(pageSize * 2);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2241,19 +2241,16 @@
             }
           }
           
-          // Custom events
-          const customEventTypes = ['Staked', 'WithdrawnStake', 'TaxFeeUpdated', 'CreatorFeeUpdated', 'BurnFeeUpdated'];
-          if (rawActivityFilters.eventType === 'all' || customEventTypes.includes(rawActivityFilters.eventType)) {
+          // Custom events - Cargar TODOS si eventType es 'all', no solo los de la lista
+          if (rawActivityFilters.eventType === 'all') {
+            // Cargar TODOS los eventos custom sin filtrar por nombre
             let query = supabaseClient
               .from('erc20_custom_events')
               .select('*')
               .eq('contract_address', ERC20_ADDRESS)
               .order('created_at', { ascending: false })
-              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+              .limit(pageSize * 2);
             
-            if (rawActivityFilters.eventType !== 'all') {
-              query = query.eq('event_name', rawActivityFilters.eventType);
-            }
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
             }
@@ -2272,6 +2269,37 @@
                 });
               });
             }
+          } else {
+            // Si hay un filtro específico, usar la lista de tipos conocidos
+            const customEventTypes = ['Staked', 'WithdrawnStake', 'TaxFeeUpdated', 'CreatorFeeUpdated', 'BurnFeeUpdated'];
+            if (customEventTypes.includes(rawActivityFilters.eventType)) {
+              let query = supabaseClient
+                .from('erc20_custom_events')
+                .select('*')
+                .eq('contract_address', ERC20_ADDRESS)
+                .eq('event_name', rawActivityFilters.eventType)
+                .order('created_at', { ascending: false })
+                .limit(pageSize * 2);
+              
+              if (rawActivityFilters.dateFrom) {
+                query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+              }
+              if (rawActivityFilters.dateTo) {
+                query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+              }
+              
+              const { data: customs } = await query;
+              if (customs) {
+                customs.forEach(event => {
+                  allEvents.push({
+                    type: 'ERC20',
+                    eventType: event.event_name,
+                    data: event,
+                    timestamp: event.created_at
+                  });
+                });
+              }
+            }
           }
         }
         
@@ -2284,7 +2312,7 @@
               .select('*')
               .eq('contract_address', ADRIANLABCORE_ADDRESS)
               .order('created_at', { ascending: false })
-              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+              .limit(pageSize * 2);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2316,7 +2344,7 @@
               .select('*')
               .eq('contract_address', ADRIANLABCORE_ADDRESS)
               .order('created_at', { ascending: false })
-              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+              .limit(pageSize * 2);
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2341,20 +2369,16 @@
             }
           }
           
-          // Custom events
-          const customEventTypes = ['TokenMinted', 'TokenBurnt', 'SkinAssigned', 'SkinCreated', 'MutationAssigned', 
-                                   'MutationNameAssigned', 'SerumApplied', 'SpecialSkinApplied'];
-          if (rawActivityFilters.eventType === 'all' || customEventTypes.includes(rawActivityFilters.eventType)) {
+          // Custom events - Cargar TODOS si eventType es 'all', no solo los de la lista
+          if (rawActivityFilters.eventType === 'all') {
+            // Cargar TODOS los eventos custom sin filtrar por nombre
             let query = supabaseClient
               .from('erc721_custom_events')
               .select('*')
               .eq('contract_address', ADRIANLABCORE_ADDRESS)
               .order('created_at', { ascending: false })
-              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+              .limit(pageSize * 2);
             
-            if (rawActivityFilters.eventType !== 'all') {
-              query = query.eq('event_name', rawActivityFilters.eventType);
-            }
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
             }
@@ -2373,6 +2397,38 @@
                 });
               });
             }
+          } else {
+            // Si hay un filtro específico, usar la lista de tipos conocidos
+            const customEventTypes = ['TokenMinted', 'TokenBurnt', 'SkinAssigned', 'SkinCreated', 'MutationAssigned', 
+                                     'MutationNameAssigned', 'SerumApplied', 'SpecialSkinApplied'];
+            if (customEventTypes.includes(rawActivityFilters.eventType)) {
+              let query = supabaseClient
+                .from('erc721_custom_events')
+                .select('*')
+                .eq('contract_address', ADRIANLABCORE_ADDRESS)
+                .eq('event_name', rawActivityFilters.eventType)
+                .order('created_at', { ascending: false })
+                .limit(pageSize * 2);
+              
+              if (rawActivityFilters.dateFrom) {
+                query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+              }
+              if (rawActivityFilters.dateTo) {
+                query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+              }
+              
+              const { data: customs } = await query;
+              if (customs) {
+                customs.forEach(event => {
+                  allEvents.push({
+                    type: 'AdrianLABCore',
+                    eventType: event.event_name,
+                    data: event,
+                    timestamp: event.created_at
+                  });
+                });
+              }
+            }
           }
         }
         
@@ -2385,7 +2441,7 @@
               .select('*')
               .eq('contract_address', ERC1155_ADDRESS)
               .order('created_at', { ascending: false })
-              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+              .limit(pageSize * 2); // Aumentar límite para compensar múltiples consultas
             
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
@@ -2410,19 +2466,52 @@
             }
           }
           
-          // Custom events
-          const customEventTypes = ['AssetMinted', 'AssetBurned', 'PackOpened', 'SerumUsed'];
-          if (rawActivityFilters.eventType === 'all' || customEventTypes.includes(rawActivityFilters.eventType)) {
+          // Batch transfers (FALTA - agregar)
+          if (rawActivityFilters.eventType === 'all' || rawActivityFilters.eventType === 'TransferBatch') {
+            let query = supabaseClient
+              .from('erc1155_transfers_batch')
+              .select('*')
+              .eq('contract_address', ERC1155_ADDRESS)
+              .order('created_at', { ascending: false })
+              .limit(pageSize * 2);
+            
+            if (rawActivityFilters.dateFrom) {
+              query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+            }
+            if (rawActivityFilters.dateTo) {
+              query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+            }
+            if (rawActivityFilters.address) {
+              query = query.or(`from_address.ilike.%${rawActivityFilters.address}%,to_address.ilike.%${rawActivityFilters.address}%`);
+            }
+            
+            const { data: batchTransfers } = await query;
+            if (batchTransfers) {
+              batchTransfers.forEach(event => {
+                // Si hay múltiples token_ids, tomar el primero para la imagen
+                const tokenIds = event.token_ids || [];
+                const firstTokenId = Array.isArray(tokenIds) && tokenIds.length > 0 ? tokenIds[0] : null;
+                
+                allEvents.push({
+                  type: 'ERC1155',
+                  eventType: 'TransferBatch',
+                  data: { ...event, token_id: firstTokenId, token_ids: tokenIds },
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }
+          
+          // Custom events - NO filtrar por lista específica, cargar todos si eventType es 'all'
+          if (rawActivityFilters.eventType === 'all') {
+            // Cargar TODOS los eventos custom sin filtrar por nombre
             let query = supabaseClient
               .from('erc1155_custom_events')
               .select('*')
               .eq('contract_address', ERC1155_ADDRESS)
               .order('created_at', { ascending: false })
-              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+              .limit(pageSize * 2);
             
-            if (rawActivityFilters.eventType !== 'all') {
-              query = query.eq('event_name', rawActivityFilters.eventType);
-            }
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
             }
@@ -2441,23 +2530,51 @@
                 });
               });
             }
+          } else {
+            // Si hay un filtro específico, usar la lista de tipos conocidos
+            const customEventTypes = ['AssetMinted', 'AssetBurned', 'PackOpened', 'SerumUsed'];
+            if (customEventTypes.includes(rawActivityFilters.eventType)) {
+              let query = supabaseClient
+                .from('erc1155_custom_events')
+                .select('*')
+                .eq('contract_address', ERC1155_ADDRESS)
+                .eq('event_name', rawActivityFilters.eventType)
+                .order('created_at', { ascending: false })
+                .limit(pageSize * 2);
+              
+              if (rawActivityFilters.dateFrom) {
+                query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+              }
+              if (rawActivityFilters.dateTo) {
+                query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+              }
+              
+              const { data: customs } = await query;
+              if (customs) {
+                customs.forEach(event => {
+                  allEvents.push({
+                    type: 'ERC1155',
+                    eventType: event.event_name,
+                    data: event,
+                    timestamp: event.created_at
+                  });
+                });
+              }
+            }
           }
         }
         
-        // Load TraitsExtensions events
+        // Load TraitsExtensions events - Cargar TODOS si eventType es 'all'
         if (rawActivityFilters.contract === 'all' || rawActivityFilters.contract === 'traitsextensions') {
-          const customEventTypes = ['TraitApplied', 'AssetAddedToInventory', 'TraitRemoved'];
-          if (rawActivityFilters.eventType === 'all' || customEventTypes.includes(rawActivityFilters.eventType)) {
+          if (rawActivityFilters.eventType === 'all') {
+            // Cargar TODOS los eventos sin filtrar por nombre
             let query = supabaseClient
               .from('traits_extensions_events')
               .select('*')
               .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS)
               .order('created_at', { ascending: false })
-              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+              .limit(pageSize * 2);
             
-            if (rawActivityFilters.eventType !== 'all') {
-              query = query.eq('event_name', rawActivityFilters.eventType);
-            }
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
             }
@@ -2476,23 +2593,51 @@
                 });
               });
             }
+          } else {
+            // Si hay un filtro específico, usar la lista de tipos conocidos
+            const customEventTypes = ['TraitApplied', 'AssetAddedToInventory', 'TraitRemoved'];
+            if (customEventTypes.includes(rawActivityFilters.eventType)) {
+              let query = supabaseClient
+                .from('traits_extensions_events')
+                .select('*')
+                .eq('contract_address', TRAITS_EXTENSIONS_ADDRESS)
+                .eq('event_name', rawActivityFilters.eventType)
+                .order('created_at', { ascending: false })
+                .limit(pageSize * 2);
+              
+              if (rawActivityFilters.dateFrom) {
+                query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+              }
+              if (rawActivityFilters.dateTo) {
+                query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+              }
+              
+              const { data: customs } = await query;
+              if (customs) {
+                customs.forEach(event => {
+                  allEvents.push({
+                    type: 'TraitsExtensions',
+                    eventType: event.event_name,
+                    data: event,
+                    timestamp: event.created_at
+                  });
+                });
+              }
+            }
           }
         }
         
-        // Load AdrianShop events
+        // Load AdrianShop events - Cargar TODOS si eventType es 'all'
         if (rawActivityFilters.contract === 'all' || rawActivityFilters.contract === 'adrianshop') {
-          const customEventTypes = ['ItemPurchased', 'BatchPurchase', 'ItemListed', 'ItemDelisted'];
-          if (rawActivityFilters.eventType === 'all' || customEventTypes.includes(rawActivityFilters.eventType)) {
+          if (rawActivityFilters.eventType === 'all') {
+            // Cargar TODOS los eventos sin filtrar por nombre
             let query = supabaseClient
               .from('shop_events')
               .select('*')
               .eq('contract_address', ADRIAN_SHOP_ADDRESS)
               .order('created_at', { ascending: false })
-              .range(rawActivityPage * pageSize, (rawActivityPage + 1) * pageSize - 1);
+              .limit(pageSize * 2);
             
-            if (rawActivityFilters.eventType !== 'all') {
-              query = query.eq('event_name', rawActivityFilters.eventType);
-            }
             if (rawActivityFilters.dateFrom) {
               query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
             }
@@ -2513,6 +2658,40 @@
                   timestamp: event.created_at
                 });
               });
+            }
+          } else {
+            // Si hay un filtro específico, usar la lista de tipos conocidos
+            const customEventTypes = ['ItemPurchased', 'BatchPurchase', 'ItemListed', 'ItemDelisted'];
+            if (customEventTypes.includes(rawActivityFilters.eventType)) {
+              let query = supabaseClient
+                .from('shop_events')
+                .select('*')
+                .eq('contract_address', ADRIAN_SHOP_ADDRESS)
+                .eq('event_name', rawActivityFilters.eventType)
+                .order('created_at', { ascending: false })
+                .limit(pageSize * 2);
+              
+              if (rawActivityFilters.dateFrom) {
+                query = query.gte('created_at', rawActivityFilters.dateFrom + 'T00:00:00Z');
+              }
+              if (rawActivityFilters.dateTo) {
+                query = query.lte('created_at', rawActivityFilters.dateTo + 'T23:59:59Z');
+              }
+              if (rawActivityFilters.address) {
+                query = query.ilike('event_data->>buyer', `%${rawActivityFilters.address}%`);
+              }
+              
+              const { data: shopEvents } = await query;
+              if (shopEvents) {
+                shopEvents.forEach(event => {
+                  allEvents.push({
+                    type: 'AdrianShop',
+                    eventType: event.event_name,
+                    data: event,
+                    timestamp: event.created_at
+                  });
+                });
+              }
             }
           }
         }
@@ -2775,6 +2954,20 @@
           details = `Token #${tokenId || 'N/A'} - Transfer from ${createCollapsibleAddress(from)} to ${createCollapsibleAddress(to)}`;
           if (value && value !== '0') {
             details += ` - Amount: ${value}`;
+          }
+          txHash = event.data?.tx_hash || '';
+        } else if (event.eventType === 'TransferBatch') {
+          // TransferBatch - múltiples tokens en una transacción
+          const tokenIds = event.data?.token_ids || [];
+          tokenId = Array.isArray(tokenIds) && tokenIds.length > 0 ? tokenIds[0] : null;
+          const from = event.data?.from_address || 'N/A';
+          const to = event.data?.to_address || 'N/A';
+          const values = event.data?.values || [];
+          
+          const tokenCount = Array.isArray(tokenIds) ? tokenIds.length : 0;
+          details = `Batch Transfer (${tokenCount} tokens) - From ${createCollapsibleAddress(from)} to ${createCollapsibleAddress(to)}`;
+          if (tokenCount > 0 && tokenId) {
+            details += ` - First token: #${tokenId}`;
           }
           txHash = event.data?.tx_hash || '';
         } else {
