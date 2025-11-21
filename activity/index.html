@@ -1132,10 +1132,21 @@
             const { data: customs } = await query;
             if (customs) {
               customs.forEach(event => {
+                // Si event_data es un string JSON, parsearlo
+                let eventData = event;
+                if (event.event_data && typeof event.event_data === 'string') {
+                  try {
+                    const parsed = JSON.parse(event.event_data);
+                    eventData = { ...event, event_data: parsed };
+                  } catch (e) {
+                    console.warn('Error parsing event_data JSON:', e);
+                  }
+                }
+                
                 events.push({
                   type: 'TraitsExtensions',
                   eventType: event.event_name,
-                  data: event,
+                  data: eventData,
                   timestamp: event.created_at
                 });
               });
