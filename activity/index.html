@@ -61,24 +61,29 @@
       }
     }
 
-    /* Contenedor de lista de actividades - sin anidados */
+    /* Contenedor de lista de actividades - completamente plano, sin anidados */
     .activity-list-container {
       width: 100%;
       margin: 0;
       padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
     }
 
+    /* Cada evento es completamente independiente - sin anidamiento */
     .activity-item {
       border: 1px solid var(--border-color);
       border-radius: 8px;
       padding: 1rem;
-      margin-bottom: 1rem;
       background-color: var(--card-bg);
-      transition: box-shadow 0.2s;
-      /* Espacio independiente para cada evento */
+      /* Cada evento es un contenedor independiente */
       display: block;
       width: 100%;
       box-sizing: border-box;
+      margin: 0;
+      /* Sin dependencias de contenedores padre */
+      position: relative;
     }
 
     .activity-item:hover {
@@ -303,11 +308,9 @@
     const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
     const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
 
-    const PAGE_SIZE = 20; // Items por página (reducido para móviles)
-    const MAX_ITEMS_IN_DOM = 50; // Máximo de items en el DOM (reducido para móviles)
-    const IMAGE_BATCH_SIZE = 5; // Cargar imágenes en batches de 5
-    let imageLoadQueue = [];
-    let isProcessingImages = false;
+    const PAGE_SIZE = 10; // Items por página (mínimo para debug)
+    const MAX_ITEMS_IN_DOM = 30; // Máximo de items en el DOM (reducido para debug)
+    const LOAD_IMAGES = false; // Desactivar carga de imágenes por ahora para debug
     
     // Contract addresses
     const FLOOR_ENGINE_ADDRESS = '0x0351F7cBA83277E891D4a85Da498A7eACD764D58';
@@ -416,32 +419,42 @@
     }
 
     async function loadMore() {
-      if (isLoading || !hasMore) return;
+      if (isLoading || !hasMore) {
+        console.log('⏸️ Load More: isLoading=', isLoading, 'hasMore=', hasMore);
+        return;
+      }
       
+      console.log('📥 Load More: Cargando página', currentPage + 1);
       isLoading = true;
       updateLoadMoreButton();
 
       try {
         const pageSize = PAGE_SIZE;
         const offset = currentPage * pageSize;
+        console.log(`📊 Fetching events: offset=${offset}, limit=${pageSize}`);
+        
         const newEvents = await fetchEvents(offset, pageSize);
+        console.log(`✅ Fetched ${newEvents.length} eventos`);
         
         if (newEvents.length === 0) {
+          console.log('⚠️ No hay más eventos');
           hasMore = false;
         } else {
           allLoadedEvents = allLoadedEvents.concat(newEvents);
           currentPage++;
+          console.log(`📦 Total eventos cargados: ${allLoadedEvents.length}, página actual: ${currentPage}`);
           
           // Aplicar filtros y renderizar
           applyFiltersAndRender();
         }
       } catch (error) {
-        console.error('Error cargando eventos:', error);
+        console.error('❌ Error cargando eventos:', error);
         showError('Error cargando eventos: ' + error.message);
       } finally {
         isLoading = false;
         hideLoading();
         updateLoadMoreButton();
+        console.log('✅ Load More completado');
       }
     }
 
@@ -1372,11 +1385,11 @@
         return;
       }
       
-      // Renderizar sin imágenes primero (más rápido)
+      // Renderizar eventos uno por uno, cada uno completamente independiente
       const fragment = document.createDocumentFragment();
       
-      displayedEvents.forEach((event, index) => {
-        const item = createEventItem(event, false); // false = sin imagen por ahora
+      displayedEvents.forEach((event) => {
+        const item = createEventItem(event);
         fragment.appendChild(item);
       });
       
@@ -1384,52 +1397,11 @@
       container.innerHTML = '';
       container.appendChild(fragment);
       
-      // Cargar imágenes en batches después del renderizado inicial
-      requestIdleCallback(() => {
-        loadImagesInBatches();
-      }, { timeout: 1000 });
-    }
-    
-    function loadImagesInBatches() {
-      if (isProcessingImages) return;
-      isProcessingImages = true;
-      
-      const items = document.querySelectorAll('.activity-item');
-      let processed = 0;
-      
-      function processBatch() {
-        const batch = Array.from(items).slice(processed, processed + IMAGE_BATCH_SIZE);
-        
-        batch.forEach(item => {
-          const imgPlaceholder = item.querySelector('.image-placeholder');
-          if (imgPlaceholder) {
-            const eventIndex = parseInt(imgPlaceholder.getAttribute('data-event-index'));
-            const event = displayedEvents[eventIndex];
-            if (event) {
-              const imageHtml = getEventImage(event);
-              if (imageHtml) {
-                imgPlaceholder.outerHTML = imageHtml;
-              } else {
-                imgPlaceholder.remove();
-              }
-            }
-          }
-        });
-        
-        processed += batch.length;
-        
-        if (processed < items.length) {
-          // Procesar siguiente batch después de un pequeño delay
-          setTimeout(processBatch, 100);
-        } else {
-          isProcessingImages = false;
-        }
-      }
-      
-      processBatch();
+      console.log(`✅ Renderizados ${displayedEvents.length} eventos`);
     }
 
-    function createEventItem(event, includeImage = true) {
+    function createEventItem(event) {
+      // Crear contenedor completamente independiente
       const div = document.createElement('div');
       div.className = 'activity-item';
       
@@ -1458,10 +1430,12 @@
       
       // Details
       const details = formatEventDetails(event);
-      const eventIndex = displayedEvents.indexOf(event);
-      const image = includeImage ? getEventImage(event) : `<div class="image-placeholder" data-event-index="${eventIndex}" style="width: 48px; height: 48px; display: inline-block;"></div>`;
       const txHash = event.data?.tx_hash || '';
       
+      // Imagen solo si está habilitada (desactivada por ahora para debug)
+      const image = LOAD_IMAGES ? getEventImage(event) : '';
+      
+      // HTML simple y plano, sin anidamientos complejos
       div.innerHTML = `
         <div class="activity-header">
           <div>
@@ -1945,8 +1919,12 @@
       if (container) {
         if (hasMore && !isLoading) {
           container.style.display = 'block';
-      } else {
+          console.log('✅ Botón Load More visible');
+        } else {
           container.style.display = 'none';
+          if (!hasMore) {
+            console.log('ℹ️ No hay más eventos, botón oculto');
+          }
         }
       }
     }
