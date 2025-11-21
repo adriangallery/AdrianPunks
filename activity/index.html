@@ -3291,7 +3291,15 @@
         
         // Render events
         if (reset) {
-          document.getElementById('rawActivityList').innerHTML = '';
+          const container = document.getElementById('rawActivityList');
+          if (container) {
+            container.innerHTML = '';
+            // Asegurar que el sentinel esté presente después del reset
+            const sentinel = document.getElementById('rawActivitySentinel');
+            if (sentinel && !container.contains(sentinel)) {
+              container.appendChild(sentinel);
+            }
+          }
         }
         
         renderRawActivityEvents(filteredEvents);
@@ -3979,20 +3987,43 @@
         }
       }
       
-      div.innerHTML = `
-        <div class="activity-header">
-          <div>
-            <span class="badge ${badgeColor} activity-badge">${badgeText}</span>
-            <span class="badge bg-secondary activity-badge ms-2">${event.eventType}</span>
+      // Simplificar HTML en móviles para reducir DOM
+      const isMobileDevice = isMobile();
+      const simplifiedHTML = isMobileDevice;
+      
+      if (simplifiedHTML) {
+        // Versión simplificada para móviles
+        div.innerHTML = `
+          <div class="activity-header">
+            <div>
+              <span class="badge ${badgeColor} activity-badge">${badgeText}</span>
+              <span class="badge bg-secondary activity-badge ms-2">${event.eventType}</span>
+            </div>
+            <div class="activity-date" style="font-size: 0.85rem;">${dateStr}</div>
           </div>
-          <div class="activity-date">${dateStr}</div>
-        </div>
-        <div class="activity-details d-flex align-items-center">
-          ${nftImage}
-          <span>${details}</span>
-        </div>
-        ${txHash ? `<div class="mt-2"><a href="https://basescan.org/tx/${txHash}" target="_blank" class="activity-link">View on Basescan <i class="bi bi-box-arrow-up-right"></i></a></div>` : ''}
-      `;
+          <div class="activity-details d-flex align-items-center" style="flex-wrap: wrap; gap: 0.5rem;">
+            ${nftImage}
+            <span style="flex: 1; min-width: 200px;">${details}</span>
+          </div>
+          ${txHash ? `<div class="mt-2"><a href="https://basescan.org/tx/${txHash}" target="_blank" class="activity-link" style="font-size: 0.85rem;">View on Basescan <i class="bi bi-box-arrow-up-right"></i></a></div>` : ''}
+        `;
+      } else {
+        // Versión completa para desktop
+        div.innerHTML = `
+          <div class="activity-header">
+            <div>
+              <span class="badge ${badgeColor} activity-badge">${badgeText}</span>
+              <span class="badge bg-secondary activity-badge ms-2">${event.eventType}</span>
+            </div>
+            <div class="activity-date">${dateStr}</div>
+          </div>
+          <div class="activity-details d-flex align-items-center">
+            ${nftImage}
+            <span>${details}</span>
+          </div>
+          ${txHash ? `<div class="mt-2"><a href="https://basescan.org/tx/${txHash}" target="_blank" class="activity-link">View on Basescan <i class="bi bi-box-arrow-up-right"></i></a></div>` : ''}
+        `;
+      }
       
       return div;
     }
