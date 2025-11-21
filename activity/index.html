@@ -1893,15 +1893,30 @@
     // Cargar imágenes AdrianLAB de forma controlada (5 a la vez)
     function loadAdrianLABImagesLazy() {
       const images = document.querySelectorAll('img.adrianlab-image[data-src]');
+      const tokenIdsToLoad = new Set(); // Evitar cargar el mismo tokenId múltiples veces
       
       images.forEach(img => {
-        // Solo agregar a la cola si tiene data-src y aún no tiene src
-        if (img && img.getAttribute('data-src') && !img.src) {
+        const tokenId = img.getAttribute('data-token-id');
+        // Solo agregar a la cola si:
+        // 1. Tiene data-src y aún no tiene src
+        // 2. No está ya cargando este tokenId (evitar duplicados)
+        if (img && img.getAttribute('data-src') && !img.src && tokenId && !tokenIdsToLoad.has(tokenId)) {
+          // Verificar si ya está cargada en caché
+          const cachedImg = loadedImagesCache.get(tokenId);
+          if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
+            // Reutilizar imagen del caché: clonar src y atributos
+            img.src = cachedImg.src;
+            img.removeAttribute('data-src');
+            img.style.display = 'block';
+            return; // No agregar a la cola, ya está resuelto
+          }
+          
+          tokenIdsToLoad.add(tokenId);
           svgLoadQueue.push(img);
         }
       });
       
-      // Procesar primeras 5 imágenes
+      // Procesar primeras 5 imágenes únicas
       for (let i = 0; i < Math.min(MAX_CONCURRENT_SVG, svgLoadQueue.length); i++) {
         const img = svgLoadQueue.shift();
         if (img) {
