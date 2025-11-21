@@ -311,10 +311,11 @@
     const PAGE_SIZE = 10; // Items por página
     const MAX_ITEMS_IN_DOM = 50; // Máximo de items en el DOM
     const LOAD_IMAGES = true; // Activar carga de imágenes
-    const SKIP_SVG = true; // Saltar SVG en AdrianLAB (causa crashes en móviles)
-    const IMAGE_LOAD_TIMEOUT = 5000; // Timeout de 5 segundos para imágenes
-    const MAX_CONCURRENT_IMAGES = 3; // Máximo de imágenes cargando simultáneamente
-    let activeImageLoads = 0; // Contador de imágenes cargando
+    const LOAD_ADRIANLAB_IMAGES = false; // Desactivar imágenes AdrianLAB (causan crashes)
+    // const SKIP_SVG = true; // Desactivado - imágenes AdrianLAB deshabilitadas
+    // const IMAGE_LOAD_TIMEOUT = 5000; // Desactivado
+    // const MAX_CONCURRENT_IMAGES = 3; // Desactivado
+    // let activeImageLoads = 0; // Desactivado
     
     // Contract addresses
     const FLOOR_ENGINE_ADDRESS = '0x0351F7cBA83277E891D4a85Da498A7eACD764D58';
@@ -1475,12 +1476,12 @@
         console.log('✅ Sentinel agregado y observado');
       }
       
-      // Cargar imágenes AdrianLAB de forma diferida y controlada
-      if (LOAD_IMAGES) {
-        requestIdleCallback(() => {
-          loadAdrianLABImagesLazy();
-        }, { timeout: 1000 });
-      }
+      // Cargar imágenes AdrianLAB desactivado temporalmente
+      // if (LOAD_IMAGES) {
+      //   requestIdleCallback(() => {
+      //     loadAdrianLABImagesLazy();
+      //   }, { timeout: 1000 });
+      // }
       
       console.log(`✅ Renderizados ${displayedEvents.length} eventos`);
     }
@@ -1696,9 +1697,10 @@
       
       const eventImages = imageRules.eventImages;
       
-      // TraitApplied: usar mannequin.svg
+      // TraitApplied: usar mannequin (sin extensión SVG en el código, solo URL)
       if (event.type === 'TraitsExtensions' && event.eventType === 'TraitApplied') {
         if (eventImages.TraitApplied && eventImages.TraitApplied.imageUrl) {
+          // Nota: La URL puede ser .svg pero se carga desde el servidor, no causa crash
           return `<img src="${eventImages.TraitApplied.imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Mannequin" onerror="this.style.display='none'">`;
         }
       }
@@ -1739,11 +1741,11 @@
         }
       }
       
-      // ERC1155: imagen de AdrianLAB con fallbacks
-      if (event.type === 'ERC1155' && (event.data?.token_id || event.data?.tokenId)) {
-        const tokenId = event.data.token_id || event.data.tokenId;
-        return createAdrianLABImage(tokenId);
-      }
+      // ERC1155: imágenes desactivadas temporalmente (causan crashes en móviles)
+      // if (event.type === 'ERC1155' && (event.data?.token_id || event.data?.tokenId)) {
+      //   const tokenId = event.data.token_id || event.data.tokenId;
+      //   return createAdrianLABImage(tokenId);
+      // }
       
       return '';
     }
