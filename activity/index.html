@@ -334,7 +334,7 @@
     const ADRIAN_SHOP_ADDRESS = '0x4b265927b1521995ce416bba3bed98231d2e946b';
     const ADRIAN_NAME_REGISTRY_ADDRESS = '0xaeC5ED33c88c1943BB7452aC4B571ad0b4c4068C';
     const ADRIAN_SERUM_MODULE_ADDRESS = '0x0000000000000000000000000000000000000000'; // Placeholder
-    const PUNK_QUEST_ADDRESS = '0x0000000000000000000000000000000000000000'; // Placeholder
+    const PUNK_QUEST_ADDRESS = '0xaf22843e195b792a3f874562ab7cee751066665e';
 
     // ============================================
     // STATE
@@ -1703,11 +1703,22 @@
         if (event.eventType === 'Staked' || event.eventType === 'Unstaked') {
           const tokenId = event.data.token_id || event.data.event_data?.tokenId;
           const user = shortAddress(event.data.user_address || event.data.event_data?.user);
-          return `Token #${tokenId} - ${event.eventType} by ${user}`;
-        } else if (event.eventType === 'ItemPurchased' || event.eventType === 'ItemUsed') {
+          const reward = event.data.reward_wei ? formatADRIAN(event.data.reward_wei) : '';
+          const bonus = event.data.bonus_added ? ` (Bonus: ${event.data.bonus_added})` : '';
+          return `Token #${tokenId} - ${event.eventType} by ${user}${reward ? ' - Reward: ' + reward + ' $ADRIAN' : ''}${bonus}`;
+        } else if (event.eventType === 'RewardClaimed') {
+          const tokenId = event.data.token_id || event.data.event_data?.tokenId;
+          const user = shortAddress(event.data.user_address || event.data.event_data?.user);
+          const reward = event.data.reward_wei ? formatADRIAN(event.data.reward_wei) : '';
+          return `Token #${tokenId} - Reward claimed by ${user}${reward ? ' - Amount: ' + reward + ' $ADRIAN' : ''}`;
+        } else if (event.eventType === 'ItemPurchased' || event.eventType === 'ItemUsed' || event.eventType === 'ItemEquipped') {
           const itemId = event.data.item_id || event.data.event_data?.itemId;
           const user = shortAddress(event.data.user_address || event.data.event_data?.user);
           return `Item #${itemId} - ${event.eventType} by ${user}`;
+        } else if (event.eventType === 'EventTriggered' || event.eventType === 'AdvancedEventTriggered') {
+          const tokenId = event.data.token_id || event.data.event_data?.tokenId;
+          const eventName = event.data.event_name || event.data.event_data?.name || 'Unknown Event';
+          return `Token #${tokenId} - Event: ${eventName}`;
         }
       }
       
