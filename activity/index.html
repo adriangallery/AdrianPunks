@@ -305,6 +305,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="./statistics.js"></script>
   <script>
     // ============================================
     // CONFIGURATION
@@ -2227,11 +2228,42 @@
       document.getElementById('tab-statistics-btn').classList.remove('active');
     }
     
+    // Statistics Manager instance
+    let statisticsManager = null;
+
     function showStatisticsTab() {
       document.getElementById('activity-tab-content').classList.remove('active');
       document.getElementById('statistics-tab-content').classList.add('active');
       document.getElementById('tab-activity-btn').classList.remove('active');
       document.getElementById('tab-statistics-btn').classList.add('active');
+      
+      // Inicializar y cargar estadísticas si no está inicializado
+      if (!statisticsManager && supabaseClient) {
+        statisticsManager = new StatisticsManager(supabaseClient, {
+          contracts: {
+            FLOOR_ENGINE: FLOOR_ENGINE_ADDRESS,
+            ERC20: ERC20_ADDRESS,
+            ADRIANLABCORE: ADRIANLABCORE_ADDRESS,
+            ERC1155: ERC1155_ADDRESS,
+            TRAITS_EXTENSIONS: TRAITS_EXTENSIONS_ADDRESS,
+            ADRIAN_SHOP: ADRIAN_SHOP_ADDRESS,
+            ADRIAN_NAME_REGISTRY: ADRIAN_NAME_REGISTRY_ADDRESS,
+            ADRIAN_SERUM_MODULE: ADRIAN_SERUM_MODULE_ADDRESS,
+            PUNK_QUEST: PUNK_QUEST_ADDRESS
+          },
+          charts: {
+            enabled: true,
+            library: 'chartjs'
+          }
+        });
+        
+        statisticsManager.init().then(() => {
+          statisticsManager.render('statistics-container');
+        });
+      } else if (statisticsManager) {
+        // Si ya está inicializado, solo renderizar (usará caché si está disponible)
+        statisticsManager.render('statistics-container');
+      }
     }
 
     function cleanupOldItems() {
