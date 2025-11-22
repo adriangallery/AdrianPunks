@@ -1793,29 +1793,23 @@
         }
       }
       
-      // FloorEngine: imagen del NFT
-      if (event.type === 'FloorEngine' && event.data?.token_id) {
-        const tokenId = event.data.token_id;
-        const imageUrl = getNFTImageUrl(tokenId);
-        if (imageUrl) {
-          return `<img src="${imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Token #${tokenId}" onerror="this.style.display='none'" onclick="window.open('${imageUrl}', '_blank')">`;
-        }
-      }
-      
-      // AdrianLABCore (ERC721/AdrianZERO): usar API de render de AdrianZERO
-      if (event.type === 'AdrianLABCore' && event.data?.token_id) {
-        const tokenId = event.data.token_id;
-        // AdrianZERO usa la API de render: https://adrianlab.vercel.app/api/render/{tokenId}.png
-        const imageUrl = `https://adrianlab.vercel.app/api/render/${tokenId}.png`;
-        return `<img src="${imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Token #${tokenId}" onerror="this.style.display='none'" onclick="window.open('${imageUrl}', '_blank')">`;
-      }
-      
-      // PunkQuest: imagen del NFT (misma lógica que AdrianPunks)
-      if (event.type === 'PunkQuest' && event.data?.token_id) {
-        const tokenId = event.data.token_id;
-        const imageUrl = getNFTImageUrl(tokenId);
-        if (imageUrl) {
-          return `<img src="${imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Token #${tokenId}" onerror="this.style.display='none'" onclick="window.open('${imageUrl}', '_blank')">`;
+      // Contratos que usan imágenes de AdrianPunks (definidos en image-rules.json)
+      if (imageRules && imageRules.adrianPunks && imageRules.adrianPunks.contracts) {
+        const adrianPunksContracts = imageRules.adrianPunks.contracts;
+        if (adrianPunksContracts.includes(event.type) && event.data?.token_id) {
+          const tokenId = event.data.token_id;
+          
+          // AdrianLABCore usa API de render de AdrianZERO, no la lógica de AdrianPunks
+          if (event.type === 'AdrianLABCore') {
+            const imageUrl = `https://adrianlab.vercel.app/api/render/${tokenId}.png`;
+            return `<img src="${imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Token #${tokenId}" onerror="this.style.display='none'" onclick="window.open('${imageUrl}', '_blank')">`;
+          }
+          
+          // FloorEngine y PunkQuest usan getNFTImageUrl (imágenes de AdrianPunks)
+          const imageUrl = getNFTImageUrl(tokenId);
+          if (imageUrl) {
+            return `<img src="${imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Token #${tokenId}" onerror="this.style.display='none'" onclick="window.open('${imageUrl}', '_blank')">`;
+          }
         }
       }
       
