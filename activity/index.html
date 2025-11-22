@@ -185,6 +185,28 @@
       display: block;
     }
 
+    /* Filters Panel Collapsible */
+    #filtersBody {
+      display: block;
+      transition: max-height 0.3s ease-out, opacity 0.3s ease-out, padding 0.3s ease-out;
+      overflow: hidden;
+    }
+
+    #filtersBody.collapsed {
+      max-height: 0;
+      opacity: 0;
+      padding-top: 0 !important;
+      padding-bottom: 0 !important;
+    }
+
+    #filtersToggleIcon {
+      transition: transform 0.3s ease;
+    }
+
+    #filtersToggleIcon.rotated {
+      transform: rotate(180deg);
+    }
+
     @media (max-width: 768px) {
       .activity-item {
         padding: 0.75rem;
@@ -201,6 +223,27 @@
       .nft-thumbnail {
         width: 60px;
         height: 60px;
+      }
+
+      /* En móviles, el panel de filtros está colapsado por defecto */
+      #filtersBody:not(.show) {
+        max-height: 0;
+        opacity: 0;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+      }
+
+      #filtersBody.show {
+        max-height: 2000px;
+        opacity: 1;
+      }
+
+      #filtersToggleIcon {
+        transform: rotate(180deg);
+      }
+
+      #filtersToggleIcon.rotated {
+        transform: rotate(0deg);
       }
     }
   </style>
@@ -219,7 +262,7 @@
 
   <!-- Main Content -->
   <div class="main-container">
-    <div class="container py-4">
+    <div class="container" style="padding-top: 20px; padding-bottom: 20px;">
       <h1 class="mb-4">$ADRIAN Ecosystem Activity</h1>
 
       <!-- Simple Tabs (sin Bootstrap) -->
@@ -236,7 +279,11 @@
       <div id="activity-tab-content" class="tab-content active">
         <!-- Filters -->
         <div class="card mb-4">
-          <div class="card-body">
+          <div class="card-header d-flex justify-content-between align-items-center" style="cursor: pointer;" onclick="toggleFilters()">
+            <h5 class="mb-0">Filters</h5>
+            <i class="bi bi-chevron-down" id="filtersToggleIcon"></i>
+          </div>
+          <div class="card-body" id="filtersBody">
             <div class="row g-3">
               <div class="col-md-3">
               <label class="form-label">Contract</label>
@@ -521,25 +568,25 @@
           queries.push({ query, handler: (data) => {
             if (data) {
               data.forEach(listing => {
-                events.push({
-                  type: 'FloorEngine',
-                  eventType: listing.last_event || 'Listed',
-                  data: {
-                    token_id: listing.token_id,
-                    seller: listing.seller,
-                    price_wei: listing.price_wei,
-                    is_contract_owned: listing.is_contract_owned,
-                    is_listed: listing.is_listed,
-                    last_event: listing.last_event,
-                    last_tx_hash: listing.last_tx_hash,
-                    last_block_number: listing.last_block_number,
+              events.push({
+                type: 'FloorEngine',
+                eventType: listing.last_event || 'Listed',
+                data: {
+                  token_id: listing.token_id,
+                  seller: listing.seller,
+                  price_wei: listing.price_wei,
+                  is_contract_owned: listing.is_contract_owned,
+                  is_listed: listing.is_listed,
+                  last_event: listing.last_event,
+                  last_tx_hash: listing.last_tx_hash,
+                  last_block_number: listing.last_block_number,
                     created_at: listing.updated_at,
-                    tx_hash: listing.last_tx_hash
-                  },
-                  timestamp: listing.updated_at
-                });
+                  tx_hash: listing.last_tx_hash
+                },
+                timestamp: listing.updated_at
               });
-            }
+            });
+          }
           }});
         }
         
@@ -562,22 +609,22 @@
           queries.push({ query, handler: (data) => {
             if (data) {
               data.forEach(event => {
-                events.push({
-                  type: 'FloorEngine',
-                  eventType: event.event_type,
-                  data: event,
-                  timestamp: event.created_at
-                });
+              events.push({
+                type: 'FloorEngine',
+                eventType: event.event_type,
+                data: event,
+                timestamp: event.created_at
               });
-            }
+            });
+          }
           }});
         }
           
-        // Trade events
+          // Trade events
         let tradeQuery = supabaseClient
-          .from('trade_events')
-          .select('*')
-          .order('created_at', { ascending: false })
+              .from('trade_events')
+              .select('*')
+              .order('created_at', { ascending: false })
           .limit(fetchLimit);
         
         if (filters.dateFrom) {
@@ -590,21 +637,21 @@
         queries.push({ query: tradeQuery, handler: (data) => {
           if (data) {
             data.forEach(event => {
-              events.push({
-                type: 'FloorEngine',
-                eventType: 'Bought',
-                data: event,
-                timestamp: event.created_at
+            events.push({
+                  type: 'FloorEngine',
+                  eventType: 'Bought',
+                  data: event,
+                  timestamp: event.created_at
+                });
               });
-            });
           }
         }});
           
         // Sweep events
         let sweepQuery = supabaseClient
-          .from('sweep_events')
-          .select('*')
-          .order('created_at', { ascending: false })
+              .from('sweep_events')
+              .select('*')
+              .order('created_at', { ascending: false })
           .limit(fetchLimit);
         
         if (filters.dateFrom) {
@@ -617,16 +664,16 @@
         queries.push({ query: sweepQuery, handler: (data) => {
           if (data) {
             data.forEach(event => {
-              events.push({
-                type: 'FloorEngine',
-                eventType: 'FloorSweep',
-                data: event,
-                timestamp: event.created_at
+            events.push({
+                  type: 'FloorEngine',
+                  eventType: 'FloorSweep',
+                  data: event,
+                  timestamp: event.created_at
+                });
               });
-            });
-          }
+            }
         }});
-      }
+          }
           
       // ERC20 events
       if (filters.contract === 'all' || filters.contract === 'erc20') {
@@ -652,14 +699,14 @@
           queries.push({ query, handler: (data) => {
             if (data) {
               data.forEach(event => {
-                events.push({
-                  type: 'ERC20',
-                  eventType: 'Transfer',
-                  data: event,
-                  timestamp: event.created_at
-                });
+              events.push({
+                type: 'ERC20',
+                eventType: 'Transfer',
+                data: event,
+                timestamp: event.created_at
               });
-            }
+            });
+          }
           }});
         }
 
@@ -685,14 +732,14 @@
           queries.push({ query, handler: (data) => {
             if (data) {
               data.forEach(event => {
-                events.push({
-                  type: 'ERC20',
-                  eventType: 'Approval',
-                  data: event,
-                  timestamp: event.created_at
-                });
+              events.push({
+                type: 'ERC20',
+                eventType: 'Approval',
+                data: event,
+                timestamp: event.created_at
               });
-            }
+            });
+          }
           }});
         }
 
@@ -715,15 +762,15 @@
           queries.push({ query, handler: (data) => {
             if (data) {
               data.forEach(event => {
-                const eventType = event.event_name || event.event_type || 'Unknown';
-                events.push({
-                  type: 'ERC20',
-                  eventType: eventType,
-                  data: event,
-                  timestamp: event.created_at
-                });
+              const eventType = event.event_name || event.event_type || 'Unknown';
+              events.push({
+                type: 'ERC20',
+                eventType: eventType,
+                data: event,
+                timestamp: event.created_at
               });
-            }
+            });
+          }
           }});
         } else {
           const customEventTypes = ['Staked', 'WithdrawnStake', 'TaxFeeUpdated', 'CreatorFeeUpdated', 'BurnFeeUpdated'];
@@ -746,14 +793,14 @@
             queries.push({ query, handler: (data) => {
               if (data) {
                 data.forEach(event => {
-                  events.push({
-                    type: 'ERC20',
-                    eventType: event.event_name,
-                    data: event,
-                    timestamp: event.created_at
-                  });
+                events.push({
+                  type: 'ERC20',
+                  eventType: event.event_name,
+                  data: event,
+                  timestamp: event.created_at
                 });
-              }
+              });
+            }
             }});
           }
         }
@@ -1482,7 +1529,7 @@
         
         const endTime = performance.now();
         console.log(`⚡ ${queries.length} queries ejecutadas en paralelo en ${(endTime - startTime).toFixed(2)}ms`);
-      }
+        }
         
       // Ordenar por timestamp descendente
       events.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -2381,6 +2428,25 @@
     // ============================================
     // FILTER HANDLERS
     // ============================================
+    function toggleFilters() {
+      const filtersBody = document.getElementById('filtersBody');
+      const toggleIcon = document.getElementById('filtersToggleIcon');
+      
+      if (filtersBody) {
+        const isMobile = window.innerWidth <= 768;
+        
+        if (isMobile) {
+          // En móviles, usar clase 'show'
+          filtersBody.classList.toggle('show');
+          toggleIcon.classList.toggle('rotated');
+        } else {
+          // En desktop, usar clase 'collapsed'
+          filtersBody.classList.toggle('collapsed');
+          toggleIcon.classList.toggle('rotated');
+        }
+      }
+    }
+
     function applyFilters() {
       filters.contract = document.getElementById('filterContract').value;
       filters.eventType = document.getElementById('filterEventType').value;
