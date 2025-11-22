@@ -207,6 +207,50 @@
       transform: rotate(180deg);
     }
 
+    /* Statistics Styles */
+    .period-btn.active {
+      background-color: #007bff !important;
+      color: white !important;
+      border-color: #007bff !important;
+    }
+
+    .period-btn {
+      transition: all 0.2s;
+    }
+
+    .period-btn:hover {
+      background-color: rgba(0, 123, 255, 0.1);
+    }
+
+    #statistics-charts-container canvas {
+      max-height: 400px;
+    }
+
+    #statistics-top10-container .table {
+      margin-bottom: 0;
+    }
+
+    #statistics-top10-container .table thead th {
+      border-bottom: 2px solid var(--border-color);
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
+    #statistics-top10-container .table tbody tr:hover {
+      background-color: rgba(0, 123, 255, 0.05);
+    }
+
+    #statistics-top10-container code {
+      background-color: rgba(0, 0, 0, 0.05);
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+    }
+
+    [data-theme="dark"] #statistics-top10-container code {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+
     @media (max-width: 768px) {
       .activity-item {
         padding: 0.75rem;
@@ -2319,6 +2363,11 @@
     // Statistics Manager instance
     let statisticsManager = null;
 
+    // Variables para el período de estadísticas
+    let currentStatsPeriod = 'all';
+    let currentStatsDateFrom = null;
+    let currentStatsDateTo = null;
+
     function showStatisticsTab() {
       document.getElementById('activity-tab-content').classList.remove('active');
       document.getElementById('statistics-tab-content').classList.add('active');
@@ -2348,13 +2397,11 @@
         
         statisticsManager.init().then(() => {
           console.log('✅ StatisticsManager inicializado, renderizando...');
-          statisticsManager.render('statistics-container').catch(error => {
-            console.error('❌ Error renderizando estadísticas:', error);
-            const container = document.getElementById('statistics-container');
-            if (container) {
-              container.innerHTML = '<div class="alert alert-danger">Error cargando estadísticas: ' + error.message + '</div>';
-            }
-          });
+          // Cargar con período "all" por defecto
+          const { dateFrom, dateTo } = statisticsManager.getPeriodDates('all');
+          currentStatsDateFrom = dateFrom;
+          currentStatsDateTo = dateTo;
+          loadStatisticsWithPeriod(dateFrom, dateTo);
         }).catch(error => {
           console.error('❌ Error inicializando StatisticsManager:', error);
           const container = document.getElementById('statistics-container');
@@ -2365,13 +2412,7 @@
       } else if (statisticsManager) {
         // Si ya está inicializado, solo renderizar (usará caché si está disponible)
         console.log('📊 Re-renderizando estadísticas...');
-        statisticsManager.render('statistics-container').catch(error => {
-          console.error('❌ Error renderizando estadísticas:', error);
-          const container = document.getElementById('statistics-container');
-          if (container) {
-            container.innerHTML = '<div class="alert alert-danger">Error cargando estadísticas: ' + error.message + '</div>';
-          }
-        });
+        loadStatisticsWithPeriod(currentStatsDateFrom, currentStatsDateTo);
       } else {
         console.warn('⚠️ StatisticsManager no puede inicializarse: supabaseClient no disponible');
         const container = document.getElementById('statistics-container');
@@ -2380,6 +2421,85 @@
         }
       }
     }
+
+    function loadStatisticsWithPeriod(dateFrom, dateTo) {
+      if (!statisticsManager) return;
+      
+      const container = document.getElementById('statistics-container');
+      if (container) {
+        container.innerHTML = '<div class="text-center py-5"><div class="spinner-border" role="status"><span class="visually-hidden">Cargando estadísticas...</span></div></div>';
+      }
+
+      statisticsManager.render('statistics-container', dateFrom, dateTo).then(() => {
+        // Configurar event listeners para los botones de período
+        setupPeriodButtons();
+      }).catch(error => {
+        console.error('❌ Error renderizando estadísticas:', error);
+        if (container) {
+          container.innerHTML = '<div class="alert alert-danger">Error cargando estadísticas: ' + error.message + '</div>';
+        }
+      });
+    }
+
+    function setupPeriodButtons() {
+      // Configurar botones de período rápido
+      document.querySelectorAll('.period-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          // Remover active de todos los botones
+          document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+          // Agregar active al botón clickeado
+          this.classList.add('active');
+          
+          const period = this.getAttribute('data-period');
+          currentStatsPeriod = period;
+          
+          const { dateFrom, dateTo } = statisticsManager.getPeriodDates(period);
+          currentStatsDateFrom = dateFrom;
+          currentStatsDateTo = dateTo;
+          
+          // Limpiar date pickers si es período predefinido
+          if (period !== 'custom') {
+            const dateFromEl = document.getElementById('statsDateFrom');
+            const dateToEl = document.getElementById('statsDateTo');
+            if (dateFromEl) dateFromEl.value = dateFrom || '';
+            if (dateToEl) dateToEl.value = dateTo || '';
+          }
+          
+          loadStatisticsWithPeriod(dateFrom, dateTo);
+        });
+      });
+
+      // Marcar el botón activo según el período actual (por defecto "all")
+      const activePeriod = currentStatsPeriod || 'all';
+      document.querySelectorAll('.period-btn').forEach(btn => {
+        if (btn.getAttribute('data-period') === activePeriod) {
+          btn.classList.add('active');
+        }
+      });
+    }
+
+    function applyStatsPeriod() {
+      const dateFrom = document.getElementById('statsDateFrom').value || null;
+      const dateTo = document.getElementById('statsDateTo').value || null;
+      
+      // Validar que dateTo >= dateFrom
+      if (dateFrom && dateTo && new Date(dateTo) < new Date(dateFrom)) {
+        alert('La fecha "Hasta" debe ser mayor o igual a la fecha "Desde"');
+        return;
+      }
+      
+      currentStatsDateFrom = dateFrom;
+      currentStatsDateTo = dateTo;
+      currentStatsPeriod = 'custom';
+      
+      // Remover active de todos los botones
+      document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+      
+      loadStatisticsWithPeriod(dateFrom, dateTo);
+    }
+
+    // Hacer función global
+    window.applyStatsPeriod = applyStatsPeriod;
 
     function cleanupOldItems() {
       // Si hay más de MAX_ITEMS_IN_DOM, mantener solo los últimos
