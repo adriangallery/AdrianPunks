@@ -501,6 +501,9 @@
       // 4. Tomar slice(offset, offset + limit)
       const fetchLimit = limit * 2;
       
+      // OPTIMIZACIÓN: Agrupar queries para ejecutarlas en paralelo
+      const queries = [];
+      
       // FloorEngine events
       if (filters.contract === 'all' || filters.contract === 'floorengine') {
         // Active listings from punk_listings (estado actual)
@@ -522,28 +525,29 @@
             query = query.ilike('seller', `%${filters.address}%`);
           }
           
-          const { data: activeListings } = await query;
-          if (activeListings) {
-            activeListings.forEach(listing => {
-              events.push({
-                type: 'FloorEngine',
-                eventType: listing.last_event || 'Listed',
-                data: {
-                  token_id: listing.token_id,
-                  seller: listing.seller,
-                  price_wei: listing.price_wei,
-                  is_contract_owned: listing.is_contract_owned,
-                  is_listed: listing.is_listed,
-                  last_event: listing.last_event,
-                  last_tx_hash: listing.last_tx_hash,
-                  last_block_number: listing.last_block_number,
-                  created_at: listing.updated_at, // Usar updated_at como timestamp
-                  tx_hash: listing.last_tx_hash
-                },
-                timestamp: listing.updated_at
+          queries.push({ query, handler: (data) => {
+            if (data) {
+              data.forEach(listing => {
+                events.push({
+                  type: 'FloorEngine',
+                  eventType: listing.last_event || 'Listed',
+                  data: {
+                    token_id: listing.token_id,
+                    seller: listing.seller,
+                    price_wei: listing.price_wei,
+                    is_contract_owned: listing.is_contract_owned,
+                    is_listed: listing.is_listed,
+                    last_event: listing.last_event,
+                    last_tx_hash: listing.last_tx_hash,
+                    last_block_number: listing.last_block_number,
+                    created_at: listing.updated_at,
+                    tx_hash: listing.last_tx_hash
+                  },
+                  timestamp: listing.updated_at
+                });
               });
-            });
-          }
+            }
+          }});
         }
         
         // Listing events históricos (para eventos Cancelled)
@@ -562,71 +566,74 @@
             query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
           }
           
-          const { data: cancelledListings } = await query;
-          if (cancelledListings) {
-            cancelledListings.forEach(event => {
+          queries.push({ query, handler: (data) => {
+            if (data) {
+              data.forEach(event => {
+                events.push({
+                  type: 'FloorEngine',
+                  eventType: event.event_type,
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }});
+        }
+          
+        // Trade events
+        let tradeQuery = supabaseClient
+          .from('trade_events')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(fetchLimit);
+        
+        if (filters.dateFrom) {
+          tradeQuery = tradeQuery.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+        }
+        if (filters.dateTo) {
+          tradeQuery = tradeQuery.lte('created_at', filters.dateTo + 'T23:59:59Z');
+        }
+        
+        queries.push({ query: tradeQuery, handler: (data) => {
+          if (data) {
+            data.forEach(event => {
               events.push({
                 type: 'FloorEngine',
-                eventType: event.event_type,
+                eventType: 'Bought',
                 data: event,
                 timestamp: event.created_at
               });
             });
           }
-        }
-          
-          // Trade events
-        query = supabaseClient
-              .from('trade_events')
-              .select('*')
-              .order('created_at', { ascending: false })
-          .limit(fetchLimit);
-        
-        if (filters.dateFrom) {
-          query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
-        }
-        if (filters.dateTo) {
-          query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
-            }
-            
-            const { data: trades } = await query;
-            if (trades) {
-              trades.forEach(event => {
-            events.push({
-                  type: 'FloorEngine',
-                  eventType: 'Bought',
-                  data: event,
-                  timestamp: event.created_at
-                });
-              });
-          }
+        }});
           
         // Sweep events
-        query = supabaseClient
-              .from('sweep_events')
-              .select('*')
-              .order('created_at', { ascending: false })
+        let sweepQuery = supabaseClient
+          .from('sweep_events')
+          .select('*')
+          .order('created_at', { ascending: false })
           .limit(fetchLimit);
         
         if (filters.dateFrom) {
-          query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          sweepQuery = sweepQuery.gte('created_at', filters.dateFrom + 'T00:00:00Z');
         }
         if (filters.dateTo) {
-          query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
-            }
-            
-            const { data: sweeps } = await query;
-            if (sweeps) {
-              sweeps.forEach(event => {
-            events.push({
-                  type: 'FloorEngine',
-                  eventType: 'FloorSweep',
-                  data: event,
-                  timestamp: event.created_at
-                });
+          sweepQuery = sweepQuery.lte('created_at', filters.dateTo + 'T23:59:59Z');
+        }
+        
+        queries.push({ query: sweepQuery, handler: (data) => {
+          if (data) {
+            data.forEach(event => {
+              events.push({
+                type: 'FloorEngine',
+                eventType: 'FloorSweep',
+                data: event,
+                timestamp: event.created_at
               });
-            }
+            });
           }
+        }});
+      }
           
       // ERC20 events
       if (filters.contract === 'all' || filters.contract === 'erc20') {
@@ -649,17 +656,18 @@
             query = query.or(`from_address.ilike.%${filters.address}%,to_address.ilike.%${filters.address}%`);
           }
           
-          const { data: transfers } = await query;
-          if (transfers) {
-            transfers.forEach(event => {
-              events.push({
-                type: 'ERC20',
-                eventType: 'Transfer',
-                data: event,
-                timestamp: event.created_at
+          queries.push({ query, handler: (data) => {
+            if (data) {
+              data.forEach(event => {
+                events.push({
+                  type: 'ERC20',
+                  eventType: 'Transfer',
+                  data: event,
+                  timestamp: event.created_at
+                });
               });
-            });
-          }
+            }
+          }});
         }
 
         // Approvals
@@ -681,17 +689,18 @@
             query = query.or(`owner.ilike.%${filters.address}%,spender.ilike.%${filters.address}%`);
           }
           
-          const { data: approvals } = await query;
-          if (approvals) {
-            approvals.forEach(event => {
-              events.push({
-                type: 'ERC20',
-                eventType: 'Approval',
-                data: event,
-                timestamp: event.created_at
+          queries.push({ query, handler: (data) => {
+            if (data) {
+              data.forEach(event => {
+                events.push({
+                  type: 'ERC20',
+                  eventType: 'Approval',
+                  data: event,
+                  timestamp: event.created_at
+                });
               });
-            });
-          }
+            }
+          }});
         }
 
         // Custom events
@@ -710,19 +719,19 @@
             query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
           }
           
-          const { data: customs } = await query;
-          if (customs) {
-            customs.forEach(event => {
-              // Usar event_name o event_type con fallback
-              const eventType = event.event_name || event.event_type || 'Unknown';
-              events.push({
-                type: 'ERC20',
-                eventType: eventType,
-                data: event,
-                timestamp: event.created_at
+          queries.push({ query, handler: (data) => {
+            if (data) {
+              data.forEach(event => {
+                const eventType = event.event_name || event.event_type || 'Unknown';
+                events.push({
+                  type: 'ERC20',
+                  eventType: eventType,
+                  data: event,
+                  timestamp: event.created_at
+                });
               });
-            });
-          }
+            }
+          }});
         } else {
           const customEventTypes = ['Staked', 'WithdrawnStake', 'TaxFeeUpdated', 'CreatorFeeUpdated', 'BurnFeeUpdated'];
           if (customEventTypes.includes(filters.eventType)) {
@@ -741,17 +750,18 @@
               query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
             }
             
-            const { data: customs } = await query;
-            if (customs) {
-              customs.forEach(event => {
-                events.push({
-                  type: 'ERC20',
-                  eventType: event.event_name,
-                  data: event,
-                  timestamp: event.created_at
+            queries.push({ query, handler: (data) => {
+              if (data) {
+                data.forEach(event => {
+                  events.push({
+                    type: 'ERC20',
+                    eventType: event.event_name,
+                    data: event,
+                    timestamp: event.created_at
+                  });
                 });
-              });
-            }
+              }
+            }});
           }
         }
       }
@@ -1456,6 +1466,30 @@
             }
           }
         }
+      
+      // OPTIMIZACIÓN: Ejecutar todas las queries en paralelo
+      if (queries.length > 0) {
+        const startTime = performance.now();
+        const results = await Promise.all(queries.map(async q => {
+          try {
+            const response = await q.query;
+            return { data: response.data, handler: q.handler };
+          } catch (err) {
+            console.warn('Error en query:', err);
+            return { data: null, handler: q.handler };
+          }
+        }));
+        
+        // Procesar resultados
+        results.forEach(result => {
+          if (result && result.handler) {
+            result.handler(result.data);
+          }
+        });
+        
+        const endTime = performance.now();
+        console.log(`⚡ ${queries.length} queries ejecutadas en paralelo en ${(endTime - startTime).toFixed(2)}ms`);
+      }
         
       // Ordenar por timestamp descendente
       events.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
