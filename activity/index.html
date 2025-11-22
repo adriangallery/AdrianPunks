@@ -84,10 +84,16 @@
       margin: 0;
       /* Sin dependencias de contenedores padre */
       position: relative;
+      transition: transform 0.2s;
     }
 
     .activity-item:hover {
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .activity-item:hover .nft-thumbnail {
+      border-color: #007bff;
     }
 
     .activity-header {
@@ -117,18 +123,26 @@
     }
 
     .nft-thumbnail {
-      width: 48px;
-      height: 48px;
-      object-fit: contain;
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
       border-radius: 4px;
-      border: 1px solid var(--border-color);
+      border: 2px solid var(--border-color);
       background: var(--card-bg);
       flex-shrink: 0;
+      transition: border-color 0.2s;
     }
 
     .activity-link {
       font-size: 0.85rem;
       text-decoration: none;
+    }
+
+    /* Ajustar tipografía para que coincida con market */
+    .activity-item .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
     }
 
     .load-more-container {
@@ -192,8 +206,8 @@
       }
       
       .nft-thumbnail {
-        width: 40px;
-        height: 40px;
+        width: 60px;
+        height: 60px;
       }
     }
   </style>
@@ -292,16 +306,16 @@
       </div> <!-- End Activity Tab -->
 
       <!-- Statistics Tab Content -->
-      <div id="statistics-tab-content" class="tab-content" style="display: none;">
+      <div id="statistics-tab-content" class="tab-content">
         <div id="statistics-container">
           <div class="text-center py-5">
-            <div class="spinner-border" role="status">
+              <div class="spinner-border" role="status">
               <span class="visually-hidden">Cargando estadísticas...</span>
+              </div>
             </div>
           </div>
-        </div>
       </div> <!-- End Statistics Tab -->
-          </div>
+        </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -1895,7 +1909,7 @@
       // Crear imagen con data-src para carga diferida controlada
       const imageId = `adrianlab-img-${tokenId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const urlsAttr = urls.map(url => url.replace(/"/g, '&quot;')).join(',');
-      const imageHTML = `<img id="${imageId}" data-src="${urls[0]}" class="nft-thumbnail adrianlab-image" loading="lazy" decoding="async" alt="Trait #${tokenId}" data-fallback-urls="${urlsAttr}" data-current-index="0" data-token-id="${tokenId}" style="display: block; background: var(--card-bg); min-width: 48px; min-height: 48px;" onerror="tryNextAdrianLABImage(this)" onclick="if(this.src) window.open(this.src, '_blank')">`;
+      const imageHTML = `<img id="${imageId}" data-src="${urls[0]}" class="nft-thumbnail adrianlab-image" loading="lazy" decoding="async" alt="Trait #${tokenId}" data-fallback-urls="${urlsAttr}" data-current-index="0" data-token-id="${tokenId}" style="display: block; background: var(--card-bg); min-width: 80px; min-height: 80px;" onerror="tryNextAdrianLABImage(this)" onclick="if(this.src) window.open(this.src, '_blank')">`;
       
       // Guardar en caché para reutilización
       imageCache.set(tokenId, imageHTML);
@@ -2239,6 +2253,7 @@
       
       // Inicializar y cargar estadísticas si no está inicializado
       if (!statisticsManager && supabaseClient) {
+        console.log('📊 Inicializando StatisticsManager...');
         statisticsManager = new StatisticsManager(supabaseClient, {
           contracts: {
             FLOOR_ENGINE: FLOOR_ENGINE_ADDRESS,
@@ -2258,11 +2273,37 @@
         });
         
         statisticsManager.init().then(() => {
-          statisticsManager.render('statistics-container');
+          console.log('✅ StatisticsManager inicializado, renderizando...');
+          statisticsManager.render('statistics-container').catch(error => {
+            console.error('❌ Error renderizando estadísticas:', error);
+            const container = document.getElementById('statistics-container');
+            if (container) {
+              container.innerHTML = '<div class="alert alert-danger">Error cargando estadísticas: ' + error.message + '</div>';
+            }
+          });
+        }).catch(error => {
+          console.error('❌ Error inicializando StatisticsManager:', error);
+          const container = document.getElementById('statistics-container');
+          if (container) {
+            container.innerHTML = '<div class="alert alert-danger">Error inicializando estadísticas: ' + error.message + '</div>';
+          }
         });
       } else if (statisticsManager) {
         // Si ya está inicializado, solo renderizar (usará caché si está disponible)
-        statisticsManager.render('statistics-container');
+        console.log('📊 Re-renderizando estadísticas...');
+        statisticsManager.render('statistics-container').catch(error => {
+          console.error('❌ Error renderizando estadísticas:', error);
+          const container = document.getElementById('statistics-container');
+          if (container) {
+            container.innerHTML = '<div class="alert alert-danger">Error cargando estadísticas: ' + error.message + '</div>';
+          }
+        });
+      } else {
+        console.warn('⚠️ StatisticsManager no puede inicializarse: supabaseClient no disponible');
+        const container = document.getElementById('statistics-container');
+        if (container) {
+          container.innerHTML = '<div class="alert alert-warning">Error: No se pudo conectar a la base de datos</div>';
+        }
       }
     }
 
