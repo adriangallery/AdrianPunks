@@ -1421,9 +1421,9 @@ class StatisticsManager {
               <h6 class="card-subtitle mb-2 text-muted">Avg Transfer Size</h6>
               <h3 class="card-title">${this.formatADRIAN(stats.erc20?.avgTransferSize || '0')}</h3>
             </div>
+            </div>
           </div>
         </div>
-      </div>
 
       <!-- FloorEngine Statistics Cards -->
       <h5 class="mb-3">FloorEngine - Marketplace</h5>
@@ -1474,9 +1474,9 @@ class StatisticsManager {
               <h6 class="card-subtitle mb-2 text-muted">Total Sweeps</h6>
               <h3 class="card-title">${this.formatNumber(stats.floorEngine?.totalSweeps || 0)}</h3>
             </div>
+            </div>
           </div>
         </div>
-      </div>
 
       <!-- AdrianLABCore Statistics Cards -->
       <h5 class="mb-3">AdrianLABCore - ERC721 NFTs</h5>
@@ -1527,9 +1527,9 @@ class StatisticsManager {
               <h6 class="card-subtitle mb-2 text-muted">Serums Applied</h6>
               <h3 class="card-title">${this.formatNumber(stats.adrianLABCore?.serumsApplied || 0)}</h3>
             </div>
+            </div>
           </div>
         </div>
-      </div>
 
       <!-- ERC1155 Statistics Cards -->
       <h5 class="mb-3">ERC1155 - AdrianLAB Assets</h5>
