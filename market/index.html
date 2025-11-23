@@ -2185,10 +2185,13 @@
         document.getElementById('floorEngineAddress').textContent = 
           `${FLOOR_ENGINE_ADDRESS.substring(0, 6)}...${FLOOR_ENGINE_ADDRESS.substring(38)}`;
 
-        // Contar holdings y sold (simplificado - necesitarías tracking real)
+        // Contar holdings y sold
         const engineListings = activeListingsData?.filter(l => l.isContractOwned) || [];
         document.getElementById('floorEngineHoldingCount').textContent = engineListings.length;
-        // TODO: Implementar tracking de sold
+        
+        // Obtener contador de sold desde Supabase
+        const soldCount = await getFloorEngineSoldCount();
+        document.getElementById('floorEngineSoldCount').textContent = soldCount;
 
         // Actualizar hero card con balance y NFTs
         document.getElementById('floorEngineEthHolding').textContent = balanceFormatted.toLocaleString('en-US', {
@@ -2279,6 +2282,34 @@
             break;
           }
         }
+      }
+    }
+
+    // Función para obtener el contador de punks vendidos por el FloorENGINE
+    async function getFloorEngineSoldCount() {
+      try {
+        if (!supabaseClient) {
+          console.warn('Supabase client not initialized');
+          return 0;
+        }
+
+        // Consultar trade_events donde el seller es el FloorENGINE y is_contract_owned = true
+        const { data, error, count } = await supabaseClient
+          .from('trade_events')
+          .select('*', { count: 'exact', head: false })
+          .eq('seller', FLOOR_ENGINE_ADDRESS.toLowerCase())
+          .eq('is_contract_owned', true);
+
+        if (error) {
+          console.error('Error fetching sold count from Supabase:', error);
+          return 0;
+        }
+
+        // Retornar el count si está disponible, si no, la longitud del array
+        return count !== null ? count : (data?.length || 0);
+      } catch (error) {
+        console.error('Error getting FloorENGINE sold count:', error);
+        return 0;
       }
     }
 
