@@ -263,8 +263,9 @@
       background: #f3f4f6;
       border: 1px solid #e5e7eb;
       border-radius: 4px;
-      overflow: hidden;
+      overflow: visible;
       padding: 2px;
+      flex-wrap: nowrap;
     }
 
     .floor-engine-pixel-bar-pixel {
@@ -274,9 +275,25 @@
       background: #e5e7eb;
       border-radius: 1px;
       transition: background 0.2s;
+      position: relative;
+      overflow: hidden;
     }
 
     .floor-engine-pixel-bar-pixel.active {
+      background: #10b981;
+    }
+
+    .floor-engine-pixel-bar-pixel.partial {
+      background: #e5e7eb;
+    }
+
+    .floor-engine-pixel-bar-pixel.partial::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 50%;
       background: #10b981;
     }
 
@@ -299,6 +316,14 @@
     }
 
     [data-theme="dark"] .floor-engine-pixel-bar-pixel.active {
+      background: #10b981;
+    }
+
+    [data-theme="dark"] .floor-engine-pixel-bar-pixel.partial {
+      background: #374151;
+    }
+
+    [data-theme="dark"] .floor-engine-pixel-bar-pixel.partial::after {
       background: #10b981;
     }
 
@@ -658,9 +683,9 @@
             </div>
           </div>
           <!-- CTA Button -->
-          <button class="btn btn-dark rounded-pill px-4 py-2" onclick="scrollToTradeSection()">
+          <a href="https://app.uniswap.org/swap?chain=base&inputCurrency=ETH&outputCurrency=0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea" target="_blank" rel="noopener noreferrer" class="btn btn-dark rounded-pill px-4 py-2 d-none d-md-inline-block">
             Trade $ADRIAN
-          </button>
+          </a>
         </div>
       </div>
 
@@ -695,9 +720,6 @@
                   </div>
                 </div>
               </div>
-              <button class="btn btn-outline-secondary rounded-pill px-4 py-2" onclick="scrollToCheapestListing()" style="flex-shrink: 0; margin-left: 1rem;">
-                View on Marketplace
-              </button>
             </div>
           </div>
         </div>
@@ -2343,12 +2365,23 @@
 
         // Generar barras pixeladas (más barras para efecto pixelado)
         pixelBarContainer.innerHTML = '';
-        const totalPixels = 200; // Más barras para efecto más pixelado
-        const activePixels = Math.floor((percentage / 100) * totalPixels);
+        const totalPixels = 60; // 30% de 200
+        const exactActivePixels = (percentage / 100) * totalPixels;
+        const fullActivePixels = Math.floor(exactActivePixels);
+        const hasPartial = exactActivePixels % 1 !== 0 && percentage < 100;
         
         for (let i = 0; i < totalPixels; i++) {
           const pixel = document.createElement('div');
-          pixel.className = `floor-engine-pixel-bar-pixel ${i < activePixels ? 'active' : ''}`;
+          if (i < fullActivePixels) {
+            // Barras completamente activas
+            pixel.className = 'floor-engine-pixel-bar-pixel active';
+          } else if (i === fullActivePixels && hasPartial) {
+            // Última barra activa parcial (medio verde medio gris)
+            pixel.className = 'floor-engine-pixel-bar-pixel partial';
+          } else {
+            // Barras inactivas
+            pixel.className = 'floor-engine-pixel-bar-pixel';
+          }
           pixelBarContainer.appendChild(pixel);
         }
       } else {
@@ -2362,7 +2395,7 @@
 
         // Generar barras grises
         pixelBarContainer.innerHTML = '';
-        const totalPixels = 200;
+        const totalPixels = 60; // 30% de 200
         for (let i = 0; i < totalPixels; i++) {
           const pixel = document.createElement('div');
           pixel.className = 'floor-engine-pixel-bar-pixel';
