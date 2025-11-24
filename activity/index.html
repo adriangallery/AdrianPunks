@@ -426,6 +426,28 @@
     // Detectar si es móvil y desactivar SVG
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
     
+    // Polyfill para requestIdleCallback (no disponible en Safari/iOS)
+    if (!window.requestIdleCallback) {
+      window.requestIdleCallback = function(callback, options) {
+        const timeout = options?.timeout || 0;
+        const start = Date.now();
+        return setTimeout(function() {
+          callback({
+            didTimeout: timeout > 0 && (Date.now() - start) >= timeout,
+            timeRemaining: function() {
+              return Math.max(0, 50 - (Date.now() - start));
+            }
+          });
+        }, 1);
+      };
+    }
+    
+    if (!window.cancelIdleCallback) {
+      window.cancelIdleCallback = function(id) {
+        clearTimeout(id);
+      };
+    }
+    
     // Contract addresses
     const FLOOR_ENGINE_ADDRESS = '0x0351F7cBA83277E891D4a85Da498A7eACD764D58';
     const ERC20_ADDRESS = '0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea';
