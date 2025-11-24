@@ -1784,8 +1784,9 @@
           const from = shortAddress(event.data.from_address);
           const to = shortAddress(event.data.to_address);
           const amount = event.data.value_wei ? formatADRIAN(event.data.value_wei) : '';
-          const fromTag = getAddressTagBadge(event.data.from_address, event.contextualTag);
-          const toTag = getAddressTagBadge(event.data.to_address);
+          // El tag contextual se aplica al to_address (destinatario) para REWARD y SALEPROCEEDS
+          const fromTag = getAddressTagBadge(event.data.from_address);
+          const toTag = getAddressTagBadge(event.data.to_address, event.contextualTag);
           return `Transfer from ${from}${fromTag} to ${to}${toTag}${amount ? ' - Amount: ' + amount + ' $ADRIAN' : ''}`;
         } else if (event.eventType === 'Approval') {
           const owner = shortAddress(event.data.owner);
@@ -2424,10 +2425,20 @@
                       if (timeDiff < 5 * 60 * 1000) {
                         // Normalizar montos para comparación (convertir a string para comparar)
                         const normalizeAmount = (amount) => {
-                          if (!amount) return null;
-                          if (typeof amount === 'string') return amount;
-                          if (typeof amount === 'number') return amount.toString();
-                          if (amount.toString) return amount.toString();
+                          if (amount == null) return null;
+                          // Si es BigNumber de ethers, usar toString()
+                          if (amount && typeof amount === 'object' && amount.toString && typeof amount.toString === 'function') {
+                            return amount.toString();
+                          }
+                          if (typeof amount === 'string') {
+                            // Limpiar string de espacios y convertir a número para normalizar
+                            const cleaned = amount.trim();
+                            if (cleaned === '' || cleaned === '0') return null;
+                            return cleaned;
+                          }
+                          if (typeof amount === 'number') {
+                            return amount.toString();
+                          }
                           return String(amount);
                         };
                         
@@ -2439,15 +2450,43 @@
                           if (sweepCaller) {
                             const rewardAmount = normalizeAmount(sweep.data.caller_reward_wei);
                             const eventToAddress = event.data.to_address?.toLowerCase();
+                            
+                            // Debug logging
+                            if (eventAmount && rewardAmount) {
+                              console.log('🔍 Checking REWARD match:', {
+                                eventAmount,
+                                rewardAmount,
+                                match: eventAmount === rewardAmount,
+                                eventTo: eventToAddress,
+                                sweepCaller: sweepCaller,
+                                addressMatch: eventToAddress === sweepCaller
+                              });
+                            }
+                            
                             if (eventAmount && rewardAmount && eventAmount === rewardAmount && eventToAddress === sweepCaller) {
                               event.contextualTag = targetRule.tag;
                               console.log('✅ Tagged REWARD:', eventAmount, 'to', eventToAddress);
                             }
+                          } else {
+                            console.log('⚠️ Sweep has no valid caller, skipping REWARD tag');
                           }
                         } else if (matchAmount === 'buy_price_wei') {
                           // Buy price va al seller (no al caller)
                           const buyAmount = normalizeAmount(sweep.data.buy_price_wei);
                           const eventToAddress = event.data.to_address?.toLowerCase();
+                          
+                          // Debug logging
+                          if (eventAmount && buyAmount) {
+                            console.log('🔍 Checking SALEPROCEEDS match:', {
+                              eventAmount,
+                              buyAmount,
+                              match: eventAmount === buyAmount,
+                              eventTo: eventToAddress,
+                              sweepSeller: sweepSeller,
+                              sweepCaller: sweepCaller
+                            });
+                          }
+                          
                           // Si tenemos seller en el sweep, usar ese, si no, buscar cualquier transfer del monto correcto
                           if (eventAmount && buyAmount && eventAmount === buyAmount) {
                             if (sweepSeller && eventToAddress === sweepSeller) {
