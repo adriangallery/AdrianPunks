@@ -2259,21 +2259,40 @@
         const rules = filteringRules.duplicateFloorSweeps.rules || [];
         rules.forEach(rule => {
           if (rule.sourceEvent && rule.conflictEvent) {
-            // Agrupar FloorSweeps por token_id y timestamp (redondeado a minutos)
+            // Agrupar FloorSweeps por token_id y timestamp (ventana de 10 minutos)
             const sweepGroups = new Map();
             
             filtered.forEach(event => {
               if (event.type === 'FloorEngine' && event.eventType === 'FloorSweep') {
                 const tokenId = event.data.token_id;
                 const timestamp = new Date(event.timestamp);
-                // Redondear timestamp a minutos para agrupar eventos cercanos
-                const roundedTimestamp = new Date(timestamp.getFullYear(), timestamp.getMonth(), timestamp.getDate(), timestamp.getHours(), timestamp.getMinutes());
-                const key = `${tokenId}-${roundedTimestamp.getTime()}`;
+                // Usar token_id como clave principal, luego agrupar por ventana de tiempo
+                const baseKey = `${tokenId}`;
                 
-                if (!sweepGroups.has(key)) {
-                  sweepGroups.set(key, []);
+                // Buscar si ya existe un grupo para este token_id
+                let foundGroup = null;
+                for (const [key, group] of sweepGroups.entries()) {
+                  if (key.startsWith(`${tokenId}-`)) {
+                    // Verificar si este evento está dentro de 15 minutos de algún evento del grupo
+                    const groupTimestamps = group.map(e => new Date(e.timestamp));
+                    const isClose = groupTimestamps.some(ts => {
+                      const timeDiff = Math.abs(timestamp - ts);
+                      return timeDiff < 15 * 60 * 1000; // 15 minutos
+                    });
+                    if (isClose) {
+                      foundGroup = key;
+                      break;
+                    }
+                  }
                 }
-                sweepGroups.get(key).push(event);
+                
+                if (foundGroup) {
+                  sweepGroups.get(foundGroup).push(event);
+                } else {
+                  // Crear nuevo grupo
+                  const newKey = `${tokenId}-${timestamp.getTime()}`;
+                  sweepGroups.set(newKey, [event]);
+                }
               }
             });
             
@@ -2282,19 +2301,32 @@
               if (sweeps.length > 1) {
                 // Ordenar por cantidad de información (más información = más campos no nulos)
                 sweeps.sort((a, b) => {
+                  // Contar campos con información válida (no null, no vacío, no 'N/A')
                   const aInfo = [
                     a.data.caller,
                     a.data.buy_price_wei,
                     a.data.caller_reward_wei,
                     a.data.relist_price_wei
-                  ].filter(v => v != null && v !== '' && v !== 'N/A').length;
+                  ].filter(v => {
+                    if (v == null) return false;
+                    if (v === '') return false;
+                    if (String(v).toUpperCase() === 'N/A') return false;
+                    if (String(v).trim() === '') return false;
+                    return true;
+                  }).length;
                   
                   const bInfo = [
                     b.data.caller,
                     b.data.buy_price_wei,
                     b.data.caller_reward_wei,
                     b.data.relist_price_wei
-                  ].filter(v => v != null && v !== '' && v !== 'N/A').length;
+                  ].filter(v => {
+                    if (v == null) return false;
+                    if (v === '') return false;
+                    if (String(v).toUpperCase() === 'N/A') return false;
+                    if (String(v).trim() === '') return false;
+                    return true;
+                  }).length;
                   
                   return bInfo - aInfo; // Ordenar descendente (más info primero)
                 });
@@ -2304,14 +2336,22 @@
                 const removeEvents = sweeps.slice(1);
                 
                 // Remover los eventos con menos información
+                const eventsToRemove = new Set(removeEvents);
                 filtered = filtered.filter(event => {
                   if (event.type === 'FloorEngine' && event.eventType === 'FloorSweep') {
+                    // Verificar si este evento está en el grupo y debe ser removido
                     const tokenId = event.data.token_id;
                     const timestamp = new Date(event.timestamp);
-                    const roundedTimestamp = new Date(timestamp.getFullYear(), timestamp.getMonth(), timestamp.getDate(), timestamp.getHours(), timestamp.getMinutes());
-                    const eventKey = `${tokenId}-${roundedTimestamp.getTime()}`;
                     
-                    if (eventKey === key) {
+                    // Verificar si está en el grupo actual
+                    const inGroup = sweeps.some(s => {
+                      const sTokenId = s.data.token_id;
+                      const sTimestamp = new Date(s.timestamp);
+                      const timeDiff = Math.abs(timestamp - sTimestamp);
+                      return sTokenId === tokenId && timeDiff < 15 * 60 * 1000; // 15 minutos
+                    });
+                    
+                    if (inGroup) {
                       // Es parte de este grupo, mantener solo el que tiene más info
                       return event === keepEvent;
                     }
@@ -2346,7 +2386,20 @@
             // Para cada FloorSweep, buscar ERC20 transfers relacionados
             floorSweeps.forEach(sweep => {
               const sweepTimestamp = new Date(sweep.timestamp);
-              const sweepCaller = sweep.data.caller?.toLowerCase();
+              // Normalizar caller (puede ser "N/A", null, undefined, o string vacío)
+              let sweepCaller = sweep.data.caller;
+              if (sweepCaller && typeof sweepCaller === 'string') {
+                sweepCaller = sweepCaller.trim();
+                if (sweepCaller.toUpperCase() === 'N/A' || sweepCaller === '') {
+                  sweepCaller = null;
+                } else {
+                  sweepCaller = sweepCaller.toLowerCase();
+                }
+              } else if (!sweepCaller) {
+                sweepCaller = null;
+              } else {
+                sweepCaller = String(sweepCaller).toLowerCase();
+              }
               const sweepSeller = sweep.data.seller?.toLowerCase(); // Seller del listing original
               
               rule.targetEvents.forEach(targetRule => {
@@ -2369,29 +2422,43 @@
                       
                       // Si el evento está dentro de 5 minutos del sweep
                       if (timeDiff < 5 * 60 * 1000) {
-                        const eventAmount = event.data.value_wei;
+                        // Normalizar montos para comparación (convertir a string para comparar)
+                        const normalizeAmount = (amount) => {
+                          if (!amount) return null;
+                          if (typeof amount === 'string') return amount;
+                          if (typeof amount === 'number') return amount.toString();
+                          if (amount.toString) return amount.toString();
+                          return String(amount);
+                        };
+                        
+                        const eventAmount = normalizeAmount(event.data.value_wei);
                         const matchAmount = targetRule.matchAmount;
                         
                         if (matchAmount === 'caller_reward_wei') {
-                          // Reward va al caller
-                          const rewardAmount = sweep.data.caller_reward_wei;
-                          const eventToAddress = event.data.to_address?.toLowerCase();
-                          if (eventAmount === rewardAmount && eventToAddress === sweepCaller) {
-                            event.contextualTag = targetRule.tag;
+                          // Reward va al caller (solo si hay caller válido)
+                          if (sweepCaller) {
+                            const rewardAmount = normalizeAmount(sweep.data.caller_reward_wei);
+                            const eventToAddress = event.data.to_address?.toLowerCase();
+                            if (eventAmount && rewardAmount && eventAmount === rewardAmount && eventToAddress === sweepCaller) {
+                              event.contextualTag = targetRule.tag;
+                              console.log('✅ Tagged REWARD:', eventAmount, 'to', eventToAddress);
+                            }
                           }
                         } else if (matchAmount === 'buy_price_wei') {
                           // Buy price va al seller (no al caller)
-                          const buyAmount = sweep.data.buy_price_wei;
+                          const buyAmount = normalizeAmount(sweep.data.buy_price_wei);
                           const eventToAddress = event.data.to_address?.toLowerCase();
                           // Si tenemos seller en el sweep, usar ese, si no, buscar cualquier transfer del monto correcto
-                          if (eventAmount === buyAmount) {
+                          if (eventAmount && buyAmount && eventAmount === buyAmount) {
                             if (sweepSeller && eventToAddress === sweepSeller) {
                               event.contextualTag = targetRule.tag;
+                              console.log('✅ Tagged SALEPROCEEDS (by seller):', eventAmount, 'to', eventToAddress);
                             } else if (!sweepSeller) {
                               // Si no hay seller en el sweep, etiquetar cualquier transfer del monto correcto
                               // que no sea el reward (para evitar duplicados)
-                              if (eventToAddress !== sweepCaller) {
+                              if (!sweepCaller || eventToAddress !== sweepCaller) {
                                 event.contextualTag = targetRule.tag;
+                                console.log('✅ Tagged SALEPROCEEDS (by amount):', eventAmount, 'to', eventToAddress);
                               }
                             }
                           }
