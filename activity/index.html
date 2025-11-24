@@ -2254,6 +2254,76 @@
         });
       }
       
+      // Filtrado de FloorSweep duplicados
+      if (filteringRules.duplicateFloorSweeps && filteringRules.duplicateFloorSweeps.enabled) {
+        const rules = filteringRules.duplicateFloorSweeps.rules || [];
+        rules.forEach(rule => {
+          if (rule.sourceEvent && rule.conflictEvent) {
+            // Agrupar FloorSweeps por token_id y timestamp (redondeado a minutos)
+            const sweepGroups = new Map();
+            
+            filtered.forEach(event => {
+              if (event.type === 'FloorEngine' && event.eventType === 'FloorSweep') {
+                const tokenId = event.data.token_id;
+                const timestamp = new Date(event.timestamp);
+                // Redondear timestamp a minutos para agrupar eventos cercanos
+                const roundedTimestamp = new Date(timestamp.getFullYear(), timestamp.getMonth(), timestamp.getDate(), timestamp.getHours(), timestamp.getMinutes());
+                const key = `${tokenId}-${roundedTimestamp.getTime()}`;
+                
+                if (!sweepGroups.has(key)) {
+                  sweepGroups.set(key, []);
+                }
+                sweepGroups.get(key).push(event);
+              }
+            });
+            
+            // Para cada grupo, mantener solo el que tiene más información
+            sweepGroups.forEach((sweeps, key) => {
+              if (sweeps.length > 1) {
+                // Ordenar por cantidad de información (más información = más campos no nulos)
+                sweeps.sort((a, b) => {
+                  const aInfo = [
+                    a.data.caller,
+                    a.data.buy_price_wei,
+                    a.data.caller_reward_wei,
+                    a.data.relist_price_wei
+                  ].filter(v => v != null && v !== '' && v !== 'N/A').length;
+                  
+                  const bInfo = [
+                    b.data.caller,
+                    b.data.buy_price_wei,
+                    b.data.caller_reward_wei,
+                    b.data.relist_price_wei
+                  ].filter(v => v != null && v !== '' && v !== 'N/A').length;
+                  
+                  return bInfo - aInfo; // Ordenar descendente (más info primero)
+                });
+                
+                // Mantener solo el primero (el que tiene más información)
+                const keepEvent = sweeps[0];
+                const removeEvents = sweeps.slice(1);
+                
+                // Remover los eventos con menos información
+                filtered = filtered.filter(event => {
+                  if (event.type === 'FloorEngine' && event.eventType === 'FloorSweep') {
+                    const tokenId = event.data.token_id;
+                    const timestamp = new Date(event.timestamp);
+                    const roundedTimestamp = new Date(timestamp.getFullYear(), timestamp.getMonth(), timestamp.getDate(), timestamp.getHours(), timestamp.getMinutes());
+                    const eventKey = `${tokenId}-${roundedTimestamp.getTime()}`;
+                    
+                    if (eventKey === key) {
+                      // Es parte de este grupo, mantener solo el que tiene más info
+                      return event === keepEvent;
+                    }
+                  }
+                  return true;
+                });
+              }
+            });
+          }
+        });
+      }
+      
       return filtered;
     }
 
@@ -2276,7 +2346,8 @@
             // Para cada FloorSweep, buscar ERC20 transfers relacionados
             floorSweeps.forEach(sweep => {
               const sweepTimestamp = new Date(sweep.timestamp);
-              const sweepToAddress = sweep.data.caller?.toLowerCase();
+              const sweepCaller = sweep.data.caller?.toLowerCase();
+              const sweepSeller = sweep.data.seller?.toLowerCase(); // Seller del listing original
               
               rule.targetEvents.forEach(targetRule => {
                 if (targetRule.type === 'ERC20' && targetRule.eventType === 'Transfer') {
@@ -2296,22 +2367,32 @@
                       const eventTimestamp = new Date(event.timestamp);
                       const timeDiff = Math.abs(eventTimestamp - sweepTimestamp);
                       
-                      // Si el evento está dentro de 5 minutos del sweep y coincide la dirección
+                      // Si el evento está dentro de 5 minutos del sweep
                       if (timeDiff < 5 * 60 * 1000) {
-                        const eventToAddress = event.data.to_address?.toLowerCase();
-                        if (eventToAddress === sweepToAddress) {
-                          // Verificar si el monto coincide
-                          const eventAmount = event.data.value_wei;
-                          const matchAmount = targetRule.matchAmount;
-                          if (matchAmount === 'caller_reward_wei') {
-                            const rewardAmount = sweep.data.caller_reward_wei;
-                            if (eventAmount === rewardAmount) {
+                        const eventAmount = event.data.value_wei;
+                        const matchAmount = targetRule.matchAmount;
+                        
+                        if (matchAmount === 'caller_reward_wei') {
+                          // Reward va al caller
+                          const rewardAmount = sweep.data.caller_reward_wei;
+                          const eventToAddress = event.data.to_address?.toLowerCase();
+                          if (eventAmount === rewardAmount && eventToAddress === sweepCaller) {
+                            event.contextualTag = targetRule.tag;
+                          }
+                        } else if (matchAmount === 'buy_price_wei') {
+                          // Buy price va al seller (no al caller)
+                          const buyAmount = sweep.data.buy_price_wei;
+                          const eventToAddress = event.data.to_address?.toLowerCase();
+                          // Si tenemos seller en el sweep, usar ese, si no, buscar cualquier transfer del monto correcto
+                          if (eventAmount === buyAmount) {
+                            if (sweepSeller && eventToAddress === sweepSeller) {
                               event.contextualTag = targetRule.tag;
-                            }
-                          } else if (matchAmount === 'buy_price_wei') {
-                            const buyAmount = sweep.data.buy_price_wei;
-                            if (eventAmount === buyAmount) {
-                              event.contextualTag = targetRule.tag;
+                            } else if (!sweepSeller) {
+                              // Si no hay seller en el sweep, etiquetar cualquier transfer del monto correcto
+                              // que no sea el reward (para evitar duplicados)
+                              if (eventToAddress !== sweepCaller) {
+                                event.contextualTag = targetRule.tag;
+                              }
                             }
                           }
                         }
