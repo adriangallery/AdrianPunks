@@ -335,6 +335,7 @@
                   <option value="all">All Contracts</option>
                   <option value="floorengine">FloorEngine</option>
                 <option value="erc20">ERC20</option>
+                <option value="adrianpunks">AdrianPunks</option>
                 <option value="adrianlabcore">AdrianZERO</option>
                 <option value="erc1155">AdrianLAB</option>
                 <option value="traitsextensions">Traits</option>
@@ -453,6 +454,7 @@
     const ERC20_ADDRESS = '0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea';
     const BURN_ADDRESS = '0x0000000000000000000000000000000000000000';
     const ADRIANLABCORE_ADDRESS = '0x6e369bf0e4e0c106192d606fb6d85836d684da75';
+    const ADRIANPUNKS_ADDRESS = '0x79be8acdd339c7b92918fcc3fd3875b5aaad7566';
     const ERC1155_ADDRESS = '0x90546848474fb3c9fda3fdad887969bb244e7e58';
     const TRAITS_EXTENSIONS_ADDRESS = '0x0995c0dA1ca071b792E852b6Ec531b7cD7d1F8D6';
     const ADRIAN_SHOP_ADDRESS = '0x4b265927b1521995ce416bba3bed98231d2e946b';
@@ -1028,6 +1030,168 @@
               });
             }
           }
+        }
+      }
+
+      // AdrianPunks (ERC721) events
+      if (filters.contract === 'all' || filters.contract === 'adrianpunks') {
+        // Transfers
+        if (filters.eventType === 'all' || filters.eventType === 'Transfer') {
+          let query = supabaseClient
+            .from('erc721_transfers')
+            .select('*')
+            .eq('contract_address', ADRIANPUNKS_ADDRESS.toLowerCase())
+            .order('created_at', { ascending: false })
+            .limit(fetchLimit);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          if (filters.address) {
+            query = query.or(`from_address.ilike.%${filters.address}%,to_address.ilike.%${filters.address}%`);
+          }
+          
+          queries.push({ query, handler: (data) => {
+            if (data) {
+              data.forEach(event => {
+                events.push({
+                  type: 'AdrianPunks',
+                  eventType: 'Transfer',
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }});
+        }
+
+        // Approvals
+        if (filters.eventType === 'all' || filters.eventType === 'Approval') {
+          let query = supabaseClient
+            .from('erc721_approvals')
+            .select('*')
+            .eq('contract_address', ADRIANPUNKS_ADDRESS.toLowerCase())
+            .order('created_at', { ascending: false })
+            .limit(fetchLimit);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          if (filters.address) {
+            query = query.or(`owner.ilike.%${filters.address}%,approved.ilike.%${filters.address}%`);
+          }
+          
+          queries.push({ query, handler: (data) => {
+            if (data) {
+              data.forEach(event => {
+                events.push({
+                  type: 'AdrianPunks',
+                  eventType: 'Approval',
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }});
+        }
+
+        // ApprovalForAll
+        if (filters.eventType === 'all' || filters.eventType === 'ApprovalForAll') {
+          let query = supabaseClient
+            .from('erc721_approvals_for_all')
+            .select('*')
+            .eq('contract_address', ADRIANPUNKS_ADDRESS.toLowerCase())
+            .order('created_at', { ascending: false })
+            .limit(fetchLimit);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          if (filters.address) {
+            query = query.or(`owner.ilike.%${filters.address}%,operator.ilike.%${filters.address}%`);
+          }
+          
+          queries.push({ query, handler: (data) => {
+            if (data) {
+              data.forEach(event => {
+                events.push({
+                  type: 'AdrianPunks',
+                  eventType: 'ApprovalForAll',
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }});
+        }
+
+        // Custom events
+        if (filters.eventType === 'all') {
+          let query = supabaseClient
+            .from('erc721_custom_events')
+            .select('*')
+            .eq('contract_address', ADRIANPUNKS_ADDRESS.toLowerCase())
+            .order('created_at', { ascending: false })
+            .limit(fetchLimit);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          
+          queries.push({ query, handler: (data) => {
+            if (data) {
+              data.forEach(event => {
+                const eventType = event.event_name || event.event_type || 'Unknown';
+                events.push({
+                  type: 'AdrianPunks',
+                  eventType: eventType,
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }});
+        } else {
+          // Si hay un tipo de evento específico, buscar en custom_events
+          let query = supabaseClient
+            .from('erc721_custom_events')
+            .select('*')
+            .eq('contract_address', ADRIANPUNKS_ADDRESS.toLowerCase())
+            .eq('event_name', filters.eventType)
+            .order('created_at', { ascending: false })
+            .limit(fetchLimit);
+          
+          if (filters.dateFrom) {
+            query = query.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+          }
+          if (filters.dateTo) {
+            query = query.lte('created_at', filters.dateTo + 'T23:59:59Z');
+          }
+          
+          queries.push({ query, handler: (data) => {
+            if (data) {
+              data.forEach(event => {
+                events.push({
+                  type: 'AdrianPunks',
+                  eventType: event.event_name,
+                  data: event,
+                  timestamp: event.created_at
+                });
+              });
+            }
+          }});
         }
       }
 
@@ -1735,6 +1899,7 @@
       let badgeText = event.type;
       if (event.type === 'FloorEngine') badgeColor = 'bg-primary';
       else if (event.type === 'ERC20') badgeColor = 'bg-success';
+      else if (event.type === 'AdrianPunks') badgeColor = 'bg-primary';
       else if (event.type === 'AdrianLABCore') badgeColor = 'bg-purple';
       else if (event.type === 'ERC1155') badgeColor = 'bg-info';
       else if (event.type === 'TraitsExtensions') badgeColor = 'bg-warning';
@@ -1813,6 +1978,23 @@
           const spender = shortAddress(event.data.spender);
           const amount = event.data.value_wei ? formatADRIAN(event.data.value_wei) : '';
           return `Approval: ${owner} approved ${spender}${amount ? ' - Amount: ' + amount + ' $ADRIAN' : ''}`;
+        }
+      } else if (event.type === 'AdrianPunks') {
+        if (event.eventType === 'Transfer') {
+          const tokenId = event.data.token_id;
+          const from = shortAddress(event.data.from_address);
+          const to = shortAddress(event.data.to_address);
+          return `Token #${tokenId} - Transfer from ${from} to ${to}`;
+        } else if (event.eventType === 'Approval') {
+          const tokenId = event.data.token_id;
+          const owner = shortAddress(event.data.owner);
+          const approved = shortAddress(event.data.approved);
+          return `Token #${tokenId} - Approval: ${owner} approved ${approved}`;
+        } else if (event.eventType === 'ApprovalForAll') {
+          const owner = shortAddress(event.data.owner);
+          const operator = shortAddress(event.data.operator);
+          const approved = event.data.approved ? 'approved' : 'revoked';
+          return `ApprovalForAll: ${owner} ${approved} ${operator}`;
         }
       } else if (event.type === 'AdrianLABCore') {
         if (event.eventType === 'Transfer') {
