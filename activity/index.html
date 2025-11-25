@@ -1846,6 +1846,35 @@
         console.log(`⚡ ${queries.length} queries ejecutadas en paralelo en ${(endTime - startTime).toFixed(2)}ms`);
         }
         
+      // Post-procesamiento: actualizar timestamps de listings usando los mapas
+      if (window._listingTimestampMap || window._sweepTimestampMap) {
+        events.forEach(event => {
+          if (event.type === 'FloorEngine' && event.data.last_tx_hash) {
+            const txHash = event.data.last_tx_hash;
+            let realTimestamp = null;
+            
+            // Buscar en listing_events para eventos Listed
+            if (event.eventType === 'Listed' && window._listingTimestampMap) {
+              realTimestamp = window._listingTimestampMap.get(txHash);
+            }
+            
+            // Buscar en sweep_events para eventos FloorSweep
+            if (event.eventType === 'FloorSweep' && window._sweepTimestampMap) {
+              realTimestamp = window._sweepTimestampMap.get(txHash);
+            }
+            
+            // Actualizar timestamp si se encontró uno real
+            if (realTimestamp) {
+              event.timestamp = realTimestamp;
+            }
+          }
+        });
+        
+        // Limpiar mapas temporales
+        delete window._listingTimestampMap;
+        delete window._sweepTimestampMap;
+      }
+        
       // Ordenar por timestamp descendente
       events.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       
