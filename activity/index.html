@@ -620,11 +620,10 @@
       // FloorEngine events
       if (filters.contract === 'all' || filters.contract === 'floorengine') {
         // Active listings from punk_listings (estado actual)
-        // NOTA: punk_listings usa updated_at (fecha de actualización en BD), no el timestamp del bloque
-        // Para obtener el timestamp real, necesitaríamos buscar en listing_events, pero eso sería más complejo
-        // Por ahora, usamos updated_at pero con prioridad a block_timestamp si existe
+        // IMPORTANTE: punk_listings.updated_at es la fecha de actualización en BD, no el timestamp del bloque
+        // Necesitamos buscar en listing_events el evento "Listed" correspondiente para obtener el timestamp real
         if (filters.eventType === 'all' || filters.eventType === 'Listed') {
-          let query = supabaseClient
+          let listingsQuery = supabaseClient
             .from('punk_listings')
             .select('*')
             .eq('is_listed', true)
@@ -632,41 +631,116 @@
             .limit(fetchLimit);
           
           if (filters.dateFrom) {
-            query = query.gte('updated_at', filters.dateFrom + 'T00:00:00Z');
+            listingsQuery = listingsQuery.gte('updated_at', filters.dateFrom + 'T00:00:00Z');
           }
           if (filters.dateTo) {
-            query = query.lte('updated_at', filters.dateTo + 'T23:59:59Z');
+            listingsQuery = listingsQuery.lte('updated_at', filters.dateTo + 'T23:59:59Z');
           }
           if (filters.address) {
-            query = query.ilike('seller', `%${filters.address}%`);
+            listingsQuery = listingsQuery.ilike('seller', `%${filters.address}%`);
           }
           
-          queries.push({ query, handler: (data) => {
-            if (data) {
-              data.forEach(listing => {
-                // Para listings, intentar usar block_timestamp si existe, sino usar updated_at
-                // pero updated_at es la fecha de actualización en BD, no el timestamp del bloque original
-                const listingTimestamp = listing.block_timestamp || listing.timestamp || listing.updated_at;
-                events.push({
-                  type: 'FloorEngine',
-                  eventType: listing.last_event || 'Listed',
-                  data: {
-                    token_id: listing.token_id,
-                    seller: listing.seller,
-                    price_wei: listing.price_wei,
-                    is_contract_owned: listing.is_contract_owned,
-                    is_listed: listing.is_listed,
-                    last_event: listing.last_event,
-                    last_tx_hash: listing.last_tx_hash,
-                    last_block_number: listing.last_block_number,
-                    created_at: listing.updated_at,
-                    tx_hash: listing.last_tx_hash
-                  },
-                  timestamp: listingTimestamp
+          // Variable para almacenar listings que necesitan lookup de timestamp
+          const listingsNeedingTimestamp = [];
+          
+          queries.push({ 
+            query: listingsQuery, 
+            handler: (listingsData) => {
+              if (listingsData) {
+                listingsData.forEach(listing => {
+                  // Guardar para lookup posterior
+                  listingsNeedingTimestamp.push({
+                    listing: listing,
+                    eventIndex: events.length
+                  });
+                  
+                  // Agregar evento con timestamp temporal
+                  events.push({
+                    type: 'FloorEngine',
+                    eventType: listing.last_event || 'Listed',
+                    data: {
+                      token_id: listing.token_id,
+                      seller: listing.seller,
+                      price_wei: listing.price_wei,
+                      is_contract_owned: listing.is_contract_owned,
+                      is_listed: listing.is_listed,
+                      last_event: listing.last_event,
+                      last_tx_hash: listing.last_tx_hash,
+                      last_block_number: listing.last_block_number,
+                      created_at: listing.updated_at,
+                      tx_hash: listing.last_tx_hash
+                    },
+                    timestamp: listing.updated_at // Temporal, se actualizará después
+                  });
                 });
-              });
+              }
             }
-          }});
+          });
+          
+          // Query adicional para obtener timestamps reales de listing_events y sweep_events
+          if (filters.eventType === 'all' || filters.eventType === 'Listed') {
+            // Query para eventos Listed
+            let listedEventsQuery = supabaseClient
+              .from('listing_events')
+              .select('tx_hash, created_at, block_timestamp, timestamp')
+              .eq('event_type', 'Listed')
+              .order('created_at', { ascending: false })
+              .limit(fetchLimit * 2); // Más eventos para asegurar cobertura
+            
+            if (filters.dateFrom) {
+              listedEventsQuery = listedEventsQuery.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+            }
+            if (filters.dateTo) {
+              listedEventsQuery = listedEventsQuery.lte('created_at', filters.dateTo + 'T23:59:59Z');
+            }
+            
+            queries.push({ 
+              query: listedEventsQuery, 
+              handler: (listedEventsData) => {
+                if (listedEventsData) {
+                  // Crear mapa de timestamps reales
+                  const timestampMap = new Map();
+                  listedEventsData.forEach(event => {
+                    const realTimestamp = getEventTimestamp(event);
+                    timestampMap.set(event.tx_hash, realTimestamp);
+                  });
+                  
+                  // Almacenar el mapa para uso posterior
+                  window._listingTimestampMap = timestampMap;
+                }
+              }
+            });
+            
+            // Query para eventos FloorSweep
+            let sweepEventsQuery = supabaseClient
+              .from('sweep_events')
+              .select('tx_hash, created_at, block_timestamp, timestamp')
+              .order('created_at', { ascending: false })
+              .limit(fetchLimit * 2);
+            
+            if (filters.dateFrom) {
+              sweepEventsQuery = sweepEventsQuery.gte('created_at', filters.dateFrom + 'T00:00:00Z');
+            }
+            if (filters.dateTo) {
+              sweepEventsQuery = sweepEventsQuery.lte('created_at', filters.dateTo + 'T23:59:59Z');
+            }
+            
+            queries.push({ 
+              query: sweepEventsQuery, 
+              handler: (sweepEventsData) => {
+                if (sweepEventsData) {
+                  // Crear/actualizar mapa de timestamps reales
+                  if (!window._sweepTimestampMap) {
+                    window._sweepTimestampMap = new Map();
+                  }
+                  sweepEventsData.forEach(event => {
+                    const realTimestamp = getEventTimestamp(event);
+                    window._sweepTimestampMap.set(event.tx_hash, realTimestamp);
+                  });
+                }
+              }
+            });
+          }
         }
         
         // Listing events históricos (para eventos Cancelled)
