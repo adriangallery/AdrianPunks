@@ -598,6 +598,12 @@
       }
     }
 
+    // Helper function para normalizar timestamps (usar block_timestamp si existe)
+    function getEventTimestamp(event) {
+      // Prioridad: block_timestamp > timestamp > created_at > updated_at
+      return event.block_timestamp || event.timestamp || event.created_at || event.updated_at;
+    }
+
     async function fetchEvents(offset, limit) {
       const events = [];
       
@@ -647,13 +653,13 @@
                   last_event: listing.last_event,
                   last_tx_hash: listing.last_tx_hash,
                   last_block_number: listing.last_block_number,
-                    created_at: listing.updated_at,
+                  created_at: listing.updated_at,
                   tx_hash: listing.last_tx_hash
                 },
-                timestamp: listing.updated_at
+                timestamp: getEventTimestamp(listing)
               });
-            });
-          }
+              });
+            }
           }});
         }
         
@@ -676,14 +682,14 @@
           queries.push({ query, handler: (data) => {
             if (data) {
               data.forEach(event => {
-              events.push({
-                type: 'FloorEngine',
-                eventType: event.event_type,
-                data: event,
-                timestamp: event.created_at
+                events.push({
+                  type: 'FloorEngine',
+                  eventType: event.event_type,
+                  data: event,
+                  timestamp: getEventTimestamp(event)
+                });
               });
-            });
-          }
+            }
           }});
         }
           
@@ -704,13 +710,13 @@
         queries.push({ query: tradeQuery, handler: (data) => {
           if (data) {
             data.forEach(event => {
-            events.push({
-                  type: 'FloorEngine',
-                  eventType: 'Bought',
-                  data: event,
-                  timestamp: event.created_at
-                });
+              events.push({
+                type: 'FloorEngine',
+                eventType: 'Bought',
+                data: event,
+                timestamp: getEventTimestamp(event)
               });
+            });
           }
         }});
           
@@ -1057,13 +1063,11 @@
           queries.push({ query, handler: (data) => {
             if (data) {
               data.forEach(event => {
-                // Usar block_timestamp si existe, sino created_at como fallback
-                const eventTimestamp = event.block_timestamp || event.timestamp || event.created_at;
                 events.push({
                   type: 'AdrianPunks',
                   eventType: 'Transfer',
                   data: event,
-                  timestamp: eventTimestamp
+                  timestamp: getEventTimestamp(event)
                 });
               });
             }
@@ -1092,13 +1096,11 @@
           queries.push({ query, handler: (data) => {
             if (data) {
               data.forEach(event => {
-                // Usar block_timestamp si existe, sino created_at como fallback
-                const eventTimestamp = event.block_timestamp || event.timestamp || event.created_at;
                 events.push({
                   type: 'AdrianPunks',
                   eventType: 'Approval',
                   data: event,
-                  timestamp: eventTimestamp
+                  timestamp: getEventTimestamp(event)
                 });
               });
             }
@@ -1127,13 +1129,11 @@
           queries.push({ query, handler: (data) => {
             if (data) {
               data.forEach(event => {
-                // Usar block_timestamp si existe, sino created_at como fallback
-                const eventTimestamp = event.block_timestamp || event.timestamp || event.created_at;
                 events.push({
                   type: 'AdrianPunks',
                   eventType: 'ApprovalForAll',
                   data: event,
-                  timestamp: eventTimestamp
+                  timestamp: getEventTimestamp(event)
                 });
               });
             }
@@ -1160,13 +1160,11 @@
             if (data) {
               data.forEach(event => {
                 const eventType = event.event_name || event.event_type || 'Unknown';
-                // Usar block_timestamp si existe, sino created_at como fallback
-                const eventTimestamp = event.block_timestamp || event.timestamp || event.created_at;
                 events.push({
                   type: 'AdrianPunks',
                   eventType: eventType,
                   data: event,
-                  timestamp: eventTimestamp
+                  timestamp: getEventTimestamp(event)
                 });
               });
             }
