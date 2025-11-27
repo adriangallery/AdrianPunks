@@ -359,22 +359,25 @@
     }
 
     .sales-summary {
-      font-size: 0.75rem;
+      font-size: 1rem;
       color: #6b7280;
-      line-height: 1.5;
+      line-height: 1.6;
       flex: 1;
       min-width: 200px;
     }
 
     .sales-summary .summary-number {
       font-family: 'Courier New', monospace;
-      font-weight: 500;
+      font-weight: 600;
+      font-size: 1.25rem;
+      color: #111827;
     }
 
     .sales-summary .summary-profit {
       font-family: 'Courier New', monospace;
       color: #10b981;
-      font-weight: 600;
+      font-weight: 700;
+      font-size: 1.35rem;
     }
 
     .sales-view-toggles {
@@ -1157,7 +1160,7 @@
         <div class="flex-grow-1">
           <h2 class="sales-title">Sales</h2>
           <div class="sales-summary" id="salesSummary">
-            FloorENGINE sold <span class="summary-number" id="salesTotalCount">0</span> AdrianPunks for <span class="summary-number" id="salesTotalAmount">0.000</span> $ADRIAN, realizing a total of <span class="summary-profit" id="salesTotalProfit">0.000</span> $ADRIAN profit.
+            FloorENGINE sold <span class="summary-number" id="salesTotalCount">0</span> AdrianPunks for <span class="summary-number" id="salesTotalAmount">0</span> $A, realizing a total of <span class="summary-profit" id="salesTotalProfit">0</span> $A profit.
           </div>
         </div>
         <div class="sales-view-toggles">
@@ -2787,6 +2790,13 @@
       });
     }
 
+    // Función para formatear cantidades sin decimales (para Sales)
+    function formatAdrianAmountNoDecimals(value, decimals = 18) {
+      if (!value) return '0';
+      const numValue = typeof value === 'bigint' ? Number(value) / Math.pow(10, decimals) : Number(value);
+      return Math.round(numValue).toLocaleString('en-US');
+    }
+
     // Función para establecer el modo de vista de Sales
     let salesViewMode = 'grid';
     let allSalesData = [];
@@ -2908,8 +2918,8 @@
 
         // Actualizar resumen
         document.getElementById('salesTotalCount').textContent = totalSoldCount;
-        document.getElementById('salesTotalAmount').textContent = formatAdrianAmount(totalSoldAmount);
-        document.getElementById('salesTotalProfit').textContent = formatAdrianAmount(totalProfitAmount);
+        document.getElementById('salesTotalAmount').textContent = formatAdrianAmountNoDecimals(totalSoldAmount);
+        document.getElementById('salesTotalProfit').textContent = formatAdrianAmountNoDecimals(totalProfitAmount);
 
         // Actualizar display
         updateSalesDisplay(sales);
@@ -2938,7 +2948,7 @@
       const salesToShow = salesExpanded ? sales : sales.slice(0, maxInitial);
       const hasMore = sales.length > maxInitial;
 
-      const tokenLabel = '$ADRIAN';
+      const tokenLabel = '$A';
 
       if (salesViewMode === 'table') {
         // Vista de lista/table
@@ -2952,9 +2962,9 @@
             <div class="sales-list-col-profit">Profit</div>
           </div>
           ${salesToShow.map(sale => {
-            const paidFormatted = formatAdrianAmount(sale.paidAmount);
-            const soldFormatted = formatAdrianAmount(sale.soldAmount);
-            const profitFormatted = formatAdrianAmount(sale.profitAmount);
+            const paidFormatted = formatAdrianAmountNoDecimals(sale.paidAmount);
+            const soldFormatted = formatAdrianAmountNoDecimals(sale.soldAmount);
+            const profitFormatted = formatAdrianAmountNoDecimals(sale.profitAmount);
             const profitClass = sale.profitAmount >= 0 ? 'profit-positive' : 'profit-negative';
             
             return `
@@ -2988,9 +2998,9 @@
         // Vista de grid
         salesGrid.className = 'sales-grid';
         salesGrid.innerHTML = salesToShow.map(sale => {
-          const paidFormatted = formatAdrianAmount(sale.paidAmount);
-          const soldFormatted = formatAdrianAmount(sale.soldAmount);
-          const profitFormatted = formatAdrianAmount(sale.profitAmount);
+          const paidFormatted = formatAdrianAmountNoDecimals(sale.paidAmount);
+          const soldFormatted = formatAdrianAmountNoDecimals(sale.soldAmount);
+          const profitFormatted = formatAdrianAmountNoDecimals(sale.profitAmount);
 
           return `
             <div class="sales-card">
