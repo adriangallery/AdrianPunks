@@ -2854,15 +2854,27 @@
           if (sweepData) {
             const tokenSweeps = sweepData
               .filter(sweep => sweep.token_id === tokenId)
-              .filter(sweep => {
-                const sweepTimestamp = new Date(sweep.created_at);
-                return sweepTimestamp <= saleTimestamp;
-              })
-              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+              .sort((a, b) => {
+                // Ordenar por fecha descendente (más reciente primero)
+                return new Date(b.created_at) - new Date(a.created_at);
+              });
             
             if (tokenSweeps.length > 0) {
-              // Tomar el sweep más reciente antes de la venta
-              paidAmount = BigInt(tokenSweeps[0].buy_price_wei || '0');
+              // Primero intentar encontrar uno que ocurrió antes de la venta
+              const sweepBeforeSale = tokenSweeps.find(sweep => {
+                const sweepTimestamp = new Date(sweep.created_at);
+                return sweepTimestamp <= saleTimestamp;
+              });
+              
+              if (sweepBeforeSale) {
+                // Encontrado uno antes de la venta (caso normal)
+                paidAmount = BigInt(sweepBeforeSale.buy_price_wei || '0');
+              } else {
+                // Si no hay uno antes, usar el más reciente como fallback
+                // (puede ser un problema de sincronización de timestamps)
+                paidAmount = BigInt(tokenSweeps[0].buy_price_wei || '0');
+                console.warn(`Token #${tokenId}: Using sweep event after sale date as fallback. Sale: ${sale.created_at}, Sweep: ${tokenSweeps[0].created_at}`);
+              }
             }
           }
           
