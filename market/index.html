@@ -453,29 +453,17 @@
     .sales-card-image-wrapper {
       position: relative;
       width: 100%;
-      height: 120px;
-      background: #1e293b;
+      aspect-ratio: 1;
+      background: #cbd5e1;
       display: flex;
       align-items: center;
       justify-content: center;
     }
 
-    @media (min-width: 640px) {
-      .sales-card-image-wrapper {
-        height: 140px;
-      }
-    }
-
-    @media (min-width: 768px) {
-      .sales-card-image-wrapper {
-        height: 160px;
-      }
-    }
-
     .sales-card-image {
       width: 100%;
       height: 100%;
-      object-fit: contain;
+      object-fit: cover;
     }
 
     .sales-card-token-badge {
@@ -558,13 +546,19 @@
       align-items: center;
       justify-content: center;
       border-radius: 6px;
-      border: 1px solid #6ee7b7;
-      background: #d1fae5;
       padding: 0.25rem 0.625rem;
       font-size: 0.6875rem;
       font-weight: 600;
-      color: #059669;
       font-family: 'Courier New', monospace;
+      border: 1px solid #6ee7b7;
+      background: #d1fae5;
+      color: #059669;
+    }
+
+    .sales-card-profit.negative {
+      border: 1px solid #fca5a5;
+      background: #fee2e2;
+      color: #dc2626;
     }
 
     @media (min-width: 768px) {
@@ -584,6 +578,157 @@
     @media (min-width: 768px) {
       .sales-empty-state {
         font-size: 0.75rem;
+      }
+    }
+
+    /* Vista de lista/table */
+    .sales-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .sales-list-header {
+      display: grid;
+      grid-template-columns: 80px 100px 1fr 1fr 1fr;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      background: #f9fafb;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    [data-theme="dark"] .sales-list-header {
+      background: #1a1a1a;
+    }
+
+    .sales-list-row {
+      display: grid;
+      grid-template-columns: 80px 100px 1fr 1fr 1fr;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      align-items: center;
+      transition: all 0.2s;
+    }
+
+    .sales-list-row:hover {
+      background: #f9fafb;
+      border-color: #d1d5db;
+    }
+
+    [data-theme="dark"] .sales-list-row {
+      background: var(--card-bg);
+      border-color: var(--border-color);
+    }
+
+    [data-theme="dark"] .sales-list-row:hover {
+      background: #2d2d2d;
+    }
+
+    .sales-list-col-image {
+      width: 60px;
+      height: 60px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #cbd5e1;
+    }
+
+    .sales-list-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .sales-list-col-token {
+      font-family: 'Courier New', monospace;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+
+    .sales-list-col-paid,
+    .sales-list-col-sold {
+      font-family: 'Courier New', monospace;
+      font-size: 0.875rem;
+      color: #374151;
+    }
+
+    .sales-list-col-profit {
+      font-family: 'Courier New', monospace;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .sales-list-col-profit.profit-positive {
+      color: #10b981;
+    }
+
+    .sales-list-col-profit.profit-negative {
+      color: #ef4444;
+    }
+
+    /* Botón expandir */
+    .sales-expand-card {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .sales-expand-container {
+      display: flex;
+      justify-content: center;
+      padding: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .sales-expand-btn {
+      padding: 0.75rem 1.5rem;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #374151;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .sales-expand-btn:hover {
+      background: #f9fafb;
+      border-color: #d1d5db;
+    }
+
+    [data-theme="dark"] .sales-expand-btn {
+      background: var(--card-bg);
+      border-color: var(--border-color);
+      color: var(--text-color);
+    }
+
+    [data-theme="dark"] .sales-expand-btn:hover {
+      background: #2d2d2d;
+    }
+
+    @media (max-width: 768px) {
+      .sales-list-header,
+      .sales-list-row {
+        grid-template-columns: 60px 80px 1fr 1fr 1fr;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        font-size: 0.75rem;
+      }
+
+      .sales-list-col-image {
+        width: 50px;
+        height: 50px;
       }
     }
 
@@ -2644,12 +2789,19 @@
 
     // Función para establecer el modo de vista de Sales
     let salesViewMode = 'grid';
+    let allSalesData = [];
+    let salesExpanded = false;
+    
     function setSalesViewMode(mode) {
       salesViewMode = mode;
       document.getElementById('salesViewGrid').classList.toggle('active', mode === 'grid');
       document.getElementById('salesViewTable').classList.toggle('active', mode === 'table');
-      // Por ahora ambos modos renderizan el grid
-      updateSalesDisplay();
+      updateSalesDisplay(allSalesData);
+    }
+    
+    function toggleSalesExpand() {
+      salesExpanded = !salesExpanded;
+      updateSalesDisplay(allSalesData);
     }
 
     // Función para obtener los datos de ventas del FloorENGINE
@@ -2677,36 +2829,38 @@
           return [];
         }
 
-        // Obtener todos los sweep_events para obtener los precios pagados
+        // Obtener todos los sweep_events con timestamp para emparejar correctamente
         const { data: sweepData, error: sweepError } = await supabaseClient
           .from('sweep_events')
-          .select('token_id, buy_price_wei')
-          .order('created_at', { ascending: false });
+          .select('token_id, buy_price_wei, created_at')
+          .order('created_at', { ascending: true });
 
         if (sweepError) {
           console.error('Error fetching sweep events from Supabase:', sweepError);
         }
 
-        // Crear un mapa de token_id -> buy_price_wei desde sweep_events
-        const buyPriceMap = new Map();
-        if (sweepData) {
-          sweepData.forEach(sweep => {
-            const tokenId = sweep.token_id;
-            // Si ya existe, mantener el más reciente (ya está ordenado desc)
-            if (!buyPriceMap.has(tokenId)) {
-              buyPriceMap.set(tokenId, sweep.buy_price_wei);
-            }
-          });
-        }
-
-        // Combinar datos de ventas con precios pagados
+        // Para cada venta, encontrar el sweep_event más reciente ANTES de esa venta
         const salesWithImages = salesData.map(sale => {
           const tokenId = sale.token_id;
           const imageUrl = `./adrianpunksimages/${tokenId}.png`;
+          const saleTimestamp = new Date(sale.created_at);
           
-          // Obtener el precio pagado desde sweep_events
-          const buyPriceWei = buyPriceMap.get(tokenId) || '0';
-          const paidAmount = BigInt(buyPriceWei);
+          // Buscar el sweep_event más reciente para este token_id que ocurrió ANTES de la venta
+          let paidAmount = BigInt('0');
+          if (sweepData) {
+            const tokenSweeps = sweepData
+              .filter(sweep => sweep.token_id === tokenId)
+              .filter(sweep => {
+                const sweepTimestamp = new Date(sweep.created_at);
+                return sweepTimestamp <= saleTimestamp;
+              })
+              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            
+            if (tokenSweeps.length > 0) {
+              // Tomar el sweep más reciente antes de la venta
+              paidAmount = BigInt(tokenSweeps[0].buy_price_wei || '0');
+            }
+          }
           
           // Precio vendido desde trade_events
           const soldAmount = BigInt(sale.price_wei || '0');
@@ -2718,7 +2872,8 @@
             paidAmount: paidAmount,
             soldAmount: soldAmount,
             profitAmount: profitAmount,
-            timestamp: sale.created_at
+            timestamp: sale.created_at,
+            saleId: sale.id // Para identificar ventas únicas
           };
         });
 
@@ -2733,6 +2888,7 @@
     async function updateSalesSection() {
       try {
         const sales = await getFloorEngineSales();
+        allSalesData = sales; // Guardar todas las ventas
         const salesSection = document.getElementById('floorEngineSalesSection');
         
         if (!salesSection) return;
@@ -2755,7 +2911,7 @@
         document.getElementById('salesTotalAmount').textContent = formatAdrianAmount(totalSoldAmount);
         document.getElementById('salesTotalProfit').textContent = formatAdrianAmount(totalProfitAmount);
 
-        // Actualizar grid
+        // Actualizar display
         updateSalesDisplay(sales);
       } catch (error) {
         console.error('Error updating sales section:', error);
@@ -2767,11 +2923,9 @@
       const salesGrid = document.getElementById('salesGrid');
       if (!salesGrid) return;
 
-      // Si no se proporcionan sales, intentar obtenerlas del estado
+      // Si no se proporcionan sales, usar las guardadas
       if (!sales) {
-        // Por ahora, recargar desde la función principal
-        updateSalesSection();
-        return;
+        sales = allSalesData;
       }
 
       if (sales.length === 0) {
@@ -2779,40 +2933,108 @@
         return;
       }
 
-      const tokenLabel = '$ADRIAN';
-      salesGrid.innerHTML = sales.map(sale => {
-        const paidFormatted = formatAdrianAmount(sale.paidAmount);
-        const soldFormatted = formatAdrianAmount(sale.soldAmount);
-        const profitFormatted = formatAdrianAmount(sale.profitAmount);
+      // Determinar cuántas ventas mostrar (máximo 8 inicialmente)
+      const maxInitial = 8;
+      const salesToShow = salesExpanded ? sales : sales.slice(0, maxInitial);
+      const hasMore = sales.length > maxInitial;
 
-        return `
-          <div class="sales-card">
-            <div class="sales-card-image-wrapper">
-              <img src="${sale.imageUrl}" alt="AdrianPunk #${sale.tokenId}" class="sales-card-image" onerror="this.src='./adrianpunksimages/1.png'">
-              <div class="sales-card-token-badge">#${sale.tokenId}</div>
-            </div>
-            <div class="sales-card-info">
-              <div class="sales-card-row">
-                <div class="sales-card-label">Paid:</div>
-                <div class="sales-card-value">
-                  ${paidFormatted}
-                  <span class="sales-card-unit">${tokenLabel}</span>
-                </div>
-              </div>
-              <div class="sales-card-row">
-                <div class="sales-card-label">Sold:</div>
-                <div class="sales-card-value">
-                  ${soldFormatted}
-                  <span class="sales-card-unit">${tokenLabel}</span>
-                </div>
-              </div>
-              <div class="sales-card-profit">
-                +${profitFormatted} ${tokenLabel}
-              </div>
-            </div>
+      const tokenLabel = '$ADRIAN';
+
+      if (salesViewMode === 'table') {
+        // Vista de lista/table
+        salesGrid.className = 'sales-list';
+        salesGrid.innerHTML = `
+          <div class="sales-list-header">
+            <div class="sales-list-col-image">Punk</div>
+            <div class="sales-list-col-token">Token ID</div>
+            <div class="sales-list-col-paid">Paid</div>
+            <div class="sales-list-col-sold">Sold</div>
+            <div class="sales-list-col-profit">Profit</div>
           </div>
+          ${salesToShow.map(sale => {
+            const paidFormatted = formatAdrianAmount(sale.paidAmount);
+            const soldFormatted = formatAdrianAmount(sale.soldAmount);
+            const profitFormatted = formatAdrianAmount(sale.profitAmount);
+            const profitClass = sale.profitAmount >= 0 ? 'profit-positive' : 'profit-negative';
+            
+            return `
+              <div class="sales-list-row">
+                <div class="sales-list-col-image">
+                  <img src="${sale.imageUrl}" alt="AdrianPunk #${sale.tokenId}" class="sales-list-image" onerror="this.src='./adrianpunksimages/1.png'">
+                </div>
+                <div class="sales-list-col-token">#${sale.tokenId}</div>
+                <div class="sales-list-col-paid">${paidFormatted} ${tokenLabel}</div>
+                <div class="sales-list-col-sold">${soldFormatted} ${tokenLabel}</div>
+                <div class="sales-list-col-profit ${profitClass}">${sale.profitAmount >= 0 ? '+' : ''}${profitFormatted} ${tokenLabel}</div>
+              </div>
+            `;
+          }).join('')}
+          ${hasMore && !salesExpanded ? `
+            <div class="sales-expand-container">
+              <button class="sales-expand-btn" onclick="toggleSalesExpand()">
+                Show ${sales.length - maxInitial} more sales
+              </button>
+            </div>
+          ` : ''}
+          ${salesExpanded && hasMore ? `
+            <div class="sales-expand-container">
+              <button class="sales-expand-btn" onclick="toggleSalesExpand()">
+                Show less
+              </button>
+            </div>
+          ` : ''}
         `;
-      }).join('');
+      } else {
+        // Vista de grid
+        salesGrid.className = 'sales-grid';
+        salesGrid.innerHTML = salesToShow.map(sale => {
+          const paidFormatted = formatAdrianAmount(sale.paidAmount);
+          const soldFormatted = formatAdrianAmount(sale.soldAmount);
+          const profitFormatted = formatAdrianAmount(sale.profitAmount);
+
+          return `
+            <div class="sales-card">
+              <div class="sales-card-image-wrapper">
+                <img src="${sale.imageUrl}" alt="AdrianPunk #${sale.tokenId}" class="sales-card-image" onerror="this.src='./adrianpunksimages/1.png'">
+                <div class="sales-card-token-badge">#${sale.tokenId}</div>
+              </div>
+              <div class="sales-card-info">
+                <div class="sales-card-row">
+                  <div class="sales-card-label">Paid:</div>
+                  <div class="sales-card-value">
+                    ${paidFormatted}
+                    <span class="sales-card-unit">${tokenLabel}</span>
+                  </div>
+                </div>
+                <div class="sales-card-row">
+                  <div class="sales-card-label">Sold:</div>
+                  <div class="sales-card-value">
+                    ${soldFormatted}
+                    <span class="sales-card-unit">${tokenLabel}</span>
+                  </div>
+                </div>
+                <div class="sales-card-profit ${sale.profitAmount < 0 ? 'negative' : ''}">
+                  ${sale.profitAmount >= 0 ? '+' : ''}${profitFormatted} ${tokenLabel}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('') + 
+        (hasMore && !salesExpanded ? `
+          <div class="sales-expand-card">
+            <button class="sales-expand-btn" onclick="toggleSalesExpand()">
+              Show ${sales.length - maxInitial} more sales
+            </button>
+          </div>
+        ` : '') +
+        (salesExpanded && hasMore ? `
+          <div class="sales-expand-card">
+            <button class="sales-expand-btn" onclick="toggleSalesExpand()">
+              Show less
+            </button>
+          </div>
+        ` : '');
+      }
     }
 
     // Función para actualizar la barra pixelada
