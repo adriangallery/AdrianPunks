@@ -2649,54 +2649,72 @@
     // Función para obtener los datos de ventas del FloorENGINE
     async function getFloorEngineSales() {
       try {
-        if (!supabase) {
+        if (!supabaseClient) {
           console.error('Supabase not initialized');
           return [];
         }
 
-        const { data, error } = await supabase
+        // Obtener todas las ventas del FloorENGINE desde trade_events
+        const { data: salesData, error: salesError } = await supabaseClient
           .from('trade_events')
           .select('*')
           .eq('seller', FLOOR_ENGINE_ADDRESS.toLowerCase())
           .eq('is_contract_owned', true)
           .order('block_timestamp', { ascending: false });
 
-        if (error) {
-          console.error('Error fetching sales from Supabase:', error);
+        if (salesError) {
+          console.error('Error fetching sales from Supabase:', salesError);
           return [];
         }
 
-        // Obtener información de los NFTs vendidos
-        const salesWithImages = await Promise.all((data || []).map(async (sale) => {
-          // Obtener la imagen del NFT desde el metadata
-          let imageUrl = `./adrianpunksimages/${sale.token_id}.png`;
-          
-          // Intentar obtener el precio pagado (compra) desde trade_events donde el buyer es FloorENGINE
-          const { data: purchaseData } = await supabase
-            .from('trade_events')
-            .select('price_wei')
-            .eq('buyer', FLOOR_ENGINE_ADDRESS.toLowerCase())
-            .eq('token_id', sale.token_id)
-            .eq('is_contract_owned', false)
-            .order('block_timestamp', { ascending: false })
-            .limit(1);
+        if (!salesData || salesData.length === 0) {
+          return [];
+        }
 
-          const paidAmount = purchaseData && purchaseData.length > 0 
-            ? BigInt(purchaseData[0].price_wei || '0')
-            : BigInt('0');
+        // Obtener todos los sweep_events para obtener los precios pagados
+        const { data: sweepData, error: sweepError } = await supabaseClient
+          .from('sweep_events')
+          .select('token_id, buy_price_wei')
+          .order('created_at', { ascending: false });
+
+        if (sweepError) {
+          console.error('Error fetching sweep events from Supabase:', sweepError);
+        }
+
+        // Crear un mapa de token_id -> buy_price_wei desde sweep_events
+        const buyPriceMap = new Map();
+        if (sweepData) {
+          sweepData.forEach(sweep => {
+            const tokenId = sweep.token_id;
+            // Si ya existe, mantener el más reciente (ya está ordenado desc)
+            if (!buyPriceMap.has(tokenId)) {
+              buyPriceMap.set(tokenId, sweep.buy_price_wei);
+            }
+          });
+        }
+
+        // Combinar datos de ventas con precios pagados
+        const salesWithImages = salesData.map(sale => {
+          const tokenId = sale.token_id;
+          const imageUrl = `./adrianpunksimages/${tokenId}.png`;
           
+          // Obtener el precio pagado desde sweep_events
+          const buyPriceWei = buyPriceMap.get(tokenId) || '0';
+          const paidAmount = BigInt(buyPriceWei);
+          
+          // Precio vendido desde trade_events
           const soldAmount = BigInt(sale.price_wei || '0');
           const profitAmount = soldAmount - paidAmount;
 
           return {
-            tokenId: sale.token_id,
+            tokenId: tokenId,
             imageUrl: imageUrl,
             paidAmount: paidAmount,
             soldAmount: soldAmount,
             profitAmount: profitAmount,
-            timestamp: sale.block_timestamp
+            timestamp: sale.block_timestamp || sale.created_at
           };
-        }));
+        });
 
         return salesWithImages;
       } catch (error) {
