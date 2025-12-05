@@ -2194,6 +2194,39 @@
       }
     }
     
+    // Función auxiliar para obtener el seller original desde Supabase (respaldo)
+    async function getOriginalSellerFromSupabase(tokenId) {
+      try {
+        if (!supabaseClient) {
+          console.log('Supabase client not available for seller lookup');
+          return null;
+        }
+
+        // Consultar listing_events para obtener el último evento "Listed" de este token
+        const { data: listingEvents, error } = await supabaseClient
+          .from('listing_events')
+          .select('seller')
+          .eq('token_id', tokenId)
+          .eq('event_type', 'Listed')
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (error) {
+          console.error('Error fetching original seller from Supabase:', error);
+          return null;
+        }
+
+        if (listingEvents && listingEvents.length > 0) {
+          return listingEvents[0].seller;
+        }
+
+        return null;
+      } catch (error) {
+        console.error('Error in getOriginalSellerFromSupabase:', error);
+        return null;
+      }
+    }
+
     // MODIFICACIÓN: Filtrar NFTs según la cantidad minteada
     // Funciona sin wallet conectada - solo lectura de datos
     async function loadNFTs() {
@@ -2380,6 +2413,7 @@
         
         // Check if token is listed on FloorEngine
         let tokenListing = null;
+        let isSeller = false; // Verificar si el usuario es el seller del listing
         try {
           const isListed = await retryWithBackoff(() => floorEngineReadContract.isListed(tokenId));
           if (isListed) {
@@ -2389,6 +2423,25 @@
               seller: listing.seller,
               isContractOwned: listing.isContractOwned
             };
+            
+            // Verificar si el usuario conectado es el seller del listing
+            if (userAccount && !tokenListing.isContractOwned) {
+              // Verificar directamente desde el contrato
+              isSeller = tokenListing.seller.toLowerCase() === userAccount.toLowerCase();
+              
+              // Si no coincide, intentar obtener desde Supabase como respaldo
+              if (!isSeller && supabaseClient) {
+                const originalSeller = await getOriginalSellerFromSupabase(tokenId);
+                if (originalSeller) {
+                  isSeller = originalSeller.toLowerCase() === userAccount.toLowerCase();
+                  // Si encontramos el seller en Supabase y es diferente, actualizar tokenListing
+                  if (isSeller && tokenListing.seller.toLowerCase() !== originalSeller.toLowerCase()) {
+                    console.log(`Seller mismatch detected. Contract: ${tokenListing.seller}, Supabase: ${originalSeller}. Using Supabase value.`);
+                    tokenListing.seller = originalSeller;
+                  }
+                }
+              }
+            }
           }
         } catch (error) {
           console.error("Error checking listing status:", error);
@@ -2418,7 +2471,7 @@
                     <p>Price: ${parseFloat(ethers.utils.formatUnits(tokenListing.price, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1})} $ADRIAN</p>
                     <p>Seller: ${tokenListing.seller.substring(0, 6)}...${tokenListing.seller.substring(38)}</p>
                   ${!tokenListing.isContractOwned ? `
-                        ${isOwner ? `
+                        ${isSeller ? `
                       <button class="btn btn-danger btn-sm" onclick="cancelListing(${tokenId})">Cancel Listing</button>
                       <p class="text-muted mb-0 mt-2"><small>Only the seller can cancel this listing</small></p>
                     ` : `
