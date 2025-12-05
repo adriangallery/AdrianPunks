@@ -256,14 +256,20 @@
         }
 
         .selection-info {
-            background: rgba(51, 51, 51, 0.1);
+            background: rgba(51, 51, 51, 0.95);
             border: 2px solid #333333;
             border-radius: 10px;
-            padding: 15px;
-            margin: 20px 0;
+            padding: 8px;
+            margin: 10px 0;
             text-align: center;
             font-family: 'VT323', monospace;
-            font-size: 1.1rem;
+            font-size: 0.9rem;
+            color: white;
+            position: sticky;
+            top: 20px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
 
         .generated-image {
@@ -280,8 +286,8 @@
         .generated-image img {
             max-width: 300px;
             height: auto;
-            border-radius: 10px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
         }
 
         .image-loading-overlay {
@@ -296,7 +302,7 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            border-radius: 10px;
+            border-radius: 8px;
             z-index: 10;
         }
 
@@ -453,7 +459,9 @@
             }
             
             .contract-filter {
-                flex-direction: column;
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
                 align-items: center;
             }
             
@@ -477,6 +485,19 @@
                 height: auto;
                 min-height: 200px;
                 max-height: 250px;
+            }
+            
+            /* Mobile sticky adjustments */
+            .selection-info {
+                top: 10px;
+                margin: 10px 0;
+                padding: 10px;
+                font-size: 1rem;
+            }
+            
+            .selection-info .generated-image img {
+                max-width: 100%;
+                max-height: 200px;
             }
         }
     </style>
@@ -515,10 +536,16 @@
                     AdrianZERO
                 </button>
                 <button class="contract-btn" data-contract="0x90546848474fb3c9fda3fdad887969bb244e7e58">
-                    AdrianLAB
+                    Traits
                 </button>
                 <button class="contract-btn" data-contract="0x90546848474fb3c9fda3fdad887969bb244e7e58" data-filter="floppy">
                     Floppy Discs
+                </button>
+                <button class="contract-btn" data-contract="0x90546848474fb3c9fda3fdad887969bb244e7e58" data-filter="serum">
+                    Serums
+                </button>
+                <button class="contract-btn" data-contract="0x6e369bf0e4e0c106192d606fb6d85836d684da75" data-filter="rename">
+                    RENAME
                 </button>
             </div>
 
@@ -531,17 +558,37 @@
                     </div>
                     <img id="combined-image" src="" alt="Generated Image">
                 </div>
-                <div id="apply-traits-section" style="display: none; margin-top: 20px; text-align: center;">
+                <div id="apply-traits-section" style="display: none; margin-top: 10px; text-align: center;">
                     <button id="applyTraitsBtn" class="apply-traits-btn">Apply Traits</button>
                     <div id="apply-status" class="apply-status" style="display: none;"></div>
                 </div>
-                <div id="refresh-metadata-section" style="display: none; margin-top: 20px; text-align: center;">
+                <div id="refresh-metadata-section" style="display: none; margin-top: 10px; text-align: center;">
                     <button id="refreshMetadataBtn" class="apply-traits-btn">Refresh metadata OpenSea</button>
                     <div id="refresh-metadata-status" class="apply-status" style="display: none;"></div>
                 </div>
-                <div id="open-floppy-section" style="display: none; margin-top: 20px; text-align: center;">
+                <div id="activate-token-section" style="display: none; margin-top: 10px; text-align: center;">
+                    <button id="activateTokenBtn" class="apply-traits-btn">Activate Token</button>
+                    <div id="activate-token-status" class="apply-status" style="display: none;"></div>
+                </div>
+                <div id="open-floppy-section" style="display: none; margin-top: 10px; text-align: center;">
                     <button id="openFloppyBtn" class="apply-traits-btn">Open Floppy</button>
                     <div id="open-floppy-status" class="apply-status" style="display: none;"></div>
+                </div>
+                <div id="open-pack-section" style="display: none; margin-top: 10px; text-align: center;">
+                    <button id="openPackBtn" class="apply-traits-btn">Open Pack</button>
+                    <div id="open-pack-status" class="apply-status" style="display: none;"></div>
+                </div>
+                <div id="use-serum-section" style="display: none; margin-top: 10px; text-align: center;">
+                    <button id="useSerumBtn" class="apply-traits-btn">Use Serum</button>
+                    <div id="use-serum-status" class="apply-status" style="display: none;"></div>
+                </div>
+                <div id="rename-section" style="display: none; margin-top: 10px; text-align: center;">
+                    <div style="margin-bottom: 8px;">
+                        <input type="text" id="newTokenName" placeholder="Enter new name for your AdrianZERO" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 14px;">
+                    </div>
+                    <button id="approveRenameBtn" class="apply-traits-btn" style="margin-right: 10px;">Approve $ADRIAN</button>
+                    <button id="renameTokenBtn" class="apply-traits-btn">Rename Token</button>
+                    <div id="rename-status" class="apply-status" style="display: none;"></div>
                 </div>
             </div>
 
@@ -595,7 +642,10 @@
         const TRAITS_EXTENSIONS_CONTRACT = "0x0995c0dA1ca071b792E852b6Ec531b7cD7d1F8D6";
         
         // PackTokenMinter contract
-        const PACK_TOKEN_MINTER_CONTRACT = "0xeE4940e61E98991005f63c56889C61c02bEb5E60";
+        const PACK_TOKEN_MINTER_CONTRACT = "0x673bE1968A12470F93BE374AAB529a89d5D607d5";
+        
+        // AdrianNameRegistry contract
+        const ADRIAN_NAME_REGISTRY_CONTRACT = "0xaeC5ED33c88c1943BB7452aC4B571ad0b4c4068C";
 
         // App state
         let currentAccount = null;
@@ -604,6 +654,9 @@
         let selectedERC721 = null;
         let selectedERC1155 = [];
         let selectedFloppy = null; // For single floppy selection
+        let selectedSerum = null; // For single serum selection
+        let selectedTokenForRename = null; // For token selected for rename
+        let namePrice = null; // Price for renaming
 
         // DOM Elements
         const connectSection = document.getElementById('connect-section');
@@ -632,6 +685,20 @@
         const openFloppySection = document.getElementById('open-floppy-section');
         const openFloppyBtn = document.getElementById('openFloppyBtn');
         const openFloppyStatus = document.getElementById('open-floppy-status');
+        const openPackSection = document.getElementById('open-pack-section');
+        const openPackBtn = document.getElementById('openPackBtn');
+        const openPackStatus = document.getElementById('open-pack-status');
+        const useSerumSection = document.getElementById('use-serum-section');
+        const useSerumBtn = document.getElementById('useSerumBtn');
+        const useSerumStatus = document.getElementById('use-serum-status');
+        const activateTokenSection = document.getElementById('activate-token-section');
+        const activateTokenBtn = document.getElementById('activateTokenBtn');
+        const activateTokenStatus = document.getElementById('activate-token-status');
+        const renameSection = document.getElementById('rename-section');
+        const newTokenNameInput = document.getElementById('newTokenName');
+        const approveRenameBtn = document.getElementById('approveRenameBtn');
+        const renameTokenBtn = document.getElementById('renameTokenBtn');
+        const renameStatus = document.getElementById('rename-status');
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
@@ -640,6 +707,14 @@
             applyTraitsBtn.addEventListener('click', applyTraitsToNFT);
             refreshMetadataBtn.addEventListener('click', refreshMetadata);
             openFloppyBtn.addEventListener('click', openFloppy);
+            openPackBtn.addEventListener('click', openPack);
+            useSerumBtn.addEventListener('click', useSerum);
+            activateTokenBtn.addEventListener('click', activateToken);
+            approveRenameBtn.addEventListener('click', approveRename);
+            renameTokenBtn.addEventListener('click', renameToken);
+            
+            // Listen for messages from parent window (AdrianLab)
+            window.addEventListener('message', handleParentMessage);
             
             // Contract filter buttons
             contractBtns.forEach(btn => {
@@ -650,7 +725,7 @@
                     currentFilter = btn.dataset.filter || null; // Set filter type
                     
                     // Update mobile grid layout based on current tab
-                    if (currentFilter === 'floppy') {
+                    if (currentFilter === 'floppy' || currentFilter === 'serum') {
                         tokensGrid.classList.remove('adrianlab-mobile');
                     } else {
                         tokensGrid.classList.add('adrianlab-mobile');
@@ -662,9 +737,25 @@
                         selectedERC721 = null;
                         selectedERC1155 = [];
                         selectedFloppy = null;
-                    } else {
-                        // Switching to AdrianLAB tab - clear floppy selection but keep ERC721 if it exists
+                        selectedSerum = null;
+                    } else if (currentFilter === 'serum') {
+                        // Switching to Serums tab - clear other selections
                         selectedFloppy = null;
+                        selectedSerum = null;
+                        selectedTokenForRename = null;
+                        // Keep selectedERC721 for AdrianZERO selection
+                    } else if (currentFilter === 'rename') {
+                        // Switching to RENAME tab - clear other selections
+                        selectedFloppy = null;
+                        selectedSerum = null;
+                        selectedERC1155 = [];
+                        // Keep selectedERC721 for AdrianZERO selection
+                        selectedTokenForRename = selectedERC721;
+                    } else {
+                        // Switching to AdrianLAB tab - clear floppy and serum selection but keep ERC721 if it exists
+                        selectedFloppy = null;
+                        selectedSerum = null;
+                        selectedTokenForRename = null;
                         // Don't clear selectedERC721 and selectedERC1155 to maintain AdrianLAB functionality
                     }
                     
@@ -681,6 +772,30 @@
             checkConnection();
         });
 
+        // Handle messages from parent window (AdrianLab)
+        function handleParentMessage(event) {
+            if (event.data && event.data.type) {
+                console.log('Received message from parent:', event.data);
+                
+                switch (event.data.type) {
+                    case 'WALLET_CONNECTED':
+                        if (event.data.address && !currentAccount) {
+                            console.log('Connecting wallet from parent message:', event.data.address);
+                            currentAccount = event.data.address;
+                            updateUIForConnectedWallet();
+                            loadTokens(currentAccount, currentContract);
+                        }
+                        break;
+                    case 'WALLET_DISCONNECTED':
+                        if (currentAccount) {
+                            console.log('Disconnecting wallet from parent message');
+                            disconnectWallet();
+                        }
+                        break;
+                }
+            }
+        }
+
         // Check if wallet is connected
         async function checkConnection() {
             if (window.ethereum) {
@@ -693,6 +808,14 @@
                     console.error("Failed to check connection:", error);
                 }
             }
+        }
+
+        // Update UI for connected wallet (used by parent message handler)
+        function updateUIForConnectedWallet() {
+            connectSection.style.display = "none";
+            accountSection.style.display = "block";
+            tokensSection.style.display = "block";
+            walletAddress.textContent = `${currentAccount.slice(0,6)}...${currentAccount.slice(-4)}`;
         }
 
         // Connect wallet
@@ -728,10 +851,7 @@
                 }
                 
                 // Update UI
-                connectSection.style.display = "none";
-                accountSection.style.display = "block";
-                tokensSection.style.display = "block";
-                walletAddress.textContent = `${currentAccount.slice(0,6)}...${currentAccount.slice(-4)}`;
+                updateUIForConnectedWallet();
                 
                 // Load tokens
                 await loadTokens(currentAccount, currentContract);
@@ -780,7 +900,7 @@
             contractBtns[0].classList.add('active'); // Set AdrianZERO as active
         }
 
-        // Load tokens for specific contract using direct API calls
+        // Load tokens for specific contract using direct API calls with pagination
         async function loadTokens(userAddress, contractAddress) {
             showLoading();
             hideMessages();
@@ -792,23 +912,56 @@
                 
                 console.log(`Loading ${tokenType} tokens from contract: ${contractAddress}`);
                 
-                // Use Alchemy's REST API directly
-                let alchemyUrl = `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${userAddress}&contractAddresses[]=${contractAddress}&withMetadata=true&pageSize=50&tokenType=${tokenType}`;
+                // Load all tokens with pagination
+                let allNfts = [];
+                let pageKey = null;
+                let hasMore = true;
+                let pageCount = 0;
                 
-                console.log(`Requesting NFTs with URL: ${alchemyUrl}`);
-                
-                const alchemyResponse = await fetch(alchemyUrl);
-                
-                if (!alchemyResponse.ok) {
-                    throw new Error(`Error getting NFTs from Alchemy API: ${alchemyResponse.status}`);
+                while (hasMore) {
+                    pageCount++;
+                    console.log(`Loading page ${pageCount}...`);
+                    
+                    // Build URL with pagination
+                    let alchemyUrl = `https://base-mainnet.g.alchemy.com/nft/v3/${ALCHEMY_API_KEY}/getNFTsForOwner?owner=${userAddress}&contractAddresses[]=${contractAddress}&withMetadata=true&pageSize=100&tokenType=${tokenType}`;
+                    
+                    if (pageKey) {
+                        alchemyUrl += `&pageKey=${pageKey}`;
+                    }
+                    
+                    console.log(`Requesting NFTs with URL: ${alchemyUrl}`);
+                    
+                    const alchemyResponse = await fetch(alchemyUrl);
+                    
+                    if (!alchemyResponse.ok) {
+                        throw new Error(`Error getting NFTs from Alchemy API: ${alchemyResponse.status}`);
+                    }
+                    
+                    const nftsData = await alchemyResponse.json();
+                    console.log(`Page ${pageCount}: ${nftsData.ownedNfts?.length || 0} tokens received`);
+                    
+                    // Add tokens from this page
+                    if (nftsData.ownedNfts && nftsData.ownedNfts.length > 0) {
+                        allNfts = allNfts.concat(nftsData.ownedNfts);
+                    }
+                    
+                    // Check if there are more pages
+                    pageKey = nftsData.pageKey;
+                    hasMore = !!pageKey;
+                    
+                    console.log(`Total tokens loaded so far: ${allNfts.length}. Has more: ${hasMore}`);
+                    
+                    // Optional: Add a small delay to avoid rate limiting
+                    if (hasMore) {
+                        await new Promise(resolve => setTimeout(resolve, 100));
+                    }
                 }
                 
-                const nftsData = await alchemyResponse.json();
-                console.log(`NFT data received:`, nftsData);
+                console.log(`Total tokens loaded: ${allNfts.length} from ${pageCount} pages`);
                 
-                // Process NFTs
-                if (nftsData.ownedNfts && nftsData.ownedNfts.length > 0) {
-                    const tokens = nftsData.ownedNfts.map(nft => {
+                // Process all NFTs
+                if (allNfts.length > 0) {
+                    const tokens = allNfts.map(nft => {
                         try {
                             // Extract tokenId
                             let tokenId;
@@ -852,30 +1005,38 @@
                             // Extract image URL
                             let mediaUrl = "";
                             
-                            // Try multiple locations for image URL
-                            if (nft.raw && nft.raw.metadata && nft.raw.metadata.image) {
-                                mediaUrl = nft.raw.metadata.image;
-                            } else if (nft.media && Array.isArray(nft.media) && nft.media.length > 0) {
-                                const mediaSources = ['gateway', 'raw', 'thumbnail', 'format'];
-                                for (const source of mediaSources) {
-                                    if (nft.media[0][source] && typeof nft.media[0][source] === 'string') {
-                                        mediaUrl = nft.media[0][source];
-                                        break;
+                            // For ERC721 tokens (AdrianZERO), use the specific render API format
+                            if (isERC721) {
+                                // Use the working format for AdrianZERO tokens
+                                const timestamp = Date.now();
+                                mediaUrl = `https://adrianlab.vercel.app/api/render/${tokenIdInt}.png?v=${timestamp}`;
+                            } else {
+                                // For ERC1155 tokens, use the original logic
+                                // Try multiple locations for image URL
+                                if (nft.raw && nft.raw.metadata && nft.raw.metadata.image) {
+                                    mediaUrl = nft.raw.metadata.image;
+                                } else if (nft.media && Array.isArray(nft.media) && nft.media.length > 0) {
+                                    const mediaSources = ['gateway', 'raw', 'thumbnail', 'format'];
+                                    for (const source of mediaSources) {
+                                        if (nft.media[0][source] && typeof nft.media[0][source] === 'string') {
+                                            mediaUrl = nft.media[0][source];
+                                            break;
+                                        }
+                                    }
+                                } else if (nft.metadata) {
+                                    const imageProps = ['image', 'image_url', 'imageUrl', 'imageURI', 'image_uri', 'imageData'];
+                                    for (const prop of imageProps) {
+                                        if (nft.metadata[prop] && typeof nft.metadata[prop] === 'string') {
+                                            mediaUrl = nft.metadata[prop];
+                                            break;
+                                        }
                                     }
                                 }
-                            } else if (nft.metadata) {
-                                const imageProps = ['image', 'image_url', 'imageUrl', 'imageURI', 'image_uri', 'imageData'];
-                                for (const prop of imageProps) {
-                                    if (nft.metadata[prop] && typeof nft.metadata[prop] === 'string') {
-                                        mediaUrl = nft.metadata[prop];
-                                        break;
-                                    }
+                                
+                                // Clean up IPFS URLs
+                                if (mediaUrl && mediaUrl.startsWith('ipfs://')) {
+                                    mediaUrl = mediaUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
                                 }
-                            }
-                            
-                            // Clean up IPFS URLs
-                            if (mediaUrl && mediaUrl.startsWith('ipfs://')) {
-                                mediaUrl = mediaUrl.replace('ipfs://', 'https://ipfs.io/ipfs/');
                             }
                             
                             // Extract category from metadata for ERC1155 tokens
@@ -961,25 +1122,37 @@
                     // Apply filtering based on current filter
                     const filteredTokens = tokens.filter(token => {
                         if (token.tokenType === 'ERC1155') {
-                                                    if (currentFilter === 'floppy') {
-                            // Floppy discs filter: show only tokens 10000, 10001, 10002, 15000, 15001, 15002, 15003, 15004, 15005
-                            if (token.tokenId === 10000 || token.tokenId === 10001 || token.tokenId === 10002 || 
-                                token.tokenId === 15000 || token.tokenId === 15001 || token.tokenId === 15002 || 
-                                token.tokenId === 15003 || token.tokenId === 15004 || token.tokenId === 15005) {
-                                console.log(`Including ERC1155 token ${token.tokenId} in floppy discs`);
-                                return true;
+                            if (currentFilter === 'floppy') {
+                                // Floppy discs filter: show only tokens 10000, 10001, 10002, 10003, 10004, 15000, 15001, 15002, 15003, 15004, 15005, 15006, 15007
+                                if (token.tokenId === 10000 || token.tokenId === 10001 || token.tokenId === 10002 || token.tokenId === 10003 || token.tokenId === 10004 ||
+                                    token.tokenId === 15000 || token.tokenId === 15001 || token.tokenId === 15002 || 
+                                    token.tokenId === 15003 || token.tokenId === 15004 || token.tokenId === 15005 ||
+                                    token.tokenId === 15006 || token.tokenId === 15007) {
+                                    console.log(`Including ERC1155 token ${token.tokenId} in floppy discs`);
+                                    return true;
+                                } else {
+                                    console.log(`Filtering out ERC1155 token ${token.tokenId} from floppy discs`);
+                                    return false;
+                                }
+                            } else if (currentFilter === 'serum') {
+                                // Serums filter: show only token 262144
+                                if (token.tokenId === 262144) {
+                                    console.log(`Including ERC1155 token ${token.tokenId} in serums`);
+                                    return true;
+                                } else {
+                                    console.log(`Filtering out ERC1155 token ${token.tokenId} from serums`);
+                                    return false;
+                                }
                             } else {
-                                console.log(`Filtering out ERC1155 token ${token.tokenId} from floppy discs`);
-                                return false;
-                            }
-                        } else {
-                            // Normal filter: exclude tokens 10000, 10001, 10002, 15000, 15001, 15002, 15003, 15004, 15005
-                            if (token.tokenId === 10000 || token.tokenId === 10001 || token.tokenId === 10002 || 
-                                token.tokenId === 15000 || token.tokenId === 15001 || token.tokenId === 15002 || 
-                                token.tokenId === 15003 || token.tokenId === 15004 || token.tokenId === 15005) {
-                                console.log(`Filtering out ERC1155 token ${token.tokenId}`);
-                                return false;
-                            }
+                                // Normal filter: exclude tokens 10000, 10001, 10002, 10003, 10004, 15000, 15001, 15002, 15003, 15004, 15005, 15006, 15007, 262144
+                                if (token.tokenId === 10000 || token.tokenId === 10001 || token.tokenId === 10002 || token.tokenId === 10003 || token.tokenId === 10004 ||
+                                    token.tokenId === 15000 || token.tokenId === 15001 || token.tokenId === 15002 || 
+                                    token.tokenId === 15003 || token.tokenId === 15004 || token.tokenId === 15005 ||
+                                    token.tokenId === 15006 || token.tokenId === 15007 ||
+                                    token.tokenId === 262144) {
+                                    console.log(`Filtering out ERC1155 token ${token.tokenId}`);
+                                    return false;
+                                }
                                 return true;
                             }
                         }
@@ -1034,9 +1207,11 @@
                         );
                         
                         console.log(`Tokens with metadata:`, tokensWithMetadata);
-                        displayTokens(tokensWithMetadata);
+                        const tokensWithNames = await loadCustomNames(tokensWithMetadata);
+                        // displayTokens(tokensWithNames); // Removed: loadCustomNames already handles display
                     } else {
-                        displayTokens(filteredTokens);
+                        const tokensWithNames = await loadCustomNames(filteredTokens);
+                        // displayTokens(tokensWithNames); // Removed: loadCustomNames already handles display
                     }
                     
                 } else {
@@ -1051,15 +1226,261 @@
             }
         }
 
+
+        // NUEVA FUNCIÓN: Get custom names from AdrianNameRegistry contract with cascading approach
+        async function loadCustomNames(tokens) {
+            // Only process AdrianZERO tokens (ERC721)
+            const adrianZeroTokens = tokens.filter(token => 
+                token.tokenType === 'ERC721' && 
+                token.contract.toLowerCase() === CONTRACTS.ERC721.toLowerCase()
+            );
+            
+            if (adrianZeroTokens.length === 0) {
+                console.log('No AdrianZERO tokens to process for custom names');
+                return tokens;
+            }
+            
+            console.log(`Loading custom names for ${adrianZeroTokens.length} AdrianZERO tokens with cascading approach...`);
+            
+            try {
+                // Load ethers dynamically if not available
+                let ethers = window.ethers;
+                if (typeof ethers === 'undefined') {
+                    console.log('Ethers not available, loading dynamically...');
+                    try {
+                        // Load ethers dynamically
+                        const script = document.createElement('script');
+                        script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+                        script.onload = () => {
+                            console.log('Ethers loaded successfully for custom names');
+                        };
+                        script.onerror = () => {
+                            console.log('Failed to load ethers for custom names');
+                        };
+                        document.head.appendChild(script);
+                        
+                        // Wait a bit for ethers to load
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        
+                        ethers = window.ethers;
+                        if (typeof ethers === 'undefined') {
+                            console.log('Ethers still not available after loading, skipping custom names');
+                            return tokens;
+                        }
+                    } catch (loadError) {
+                        console.log('Error loading ethers dynamically:', loadError.message);
+                        return tokens;
+                    }
+                }
+                
+                // Check if wallet is connected
+                if (!window.ethereum) {
+                    console.log('Wallet not connected, skipping custom names');
+                    return tokens;
+                }
+                
+                const provider = new ethers.providers.Web3Provider(window.ethereum);
+                const network = await provider.getNetwork();
+                
+                // Only proceed if on Base network
+                if (network.chainId !== 8453) {
+                    console.log('Not on Base network, skipping custom names');
+                    return tokens;
+                }
+                
+                // Load ABI
+                const response = await fetch('./adrian-name-registry-abi.json');
+                if (!response.ok) {
+                    console.log('Failed to load ABI, skipping custom names');
+                    return tokens;
+                }
+                const contractABI = await response.json();
+                
+                // Create contract instance
+                const nameRegistryContract = new ethers.Contract(ADRIAN_NAME_REGISTRY_CONTRACT, contractABI, provider);
+                
+                // First, display all tokens with Alchemy names immediately
+                console.log('🔄 Displaying tokens with Alchemy names first...');
+                displayTokens(tokens, true); // Skip selection update to prevent flickering
+                
+                // Then, get custom names with delays to avoid rate limiting
+                const nameMap = new Map();
+                let processedCount = 0;
+                
+                // Process tokens in batches with delays
+                const batchSize = 5; // Process 5 tokens at a time
+                const delayBetweenBatches = 2000; // 2 seconds between batches
+                
+                for (let i = 0; i < adrianZeroTokens.length; i += batchSize) {
+                    const batch = adrianZeroTokens.slice(i, i + batchSize);
+                    
+                    console.log(`📦 Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(adrianZeroTokens.length/batchSize)} (${batch.length} tokens)`);
+                    
+                    // Process batch with individual delays
+                    const batchPromises = batch.map(async (token, index) => {
+                        // Add delay between individual requests
+                        await new Promise(resolve => setTimeout(resolve, index * 500)); // 500ms between each request
+                        
+                        try {
+                            const customName = await nameRegistryContract.getTokenName(token.tokenId);
+                            if (customName && customName.trim()) {
+                                nameMap.set(token.tokenId, customName.trim());
+                                console.log(`✅ Custom name found for token ${token.tokenId}: "${customName.trim()}"`);
+                            }
+                        } catch (error) {
+                            console.log(`No custom name for token ${token.tokenId}:`, error.message);
+                        }
+                        
+                        processedCount++;
+                        console.log(`📊 Progress: ${processedCount}/${adrianZeroTokens.length} tokens processed`);
+                    });
+                    
+                    await Promise.all(batchPromises);
+                    
+                    // Update display with any custom names found so far
+                    if (nameMap.size > 0) {
+                        // Update tokens array with new names
+                        tokens.forEach(token => {
+                            if (token.tokenType === 'ERC721' && 
+                                token.contract.toLowerCase() === CONTRACTS.ERC721.toLowerCase() &&
+                                nameMap.has(token.tokenId)) {
+                                
+                                const customName = nameMap.get(token.tokenId);
+                                token.title = customName;
+                                token.originalTitle = token.originalTitle || token.title; // Keep original title as backup
+                            }
+                        });
+                        
+                        console.log(`🔄 Updating display with ${nameMap.size} custom names found so far...`);
+                        // Update names immediately without delay to prevent flickering
+                        updateTokenNamesOnly(nameMap);
+                        // Don't call updateSelectionInfo here to avoid flickering
+                    }
+                    
+                    // Add delay between batches (except for the last batch)
+                    if (i + batchSize < adrianZeroTokens.length) {
+                        console.log(`⏳ Waiting ${delayBetweenBatches}ms before next batch...`);
+                        await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
+                    }
+                }
+                
+                // Final update with all custom names
+                const finalUpdatedTokens = tokens.map(token => {
+                    if (token.tokenType === 'ERC721' && 
+                        token.contract.toLowerCase() === CONTRACTS.ERC721.toLowerCase() &&
+                        nameMap.has(token.tokenId)) {
+                        
+                        const customName = nameMap.get(token.tokenId);
+                        return {
+                            ...token,
+                            title: customName,
+                            originalTitle: token.title // Keep original title as backup
+                        };
+                    }
+                    return token;
+                });
+                
+                console.log(`✅ Custom names loading complete: ${nameMap.size} tokens updated`);
+                return finalUpdatedTokens;
+                
+            } catch (error) {
+                console.error('Error loading custom names:', error);
+                return tokens; // Return original tokens if there's an error
+            }
+        }
+
+        // Function to update only token names without reloading the entire grid
+        function updateTokenNamesOnly(nameMap) {
+            console.log(`🔄 Starting name update for ${nameMap.size} tokens...`);
+            
+            // Use requestAnimationFrame to ensure smooth updates
+            requestAnimationFrame(() => {
+                nameMap.forEach((customName, tokenId) => {
+                    // Find the token card by token ID
+                    const selector = `[data-token-id="${tokenId}"][data-contract="${CONTRACTS.ERC721.toLowerCase()}"]`;
+                    const tokenCard = document.querySelector(selector);
+                    
+                    if (tokenCard) {
+                        // Find the title element within the card
+                        const titleElement = tokenCard.querySelector('.token-title');
+                        if (titleElement) {
+                            const oldName = titleElement.textContent;
+                            // Only update if the name is actually different
+                            if (oldName !== customName) {
+                                titleElement.textContent = customName;
+                                console.log(`✨ Updated name for token ${tokenId}: "${oldName}" → "${customName}"`);
+                            } else {
+                                console.log(`ℹ️ Name already up to date for token ${tokenId}: "${customName}"`);
+                            }
+                        } else {
+                            console.log(`⚠️ Title element not found for token ${tokenId}`);
+                        }
+                    } else {
+                        console.log(`⚠️ Token card not found for token ${tokenId} with selector: ${selector}`);
+                    }
+                });
+                
+                console.log(`✅ Name update completed for ${nameMap.size} tokens`);
+            });
+        }
+
         // Display tokens in grid
-        function displayTokens(tokens) {
+        function displayTokens(tokens, skipSelectionUpdate = false) {
             tokensGrid.innerHTML = "";
             
             tokens.forEach(token => {
                 const tokenCard = document.createElement('div');
                 tokenCard.className = 'token-card';
+                // Add data attributes for easy identification
+                tokenCard.setAttribute('data-token-id', token.tokenId);
+                tokenCard.setAttribute('data-contract', token.contract.toLowerCase());
                 
-                const imageUrl = token.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l5ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+';
+                // Use specific image URLs for different token types
+                let imageUrl = token.imageUrl || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+';
+                
+                // Hardcode names for specific floppy discs
+                let displayTitle = token.title;
+                if (currentFilter === 'floppy') {
+                    if (token.tokenId === 10003) {
+                        displayTitle = 'GLITCH Floppy';
+                    } else if (token.tokenId === 10004) {
+                        displayTitle = 'GF Floppy';
+                    }
+                }
+                
+                // Override image URL for specific token types
+                if (currentFilter === 'serum' && token.tokenId === 262144) {
+                    imageUrl = 'https://adrianlab-dhnfmyura-adrianlab.vercel.app/labimages/262144.gif';
+                } else if (currentFilter === 'floppy') {
+                    // Use specific URLs for floppy discs
+                    if (token.tokenId === 10000) {
+                        imageUrl = 'https://adrianlab.vercel.app/labimages/10000.gif';
+                    } else if (token.tokenId === 10001) {
+                        imageUrl = 'https://adrianlab-gupkaj4rt-adrianlab.vercel.app/labimages/10001.gif';
+                    } else if (token.tokenId === 10002) {
+                        imageUrl = 'https://adrianlab-kt4ehqbtn-adrianlab.vercel.app/labimages/10002.gif';
+                    } else if (token.tokenId === 10003) {
+                        imageUrl = 'https://adrianlab.vercel.app/labimages/10003.gif';
+                    } else if (token.tokenId === 10004) {
+                        imageUrl = 'https://adrianlab.vercel.app/labimages/10004.gif';
+                    } else if (token.tokenId === 15000) {
+                        imageUrl = 'https://adrianlab.vercel.app/labimages/15000.gif';
+                    } else if (token.tokenId === 15001) {
+                        imageUrl = 'https://adrianlab.vercel.app/labimages/15001.gif';
+                    } else if (token.tokenId === 15002) {
+                        imageUrl = 'https://adrianlab.vercel.app/labimages/15002.gif';
+                    } else if (token.tokenId === 15003) {
+                        imageUrl = 'https://adrianlab.vercel.app/labimages/15003.gif';
+                    } else if (token.tokenId === 15004) {
+                        imageUrl = 'https://adrianlab.vercel.app/labimages/15004.gif';
+                    } else if (token.tokenId === 15005) {
+                        imageUrl = 'https://adrianlab.vercel.app/labimages/15005.gif';
+                    } else if (token.tokenId === 15006) {
+                        imageUrl = 'https://adrianlab.vercel.app/labimages/15006.gif';
+                    } else if (token.tokenId === 15007) {
+                        imageUrl = 'https://adrianlab.vercel.app/labimages/15007.gif';
+                    }
+                }
                 
                 // Check if token is selected
                 const isSelected = token.tokenType === 'ERC721' ? 
@@ -1085,11 +1506,11 @@
                 
                 tokenCard.innerHTML = `
                     <div style="position: relative;">
-                        <img src="${imageUrl}" alt="${token.title}" class="token-image" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l5ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+">
+                        <img src="${imageUrl}" alt="${displayTitle}" class="token-image" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+">
                         ${quantityTag}
                     </div>
                     <div class="token-info">
-                        <div class="token-name">${token.title}</div>
+                        <div class="token-name token-title">${displayTitle}</div>
                         <div class="token-id">ID: ${token.tokenId}</div>
                         ${categoryDisplay}
                         <div class="token-contract">${token.contractName}</div>
@@ -1127,6 +1548,19 @@
                                 selectedFloppy = token;
                                 tokenCard.classList.add('selected');
                             }
+                        } else if (currentFilter === 'serum') {
+                            // Single selection for Serums
+                            if (selectedSerum && selectedSerum.tokenId === token.tokenId) {
+                                selectedSerum = null;
+                                tokenCard.classList.remove('selected');
+                            } else {
+                                // Deselect previous serum
+                                const prevSelected = tokensGrid.querySelector('.token-card.selected');
+                                if (prevSelected) prevSelected.classList.remove('selected');
+                                
+                                selectedSerum = token;
+                                tokenCard.classList.add('selected');
+                            }
                         } else {
                             // Multiple selection for AdrianLAB
                             const index = selectedERC1155.findIndex(t => t.tokenId === token.tokenId);
@@ -1146,7 +1580,9 @@
                 tokensGrid.appendChild(tokenCard);
             });
             
-            updateSelectionInfo();
+            if (!skipSelectionUpdate) {
+                updateSelectionInfo();
+            }
         }
 
         // Update selection info display
@@ -1162,7 +1598,14 @@
             if (currentFilter === 'floppy') {
                 // Handle Floppy Discs tab
                 if (selectedFloppy) {
-                    infoText = `Selected Floppy: ${selectedFloppy.title} (ID: ${selectedFloppy.tokenId})`;
+                    // Use hardcoded names for specific floppy discs
+                    let floppyDisplayName = selectedFloppy.title;
+                    if (selectedFloppy.tokenId === 10003) {
+                        floppyDisplayName = 'GLITCH Floppy';
+                    } else if (selectedFloppy.tokenId === 10004) {
+                        floppyDisplayName = 'GF Floppy';
+                    }
+                    infoText = `Selected Floppy: ${floppyDisplayName} (ID: ${selectedFloppy.tokenId})`;
                     selectionText.innerHTML = infoText;
                     selectionInfo.style.display = 'block';
                     openFloppySection.style.display = 'block';
@@ -1170,16 +1613,21 @@
                     applyTraitsSection.style.display = 'none';
                     refreshMetadataSection.style.display = 'none'; // Hide refresh metadata in floppy tab
                     
-                    // Check if it's token ID 10002, 15000, 15001, 15002, 15003, 15004, 15005 and update button accordingly
-                    if (selectedFloppy.tokenId === 10002 || 
-                        selectedFloppy.tokenId === 15000 || selectedFloppy.tokenId === 15001 || 
-                        selectedFloppy.tokenId === 15002 || selectedFloppy.tokenId === 15003 || 
-                        selectedFloppy.tokenId === 15004) {
+                    // Check if it's a token that should show SOON or Open Pack
+                    // Token 10003 should show SOON, token 10004 should show Open Pack, all other floppy discs should be openable
+                    if (selectedFloppy.tokenId === 10003) {
                         openFloppyBtn.textContent = 'SOON';
                         openFloppyBtn.disabled = true;
+                        openPackSection.style.display = 'none';
+                    } else if (selectedFloppy.tokenId === 10004) {
+                        openFloppySection.style.display = 'none';
+                        openPackSection.style.display = 'block';
+                        openPackBtn.textContent = 'Open Pack';
+                        openPackBtn.disabled = false;
                     } else {
                         openFloppyBtn.textContent = 'Open Floppy';
                         openFloppyBtn.disabled = false;
+                        openPackSection.style.display = 'none';
                     }
                 } else {
                     selectionInfo.style.display = 'none';
@@ -1187,6 +1635,78 @@
                     generatedImage.style.display = 'none';
                     applyTraitsSection.style.display = 'none';
                     refreshMetadataSection.style.display = 'none'; // Hide refresh metadata in floppy tab
+                }
+            } else if (currentFilter === 'serum') {
+                // Handle Serums tab
+                if (selectedSerum && selectedERC721) {
+                    infoText = `Selected Serum: ${selectedSerum.title} (ID: ${selectedSerum.tokenId})<br>Selected AdrianZERO: ${selectedERC721.title} (ID: ${selectedERC721.tokenId})`;
+                    selectionText.innerHTML = infoText;
+                    selectionInfo.style.display = 'block';
+                    useSerumSection.style.display = 'block';
+                    generatedImage.style.display = 'none';
+                    applyTraitsSection.style.display = 'none';
+                    refreshMetadataSection.style.display = 'none';
+                    openFloppySection.style.display = 'none';
+                    activateTokenSection.style.display = 'none';
+                    
+                    useSerumBtn.textContent = 'Use Serum';
+                    useSerumBtn.disabled = false;
+                } else if (selectedSerum) {
+                    infoText = `Selected Serum: ${selectedSerum.title} (ID: ${selectedSerum.tokenId})<br>Please select an AdrianZERO to use the serum on`;
+                    selectionText.innerHTML = infoText;
+                    selectionInfo.style.display = 'block';
+                    useSerumSection.style.display = 'none';
+                    generatedImage.style.display = 'none';
+                    applyTraitsSection.style.display = 'none';
+                    refreshMetadataSection.style.display = 'none';
+                    openFloppySection.style.display = 'none';
+                    activateTokenSection.style.display = 'none';
+                } else if (selectedERC721) {
+                    infoText = `Selected AdrianZERO: ${selectedERC721.title} (ID: ${selectedERC721.tokenId})<br>Please select a serum to use`;
+                    selectionText.innerHTML = infoText;
+                    selectionInfo.style.display = 'block';
+                    useSerumSection.style.display = 'none';
+                    generatedImage.style.display = 'none';
+                    applyTraitsSection.style.display = 'none';
+                    refreshMetadataSection.style.display = 'none';
+                    openFloppySection.style.display = 'none';
+                    activateTokenSection.style.display = 'none';
+                } else {
+                    selectionInfo.style.display = 'none';
+                    useSerumSection.style.display = 'none';
+                    generatedImage.style.display = 'none';
+                    applyTraitsSection.style.display = 'none';
+                    refreshMetadataSection.style.display = 'none';
+                    openFloppySection.style.display = 'none';
+                    activateTokenSection.style.display = 'none';
+                }
+            } else if (currentFilter === 'rename') {
+                // Handle RENAME tab
+                if (selectedERC721) {
+                    infoText = `Selected AdrianZERO: ${selectedERC721.title} (ID: ${selectedERC721.tokenId})`;
+                    selectionText.innerHTML = infoText;
+                    selectionInfo.style.display = 'block';
+                    renameSection.style.display = 'block';
+                    generatedImage.style.display = 'none';
+                    applyTraitsSection.style.display = 'none';
+                    refreshMetadataSection.style.display = 'none';
+                    openFloppySection.style.display = 'none';
+                    useSerumSection.style.display = 'none';
+                    activateTokenSection.style.display = 'none';
+                    
+                    // Load name price if not already loaded
+                    if (namePrice === null) {
+                        loadNamePrice();
+                    }
+                } else {
+                    selectionInfo.style.display = 'none';
+                    renameSection.style.display = 'none';
+                    generatedImage.style.display = 'none';
+                    applyTraitsSection.style.display = 'none';
+                    refreshMetadataSection.style.display = 'none';
+                    openFloppySection.style.display = 'none';
+                    useSerumSection.style.display = 'none';
+                    activateTokenSection.style.display = 'none';
                 }
             } else {
                 // Handle AdrianLAB tab
@@ -1215,6 +1735,26 @@
                     // }
                     refreshMetadataSection.style.display = 'none'; // Temporarily hidden
                     
+                    // Show activate token button if AdrianZERO is selected
+                    if (selectedERC721 && currentContract === CONTRACTS.ERC721) {
+                        activateTokenSection.style.display = 'block';
+                        
+                        // Check if token might already be activated (optional info)
+                        if (selectedERC721.metadata && selectedERC721.metadata.attributes) {
+                            const hasActivationAttribute = selectedERC721.metadata.attributes.some(attr => 
+                                attr.trait_type && attr.trait_type.toLowerCase().includes('activated')
+                            );
+                            if (hasActivationAttribute) {
+                                // Update button text to indicate it might already be activated
+                                activateTokenBtn.textContent = 'Activate Token (May already be activated)';
+                            } else {
+                                activateTokenBtn.textContent = 'Activate Token';
+                            }
+                        }
+                    } else {
+                        activateTokenSection.style.display = 'none';
+                    }
+                    
                     // Generate combined image if we have both ERC721 and ERC1155 selections
                     if (selectedERC721 && selectedERC1155.length > 0) {
                         console.log('Both selections present, calling generateCombinedImage');
@@ -1230,10 +1770,12 @@
                     generatedImage.style.display = 'none';
                     applyTraitsSection.style.display = 'none';
                     refreshMetadataSection.style.display = 'none';
+                    activateTokenSection.style.display = 'none';
                 }
                 
                 // Hide floppy section in AdrianLAB tab
                 openFloppySection.style.display = 'none';
+                useSerumSection.style.display = 'none';
             }
         }
 
@@ -1463,6 +2005,20 @@
             }
         }
 
+        // Helper function to show use serum status
+        function showUseSerumStatus(message, type) {
+            useSerumStatus.textContent = message;
+            useSerumStatus.className = `apply-status ${type}`;
+            useSerumStatus.style.display = 'block';
+            
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    useSerumStatus.style.display = 'none';
+                }, 5000);
+            }
+        }
+
         // Refresh metadata by calling Vercel endpoints
         async function refreshMetadata() {
             console.log('refreshMetadata called');
@@ -1638,6 +2194,155 @@
             }
         }
 
+        // Use Serum function
+        async function useSerum() {
+            console.log('useSerum called');
+            
+            if (!selectedSerum) {
+                showUseSerumStatus('Please select a serum first.', 'error');
+                return;
+            }
+
+            if (!selectedERC721) {
+                showUseSerumStatus('Please select an AdrianZERO token first.', 'error');
+                return;
+            }
+
+            if (!currentAccount) {
+                showUseSerumStatus('Please connect your wallet first.', 'error');
+                return;
+            }
+
+            try {
+                // Show loading state
+                showUseSerumStatus('Loading ethers library...', 'loading');
+                useSerumBtn.disabled = true;
+
+                // Load ethers dynamically only when needed
+                let ethers;
+                if (typeof window.ethers === 'undefined') {
+                    // Load ethers from CDN
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+                    script.onload = () => {
+                        ethers = window.ethers;
+                        console.log('Ethers loaded successfully');
+                        executeTransaction();
+                    };
+                    script.onerror = () => {
+                        showUseSerumStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                        useSerumBtn.disabled = false;
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    ethers = window.ethers;
+                    executeTransaction();
+                }
+
+                async function executeTransaction() {
+                    try {
+                        showUseSerumStatus('Preparing transaction...', 'loading');
+
+                        // Get provider and signer
+                        const provider = new ethers.providers.Web3Provider(window.ethereum);
+                        const signer = provider.getSigner();
+
+                        // SerumModule contract address
+                        const SERUM_MODULE_CONTRACT = "0xEb84a51F8d59d1C55cACFd15074AeB104D82B2ec";
+
+                        // Contract ABI for useSerum function
+                        const contractABI = [
+                            {
+                                "inputs": [
+                                    {
+                                        "internalType": "uint256",
+                                        "name": "serumId",
+                                        "type": "uint256"
+                                    },
+                                    {
+                                        "internalType": "uint256",
+                                        "name": "tokenId",
+                                        "type": "uint256"
+                                    },
+                                    {
+                                        "internalType": "string",
+                                        "name": "narrativeText",
+                                        "type": "string"
+                                    }
+                                ],
+                                "name": "useSerum",
+                                "outputs": [],
+                                "stateMutability": "nonpayable",
+                                "type": "function"
+                            }
+                        ];
+
+                        // Create contract instance
+                        const contract = new ethers.Contract(SERUM_MODULE_CONTRACT, contractABI, signer);
+
+                        // Prepare parameters
+                        const serumId = selectedSerum.tokenId;
+                        const tokenId = selectedERC721.tokenId;
+                        const narrativeText = "Drank Serum";
+
+                        console.log('Contract address:', SERUM_MODULE_CONTRACT);
+                        console.log('Serum ID:', serumId);
+                        console.log('Token ID:', tokenId);
+                        console.log('Narrative Text:', narrativeText);
+
+                        showUseSerumStatus('Confirming transaction in your wallet...', 'loading');
+
+                        // Call the contract function
+                        const tx = await contract.useSerum(serumId, tokenId, narrativeText);
+                        
+                        showUseSerumStatus('Transaction sent! Waiting for confirmation...', 'loading');
+                        console.log('Transaction hash:', tx.hash);
+
+                        // Wait for transaction confirmation
+                        const receipt = await tx.wait();
+                        
+                        showUseSerumStatus(`✅ Serum used successfully! Transaction: ${receipt.transactionHash}`, 'success');
+                        console.log('Transaction confirmed:', receipt);
+
+                        // Refresh tokens after successful use
+                        setTimeout(() => {
+                            loadTokens(currentAccount, currentContract);
+                        }, 2000);
+
+                    } catch (error) {
+                        console.error('Error in transaction:', error);
+                        
+                        let errorMessage = 'Failed to use serum.';
+                        if (error.code === 4001) {
+                            errorMessage = 'Transaction was rejected by user.';
+                        } else if (error.code === 'UNPREDICTABLE_GAS_LIMIT') {
+                            // Check for specific serum-related errors
+                            if (error.reason && error.reason.includes('Serum already used on this token')) {
+                                errorMessage = '❌ This AdrianZERO has already consumed a serum. Each token can only use one serum.';
+                            } else if (error.reason && error.reason.includes('Serum not owned')) {
+                                errorMessage = '❌ You do not own this serum. Please make sure you have the serum in your wallet.';
+                            } else if (error.reason && error.reason.includes('Token not owned')) {
+                                errorMessage = '❌ You do not own this AdrianZERO. Please make sure you have the token in your wallet.';
+                            } else {
+                                errorMessage = '❌ Transaction failed. This might be due to insufficient permissions or the serum/token requirements not being met.';
+                            }
+                        } else if (error.message) {
+                            errorMessage = `Error: ${error.message}`;
+                        }
+                        
+                        showUseSerumStatus(errorMessage, 'error');
+                    } finally {
+                        useSerumBtn.disabled = false;
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error using serum:', error);
+                showUseSerumStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                useSerumBtn.disabled = false;
+            }
+        }
+
         // UI Helper functions
         function showLoading() {
             loading.style.display = "block";
@@ -1670,6 +2375,611 @@
         function showNoTokens() {
             noTokens.style.display = "block";
             tokensGrid.innerHTML = "";
+        }
+
+        // Activate AdrianZERO token using AdrianLabCore contract
+        async function activateToken() {
+            console.log('activateToken called');
+            
+            if (!selectedERC721) {
+                showActivateTokenStatus('Please select an AdrianZERO token first.', 'error');
+                return;
+            }
+
+            if (!currentAccount) {
+                showActivateTokenStatus('Please connect your wallet first.', 'error');
+                return;
+            }
+
+            // Check if user owns the token
+            if (selectedERC721.owner && selectedERC721.owner.toLowerCase() !== currentAccount.toLowerCase()) {
+                showActivateTokenStatus('❌ You must own this token to activate it.', 'error');
+                return;
+            }
+
+            try {
+                // Show loading state
+                showActivateTokenStatus('Loading ethers library...', 'loading');
+                activateTokenBtn.disabled = true;
+
+                // Load ethers dynamically only when needed
+                let ethers;
+                if (typeof window.ethers === 'undefined') {
+                    // Load ethers from CDN
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+                    script.onload = () => {
+                        ethers = window.ethers;
+                        console.log('Ethers loaded successfully');
+                        executeTransaction();
+                    };
+                    script.onerror = () => {
+                        showActivateTokenStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                        activateTokenBtn.disabled = false;
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    ethers = window.ethers;
+                    executeTransaction();
+                }
+
+                async function executeTransaction() {
+                    try {
+                        showActivateTokenStatus('Preparing transaction...', 'loading');
+
+                        // Get provider and signer
+                        const provider = new ethers.providers.Web3Provider(window.ethereum);
+                        const signer = provider.getSigner();
+
+                        // AdrianLabCore contract address - using AdrianZERO contract for now
+                        const ADRIAN_LAB_CORE_CONTRACT = "0x6e369bf0e4e0c106192d606fb6d85836d684da75";
+                        
+                        // Contract ABI for assignTokenAttributes function
+                        const contractABI = [
+                            {
+                                "inputs": [
+                                    {
+                                        "internalType": "uint256",
+                                        "name": "tokenId",
+                                        "type": "uint256"
+                                    }
+                                ],
+                                "name": "assignTokenAttributes",
+                                "outputs": [],
+                                "stateMutability": "nonpayable",
+                                "type": "function"
+                            }
+                        ];
+
+                        // Create contract instance
+                        const contract = new ethers.Contract(ADRIAN_LAB_CORE_CONTRACT, contractABI, signer);
+
+                        // Prepare parameters
+                        const tokenId = selectedERC721.tokenId;
+
+                        console.log('Contract address:', ADRIAN_LAB_CORE_CONTRACT);
+                        console.log('Token ID:', tokenId);
+
+                        showActivateTokenStatus('Confirming transaction in your wallet...', 'loading');
+
+                        // Call the contract function
+                        const tx = await contract.assignTokenAttributes(tokenId);
+                        
+                        showActivateTokenStatus('Transaction sent! Waiting for confirmation...', 'loading');
+                        console.log('Transaction hash:', tx.hash);
+
+                        // Wait for transaction confirmation
+                        const receipt = await tx.wait();
+                        
+                        showActivateTokenStatus(`✅ Token activated successfully! Transaction: ${receipt.transactionHash}`, 'success');
+                        console.log('Transaction confirmed:', receipt);
+
+                        // Refresh tokens after successful activation
+                        setTimeout(() => {
+                            loadTokens(currentAccount, currentContract);
+                        }, 2000);
+
+                    } catch (error) {
+                        console.error('Error in transaction:', error);
+                        
+                        let errorMessage = 'Failed to activate token.';
+                        
+                        // Handle specific error cases
+                        if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
+                            errorMessage = '❌ Transaction was cancelled by user.';
+                        } else if (error.code === 'UNPREDICTABLE_GAS_LIMIT') {
+                            // Check for specific revert reasons
+                            if (error.reason && error.reason.includes('already assigned')) {
+                                errorMessage = '❌ This token has already been activated!';
+                            } else if (error.reason && error.reason.includes('not owner')) {
+                                errorMessage = '❌ You must own this token to activate it.';
+                            } else if (error.reason && error.reason.includes('token does not exist')) {
+                                errorMessage = '❌ Token does not exist.';
+                            } else if (error.reason && error.reason.includes('not authorized')) {
+                                errorMessage = '❌ You are not authorized to activate this token.';
+                            } else {
+                                errorMessage = `❌ Transaction failed: ${error.reason}`;
+                            }
+                        } else if (error.code === 'INSUFFICIENT_FUNDS') {
+                            errorMessage = '❌ Insufficient funds for gas fees.';
+                        } else if (error.code === 'NETWORK_ERROR') {
+                            errorMessage = '❌ Network error. Please check your connection.';
+                        } else if (error.code === 'TIMEOUT') {
+                            errorMessage = '❌ Transaction timed out. Please try again.';
+                        } else if (error.message) {
+                            // Check error message for specific cases
+                            if (error.message.includes('already assigned')) {
+                                errorMessage = '❌ This token has already been activated!';
+                            } else if (error.message.includes('not owner')) {
+                                errorMessage = '❌ You must own this token to activate it.';
+                            } else if (error.message.includes('token does not exist')) {
+                                errorMessage = '❌ Token does not exist.';
+                            } else if (error.message.includes('not authorized')) {
+                                errorMessage = '❌ You are not authorized to activate this token.';
+                            } else if (error.message.includes('insufficient funds')) {
+                                errorMessage = '❌ Insufficient funds for gas fees.';
+                            } else if (error.message.includes('network')) {
+                                errorMessage = '❌ Network error. Please check your connection.';
+                            } else if (error.message.includes('user rejected') || error.message.includes('cancelled')) {
+                                errorMessage = '❌ Transaction was cancelled by user.';
+                            } else {
+                                errorMessage = `❌ Error: ${error.message}`;
+                            }
+                        }
+                        
+                        showActivateTokenStatus(errorMessage, 'error');
+                    } finally {
+                        activateTokenBtn.disabled = false;
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error activating token:', error);
+                showActivateTokenStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                activateTokenBtn.disabled = false;
+            }
+        }
+
+        // Helper function to show activate token status
+        function showActivateTokenStatus(message, type) {
+            activateTokenStatus.textContent = message;
+            activateTokenStatus.className = `apply-status ${type}`;
+            activateTokenStatus.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    activateTokenStatus.style.display = 'none';
+                }, 5000);
+            } else if (type === 'error' && message.includes('cancelled')) {
+                // Show additional info for cancelled transactions
+                setTimeout(() => {
+                    activateTokenStatus.innerHTML = message + '<br><small>💡 You can try again by clicking the button.</small>';
+                }, 2000);
+            }
+        }
+
+        // Load name price from AdrianNameRegistry contract
+        async function loadNamePrice() {
+            try {
+                // Load ethers dynamically only when needed
+                let ethers;
+                if (typeof window.ethers === 'undefined') {
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+                    script.onload = () => {
+                        ethers = window.ethers;
+                        executeLoadPrice();
+                    };
+                    script.onerror = () => {
+                        console.error('Failed to load ethers library');
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    ethers = window.ethers;
+                    executeLoadPrice();
+                }
+
+                async function executeLoadPrice() {
+                    try {
+                        const provider = new ethers.providers.Web3Provider(window.ethereum);
+                        
+                        // Check if we're on the correct network (Base)
+                        const network = await provider.getNetwork();
+                        console.log('Current network:', network);
+                        
+                        if (network.chainId !== 8453) { // Base mainnet
+                            showRenameStatus('Please switch to Base network to use this feature.', 'error');
+                            return;
+                        }
+                        
+                        console.log('Contract address:', ADRIAN_NAME_REGISTRY_CONTRACT);
+                        
+                        // Check if contract exists
+                        const code = await provider.getCode(ADRIAN_NAME_REGISTRY_CONTRACT);
+                        if (code === '0x') {
+                            throw new Error('Contract not found at specified address');
+                        }
+                        
+                        // Load the full contract ABI
+                        console.log('Loading ABI from file...');
+                        const response = await fetch('./adrian-name-registry-abi.json');
+                        if (!response.ok) {
+                            throw new Error(`Failed to load ABI: ${response.status} ${response.statusText}`);
+                        }
+                        const contractABI = await response.json();
+                        console.log('ABI loaded successfully, functions:', contractABI.filter(f => f.type === 'function').map(f => f.name));
+
+                        // Create contract instance
+                        const contract = new ethers.Contract(ADRIAN_NAME_REGISTRY_CONTRACT, contractABI, provider);
+
+                        // Mostrar el coreContract configurado
+                        try {
+                            const coreContract = await contract.getCoreContract();
+                            console.log('AdrianNameRegistry coreContract:', coreContract);
+                        } catch (e) {
+                            console.warn('No se pudo leer el coreContract:', e);
+                        }
+                        
+                        // Get the name price
+                        console.log('Calling namePrice()...');
+                        const price = await contract.namePrice();
+                        namePrice = price;
+                        
+                        console.log('Name price loaded:', ethers.utils.formatEther(price), 'ADRIAN');
+                        
+                        // Update UI to show price
+                        showRenameStatus(`Name change price: ${ethers.utils.formatEther(price)} $ADRIAN`, 'info');
+                        
+                    } catch (error) {
+                        console.error('Error loading name price:', error);
+                        // Use default price if contract call fails
+                        namePrice = ethers.utils.parseEther("10000"); // 10000 ADRIAN default
+                        showRenameStatus(`Using default price: 10000 $ADRIAN (contract call failed)`, 'info');
+                    }
+                }
+            } catch (error) {
+                console.error('Error in loadNamePrice:', error);
+            }
+        }
+
+        // Approve $ADRIAN tokens for rename
+        async function approveRename() {
+            console.log('approveRename called');
+            
+            if (!selectedERC721) {
+                showRenameStatus('Please select an AdrianZERO token first.', 'error');
+                return;
+            }
+
+            if (!currentAccount) {
+                showRenameStatus('Please connect your wallet first.', 'error');
+                return;
+            }
+
+            if (!namePrice) {
+                showRenameStatus('Loading name price...', 'info');
+                await loadNamePrice();
+                return;
+            }
+
+            try {
+                // Show loading state
+                showRenameStatus('Loading ethers library...', 'loading');
+                approveRenameBtn.disabled = true;
+
+                // Load ethers dynamically only when needed
+                let ethers;
+                if (typeof window.ethers === 'undefined') {
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+                    script.onload = () => {
+                        ethers = window.ethers;
+                        console.log('Ethers loaded successfully');
+                        executeApproval();
+                    };
+                    script.onerror = () => {
+                        showRenameStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                        approveRenameBtn.disabled = false;
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    ethers = window.ethers;
+                    executeApproval();
+                }
+
+                async function executeApproval() {
+                    try {
+                        showRenameStatus('Checking allowance...', 'info');
+                        
+                        const provider = new ethers.providers.Web3Provider(window.ethereum);
+                        const signer = provider.getSigner();
+
+                        // ADRIAN token contract
+                        const ADRIAN_TOKEN = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea";
+                        
+                        // ERC20 ABI for approve function
+                        const erc20ABI = [
+                            "function approve(address spender, uint256 amount) returns (bool)",
+                            "function allowance(address owner, address spender) view returns (uint256)"
+                        ];
+
+                        const adrianToken = new ethers.Contract(ADRIAN_TOKEN, erc20ABI, signer);
+                        
+                        // Check current allowance
+                        const allowance = await adrianToken.allowance(currentAccount, ADRIAN_NAME_REGISTRY_CONTRACT);
+                        
+                        if (allowance.gte(namePrice)) {
+                            showRenameStatus('Allowance already sufficient!', 'success');
+                            return;
+                        }
+
+                        showRenameStatus('Approving $ADRIAN tokens...', 'info');
+                        
+                        const tx = await adrianToken.approve(ADRIAN_NAME_REGISTRY_CONTRACT, namePrice);
+                        showRenameStatus(`Approving... <a href="https://basescan.org/tx/${tx.hash}" target="_blank" class="tx-link">View TX</a>`, 'info');
+                        
+                        await tx.wait();
+                        showRenameStatus('Approval successful!', 'success');
+                        
+                    } catch (error) {
+                        console.error('Error in approval:', error);
+                        
+                        let errorMessage = 'Failed to approve $ADRIAN tokens.';
+                        if (error.code === 4001) {
+                            errorMessage = 'Transaction was rejected by user.';
+                        } else if (error.message) {
+                            errorMessage = `Error: ${error.message}`;
+                        }
+                        
+                        showRenameStatus(errorMessage, 'error');
+                    } finally {
+                        approveRenameBtn.disabled = false;
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error approving rename:', error);
+                showRenameStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                approveRenameBtn.disabled = false;
+            }
+        }
+
+        // Rename AdrianZERO token
+        async function renameToken() {
+            console.log('renameToken called');
+            
+            if (!selectedERC721) {
+                showRenameStatus('Please select an AdrianZERO token first.', 'error');
+                return;
+            }
+
+            if (!currentAccount) {
+                showRenameStatus('Please connect your wallet first.', 'error');
+                return;
+            }
+
+            const newName = newTokenNameInput.value.trim();
+            if (!newName) {
+                showRenameStatus('Please enter a new name for your AdrianZERO.', 'error');
+                return;
+            }
+
+            if (newName.length > 32) {
+                showRenameStatus('Name must be 32 characters or less.', 'error');
+                return;
+            }
+
+            try {
+                // Show loading state
+                showRenameStatus('Loading ethers library...', 'loading');
+                renameTokenBtn.disabled = true;
+
+                // Load ethers dynamically only when needed
+                let ethers;
+                if (typeof window.ethers === 'undefined') {
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+                    script.onload = () => {
+                        ethers = window.ethers;
+                        console.log('Ethers loaded successfully');
+                        executeRename();
+                    };
+                    script.onerror = () => {
+                        showRenameStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                        renameTokenBtn.disabled = false;
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    ethers = window.ethers;
+                    executeRename();
+                }
+
+                async function executeRename() {
+                    try {
+                        showRenameStatus('Preparing transaction...', 'loading');
+
+                        const provider = new ethers.providers.Web3Provider(window.ethereum);
+                        const signer = provider.getSigner();
+
+                        // Load the full contract ABI
+                        const response = await fetch('./adrian-name-registry-abi.json');
+                        if (!response.ok) {
+                            throw new Error(`Failed to load ABI: ${response.status} ${response.statusText}`);
+                        }
+                        const contractABI = await response.json();
+
+                        const contract = new ethers.Contract(ADRIAN_NAME_REGISTRY_CONTRACT, contractABI, signer);
+                        const tokenId = selectedERC721.tokenId;
+
+                        console.log('Contract address:', ADRIAN_NAME_REGISTRY_CONTRACT);
+                        console.log('Token ID:', tokenId);
+                        console.log('New name:', newName);
+
+                        showRenameStatus('Confirming transaction in your wallet...', 'loading');
+
+                        // Simple call to setTokenName - let the contract handle all validations
+                        const tx = await contract.setTokenName(tokenId, newName);
+                        
+                        showRenameStatus('Transaction sent! Waiting for confirmation...', 'loading');
+                        console.log('Transaction hash:', tx.hash);
+
+                        const receipt = await tx.wait();
+                        
+                        showRenameStatus(`✅ Token renamed successfully to "${newName}"! Transaction: ${receipt.transactionHash}`, 'success');
+                        console.log('Transaction confirmed:', receipt);
+
+                        // Clear input and refresh tokens
+                        newTokenNameInput.value = '';
+                        setTimeout(() => {
+                            loadTokens(currentAccount, currentContract);
+                        }, 2000);
+
+                    } catch (error) {
+                        console.error('Error in rename transaction:', error);
+                        
+                        let errorMessage = 'Failed to rename token.';
+                        if (error.code === 4001) {
+                            errorMessage = 'Transaction was rejected by user.';
+                        } else if (error.message) {
+                            errorMessage = `Error: ${error.message}`;
+                        }
+                        
+                        showRenameStatus(errorMessage, 'error');
+                    } finally {
+                        renameTokenBtn.disabled = false;
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error renaming token:', error);
+                showRenameStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                renameTokenBtn.disabled = false;
+            }
+        }
+
+        // Helper function to show rename status
+        function showRenameStatus(message, type) {
+            renameStatus.textContent = message;
+            renameStatus.className = `apply-status ${type}`;
+            renameStatus.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    renameStatus.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Helper function to show open pack status
+        function showOpenPackStatus(message, type) {
+            openPackStatus.textContent = message;
+            openPackStatus.className = `apply-status ${type}`;
+            openPackStatus.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    openPackStatus.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Open Pack function for token 10004
+        async function openPack() {
+            console.log('openPack called');
+            
+            if (!selectedFloppy) {
+                showOpenPackStatus('Please select a pack first.', 'error');
+                return;
+            }
+
+            if (selectedFloppy.tokenId !== 10004) {
+                showOpenPackStatus('This function is only available for Pack tokens.', 'error');
+                return;
+            }
+
+            if (!currentAccount) {
+                showOpenPackStatus('Please connect your wallet first.', 'error');
+                return;
+            }
+
+            try {
+                showOpenPackStatus('Loading ethers library...', 'loading');
+                openPackBtn.disabled = true;
+
+                let ethers;
+                if (typeof window.ethers === 'undefined') {
+                    const script = document.createElement('script');
+                    script.src = 'https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js';
+                    script.onload = () => {
+                        ethers = window.ethers;
+                        console.log('Ethers loaded successfully');
+                        executeOpenPack();
+                    };
+                    script.onerror = () => {
+                        showOpenPackStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                        openPackBtn.disabled = false;
+                    };
+                    document.head.appendChild(script);
+                } else {
+                    ethers = window.ethers;
+                    executeOpenPack();
+                }
+
+                async function executeOpenPack() {
+                    try {
+                        showOpenPackStatus('Preparing transaction...', 'loading');
+
+                        const provider = new ethers.providers.Web3Provider(window.ethereum);
+                        const signer = provider.getSigner();
+
+                        // PackTokenMinter contract ABI (simplified for openPack function)
+                        const packMinterABI = [
+                            "function openPack(uint256 tokenId) external"
+                        ];
+
+                        const contract = new ethers.Contract(PACK_TOKEN_MINTER_CONTRACT, packMinterABI, signer);
+                        const tokenId = selectedFloppy.tokenId;
+
+                        console.log('Opening pack for token ID:', tokenId);
+
+                        showOpenPackStatus('Confirming transaction in your wallet...', 'loading');
+
+                        const tx = await contract.openPack(tokenId);
+                        
+                        showOpenPackStatus('Transaction sent! Waiting for confirmation...', 'loading');
+                        console.log('Transaction hash:', tx.hash);
+
+                        const receipt = await tx.wait();
+                        
+                        showOpenPackStatus(`✅ Pack opened successfully! Transaction: ${receipt.transactionHash}`, 'success');
+                        console.log('Transaction confirmed:', receipt);
+
+                        // Refresh tokens after successful pack opening
+                        setTimeout(() => {
+                            loadTokens(currentAccount, currentContract);
+                        }, 2000);
+
+                    } catch (error) {
+                        console.error('Error opening pack:', error);
+                        
+                        let errorMessage = 'Failed to open pack.';
+                        if (error.code === 4001) {
+                            errorMessage = 'Transaction was rejected by user.';
+                        } else if (error.message) {
+                            errorMessage = `Error: ${error.message}`;
+                        }
+                        
+                        showOpenPackStatus(errorMessage, 'error');
+                    } finally {
+                        openPackBtn.disabled = false;
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error opening pack:', error);
+                showOpenPackStatus('Failed to load ethers library. Please refresh the page.', 'error');
+                openPackBtn.disabled = false;
+            }
         }
     </script>
 </body>
