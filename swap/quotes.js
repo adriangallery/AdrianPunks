@@ -42,7 +42,8 @@ const QuoteManager = {
           this.cachedRatio = referenceOutput * 10n ** 18n / referenceAmount;
           this.ratioTimestamp = Date.now();
           
-          const ratioNumber = parseFloat(ethers.formatEther(this.cachedRatio));
+          // Format ratio for display (avoid overflow)
+          const ratioNumber = Number(this.cachedRatio) / Number(10n ** 18n);
           console.log(`📊 Pool ratio initialized (${amountStr} ETH test):`, ratioNumber.toLocaleString(), 'ADRIAN per ETH (after tax)');
           
           return this.cachedRatio;
@@ -204,7 +205,8 @@ const QuoteManager = {
               await this.fetchRatioFromContract();
             }
             
-            const ratioNumber = parseFloat(ethers.formatEther(this.cachedRatio));
+            // Format ratio for display (avoid overflow)
+            const ratioNumber = Number(this.cachedRatio) / Number(10n ** 18n);
             console.log('⚠️ Using cached ratio for small amount:', ratioNumber.toLocaleString(), 'ADRIAN/ETH');
             
             // Calculate estimate using cached ratio

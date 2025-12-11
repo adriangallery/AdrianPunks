@@ -45,7 +45,8 @@ const PriceManager = {
       
       // Priority 1: Use cached ratio from QuoteManager (fetched from contract)
       if (window.QuoteManager && window.QuoteManager.cachedRatio) {
-        adrianPerEth = parseFloat(ethers.formatEther(window.QuoteManager.cachedRatio));
+        // Convert BigInt to number safely (avoid overflow)
+        adrianPerEth = Number(window.QuoteManager.cachedRatio) / Number(10n ** 18n);
         console.log('📊 Using cached contract ratio:', adrianPerEth.toLocaleString(), 'ADRIAN per ETH');
       }
       // Priority 2: Calculate from last quote

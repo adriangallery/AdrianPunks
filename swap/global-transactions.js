@@ -154,14 +154,37 @@ const GlobalTransactionsManager = {
 
   // Convert a single transfer to swap format for display
   transferToSwap(transfer) {
-    // Helper to format wei to ether
+    // Helper to format wei to ether (handles large numbers safely)
     const formatEther = (wei) => {
-      if (typeof ethers !== 'undefined' && ethers.formatEther) {
-        return ethers.formatEther(wei || '0');
+      try {
+        // Convert to string first to handle large numbers
+        const weiStr = String(wei || '0');
+        const weiBigInt = BigInt(weiStr);
+        const divisor = BigInt('1000000000000000000'); // 10^18
+        
+        // Use division to get whole part and remainder
+        const whole = weiBigInt / divisor;
+        const remainder = weiBigInt % divisor;
+        
+        // Convert to decimal string
+        if (remainder === 0n) {
+          return whole.toString();
+        }
+        
+        // Format remainder with leading zeros
+        const remainderStr = remainder.toString().padStart(18, '0');
+        // Remove trailing zeros
+        const trimmed = remainderStr.replace(/0+$/, '');
+        
+        if (trimmed === '') {
+          return whole.toString();
+        }
+        
+        return `${whole}.${trimmed}`;
+      } catch (error) {
+        console.error('Error formatting wei:', error, 'value:', wei);
+        return '0';
       }
-      const weiBigInt = BigInt(wei || '0');
-      const divisor = BigInt('1000000000000000000');
-      return (Number(weiBigInt) / Number(divisor)).toString();
     };
 
     const from = transfer.from_address.toLowerCase();
