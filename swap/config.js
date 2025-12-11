@@ -26,15 +26,13 @@ const CONFIG = {
       address: '0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea',
       decimals: 18,
       symbol: 'ADRIAN',
-      name: 'Adrian Token',
-      icon: 'https://basescan.org/token/images/adrianpunks_32.png'
+      name: 'Adrian Token'
     },
     ETH: {
       address: '0x0000000000000000000000000000000000000000',
       decimals: 18,
       symbol: 'ETH',
-      name: 'Ethereum',
-      icon: 'https://ethereum.org/static/6b935ac0e6194247347855dc3d328e83/6ed5f/eth-diamond-black.webp'
+      name: 'Ethereum'
     }
   },
 

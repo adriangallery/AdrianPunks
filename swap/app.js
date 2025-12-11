@@ -180,17 +180,10 @@ const App = {
   // Select token
   selectToken(token, position) {
     const tokenSymbol = document.getElementById(`${position}TokenSymbol`);
-    const tokenIcon = document.getElementById(`${position}TokenIcon`);
-
     const tokenData = CONFIG.TOKENS[token];
 
     if (tokenSymbol) {
       tokenSymbol.textContent = tokenData.symbol;
-    }
-
-    if (tokenIcon) {
-      tokenIcon.src = tokenData.icon;
-      tokenIcon.alt = tokenData.symbol;
     }
 
     // Update balance display
