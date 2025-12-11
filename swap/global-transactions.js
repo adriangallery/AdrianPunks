@@ -175,29 +175,22 @@ const GlobalTransactionsManager = {
             const baseStr = base.toString();
             const [intPart, decPart = ''] = baseStr.split('.');
             
-            if (exponent === 0) {
-              weiStr = intPart + (decPart ? decPart : '');
-            } else {
-              // Move decimal point
-              const totalDecimals = decPart.length;
-              if (exponent <= totalDecimals) {
-                // Decimal point stays within existing decimals
-                weiStr = intPart + decPart.slice(0, exponent) + '.' + decPart.slice(exponent);
-                weiStr = weiStr.replace(/\.?0+$/, ''); // Remove trailing zeros
-              } else {
-                // Need to add zeros
-                const zerosNeeded = exponent - totalDecimals;
-                weiStr = intPart + decPart + '0'.repeat(zerosNeeded);
-              }
-            }
+            // Calculate how many digits we need after the decimal point
+            const totalDecimals = decPart.length;
+            const zerosNeeded = Math.max(0, exponent - totalDecimals);
+            
+            // Combine integer part + decimal part + zeros
+            weiStr = intPart + decPart + '0'.repeat(zerosNeeded);
           } else {
             // Negative exponent: divide (shouldn't happen for wei, but handle it)
-            weiStr = base.toFixed(Math.abs(exponent) + 20).replace(/\.?0+$/, '');
+            // This would create a decimal, so we'll use a different approach
+            const num = parseFloat(weiStr);
+            weiStr = num.toFixed(Math.abs(exponent) + 20).replace(/\./g, '').replace(/^0+/, '') || '0';
           }
         }
         
-        // Remove any decimal point and ensure it's a valid integer string
-        weiStr = weiStr.replace(/\./g, '').replace(/^0+/, '') || '0';
+        // Remove leading zeros but keep at least one digit
+        weiStr = weiStr.replace(/^0+/, '') || '0';
         
         // Ensure it's a valid integer string for BigInt
         if (!/^\d+$/.test(weiStr)) {
