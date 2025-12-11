@@ -99,27 +99,37 @@ const GlobalTransactionsManager = {
 
       console.log(`📥 Received ${transfers?.length || 0} transfers from database`);
 
-      // Filter to only transfers involving swapper contract
-      const swapperTransfers = transfers ? transfers.filter(t => {
-        const from = t.from_address.toLowerCase();
-        const to = t.to_address.toLowerCase();
-        return from === swapperAddress || to === swapperAddress;
-      }) : [];
-
-      console.log(`🔍 Found ${swapperTransfers.length} transfers involving swapper contract`);
-
-      if (!swapperTransfers || swapperTransfers.length === 0) {
-        console.log('ℹ️ No swaps found in database');
+      if (!transfers || transfers.length === 0) {
+        console.log('ℹ️ No ADRIAN transfers found in database');
         this.swaps = [];
         this.updateUI();
         return;
       }
 
-      // Group transfers by tx_hash
-      const grouped = this.groupSwapsByTxHash(swapperTransfers);
+      // Filter out tax recipients and small/dust transfers
+      const significantTransfers = transfers.filter(t => {
+        const from = t.from_address.toLowerCase();
+        const to = t.to_address.toLowerCase();
+        const taxAddrs = taxRecipients.map(a => a.toLowerCase());
+        
+        // Skip if from or to is a tax recipient
+        if (taxAddrs.includes(from) || taxAddrs.includes(to)) {
+          return false;
+        }
+        
+        // Skip very small transfers (dust)
+        const value = BigInt(t.value_wei || '0');
+        if (value < BigInt('1000000000000000000000')) { // Less than 1000 ADRIAN
+          return false;
+        }
+        
+        return true;
+      });
 
-      // Filter out tax transfers and identify swaps
-      const swaps = this.filterAndIdentifySwaps(grouped, swapperAddress, taxRecipients);
+      console.log(`🔍 Found ${significantTransfers.length} significant ADRIAN transfers`);
+
+      // Convert transfers to swaps format for display
+      const swaps = significantTransfers.map(t => this.transferToSwap(t));
 
       // Limit to requested number
       this.swaps = swaps.slice(0, limit);
@@ -140,6 +150,35 @@ const GlobalTransactionsManager = {
       this.isLoading = false;
       this.hideLoading();
     }
+  },
+
+  // Convert a single transfer to swap format for display
+  transferToSwap(transfer) {
+    // Helper to format wei to ether
+    const formatEther = (wei) => {
+      if (typeof ethers !== 'undefined' && ethers.formatEther) {
+        return ethers.formatEther(wei || '0');
+      }
+      const weiBigInt = BigInt(wei || '0');
+      const divisor = BigInt('1000000000000000000');
+      return (Number(weiBigInt) / Number(divisor)).toString();
+    };
+
+    const from = transfer.from_address.toLowerCase();
+    const amount = formatEther(transfer.value_wei);
+    
+    // Show as transfer (we don't know if it's buy/sell without more context)
+    return {
+      hash: transfer.tx_hash,
+      from: 'ADRIAN',
+      to: 'Transfer',
+      amount: amount,
+      timestamp: new Date(transfer.created_at).getTime(),
+      user: from,
+      blockNumber: transfer.block_number,
+      fromAddress: transfer.from_address,
+      toAddress: transfer.to_address
+    };
   },
 
   // Group transfers by transaction hash
@@ -250,7 +289,7 @@ const GlobalTransactionsManager = {
     return swaps;
   },
 
-  // Update UI with swaps
+  // Update UI with transfers
   updateUI() {
     const container = document.getElementById('globalTransactions');
     const list = document.getElementById('globalTransactionsList');
@@ -260,14 +299,15 @@ const GlobalTransactionsManager = {
       return;
     }
 
-    console.log(`🔄 Updating UI with ${this.swaps.length} swaps`);
+    console.log(`🔄 Updating UI with ${this.swaps.length} transfers`);
+
+    // Always show container
+    container.style.display = 'block';
 
     if (this.swaps.length === 0) {
-      container.style.display = 'none';
+      list.innerHTML = `<div class="text-center text-muted py-3">No recent activity</div>`;
       return;
     }
-
-    container.style.display = 'block';
 
     // Build HTML
     list.innerHTML = this.swaps.map(swap => {
@@ -278,19 +318,30 @@ const GlobalTransactionsManager = {
         minute: '2-digit'
       });
 
-      // Format amount
-      const amountDisplay = parseFloat(swap.amount).toFixed(4);
+      // Format amount with proper thousands separator
+      const amountNum = parseFloat(swap.amount);
+      const amountDisplay = amountNum > 1000 
+        ? amountNum.toLocaleString('en-US', { maximumFractionDigits: 0 })
+        : amountNum.toFixed(4);
+
+      // Short address
+      const shortFrom = swap.fromAddress 
+        ? `${swap.fromAddress.slice(0, 6)}...${swap.fromAddress.slice(-4)}`
+        : '';
+      const shortTo = swap.toAddress 
+        ? `${swap.toAddress.slice(0, 6)}...${swap.toAddress.slice(-4)}`
+        : '';
 
       return `
         <div class="transaction-item">
           <div>
-            <div class="transaction-type">${swap.from} → ${swap.to}</div>
-            <div class="transaction-amount">${amountDisplay} ${swap.from}</div>
+            <div class="transaction-type">${shortFrom} → ${shortTo}</div>
+            <div class="transaction-amount">${amountDisplay} ADRIAN</div>
           </div>
           <div>
             <div style="font-size: 0.8rem; color: var(--text-secondary);">${date}</div>
             <a href="${CONFIG.EXPLORER.tx(swap.hash)}" target="_blank" class="transaction-link">
-              View on BaseScan ↗
+              BaseScan ↗
             </a>
           </div>
         </div>
