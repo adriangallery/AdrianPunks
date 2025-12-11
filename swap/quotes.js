@@ -61,10 +61,10 @@ const QuoteManager = {
     const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
     const amount = parseFloat(value);
     
-    // Minimum amounts to avoid contract errors
+    // Minimum amounts to avoid contract errors (very small amounts can cause "transfer to zero address")
     const minAmounts = {
-      'ETH': 0.001,
-      'ADRIAN': 100
+      'ETH': 0.0001,    // Reduced from 0.001 - Base gas is cheap
+      'ADRIAN': 1       // Reduced from 100 - more reasonable minimum
     };
     
     if (amount < minAmounts[fromSymbol]) {
@@ -434,9 +434,9 @@ const QuoteManager = {
 
     // If ETH, leave some for gas
     if (fromSymbol === 'ETH') {
-      const gasReserve = 0.0015; // Reserve 0.0015 ETH for gas
-      const minSwapAmount = 0.001; // Minimum swap amount (pool requirement)
-      const minTotalRequired = minSwapAmount + gasReserve; // 0.0025 ETH total
+      const gasReserve = 0.0002; // Reserve 0.0002 ETH for gas (Base is cheap, ~$0.50-1.00)
+      const minSwapAmount = 0.0001; // Minimum swap amount (to avoid pool errors)
+      const minTotalRequired = minSwapAmount + gasReserve; // 0.0003 ETH total
       
       if (balance < minTotalRequired) {
         NetworkManager.showToast(
