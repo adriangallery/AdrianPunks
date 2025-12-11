@@ -967,6 +967,10 @@
     const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
 
     let supabaseClient = null;
+    
+    // Rules for images and tags
+    let addressTagsRules = {};
+    let imageRules = {};
 
     function initSupabase() {
       if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
@@ -975,6 +979,98 @@
       } else {
         console.error('Supabase credentials not configured');
       }
+    }
+    
+    // Load rules from JSON files
+    async function loadRules() {
+      try {
+        // Address tags
+        const tagsResponse = await fetch('./rules/address-tags.json');
+        if (tagsResponse.ok) {
+          const data = await tagsResponse.json();
+          addressTagsRules = data.addressTags || {};
+        }
+
+        // Image rules
+        const imagesResponse = await fetch('./rules/image-rules.json');
+        if (imagesResponse.ok) {
+          const data = await imagesResponse.json();
+          imageRules = data.imageRules || {};
+        }
+      } catch (error) {
+        console.error('Error loading rules:', error);
+      }
+    }
+    
+    // Get address tag badge
+    function getAddressTagBadge(address, contextualTag) {
+      if (contextualTag) {
+        return `<span class="badge bg-${contextualTag.color} ms-2">${contextualTag.tag}</span>`;
+      }
+      const tagInfo = addressTagsRules[address?.toLowerCase()];
+      if (!tagInfo) return '';
+      return `<span class="badge bg-${tagInfo.color} ms-2">${tagInfo.tag}</span>`;
+    }
+    
+    // Get event image based on type
+    function getEventImage(event) {
+      if (!imageRules || !imageRules.eventImages) return '';
+      
+      const eventImages = imageRules.eventImages;
+      
+      // TraitApplied: usar mannequin
+      if (event.type === 'TraitsExtensions' && event.eventType === 'TraitApplied') {
+        if (eventImages.TraitApplied && eventImages.TraitApplied.imageUrl) {
+          return `<img src="${eventImages.TraitApplied.imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Mannequin" onerror="this.style.display='none'">`;
+        }
+      }
+      
+      // ERC20: usar ADRIAN_Coin.gif
+      if (event.type === 'ERC20' && eventImages.ERC20 && eventImages.ERC20.imageUrl) {
+        return `<img src="${eventImages.ERC20.imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="ADRIAN Coin" onerror="this.style.display='none'">`;
+      }
+      
+      // TraitsAppliedBatch: imagen dinámica
+      if (event.type === 'TraitsExtensions' && event.eventType === 'TraitsAppliedBatch') {
+        if (eventImages.TraitsAppliedBatch && eventImages.TraitsAppliedBatch.dynamic) {
+          const tokenId = event.data?.token_id || event.data?.tokenId || event.data?.event_data?.tokenId || '0';
+          let traitIds = event.data?.trait_ids || event.data?.traitIds || event.data?.event_data?.traitIds || [];
+          
+          if (typeof traitIds === 'string') {
+            traitIds = traitIds.split(',').map(id => id.trim()).filter(id => id);
+          }
+          
+          if (!Array.isArray(traitIds)) {
+            traitIds = [];
+          }
+          
+          if (traitIds.length > 0) {
+            const traitParams = traitIds.map(id => `trait=${id}`).join('&');
+            const imageUrl = `${eventImages.TraitsAppliedBatch.baseUrl}${tokenId}?${traitParams}`;
+            return `<img src="${imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Custom Trait" onerror="this.style.display='none'">`;
+          }
+        }
+      }
+      
+      // Contratos que usan imágenes de AdrianPunks
+      if (imageRules && imageRules.adrianPunks && imageRules.adrianPunks.contracts) {
+        const adrianPunksContracts = imageRules.adrianPunks.contracts;
+        if (adrianPunksContracts.includes(event.type) && event.data?.token_id) {
+          const tokenId = event.data.token_id;
+          
+          // AdrianLABCore usa API de render
+          if (event.type === 'AdrianLABCore') {
+            const imageUrl = `https://adrianlab.vercel.app/api/render/${tokenId}.png`;
+            return `<img src="${imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Token #${tokenId}" onerror="this.style.display='none'" onclick="window.open('${imageUrl}', '_blank')">`;
+          }
+          
+          // FloorEngine y otros usan imágenes locales
+          const imageUrl = `${imageRules.adrianPunks.baseUrl}${tokenId}${imageRules.adrianPunks.extension}`;
+          return `<img src="${imageUrl}" class="nft-thumbnail" loading="lazy" decoding="async" alt="Token #${tokenId}" onerror="this.style.display='none'" onclick="window.open('${imageUrl}', '_blank')">`;
+        }
+      }
+      
+      return '';
     }
 
     // Helper functions
@@ -3157,13 +3253,21 @@
         }
       } else if (event.type === 'ERC20') {
         if (event.eventType === 'Transfer') {
-          details = `Transfer from ${shortAddress(event.data.from_address)} to ${shortAddress(event.data.to_address)}`;
+          const from = shortAddress(event.data.from_address);
+          const to = shortAddress(event.data.to_address);
+          const fromTag = getAddressTagBadge(event.data.from_address);
+          const toTag = getAddressTagBadge(event.data.to_address);
+          details = `Transfer from ${from}${fromTag} to ${to}${toTag}`;
           if (event.data.value_wei) {
             details += ` - Amount: ${formatADRIAN(event.data.value_wei)} $ADRIAN`;
           }
           txHash = event.data.tx_hash;
         } else if (event.eventType === 'Approval') {
-          details = `Approval by ${shortAddress(event.data.owner)} to ${shortAddress(event.data.spender)}`;
+          const owner = shortAddress(event.data.owner);
+          const spender = shortAddress(event.data.spender);
+          const ownerTag = getAddressTagBadge(event.data.owner);
+          const spenderTag = getAddressTagBadge(event.data.spender);
+          details = `Approval by ${owner}${ownerTag} to ${spender}${spenderTag}`;
           if (event.data.value_wei) {
             details += ` - Amount: ${formatADRIAN(event.data.value_wei)} $ADRIAN`;
           }
@@ -3369,6 +3473,9 @@
         }
       }
       
+      // Get image for this event
+      const image = getEventImage(event);
+      
       div.innerHTML = `
         <div class="activity-header">
           <div>
@@ -3377,7 +3484,10 @@
           </div>
           <div class="activity-date">${dateStr}</div>
         </div>
-        <div class="activity-details">${details}</div>
+        <div class="activity-details">
+          ${image}
+          <span>${details}</span>
+        </div>
         ${txHash ? `<div class="mt-2"><a href="https://basescan.org/tx/${txHash}" target="_blank" class="activity-link">View on Basescan <i class="bi bi-box-arrow-up-right"></i></a></div>` : ''}
       `;
       
