@@ -164,16 +164,45 @@ const GlobalTransactionsManager = {
         
         // If it's in scientific notation (e.g., "1e+22"), convert to full number
         if (weiStr.includes('e') || weiStr.includes('E')) {
-          // Convert scientific notation to full number string
-          const num = parseFloat(weiStr);
-          // Use toFixed with enough precision, then remove decimal point
-          weiStr = num.toFixed(0);
+          // Parse scientific notation manually
+          const parts = weiStr.toLowerCase().split('e');
+          const base = parseFloat(parts[0]);
+          const exponent = parseInt(parts[1] || '0');
+          
+          // Convert to full number string
+          if (exponent >= 0) {
+            // Positive exponent: multiply by 10^exponent
+            const baseStr = base.toString();
+            const [intPart, decPart = ''] = baseStr.split('.');
+            
+            if (exponent === 0) {
+              weiStr = intPart + (decPart ? decPart : '');
+            } else {
+              // Move decimal point
+              const totalDecimals = decPart.length;
+              if (exponent <= totalDecimals) {
+                // Decimal point stays within existing decimals
+                weiStr = intPart + decPart.slice(0, exponent) + '.' + decPart.slice(exponent);
+                weiStr = weiStr.replace(/\.?0+$/, ''); // Remove trailing zeros
+              } else {
+                // Need to add zeros
+                const zerosNeeded = exponent - totalDecimals;
+                weiStr = intPart + decPart + '0'.repeat(zerosNeeded);
+              }
+            }
+          } else {
+            // Negative exponent: divide (shouldn't happen for wei, but handle it)
+            weiStr = base.toFixed(Math.abs(exponent) + 20).replace(/\.?0+$/, '');
+          }
         }
+        
+        // Remove any decimal point and ensure it's a valid integer string
+        weiStr = weiStr.replace(/\./g, '').replace(/^0+/, '') || '0';
         
         // Ensure it's a valid integer string for BigInt
         if (!/^\d+$/.test(weiStr)) {
-          console.warn('Invalid wei value:', wei, 'converted to:', weiStr);
-          return '0';
+          console.warn('Invalid wei value after conversion:', wei, '->', weiStr);
+          return null;
         }
         
         const weiBigInt = BigInt(weiStr);
