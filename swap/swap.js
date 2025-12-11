@@ -34,7 +34,7 @@ const SwapManager = {
 
     // Validate
     if (!QuoteManager.lastQuote) {
-      NetworkManager.showToast('Error', 'No hay cotización válida', 'error');
+      NetworkManager.showToast('Error', 'No valid quote available', 'error');
       return;
     }
 
@@ -42,7 +42,7 @@ const SwapManager = {
     if (CONFIG.SWAPPER_ADDRESS === '0x0000000000000000000000000000000000000000') {
       NetworkManager.showToast(
         'Error',
-        'El contrato Swapper no está desplegado',
+        'Swapper contract is not deployed',
         'error'
       );
       return;
@@ -52,7 +52,7 @@ const SwapManager = {
 
     try {
       this.isSwapping = true;
-      this.showLoadingState(true, 'Preparando swap...');
+      this.showLoadingState(true, 'Preparing swap...');
 
       // Ensure correct network
       await NetworkManager.ensureCorrectNetwork();
@@ -77,7 +77,7 @@ const SwapManager = {
         // Sell ADRIAN for ETH
         await this.executeSellAdrian(swapperContract, amountInWei);
       } else {
-        throw new Error('Par de tokens inválido');
+        throw new Error('Invalid token pair');
       }
 
     } catch (error) {
@@ -92,7 +92,7 @@ const SwapManager = {
   // Execute buy ADRIAN (ETH → ADRIAN)
   async executeBuyAdrian(contract, amountInWei) {
     try {
-      this.showLoadingState(true, 'Comprando ADRIAN...');
+      this.showLoadingState(true, 'Buying ADRIAN...');
 
       console.log('🔵 Buying ADRIAN with ETH:', ethers.formatEther(amountInWei), 'ETH');
 
@@ -102,12 +102,12 @@ const SwapManager = {
       });
 
       NetworkManager.showToast(
-        'Transacción Enviada',
-        'Esperando confirmación...',
+        'Transaction Sent',
+        'Waiting for confirmation...',
         'info'
       );
 
-      this.showLoadingState(true, 'Esperando confirmación...');
+      this.showLoadingState(true, 'Waiting for confirmation...');
 
       // Wait for confirmation
       const receipt = await tx.wait();
@@ -133,8 +133,8 @@ const SwapManager = {
         // Need approval
         this.showApproveSection(true);
         NetworkManager.showToast(
-          'Aprobación Requerida',
-          'Debes aprobar ADRIAN antes de vender',
+          'Approval Required',
+          'You must approve ADRIAN before selling',
           'warning'
         );
         this.isSwapping = false;
@@ -142,7 +142,7 @@ const SwapManager = {
         return;
       }
 
-      this.showLoadingState(true, 'Vendiendo ADRIAN...');
+      this.showLoadingState(true, 'Selling ADRIAN...');
 
       console.log('🟠 Selling ADRIAN for ETH:', ethers.formatEther(amountInWei), 'ADRIAN');
 
@@ -150,12 +150,12 @@ const SwapManager = {
       const tx = await contract.sellAdrian(amountInWei);
 
       NetworkManager.showToast(
-        'Transacción Enviada',
-        'Esperando confirmación...',
+        'Transaction Sent',
+        'Waiting for confirmation...',
         'info'
       );
 
-      this.showLoadingState(true, 'Esperando confirmación...');
+      this.showLoadingState(true, 'Waiting for confirmation...');
 
       // Wait for confirmation
       const receipt = await tx.wait();
@@ -173,7 +173,7 @@ const SwapManager = {
   // Handle approve button
   async handleApprove() {
     try {
-      this.showLoadingState(true, 'Aprobando ADRIAN...');
+      this.showLoadingState(true, 'Approving ADRIAN...');
 
       await WalletManager.approveAdrian();
 
@@ -201,8 +201,8 @@ const SwapManager = {
   // Handle swap success
   handleSwapSuccess(receipt, fromSymbol, toSymbol) {
     NetworkManager.showToast(
-      '🎉 Swap Exitoso',
-      'Tu swap se completó correctamente',
+      '🎉 Swap Successful',
+      'Your swap completed successfully',
       'success'
     );
 
@@ -234,27 +234,27 @@ const SwapManager = {
   handleSwapError(error) {
     console.error('Swap error:', error);
 
-    let errorMessage = 'Error al ejecutar el swap';
+    let errorMessage = 'Error executing swap';
 
     if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
-      errorMessage = 'Transacción cancelada por el usuario';
-      NetworkManager.showToast('Cancelado', errorMessage, 'warning');
+      errorMessage = 'Transaction cancelled by user';
+      NetworkManager.showToast('Cancelled', errorMessage, 'warning');
     } else if (error.message.includes('insufficient funds')) {
-      errorMessage = 'Fondos insuficientes para gas';
+      errorMessage = 'Insufficient funds for gas';
       NetworkManager.showToast('Error', errorMessage, 'error');
     } else if (error.message.includes('SPL')) {
-      errorMessage = 'Slippage excedido. Intenta aumentar el slippage.';
+      errorMessage = 'Slippage exceeded. Try increasing slippage.';
       NetworkManager.showToast('Error', errorMessage, 'error');
     } else if (error.message.includes('CurrencyNotSettled')) {
-      errorMessage = 'Error interno del swap. Intenta de nuevo.';
+      errorMessage = 'Internal swap error. Please try again.';
       NetworkManager.showToast('Error', errorMessage, 'error');
     } else {
-      NetworkManager.showToast('Error', 'Error al ejecutar el swap', 'error');
+      NetworkManager.showToast('Error', 'Error executing swap', 'error');
     }
   },
 
   // Show/hide loading state
-  showLoadingState(show, message = 'Procesando...') {
+  showLoadingState(show, message = 'Processing...') {
     const loadingState = document.getElementById('loadingState');
     const loadingText = document.getElementById('loadingText');
     const swapBtn = document.getElementById('swapBtn');

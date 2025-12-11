@@ -112,8 +112,8 @@ const App = {
         
         if (expertModeCheck.checked) {
           NetworkManager.showToast(
-            '⚠️ Modo Experto',
-            'Las confirmaciones están desactivadas',
+            '⚠️ Expert Mode',
+            'Confirmations are disabled',
             'warning'
           );
         }

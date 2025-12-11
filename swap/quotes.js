@@ -167,8 +167,8 @@ const QuoteManager = {
           this.updateSwapButton();
           
           NetworkManager.showToast(
-            'Aprobación Requerida',
-            'Primero debes aprobar ADRIAN. Cotización aproximada mostrada.',
+            'Approval Required',
+            'You must approve ADRIAN first. Approximate quote shown.',
             'warning'
           );
         } catch (e) {
@@ -178,7 +178,7 @@ const QuoteManager = {
         this.clearQuote();
         NetworkManager.showToast(
           'Error',
-          'Liquidez insuficiente o cantidad inválida',
+          'Insufficient liquidity or invalid amount',
           'error'
         );
       } else {
@@ -297,21 +297,21 @@ const QuoteManager = {
     // Check if wallet is connected
     if (!WalletManager.isConnected) {
       swapBtn.disabled = true;
-      swapBtnText.textContent = 'Conecta tu wallet';
+      swapBtnText.textContent = 'Connect Wallet';
       return;
     }
 
     // Check if on correct network
     if (!NetworkManager.isCorrectNetwork) {
       swapBtn.disabled = true;
-      swapBtnText.textContent = 'Red Incorrecta';
+      swapBtnText.textContent = 'Wrong Network';
       return;
     }
 
     // Check if quote is valid
     if (!this.lastQuote) {
       swapBtn.disabled = true;
-      swapBtnText.textContent = 'Ingresa cantidad';
+      swapBtnText.textContent = 'Enter amount';
       return;
     }
 
@@ -321,7 +321,7 @@ const QuoteManager = {
     
     if (fromAmount > balance) {
       swapBtn.disabled = true;
-      swapBtnText.textContent = 'Saldo Insuficiente';
+      swapBtnText.textContent = 'Insufficient Balance';
       return;
     }
 
@@ -380,8 +380,8 @@ const QuoteManager = {
   // Show swapper warning
   showSwapperWarning() {
     NetworkManager.showToast(
-      '⚠️ Contrato No Desplegado',
-      'El contrato Swapper aún no está desplegado. Por favor, despliégalo primero.',
+      '⚠️ Contract Not Deployed',
+      'The Swapper contract is not deployed yet. Please deploy it first.',
       'warning'
     );
   },

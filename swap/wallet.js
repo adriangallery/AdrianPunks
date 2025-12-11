@@ -61,7 +61,7 @@ const WalletManager = {
   async connect(showNotification = true) {
     // Check if wallet is installed
     if (!window.ethereum) {
-      alert('Por favor, instala MetaMask u otra wallet compatible para continuar.');
+      alert('Please install MetaMask or another compatible wallet to continue.');
       window.open('https://metamask.io/download/', '_blank');
       return false;
     }
@@ -90,8 +90,8 @@ const WalletManager = {
 
       if (showNotification) {
         NetworkManager.showToast(
-          'Wallet Conectada',
-          `Conectado: ${this.formatAddress(this.address)}`,
+          'Wallet Connected',
+          `Connected: ${this.formatAddress(this.address)}`,
           'success'
         );
       }
@@ -103,14 +103,14 @@ const WalletManager = {
       
       if (error.code === 4001) {
         NetworkManager.showToast(
-          'Conexión Cancelada',
-          'Has rechazado la conexión',
+          'Connection Cancelled',
+          'You rejected the connection',
           'warning'
         );
       } else {
         NetworkManager.showToast(
           'Error',
-          'No se pudo conectar la wallet',
+          'Could not connect wallet',
           'error'
         );
       }
@@ -149,7 +149,7 @@ const WalletManager = {
       
       if (swapBtn && NetworkManager.isCorrectNetwork) {
         swapBtn.disabled = true; // Will be enabled when amount is valid
-        if (swapBtnText) swapBtnText.textContent = 'Ingresa cantidad';
+        if (swapBtnText) swapBtnText.textContent = 'Enter amount';
       }
     } else {
       if (connectBtn) connectBtn.textContent = 'Connect Wallet';
@@ -157,7 +157,7 @@ const WalletManager = {
       
       if (swapBtn) {
         swapBtn.disabled = true;
-        if (swapBtnText) swapBtnText.textContent = 'Conecta tu wallet';
+        if (swapBtnText) swapBtnText.textContent = 'Connect Wallet';
       }
     }
   },
@@ -293,19 +293,29 @@ const WalletManager = {
         this.signer
       );
 
-      // Approve max uint256 for convenience
-      const maxApproval = ethers.MaxUint256;
+      // Si se proporciona un monto específico, usarlo; si no, aprobar el que esté en el input
+      let approvalAmount;
+      if (amount) {
+        approvalAmount = ethers.parseEther(amount.toString());
+      } else {
+        // Obtener del input actual
+        const fromAmount = document.getElementById('fromAmount');
+        if (!fromAmount || !fromAmount.value) {
+          throw new Error('No amount specified');
+        }
+        approvalAmount = ethers.parseEther(fromAmount.value);
+      }
       
-      console.log('🔓 Approving ADRIAN...');
+      console.log('🔓 Approving ADRIAN:', ethers.formatEther(approvalAmount));
       
       const tx = await adrianContract.approve(
         CONFIG.SWAPPER_ADDRESS,
-        maxApproval
+        approvalAmount
       );
 
       NetworkManager.showToast(
-        'Aprobación Enviada',
-        'Esperando confirmación...',
+        'Approval Sent',
+        'Waiting for confirmation...',
         'info'
       );
 
@@ -314,8 +324,8 @@ const WalletManager = {
       console.log('✅ ADRIAN approved:', receipt.hash);
 
       NetworkManager.showToast(
-        'Aprobado',
-        'ADRIAN aprobado para swap',
+        'Approved',
+        'ADRIAN approved for swap',
         'success'
       );
 
@@ -326,14 +336,14 @@ const WalletManager = {
       
       if (error.code === 'ACTION_REJECTED') {
         NetworkManager.showToast(
-          'Aprobación Cancelada',
-          'Has rechazado la transacción',
+          'Approval Cancelled',
+          'You rejected the transaction',
           'warning'
         );
       } else {
         NetworkManager.showToast(
           'Error',
-          'No se pudo aprobar ADRIAN',
+          'Could not approve ADRIAN',
           'error'
         );
       }

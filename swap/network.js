@@ -78,7 +78,7 @@ const NetworkManager = {
     
     if (swapBtn) {
       swapBtn.disabled = true;
-      swapBtn.querySelector('#swapBtnText').textContent = 'Red Incorrecta';
+      swapBtn.querySelector('#swapBtnText').textContent = 'Wrong Network';
     }
     if (approveBtn) approveBtn.disabled = true;
     if (fromAmount) fromAmount.disabled = true;
@@ -104,7 +104,7 @@ const NetworkManager = {
       });
 
       console.log('✅ Switched to Base Mainnet');
-      this.showToast('Red cambiada', 'Ahora estás en Base Mainnet', 'success');
+      this.showToast('Network Changed', 'You are now on Base Mainnet', 'success');
       return true;
 
     } catch (switchError) {
@@ -118,12 +118,12 @@ const NetworkManager = {
           });
 
           console.log('✅ Base Mainnet added and switched');
-          this.showToast('Red añadida', 'Base Mainnet ha sido añadida a tu wallet', 'success');
+          this.showToast('Network Added', 'Base Mainnet has been added to your wallet', 'success');
           return true;
 
         } catch (addError) {
           console.error('Error adding Base:', addError);
-          this.showToast('Error', 'No se pudo añadir Base Mainnet', 'error');
+          this.showToast('Error', 'Could not add Base Mainnet', 'error');
           return false;
         }
       }
@@ -131,12 +131,12 @@ const NetworkManager = {
       // User rejected the request
       if (switchError.code === 4001) {
         console.log('User rejected network switch');
-        this.showToast('Cancelado', 'Cambio de red cancelado', 'warning');
+        this.showToast('Cancelled', 'Network switch cancelled', 'warning');
         return false;
       }
 
       console.error('Error switching network:', switchError);
-      this.showToast('Error', 'No se pudo cambiar de red', 'error');
+      this.showToast('Error', 'Could not switch network', 'error');
       return false;
     }
   },
@@ -148,7 +148,7 @@ const NetworkManager = {
     if (!this.isCorrectNetwork) {
       const switched = await this.switchToBase();
       if (!switched) {
-        throw new Error('Por favor, cambia manualmente a Base Mainnet');
+        throw new Error('Please manually switch to Base Mainnet');
       }
       // Wait a bit for network to stabilize
       await new Promise(resolve => setTimeout(resolve, 1000));
