@@ -128,8 +128,10 @@ const GlobalTransactionsManager = {
 
       console.log(`🔍 Found ${significantTransfers.length} significant ADRIAN transfers`);
 
-      // Convert transfers to swaps format for display
-      const swaps = significantTransfers.map(t => this.transferToSwap(t));
+      // Convert transfers to swaps format for display (filter out nulls)
+      const swaps = significantTransfers
+        .map(t => this.transferToSwap(t))
+        .filter(swap => swap && swap.amount && swap.amount !== '0' && swap.amount !== null);
 
       // Limit to requested number
       this.swaps = swaps.slice(0, limit);
@@ -197,8 +199,9 @@ const GlobalTransactionsManager = {
         
         return `${whole}.${trimmed}`;
       } catch (error) {
-        console.error('Error formatting wei:', error, 'value:', wei);
-        return '0';
+        console.error('Error formatting wei:', error, 'value:', wei, 'type:', typeof wei);
+        // Return null instead of '0' so we can filter it out
+        return null;
       }
     };
 
@@ -347,7 +350,7 @@ const GlobalTransactionsManager = {
       return;
     }
 
-    // Build HTML
+    // Build HTML (filter out nulls from invalid amounts)
     list.innerHTML = this.swaps.map(swap => {
       const date = new Date(swap.timestamp).toLocaleString('en-US', {
         month: 'short',
@@ -358,9 +361,17 @@ const GlobalTransactionsManager = {
 
       // Format amount with proper thousands separator
       const amountNum = parseFloat(swap.amount);
-      const amountDisplay = amountNum > 1000 
-        ? amountNum.toLocaleString('en-US', { maximumFractionDigits: 0 })
-        : amountNum.toFixed(4);
+      
+      // If amount is 0 or invalid, skip this transaction
+      if (!amountNum || amountNum === 0 || isNaN(amountNum)) {
+        return null; // Skip invalid amounts
+      }
+      
+      const amountDisplay = amountNum >= 1000 
+        ? amountNum.toLocaleString('en-US', { maximumFractionDigits: 2 })
+        : amountNum >= 1
+        ? amountNum.toLocaleString('en-US', { maximumFractionDigits: 4 })
+        : amountNum.toFixed(6).replace(/\.?0+$/, '');
 
       // Short address
       const shortFrom = swap.fromAddress 
@@ -384,7 +395,7 @@ const GlobalTransactionsManager = {
           </div>
         </div>
       `;
-    }).join('');
+    }).filter(html => html !== null).join('');
   },
 
   // Show loading state
