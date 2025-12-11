@@ -3545,25 +3545,54 @@
     document.addEventListener('DOMContentLoaded', async () => {
       initSupabase();
       
+      // Load rules first (images and tags)
+      await loadRules();
+      
       if (supabaseClient) {
-        await Promise.all([
-          loadFloorEngineStats(),
-          loadTokenStats(),
-          loadAdrianLABCoreStats(),
-          loadTraitsCoreStats(),
-          loadTraitsExtensionsStats(),
-          loadAdrianShopStats()
-        ]);
+        // Only load stats if we're on the stats tab (don't reload when switching tabs)
+        const statsTab = document.getElementById('stats-tab');
+        const isStatsTabActive = statsTab && statsTab.classList.contains('active');
         
-        // Load raw activity when tab is shown
+        if (isStatsTabActive) {
+          await Promise.all([
+            loadFloorEngineStats(),
+            loadTokenStats(),
+            loadAdrianLABCoreStats(),
+            loadTraitsCoreStats(),
+            loadTraitsExtensionsStats(),
+            loadAdrianShopStats()
+          ]);
+        }
+        
+        // Load raw activity when tab is shown (only once, don't reload stats)
         const activityTab = document.getElementById('activity-tab');
-        activityTab.addEventListener('shown.bs.tab', () => {
-          if (document.getElementById('rawActivityList').children.length === 0 || 
-              document.getElementById('rawActivityList').querySelector('.loading-spinner')) {
-            loadRawActivity(true);
-            setupRawActivityScroll();
-          }
-        });
+        if (activityTab) {
+          activityTab.addEventListener('shown.bs.tab', () => {
+            if (document.getElementById('rawActivityList').children.length === 0 || 
+                document.getElementById('rawActivityList').querySelector('.loading-spinner')) {
+              loadRawActivity(true);
+              setupRawActivityScroll();
+            }
+          });
+        }
+        
+        // Prevent stats from reloading when switching tabs
+        const statsTabEl = document.getElementById('stats-tab');
+        if (statsTabEl) {
+          statsTabEl.addEventListener('shown.bs.tab', () => {
+            // Only load stats if charts don't exist yet
+            if (!feVolumeChart && !tokenVolumeChart) {
+              Promise.all([
+                loadFloorEngineStats(),
+                loadTokenStats(),
+                loadAdrianLABCoreStats(),
+                loadTraitsCoreStats(),
+                loadTraitsExtensionsStats(),
+                loadAdrianShopStats()
+              ]);
+            }
+          });
+        }
       } else {
         console.error('Supabase not initialized');
         document.body.innerHTML = '<div class="container mt-5"><div class="alert alert-danger">Error: Supabase credentials not configured</div></div>';
