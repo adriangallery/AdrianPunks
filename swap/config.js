@@ -103,6 +103,7 @@ const CONFIG = {
     slippage: 'adrian_swap_slippage',
     deadline: 'adrian_swap_deadline',
     expertMode: 'adrian_swap_expert_mode',
+    unlimitedApproval: 'adrian_swap_unlimited_approval',
     recentTxs: 'adrian_swap_recent_txs'
   },
 

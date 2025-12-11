@@ -293,20 +293,29 @@ const WalletManager = {
         this.signer
       );
 
-      // Si se proporciona un monto específico, usarlo; si no, aprobar el que esté en el input
-      let approvalAmount;
-      if (amount) {
-        approvalAmount = ethers.parseEther(amount.toString());
-      } else {
-        // Obtener del input actual
-        const fromAmount = document.getElementById('fromAmount');
-        if (!fromAmount || !fromAmount.value) {
-          throw new Error('No amount specified');
-        }
-        approvalAmount = ethers.parseEther(fromAmount.value);
-      }
+      // Check user preference for unlimited approvals
+      const unlimitedApproval = localStorage.getItem(CONFIG.STORAGE_KEYS.unlimitedApproval) === 'true';
       
-      console.log('🔓 Approving ADRIAN:', ethers.formatEther(approvalAmount));
+      let approvalAmount;
+      
+      if (unlimitedApproval) {
+        // Unlimited approval (MaxUint256)
+        approvalAmount = ethers.MaxUint256;
+        console.log('🔓 Approving ADRIAN: UNLIMITED (MaxUint256)');
+      } else {
+        // Specific amount approval
+        if (amount) {
+          approvalAmount = ethers.parseEther(amount.toString());
+        } else {
+          // Obtener del input actual
+          const fromAmount = document.getElementById('fromAmount');
+          if (!fromAmount || !fromAmount.value) {
+            throw new Error('No amount specified');
+          }
+          approvalAmount = ethers.parseEther(fromAmount.value);
+        }
+        console.log('🔓 Approving ADRIAN:', ethers.formatEther(approvalAmount), '(specific amount)');
+      }
       
       const tx = await adrianContract.approve(
         CONFIG.SWAPPER_ADDRESS,
@@ -323,9 +332,10 @@ const WalletManager = {
 
       console.log('✅ ADRIAN approved:', receipt.hash);
 
+      const approvalType = unlimitedApproval ? 'unlimited' : 'specific amount';
       NetworkManager.showToast(
         'Approved',
-        'ADRIAN approved for swap',
+        `ADRIAN approved for swap (${approvalType})`,
         'success'
       );
 

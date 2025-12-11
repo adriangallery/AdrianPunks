@@ -104,6 +104,28 @@ const App = {
       });
     }
 
+    // Unlimited Approval
+    const unlimitedApprovalCheck = document.getElementById('unlimitedApprovalCheck');
+    if (unlimitedApprovalCheck) {
+      unlimitedApprovalCheck.addEventListener('change', () => {
+        this.saveSettings();
+        
+        if (unlimitedApprovalCheck.checked) {
+          NetworkManager.showToast(
+            '⚠️ Unlimited Approvals Enabled',
+            'You will approve maximum amount. More convenient but less secure.',
+            'warning'
+          );
+        } else {
+          NetworkManager.showToast(
+            '✅ Specific Approvals Enabled',
+            'You will approve only the exact amount needed. More secure.',
+            'success'
+          );
+        }
+      });
+    }
+
     // Expert mode
     const expertModeCheck = document.getElementById('expertModeCheck');
     if (expertModeCheck) {
@@ -190,12 +212,14 @@ const App = {
       const slippage = document.getElementById('slippageInput')?.value || CONFIG.DEFAULT_SLIPPAGE;
       const deadline = document.getElementById('deadlineInput')?.value || CONFIG.DEFAULT_DEADLINE;
       const expertMode = document.getElementById('expertModeCheck')?.checked || false;
+      const unlimitedApproval = document.getElementById('unlimitedApprovalCheck')?.checked || false;
 
       localStorage.setItem(CONFIG.STORAGE_KEYS.slippage, slippage);
       localStorage.setItem(CONFIG.STORAGE_KEYS.deadline, deadline);
       localStorage.setItem(CONFIG.STORAGE_KEYS.expertMode, expertMode);
+      localStorage.setItem(CONFIG.STORAGE_KEYS.unlimitedApproval, unlimitedApproval);
 
-      console.log('💾 Settings saved:', { slippage, deadline, expertMode });
+      console.log('💾 Settings saved:', { slippage, deadline, expertMode, unlimitedApproval });
     } catch (error) {
       console.error('Error saving settings:', error);
     }
@@ -207,6 +231,7 @@ const App = {
       const slippage = localStorage.getItem(CONFIG.STORAGE_KEYS.slippage);
       const deadline = localStorage.getItem(CONFIG.STORAGE_KEYS.deadline);
       const expertMode = localStorage.getItem(CONFIG.STORAGE_KEYS.expertMode);
+      const unlimitedApproval = localStorage.getItem(CONFIG.STORAGE_KEYS.unlimitedApproval);
 
       if (slippage) {
         const slippageInput = document.getElementById('slippageInput');
@@ -228,6 +253,11 @@ const App = {
       if (expertMode !== null) {
         const expertModeCheck = document.getElementById('expertModeCheck');
         if (expertModeCheck) expertModeCheck.checked = expertMode === 'true';
+      }
+
+      if (unlimitedApproval !== null) {
+        const unlimitedApprovalCheck = document.getElementById('unlimitedApprovalCheck');
+        if (unlimitedApprovalCheck) unlimitedApprovalCheck.checked = unlimitedApproval === 'true';
       }
 
       console.log('📂 Settings loaded');
