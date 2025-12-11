@@ -64,6 +64,9 @@ const App = {
     // Initialize swap manager
     SwapManager.init();
 
+    // Initialize global transactions manager
+    await GlobalTransactionsManager.init();
+
     console.log('📦 All modules initialized');
   },
 

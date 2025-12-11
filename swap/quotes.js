@@ -199,7 +199,11 @@ const QuoteManager = {
         throw new Error('Invalid token pair');
       }
 
-      const amountOut = ethers.formatEther(estimatedOutput);
+      // Format amountOut with proper precision
+      // The contract returns amountOut AFTER tax (10% already applied by hook)
+      const amountOutRaw = ethers.formatEther(estimatedOutput);
+      // Remove unnecessary trailing zeros but keep precision
+      const amountOut = parseFloat(amountOutRaw).toString();
 
       // Store quote
       this.lastQuote = {
@@ -297,7 +301,11 @@ const QuoteManager = {
   updateQuoteDisplay(amountOut) {
     const toAmount = document.getElementById('toAmount');
     if (toAmount) {
-      toAmount.value = parseFloat(amountOut).toFixed(6);
+      // Format with appropriate precision (6 decimals for ADRIAN, 6 for ETH)
+      const amount = parseFloat(amountOut);
+      // Remove trailing zeros but keep up to 6 decimals
+      const formatted = amount.toFixed(6).replace(/\.?0+$/, '');
+      toAmount.value = formatted;
       // Update USD value for to amount
       this.updateToValueUSD(amountOut);
     }
@@ -340,7 +348,16 @@ const QuoteManager = {
     }
 
     // Calculate exchange rate
-    const rate = parseFloat(this.lastQuote.amountOut) / parseFloat(this.lastQuote.amountIn);
+    // Note: amountOut already includes 10% tax (applied by hook)
+    // So we need to calculate the rate using the amount BEFORE tax for accurate display
+    const amountOut = parseFloat(this.lastQuote.amountOut);
+    const amountIn = parseFloat(this.lastQuote.amountIn);
+    
+    // Calculate amount before tax: amountOut = amountBeforeTax * 0.9
+    // So: amountBeforeTax = amountOut / 0.9
+    const amountBeforeTax = amountOut / 0.9;
+    const rate = amountBeforeTax / amountIn;
+    
     if (exchangeRate) {
       if (this.lastQuote.fromSymbol === 'ETH') {
         exchangeRate.textContent = `1 ETH = ${rate.toFixed(2)} ADRIAN`;
@@ -350,8 +367,9 @@ const QuoteManager = {
     }
 
     // Calculate tax (10%)
+    // Tax = amountBeforeTax - amountOut = amountOut / 0.9 - amountOut
     if (taxAmount) {
-      const tax = parseFloat(this.lastQuote.amountOut) * 0.1;
+      const tax = amountBeforeTax - amountOut; // This equals amountOut / 0.9 * 0.1
       taxAmount.textContent = `~${tax.toFixed(6)} ${this.lastQuote.toSymbol}`;
     }
 
@@ -391,6 +409,7 @@ const QuoteManager = {
   calculateMinimumReceived() {
     const slippage = this.getSlippage();
     const amountOut = parseFloat(this.lastQuote.amountOut);
+    // amountOut already has tax applied, so we apply slippage directly
     const slippageBps = slippage * 100;
     const minReceived = amountOut * (1 - slippageBps / 10000);
     return minReceived;

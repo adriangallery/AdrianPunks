@@ -67,6 +67,16 @@ const CONFIG = {
     }
   },
 
+  // Tax recipient addresses array (for filtering)
+  TAX_RECIPIENT_ADDRESSES: [
+    '0x0351F7cBA83277E891D4a85Da498A7eACD764D58'.toLowerCase(), // FloorEngine
+    '0x83Aa2CE87E4D037FaA3EbC9b2df64c2a88e222d0'.toLowerCase(), // Treasury
+    '0xcEf912AB1934f8A0DC7A5F628E9704bdC17c6194'.toLowerCase()  // TaxReaper
+  ],
+
+  // ADRIAN token address (for database queries)
+  ADRIAN_ADDRESS: '0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea',
+
   // Swapper Contract (DEPLOYED on Base Mainnet)
   // Deployment tx: 0x2449866ccfc13cf863bea788e6437b55846ef5f4e4a2ef734dc3fc9d1e56b097
   // BaseScan: https://basescan.org/address/0xA4542337205a9C129C01352CD204567bB0E91878
