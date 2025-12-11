@@ -57,6 +57,22 @@ const QuoteManager = {
       return;
     }
 
+    // Validate minimum amounts before getting quote
+    const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
+    const amount = parseFloat(value);
+    
+    // Minimum amounts to avoid contract errors
+    const minAmounts = {
+      'ETH': 0.001,
+      'ADRIAN': 100
+    };
+    
+    if (amount < minAmounts[fromSymbol]) {
+      console.log(`Amount below minimum: ${amount} ${fromSymbol} < ${minAmounts[fromSymbol]} ${fromSymbol}`);
+      this.clearQuote();
+      return;
+    }
+
     // Get quote
     await this.getQuote(value);
   },
@@ -79,11 +95,14 @@ const QuoteManager = {
       this.isLoadingQuote = true;
       const amountInWei = ethers.parseEther(amountIn);
 
-      // Create swapper contract instance
+      // Use Alchemy read provider for quotes (faster and more reliable)
+      const readProvider = WalletManager.getReadProvider();
+      
+      // Create swapper contract instance with read provider
       const swapperContract = new ethers.Contract(
         CONFIG.SWAPPER_ADDRESS,
         SWAPPER_ABI,
-        WalletManager.provider
+        readProvider
       );
 
       let estimatedOutput;
@@ -412,19 +431,22 @@ const QuoteManager = {
 
     // If ETH, leave some for gas
     if (fromSymbol === 'ETH') {
-      const gasReserve = 0.001; // Reserve 0.001 ETH for gas
-      const availableBalance = Math.max(0, balance - gasReserve);
+      const gasReserve = 0.0015; // Reserve 0.0015 ETH for gas
+      const minSwapAmount = 0.001; // Minimum swap amount (pool requirement)
+      const minTotalRequired = minSwapAmount + gasReserve; // 0.0025 ETH total
       
-      if (availableBalance <= 0) {
+      if (balance < minTotalRequired) {
         NetworkManager.showToast(
           'Insufficient Balance',
-          `You need at least ${gasReserve} ETH for gas fees`,
+          `You need at least ${minTotalRequired} ETH total (${minSwapAmount} to swap + ${gasReserve} for gas). Current: ${balance.toFixed(4)} ETH`,
           'warning'
         );
         return;
       }
       
-      // Set the available balance (even if small)
+      const availableBalance = balance - gasReserve;
+      
+      // Set the available balance
       fromAmount.value = availableBalance.toFixed(6);
       this.handleAmountInput(fromAmount.value);
       

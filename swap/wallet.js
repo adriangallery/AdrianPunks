@@ -2,7 +2,8 @@
 // Handles wallet connection, balances, and user interactions
 
 const WalletManager = {
-  provider: null,
+  provider: null, // MetaMask provider (for transactions)
+  readProvider: null, // Alchemy provider (for read calls)
   signer: null,
   address: null,
   isConnected: false,
@@ -13,6 +14,16 @@ const WalletManager = {
 
   // Initialize wallet manager
   async init() {
+    // Create read-only provider with Alchemy (for quotes and reads)
+    try {
+      this.readProvider = new ethers.JsonRpcProvider(
+        CONFIG.BASE_MAINNET.rpcUrls[0] // Alchemy RPC
+      );
+      console.log('✅ Read provider initialized (Alchemy)');
+    } catch (error) {
+      console.error('Error creating read provider:', error);
+    }
+
     // Check if wallet is already connected
     if (window.ethereum) {
       try {
@@ -170,10 +181,12 @@ const WalletManager = {
 
   // Get ETH balance
   async getETHBalance() {
-    if (!this.provider || !this.address) return '0';
+    if (!this.address) return '0';
 
     try {
-      const balance = await this.provider.getBalance(this.address);
+      // Use read provider (Alchemy) for balance checks
+      const provider = this.getReadProvider();
+      const balance = await provider.getBalance(this.address);
       return ethers.formatEther(balance);
     } catch (error) {
       console.error('Error getting ETH balance:', error);
@@ -183,13 +196,16 @@ const WalletManager = {
 
   // Get ADRIAN balance
   async getAdrianBalance() {
-    if (!this.provider || !this.address) return '0';
+    if (!this.address) return '0';
 
     try {
+      // Use read provider (Alchemy) for balance checks
+      const provider = this.getReadProvider();
+      
       const adrianContract = new ethers.Contract(
         CONFIG.TOKENS.ADRIAN.address,
         ERC20_ABI,
-        this.provider
+        provider
       );
 
       const balance = await adrianContract.balanceOf(this.address);
@@ -248,7 +264,7 @@ const WalletManager = {
 
   // Check ADRIAN allowance for Swapper contract
   async checkAllowance() {
-    if (!this.provider || !this.address) return '0';
+    if (!this.address) return '0';
 
     // Only check if swapper is deployed
     if (CONFIG.SWAPPER_ADDRESS === '0x0000000000000000000000000000000000000000') {
@@ -256,10 +272,13 @@ const WalletManager = {
     }
 
     try {
+      // Use read provider (Alchemy) for checking allowance
+      const provider = this.getReadProvider();
+      
       const adrianContract = new ethers.Contract(
         CONFIG.TOKENS.ADRIAN.address,
         ERC20_ABI,
-        this.provider
+        provider
       );
 
       const allowance = await adrianContract.allowance(
@@ -368,6 +387,11 @@ const WalletManager = {
       throw new Error('Wallet not connected');
     }
     return this.signer;
+  },
+
+  // Get read provider (Alchemy for quotes)
+  getReadProvider() {
+    return this.readProvider || this.provider;
   },
 
   // Check if wallet is ready for transactions
