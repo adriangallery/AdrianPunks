@@ -87,7 +87,10 @@ const QuoteManager = {
 
       // Simulate swap based on direction
       if (fromSymbol === 'ETH' && toSymbol === 'ADRIAN') {
-        // Buy ADRIAN with ETH - esto funciona sin problemas
+        // Buy ADRIAN with ETH - no necesita approve
+        // Asegurarse que approve section esté oculta
+        this.hideApprovalSection();
+        
         estimatedOutput = await swapperContract.buyAdrian.staticCall(
           amountInWei,
           { value: amountInWei }
@@ -100,7 +103,7 @@ const QuoteManager = {
         
         if (allowanceWei < amountInWei) {
           // No hay allowance suficiente - mostrar mensaje pero calcular estimado
-          console.log('⚠️ Allowance insuficiente para quote exacto, usando estimación');
+          console.log('⚠️ Allowance insufficient for exact quote, using estimation');
           
           // Usar una estimación aproximada basada en el ratio del pool
           // Aproximadamente 1 ETH = 130,000 ADRIAN (ajustar según pool real)
@@ -112,6 +115,9 @@ const QuoteManager = {
           this.showApprovalNeeded();
         } else {
           // Hay allowance - podemos simular
+          // Ocultar approve section si ya está aprobado
+          this.hideApprovalSection();
+          
           estimatedOutput = await swapperContract.sellAdrian.staticCall(
             amountInWei
           );
@@ -142,8 +148,8 @@ const QuoteManager = {
       console.error('Error getting quote:', error);
       
       // Si es error de allowance y estamos vendiendo ADRIAN, mostrar mensaje especial
-      if (error.message.includes('allowance') && fromSymbol === 'ADRIAN') {
-        console.log('💡 Necesitas aprobar ADRIAN primero para vender');
+      if (error.message.includes('allowance') && fromSymbol === 'ADRIAN' && toSymbol === 'ETH') {
+        console.log('💡 You need to approve ADRIAN first to sell');
         this.showApprovalNeeded();
         
         // Intentar dar una estimación aproximada
@@ -178,7 +184,14 @@ const QuoteManager = {
         this.clearQuote();
         NetworkManager.showToast(
           'Error',
-          'Insufficient liquidity or invalid amount',
+          'Amount too small or insufficient liquidity. Try a larger amount.',
+          'error'
+        );
+      } else if (error.message.includes('transfer to zero address')) {
+        this.clearQuote();
+        NetworkManager.showToast(
+          'Error',
+          'Amount too small. Minimum 0.0001 ETH or 100 ADRIAN required.',
           'error'
         );
       } else {
@@ -284,6 +297,9 @@ const QuoteManager = {
     if (toAmount) toAmount.value = '';
     if (detailsSection) detailsSection.style.display = 'none';
     
+    // Also hide approve section when clearing
+    this.hideApprovalSection();
+    
     this.updateSwapButton();
   },
 
@@ -334,18 +350,11 @@ const QuoteManager = {
   swapDirection() {
     const fromSymbol = document.getElementById('fromTokenSymbol');
     const toSymbol = document.getElementById('toTokenSymbol');
-    const fromIcon = document.getElementById('fromTokenIcon');
-    const toIcon = document.getElementById('toTokenIcon');
 
     // Swap symbols
     const tempSymbol = fromSymbol.textContent;
     fromSymbol.textContent = toSymbol.textContent;
     toSymbol.textContent = tempSymbol;
-
-    // Swap icons
-    const tempIcon = fromIcon.src;
-    fromIcon.src = toIcon.src;
-    toIcon.src = tempIcon;
 
     // Clear amounts
     document.getElementById('fromAmount').value = '';
@@ -354,8 +363,9 @@ const QuoteManager = {
     // Update balances
     WalletManager.updateBalanceDisplay();
 
-    // Clear quote
+    // Clear quote and hide approve section
     this.clearQuote();
+    this.hideApprovalSection();
 
     console.log('🔄 Direction swapped:', fromSymbol.textContent, '→', toSymbol.textContent);
   },
@@ -367,13 +377,23 @@ const QuoteManager = {
 
     // If ETH, leave some for gas
     if (fromSymbol === 'ETH') {
-      balance = Math.max(0, balance - 0.001); // Reserve 0.001 ETH for gas
+      balance = Math.max(0, balance - 0.002); // Reserve 0.002 ETH for gas (más seguro)
     }
 
     const fromAmount = document.getElementById('fromAmount');
     if (fromAmount && balance > 0) {
-      fromAmount.value = balance.toFixed(6);
-      this.handleAmountInput(fromAmount.value);
+      // Limitar a un mínimo razonable para evitar errores
+      const minAmount = fromSymbol === 'ETH' ? 0.0001 : 1;
+      if (balance >= minAmount) {
+        fromAmount.value = balance.toFixed(6);
+        this.handleAmountInput(fromAmount.value);
+      } else {
+        NetworkManager.showToast(
+          'Insufficient Balance',
+          `Minimum ${minAmount} ${fromSymbol} required (plus gas for ETH)`,
+          'warning'
+        );
+      }
     }
   },
 
@@ -391,6 +411,14 @@ const QuoteManager = {
     const approveSection = document.getElementById('approveSection');
     if (approveSection) {
       approveSection.style.display = 'block';
+    }
+  },
+
+  // Hide approval section
+  hideApprovalSection() {
+    const approveSection = document.getElementById('approveSection');
+    if (approveSection) {
+      approveSection.style.display = 'none';
     }
   },
 
