@@ -61,15 +61,21 @@ const QuoteManager = {
     const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
     const amount = parseFloat(value);
     
-    // Minimum amounts to avoid contract errors (very small amounts can cause "transfer to zero address")
+    // Minimum amounts to avoid pool errors
+    // Pool rejects amounts < ~0.0005 ETH due to precision/rounding issues
     const minAmounts = {
-      'ETH': 0.0001,    // Reduced from 0.001 - Base gas is cheap
-      'ADRIAN': 1       // Reduced from 100 - more reasonable minimum
+      'ETH': 0.0005,    // Pool minimum (tested - smaller amounts cause "transfer to zero address")
+      'ADRIAN': 500     // Equivalent to ~0.0005 ETH at current ratio
     };
     
     if (amount < minAmounts[fromSymbol]) {
       console.log(`Amount below minimum: ${amount} ${fromSymbol} < ${minAmounts[fromSymbol]} ${fromSymbol}`);
       this.clearQuote();
+      NetworkManager.showToast(
+        'Amount Too Small',
+        `Minimum ${minAmounts[fromSymbol]} ${fromSymbol} required for swap.`,
+        'warning'
+      );
       return;
     }
 
@@ -205,6 +211,16 @@ const QuoteManager = {
         } catch (e) {
           this.clearQuote();
         }
+      } else if (error.message.includes('transfer to zero address') || 
+                 (error.message.includes('revert') && error.data && error.data.includes('0x08c379a0'))) {
+        // Pool rejects very small amounts - show helpful message
+        this.clearQuote();
+        const minRecommended = fromSymbol === 'ETH' ? '0.0005' : '500';
+        NetworkManager.showToast(
+          'Amount Too Small',
+          `This amount is too small for the pool. Try at least ${minRecommended} ${fromSymbol}.`,
+          'warning'
+        );
       } else if (error.message.includes('revert') || error.message.includes('insufficient')) {
         this.clearQuote();
         NetworkManager.showToast(
@@ -435,8 +451,8 @@ const QuoteManager = {
     // If ETH, leave some for gas
     if (fromSymbol === 'ETH') {
       const gasReserve = 0.0002; // Reserve 0.0002 ETH for gas (Base is cheap, ~$0.50-1.00)
-      const minSwapAmount = 0.0001; // Minimum swap amount (to avoid pool errors)
-      const minTotalRequired = minSwapAmount + gasReserve; // 0.0003 ETH total
+      const minSwapAmount = 0.0005; // Minimum swap amount (pool requirement - tested)
+      const minTotalRequired = minSwapAmount + gasReserve; // 0.0007 ETH total
       
       if (balance < minTotalRequired) {
         NetworkManager.showToast(
@@ -448,6 +464,16 @@ const QuoteManager = {
       }
       
       const availableBalance = balance - gasReserve;
+      
+      // Ensure we don't set amount below pool minimum
+      if (availableBalance < minSwapAmount) {
+        NetworkManager.showToast(
+          'Insufficient Balance',
+          `After gas reserve, you have ${availableBalance.toFixed(4)} ETH, but minimum swap is ${minSwapAmount} ETH.`,
+          'warning'
+        );
+        return;
+      }
       
       // Set the available balance
       fromAmount.value = availableBalance.toFixed(6);
