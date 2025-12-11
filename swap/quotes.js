@@ -203,13 +203,15 @@ const QuoteManager = {
       // The contract returns amountOut AFTER tax (10% already applied by hook)
       const amountOutRaw = ethers.formatEther(estimatedOutput);
       // Keep full precision - formatEther already returns a string with proper decimals
-      // Just remove trailing zeros for cleaner display
-      const amountOut = amountOutRaw.replace(/\.?0+$/, '');
+      // Don't remove trailing zeros yet - let updateQuoteDisplay handle formatting
+      const amountOut = amountOutRaw;
       
       console.log('💱 Quote amountOut:', {
         raw: amountOutRaw,
-        formatted: amountOut,
-        wei: estimatedOutput.toString()
+        wei: estimatedOutput.toString(),
+        weiHex: estimatedOutput.toString(16),
+        amountIn: amountIn,
+        amountInWei: amountInWei.toString()
       });
 
       // Store quote
@@ -309,11 +311,29 @@ const QuoteManager = {
     const toAmount = document.getElementById('toAmount');
     if (toAmount) {
       // Keep full precision from contract
-      // Format to show up to 6 decimal places, but don't truncate significant digits
-      const amount = parseFloat(amountOut);
-      // Use toFixed(6) to ensure we show enough precision, then remove trailing zeros
-      const formatted = amount.toFixed(6).replace(/\.?0+$/, '');
+      // Don't use parseFloat as it can lose precision for large numbers
+      // Instead, work with the string directly
+      let formatted = amountOut;
+      
+      // If it's a string with decimals, format it properly
+      if (typeof amountOut === 'string') {
+        // Remove trailing zeros but keep all significant digits
+        formatted = amountOut.replace(/\.?0+$/, '');
+      } else {
+        // If it's already a number, format with enough decimals
+        const num = parseFloat(amountOut);
+        // For ADRIAN, we might have large numbers, so use more precision
+        formatted = num.toFixed(6).replace(/\.?0+$/, '');
+      }
+      
       toAmount.value = formatted;
+      
+      console.log('📊 Displaying quote:', {
+        original: amountOut,
+        formatted: formatted,
+        type: typeof amountOut
+      });
+      
       // Update USD value for to amount
       this.updateToValueUSD(amountOut);
     }
