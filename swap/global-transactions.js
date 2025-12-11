@@ -14,14 +14,22 @@ const GlobalTransactionsManager = {
   // Initialize Supabase client
   async init() {
     try {
+      console.log('🔄 Initializing global transactions manager...');
+      
       // Check if Supabase is available (from activity/supabase-config.js)
       if (!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) {
         console.warn('⚠️ Supabase credentials not found. Global transactions will not be available.');
+        console.log('SUPABASE_URL:', window.SUPABASE_URL);
+        console.log('SUPABASE_ANON_KEY:', window.SUPABASE_ANON_KEY ? 'Found' : 'Missing');
         return;
       }
 
-      // Wait a bit for Supabase library to load
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait for Supabase library to load (with retries)
+      let retries = 10;
+      while (typeof supabase === 'undefined' && retries > 0) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        retries--;
+      }
 
       // Initialize Supabase client
       if (typeof supabase !== 'undefined' && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
@@ -30,18 +38,19 @@ const GlobalTransactionsManager = {
           window.SUPABASE_ANON_KEY
         );
         console.log('✅ Global transactions manager initialized');
+        console.log('📡 Supabase client created');
         
         // Load initial swaps
         await this.loadGlobalSwaps();
       } else {
         if (typeof supabase === 'undefined') {
-          console.warn('⚠️ Supabase library not loaded. Please include @supabase/supabase-js');
+          console.error('❌ Supabase library not loaded after retries. Please check @supabase/supabase-js script.');
         } else {
-          console.warn('⚠️ Supabase credentials not found. Global transactions will not be available.');
+          console.error('❌ Supabase credentials not found. Global transactions will not be available.');
         }
       }
     } catch (error) {
-      console.error('Error initializing global transactions manager:', error);
+      console.error('❌ Error initializing global transactions manager:', error);
     }
   },
 
@@ -66,6 +75,12 @@ const GlobalTransactionsManager = {
       const adrianAddress = CONFIG.ADRIAN_ADDRESS.toLowerCase();
       const taxRecipients = CONFIG.TAX_RECIPIENT_ADDRESSES;
 
+      console.log('🔍 Querying Supabase for swaps...', {
+        swapperAddress,
+        adrianAddress,
+        limit: limit * 10
+      });
+
       // Query transfers involving swapper contract
       // Get more results to account for filtering
       // Note: We query all transfers and filter in JavaScript for better control
@@ -77,6 +92,13 @@ const GlobalTransactionsManager = {
         .order('created_at', { ascending: false })
         .limit(limit * 10); // Get more to filter
 
+      if (error) {
+        console.error('❌ Supabase query error:', error);
+        throw error;
+      }
+
+      console.log(`📥 Received ${transfers?.length || 0} transfers from database`);
+
       // Filter to only transfers involving swapper contract
       const swapperTransfers = transfers ? transfers.filter(t => {
         const from = t.from_address.toLowerCase();
@@ -84,11 +106,10 @@ const GlobalTransactionsManager = {
         return from === swapperAddress || to === swapperAddress;
       }) : [];
 
-      if (error) {
-        throw error;
-      }
+      console.log(`🔍 Found ${swapperTransfers.length} transfers involving swapper contract`);
 
       if (!swapperTransfers || swapperTransfers.length === 0) {
+        console.log('ℹ️ No swaps found in database');
         this.swaps = [];
         this.updateUI();
         return;
@@ -234,7 +255,12 @@ const GlobalTransactionsManager = {
     const container = document.getElementById('globalTransactions');
     const list = document.getElementById('globalTransactionsList');
 
-    if (!container || !list) return;
+    if (!container || !list) {
+      console.warn('⚠️ Global transactions UI elements not found');
+      return;
+    }
+
+    console.log(`🔄 Updating UI with ${this.swaps.length} swaps`);
 
     if (this.swaps.length === 0) {
       container.style.display = 'none';
@@ -274,7 +300,12 @@ const GlobalTransactionsManager = {
 
   // Show loading state
   showLoading() {
+    const container = document.getElementById('globalTransactions');
     const loading = document.getElementById('globalTransactionsLoading');
+    
+    if (container) {
+      container.style.display = 'block';
+    }
     if (loading) {
       loading.style.display = 'block';
     }

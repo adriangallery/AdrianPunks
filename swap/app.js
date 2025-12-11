@@ -64,8 +64,17 @@ const App = {
     // Initialize swap manager
     SwapManager.init();
 
-    // Initialize global transactions manager
-    await GlobalTransactionsManager.init();
+    // Initialize global transactions manager (after other modules)
+    // This needs Supabase to be loaded, so we do it last
+    if (typeof GlobalTransactionsManager !== 'undefined') {
+      try {
+        await GlobalTransactionsManager.init();
+      } catch (error) {
+        console.warn('⚠️ Failed to initialize global transactions:', error);
+      }
+    } else {
+      console.warn('⚠️ GlobalTransactionsManager not found');
+    }
 
     console.log('📦 All modules initialized');
   },
