@@ -157,8 +157,23 @@ const GlobalTransactionsManager = {
     // Helper to format wei to ether (handles large numbers safely)
     const formatEther = (wei) => {
       try {
-        // Convert to string first to handle large numbers
-        const weiStr = String(wei || '0');
+        // Handle scientific notation and convert to string
+        let weiStr = String(wei || '0');
+        
+        // If it's in scientific notation (e.g., "1e+22"), convert to full number
+        if (weiStr.includes('e') || weiStr.includes('E')) {
+          // Convert scientific notation to full number string
+          const num = parseFloat(weiStr);
+          // Use toFixed with enough precision, then remove decimal point
+          weiStr = num.toFixed(0);
+        }
+        
+        // Ensure it's a valid integer string for BigInt
+        if (!/^\d+$/.test(weiStr)) {
+          console.warn('Invalid wei value:', wei, 'converted to:', weiStr);
+          return '0';
+        }
+        
         const weiBigInt = BigInt(weiStr);
         const divisor = BigInt('1000000000000000000'); // 10^18
         
