@@ -87,16 +87,35 @@ const QuoteManager = {
 
       // Simulate swap based on direction
       if (fromSymbol === 'ETH' && toSymbol === 'ADRIAN') {
-        // Buy ADRIAN with ETH
+        // Buy ADRIAN with ETH - esto funciona sin problemas
         estimatedOutput = await swapperContract.buyAdrian.staticCall(
           amountInWei,
           { value: amountInWei }
         );
       } else if (fromSymbol === 'ADRIAN' && toSymbol === 'ETH') {
         // Sell ADRIAN for ETH
-        estimatedOutput = await swapperContract.sellAdrian.staticCall(
-          amountInWei
-        );
+        // Para vender necesitamos primero verificar allowance
+        const allowance = await WalletManager.checkAllowance();
+        const allowanceWei = ethers.parseEther(allowance);
+        
+        if (allowanceWei < amountInWei) {
+          // No hay allowance suficiente - mostrar mensaje pero calcular estimado
+          console.log('⚠️ Allowance insuficiente para quote exacto, usando estimación');
+          
+          // Usar una estimación aproximada basada en el ratio del pool
+          // Aproximadamente 1 ETH = 130,000 ADRIAN (ajustar según pool real)
+          // Con 10% tax: output = (amountIn / 130000) * 0.9
+          const ratio = 130000n; // Ratio aproximado ETH:ADRIAN
+          estimatedOutput = (amountInWei * ethers.parseEther('1')) / (ratio * ethers.parseEther('1')) * 9n / 10n;
+          
+          // Mostrar que necesita aprobación
+          this.showApprovalNeeded();
+        } else {
+          // Hay allowance - podemos simular
+          estimatedOutput = await swapperContract.sellAdrian.staticCall(
+            amountInWei
+          );
+        }
       } else {
         throw new Error('Invalid token pair');
       }
@@ -121,15 +140,49 @@ const QuoteManager = {
 
     } catch (error) {
       console.error('Error getting quote:', error);
-      this.clearQuote();
       
-      // Check if it's a revert error
-      if (error.message.includes('revert') || error.message.includes('insufficient')) {
+      // Si es error de allowance y estamos vendiendo ADRIAN, mostrar mensaje especial
+      if (error.message.includes('allowance') && fromSymbol === 'ADRIAN') {
+        console.log('💡 Necesitas aprobar ADRIAN primero para vender');
+        this.showApprovalNeeded();
+        
+        // Intentar dar una estimación aproximada
+        try {
+          const amountInWei = ethers.parseEther(amountIn);
+          const ratio = 130000n;
+          const estimatedOutput = (amountInWei * ethers.parseEther('1')) / (ratio * ethers.parseEther('1')) * 9n / 10n;
+          const amountOut = ethers.formatEther(estimatedOutput);
+          
+          this.lastQuote = {
+            amountIn,
+            amountOut,
+            fromSymbol,
+            toSymbol,
+            timestamp: Date.now(),
+            isEstimate: true
+          };
+          
+          this.updateQuoteDisplay(amountOut);
+          this.updateTransactionDetails();
+          this.updateSwapButton();
+          
+          NetworkManager.showToast(
+            'Aprobación Requerida',
+            'Primero debes aprobar ADRIAN. Cotización aproximada mostrada.',
+            'warning'
+          );
+        } catch (e) {
+          this.clearQuote();
+        }
+      } else if (error.message.includes('revert') || error.message.includes('insufficient')) {
+        this.clearQuote();
         NetworkManager.showToast(
           'Error',
           'Liquidez insuficiente o cantidad inválida',
           'error'
         );
+      } else {
+        this.clearQuote();
       }
     } finally {
       this.isLoadingQuote = false;
@@ -331,6 +384,14 @@ const QuoteManager = {
       'El contrato Swapper aún no está desplegado. Por favor, despliégalo primero.',
       'warning'
     );
+  },
+
+  // Show approval needed message
+  showApprovalNeeded() {
+    const approveSection = document.getElementById('approveSection');
+    if (approveSection) {
+      approveSection.style.display = 'block';
+    }
   },
 
   // Start auto-updating price

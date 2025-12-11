@@ -11,7 +11,12 @@ const CONFIG = {
       symbol: 'ETH',
       decimals: 18
     },
-    rpcUrls: ['https://mainnet.base.org'],
+    // Usar Alchemy como RPC principal (más rápido y confiable)
+    // Formato: https://base-mainnet.g.alchemy.com/v2/YOUR-API-KEY
+    rpcUrls: [
+      'https://base-mainnet.g.alchemy.com/v2/GCEoq-nQ0_6rZZI8CuoTEfILyQN6fR2M', // Alchemy
+      'https://mainnet.base.org' // Fallback público
+    ],
     blockExplorerUrls: ['https://basescan.org']
   },
 
