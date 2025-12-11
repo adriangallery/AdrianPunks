@@ -11,11 +11,11 @@ const CONFIG = {
       symbol: 'ETH',
       decimals: 18
     },
-    // Usar Alchemy como RPC principal (más rápido y confiable)
-    // Formato: https://base-mainnet.g.alchemy.com/v2/YOUR-API-KEY
+    // RPC URLs for MetaMask network config (public RPC)
+    // Note: For reads, we use Alchemy via window.ALCHEMY_API_KEY from supabase-config.js
     rpcUrls: [
-      'https://base-mainnet.g.alchemy.com/v2/GCEoq-nQ0_6rZZI8CuoTEfILyQN6fR2M', // Alchemy
-      'https://mainnet.base.org' // Fallback público
+      'https://mainnet.base.org', // Base public RPC
+      'https://base.llamarpc.com' // Alternative public RPC
     ],
     blockExplorerUrls: ['https://basescan.org']
   },

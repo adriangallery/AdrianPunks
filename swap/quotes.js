@@ -97,6 +97,9 @@ const QuoteManager = {
 
       // Use Alchemy read provider for quotes (faster and more reliable)
       const readProvider = WalletManager.getReadProvider();
+      if (!readProvider) {
+        throw new Error('Provider not available');
+      }
       
       // Create swapper contract instance with read provider
       const swapperContract = new ethers.Contract(

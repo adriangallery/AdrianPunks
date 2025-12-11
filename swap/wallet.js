@@ -14,12 +14,16 @@ const WalletManager = {
 
   // Initialize wallet manager
   async init() {
-    // Create read-only provider with Alchemy (for quotes and reads)
+    // Create read-only provider with Alchemy (same as market/)
     try {
-      this.readProvider = new ethers.JsonRpcProvider(
-        CONFIG.BASE_MAINNET.rpcUrls[0] // Alchemy RPC
-      );
-      console.log('✅ Read provider initialized (Alchemy)');
+      const ALCHEMY_API_KEY = window.ALCHEMY_API_KEY;
+      if (ALCHEMY_API_KEY && ALCHEMY_API_KEY !== 'YOUR_ALCHEMY_API_KEY') {
+        const ALCHEMY_RPC_URL = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+        this.readProvider = new ethers.JsonRpcProvider(ALCHEMY_RPC_URL);
+        console.log('✅ Read provider initialized (Alchemy)');
+      } else {
+        console.warn('⚠️ Alchemy API key not configured. Will use MetaMask for reads.');
+      }
     } catch (error) {
       console.error('Error creating read provider:', error);
     }
@@ -184,8 +188,10 @@ const WalletManager = {
     if (!this.address) return '0';
 
     try {
-      // Use read provider (Alchemy) for balance checks
+      // Use read provider (Alchemy) for balance checks, fallback to MetaMask
       const provider = this.getReadProvider();
+      if (!provider) return '0';
+      
       const balance = await provider.getBalance(this.address);
       return ethers.formatEther(balance);
     } catch (error) {
@@ -199,8 +205,9 @@ const WalletManager = {
     if (!this.address) return '0';
 
     try {
-      // Use read provider (Alchemy) for balance checks
+      // Use read provider (Alchemy) for balance checks, fallback to MetaMask
       const provider = this.getReadProvider();
+      if (!provider) return '0';
       
       const adrianContract = new ethers.Contract(
         CONFIG.TOKENS.ADRIAN.address,
@@ -272,8 +279,9 @@ const WalletManager = {
     }
 
     try {
-      // Use read provider (Alchemy) for checking allowance
+      // Use read provider (Alchemy) for checking allowance, fallback to MetaMask
       const provider = this.getReadProvider();
+      if (!provider) return '0';
       
       const adrianContract = new ethers.Contract(
         CONFIG.TOKENS.ADRIAN.address,
@@ -389,7 +397,7 @@ const WalletManager = {
     return this.signer;
   },
 
-  // Get read provider (Alchemy for quotes)
+  // Get read provider (Alchemy for quotes, fallback to MetaMask)
   getReadProvider() {
     return this.readProvider || this.provider;
   },
