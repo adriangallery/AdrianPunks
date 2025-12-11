@@ -34,41 +34,48 @@ const PriceManager = {
     }
   },
 
-  // Calculate ADRIAN price based on pool ratio
+  // Calculate ADRIAN price based on real pool ratio from contract
   async getADRIANPrice() {
     try {
       // ADRIAN price is derived from ETH price and pool ratio
       const ethPrice = this.prices.ETH || await this.getETHPrice();
       
-      // Try to get real-time ratio from last quote if available
-      // This ratio already includes the 10% tax, so it's the actual exchange rate
-      let adrianPerEth = 144500; // Default ratio (1 ETH = 144,500 ADRIAN after tax)
+      // Try to get real-time ratio - no hardcoded fallbacks!
+      let adrianPerEth = null;
       
-      // If we have a recent quote, use that ratio for more accuracy
-      if (window.QuoteManager && window.QuoteManager.lastQuote) {
+      // Priority 1: Use cached ratio from QuoteManager (fetched from contract)
+      if (window.QuoteManager && window.QuoteManager.cachedRatio) {
+        adrianPerEth = parseFloat(ethers.formatEther(window.QuoteManager.cachedRatio));
+        console.log('📊 Using cached contract ratio:', adrianPerEth.toLocaleString(), 'ADRIAN per ETH');
+      }
+      // Priority 2: Calculate from last quote
+      else if (window.QuoteManager && window.QuoteManager.lastQuote) {
         const quote = window.QuoteManager.lastQuote;
         
         if (quote.fromSymbol === 'ADRIAN' && quote.toSymbol === 'ETH') {
-          // Quote: amountIn ADRIAN → amountOut ETH (after tax)
           const adrianAmount = parseFloat(quote.amountIn);
           const ethAmount = parseFloat(quote.amountOut);
           if (adrianAmount > 0 && ethAmount > 0) {
-            adrianPerEth = adrianAmount / ethAmount; // ADRIAN per ETH (after tax)
-            console.log('📊 Using real-time ratio from quote:', adrianPerEth.toFixed(0), 'ADRIAN per ETH');
+            adrianPerEth = adrianAmount / ethAmount;
+            console.log('📊 Using ratio from last quote:', adrianPerEth.toLocaleString(), 'ADRIAN per ETH');
           }
         } else if (quote.fromSymbol === 'ETH' && quote.toSymbol === 'ADRIAN') {
-          // Quote: amountIn ETH → amountOut ADRIAN (after tax)
           const ethAmount = parseFloat(quote.amountIn);
           const adrianAmount = parseFloat(quote.amountOut);
           if (adrianAmount > 0 && ethAmount > 0) {
-            adrianPerEth = adrianAmount / ethAmount; // ADRIAN per ETH (after tax)
-            console.log('📊 Using real-time ratio from quote:', adrianPerEth.toFixed(0), 'ADRIAN per ETH');
+            adrianPerEth = adrianAmount / ethAmount;
+            console.log('📊 Using ratio from last quote:', adrianPerEth.toLocaleString(), 'ADRIAN per ETH');
           }
         }
       }
       
+      // If no ratio available, return 0 (will update when first quote is made)
+      if (!adrianPerEth || adrianPerEth === 0) {
+        console.log('⏳ No pool ratio available yet - waiting for first quote');
+        return 0;
+      }
+      
       // Calculate price: 1 ADRIAN = ETH_PRICE / adrianPerEth
-      // This gives the actual price the user receives (after tax)
       const adrianPrice = ethPrice / adrianPerEth;
       
       return adrianPrice;

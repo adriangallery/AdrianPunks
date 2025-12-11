@@ -58,8 +58,8 @@ const App = {
     // Initialize price manager
     await PriceManager.init();
 
-    // Initialize quote manager
-    QuoteManager.init();
+    // Initialize quote manager (fetches real pool ratio from contract)
+    await QuoteManager.init();
 
     // Initialize swap manager
     SwapManager.init();

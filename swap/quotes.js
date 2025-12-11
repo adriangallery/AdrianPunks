@@ -5,10 +5,47 @@ const QuoteManager = {
   lastQuote: null,
   isLoadingQuote: false,
   priceUpdateInterval: null,
+  cachedRatio: null,      // Cached ratio from contract (ADRIAN per ETH in wei)
+  ratioTimestamp: null,   // When ratio was last fetched
 
   // Initialize quote manager
-  init() {
+  async init() {
     this.setupInputListeners();
+    // Fetch real ratio from contract on init
+    await this.fetchRatioFromContract();
+  },
+
+  // Fetch the real pool ratio from contract
+  async fetchRatioFromContract() {
+    try {
+      const { SWAPPER_ADDRESS, TOKENS, SWAPPER_ABI } = CONFIG;
+      const readProvider = WalletManager.readProvider || new ethers.JsonRpcProvider(CONFIG.NETWORK.rpcUrls[0]);
+      
+      const swapperContract = new ethers.Contract(
+        SWAPPER_ADDRESS,
+        SWAPPER_ABI,
+        readProvider
+      );
+
+      // Use a reference amount (0.01 ETH) to get accurate ratio
+      const referenceAmount = ethers.parseEther('0.01');
+      const referenceOutput = await swapperContract.buyAdrian.staticCall(
+        referenceAmount,
+        { value: referenceAmount }
+      );
+      
+      // Calculate ratio: referenceOutput / referenceAmount
+      // Result is in wei: (ADRIAN_wei * 10^18) / ETH_wei = ADRIAN per ETH * 10^18
+      this.cachedRatio = referenceOutput * 10n ** 18n / referenceAmount;
+      this.ratioTimestamp = Date.now();
+      
+      console.log('📊 Pool ratio initialized:', ethers.formatEther(this.cachedRatio).toLocaleString(), 'ADRIAN per ETH (after tax)');
+      
+      return this.cachedRatio;
+    } catch (error) {
+      console.error('⚠️ Could not fetch pool ratio:', error.message);
+      return null;
+    }
   },
 
   // Setup input event listeners
@@ -130,15 +167,41 @@ const QuoteManager = {
             { value: amountInWei }
           );
         } catch (staticCallError) {
-          // If staticCall fails (e.g., "transfer to zero address"), use estimation
+          // If staticCall fails for small amounts, get real ratio from contract
           if (staticCallError.message.includes('transfer to zero address') || 
               staticCallError.message.includes('revert')) {
-            console.log('⚠️ StaticCall failed, using pool ratio estimation');
+            console.log('⚠️ StaticCall failed for small amount, fetching real ratio from contract...');
             
-            // Estimate based on pool ratio: ~1 ETH = 130,000 ADRIAN
-            // With 10% tax: output = amountIn * 130000 * 0.9
-            const ratio = 130000n;
-            estimatedOutput = (amountInWei * ratio * 9n) / 10n;
+            // Get real ratio using a reference amount (0.01 ETH)
+            const referenceAmount = ethers.parseEther('0.01');
+            let realRatio;
+            
+            try {
+              const referenceOutput = await swapperContract.buyAdrian.staticCall(
+                referenceAmount,
+                { value: referenceAmount }
+              );
+              // Calculate ratio: referenceOutput / referenceAmount (both in wei)
+              // This gives us ADRIAN per ETH (already includes tax)
+              realRatio = referenceOutput * 10n ** 18n / referenceAmount;
+              console.log('📊 Real ratio from contract:', ethers.formatEther(realRatio), 'ADRIAN per ETH (after tax)');
+              
+              // Cache this ratio for future use
+              this.cachedRatio = realRatio;
+              this.ratioTimestamp = Date.now();
+            } catch (refError) {
+              // If reference also fails, use cached ratio if available
+              if (this.cachedRatio && (Date.now() - this.ratioTimestamp) < 60000) {
+                realRatio = this.cachedRatio;
+                console.log('📊 Using cached ratio:', ethers.formatEther(realRatio));
+              } else {
+                console.error('❌ Could not get ratio from contract:', refError.message);
+                throw new Error('Unable to get quote. Pool may be unavailable.');
+              }
+            }
+            
+            // Calculate estimate using real ratio
+            estimatedOutput = (amountInWei * realRatio) / (10n ** 18n);
             
             // Mark as estimate
             const estimatedAmountOut = ethers.formatEther(estimatedOutput);
@@ -152,15 +215,9 @@ const QuoteManager = {
             };
             
             this.updateQuoteDisplay(estimatedAmountOut);
-            this.updateToValueUSD(estimatedAmountOut); // Update USD for output
+            this.updateToValueUSD(estimatedAmountOut);
             this.updateTransactionDetails();
             this.updateSwapButton();
-            
-            NetworkManager.showToast(
-              'Estimated Quote',
-              'Exact quote unavailable. Showing estimate based on pool ratio.',
-              'info'
-            );
             
             return; // Exit early with estimate
           } else {
@@ -388,9 +445,11 @@ const QuoteManager = {
     
     if (exchangeRate) {
       if (this.lastQuote.fromSymbol === 'ETH') {
-        exchangeRate.textContent = `1 ETH = ${rate.toFixed(2)} ADRIAN`;
+        // Format large numbers with commas for readability
+        const formattedRate = rate.toLocaleString('en-US', { maximumFractionDigits: 0 });
+        exchangeRate.textContent = `1 ETH = ${formattedRate} ADRIAN`;
       } else {
-        exchangeRate.textContent = `1 ADRIAN = ${rate.toFixed(8)} ETH`;
+        exchangeRate.textContent = `1 ADRIAN = ${rate.toFixed(10)} ETH`;
       }
     }
 
@@ -398,7 +457,11 @@ const QuoteManager = {
     // Tax = amountBeforeTax - amountOut = amountOut / 0.9 - amountOut
     if (taxAmount) {
       const tax = amountBeforeTax - amountOut; // This equals amountOut / 0.9 * 0.1
-      taxAmount.textContent = `~${tax.toFixed(6)} ${this.lastQuote.toSymbol}`;
+      // Format based on token - ADRIAN can be large numbers, ETH is small
+      const formattedTax = this.lastQuote.toSymbol === 'ADRIAN' 
+        ? tax.toLocaleString('en-US', { maximumFractionDigits: 2 })
+        : tax.toFixed(8);
+      taxAmount.textContent = `~${formattedTax} ${this.lastQuote.toSymbol}`;
     }
 
     // Calculate price impact (simplified - in real scenario would compare to pool price)
@@ -416,7 +479,11 @@ const QuoteManager = {
     // Calculate minimum received with slippage
     if (minimumReceived) {
       const min = this.calculateMinimumReceived();
-      minimumReceived.textContent = `${min.toFixed(6)} ${this.lastQuote.toSymbol}`;
+      // Format based on token - ADRIAN can be large numbers, ETH is small
+      const formattedMin = this.lastQuote.toSymbol === 'ADRIAN'
+        ? min.toLocaleString('en-US', { maximumFractionDigits: 2 })
+        : min.toFixed(8);
+      minimumReceived.textContent = `${formattedMin} ${this.lastQuote.toSymbol}`;
     }
   },
 
