@@ -202,8 +202,15 @@ const QuoteManager = {
       // Format amountOut with proper precision
       // The contract returns amountOut AFTER tax (10% already applied by hook)
       const amountOutRaw = ethers.formatEther(estimatedOutput);
-      // Remove unnecessary trailing zeros but keep precision
-      const amountOut = parseFloat(amountOutRaw).toString();
+      // Keep full precision - formatEther already returns a string with proper decimals
+      // Just remove trailing zeros for cleaner display
+      const amountOut = amountOutRaw.replace(/\.?0+$/, '');
+      
+      console.log('💱 Quote amountOut:', {
+        raw: amountOutRaw,
+        formatted: amountOut,
+        wei: estimatedOutput.toString()
+      });
 
       // Store quote
       this.lastQuote = {
@@ -301,9 +308,10 @@ const QuoteManager = {
   updateQuoteDisplay(amountOut) {
     const toAmount = document.getElementById('toAmount');
     if (toAmount) {
-      // Format with appropriate precision (6 decimals for ADRIAN, 6 for ETH)
+      // Keep full precision from contract
+      // Format to show up to 6 decimal places, but don't truncate significant digits
       const amount = parseFloat(amountOut);
-      // Remove trailing zeros but keep up to 6 decimals
+      // Use toFixed(6) to ensure we show enough precision, then remove trailing zeros
       const formatted = amount.toFixed(6).replace(/\.?0+$/, '');
       toAmount.value = formatted;
       // Update USD value for to amount
