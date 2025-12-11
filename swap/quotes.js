@@ -61,22 +61,24 @@ const QuoteManager = {
     const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
     const amount = parseFloat(value);
     
+    // Check if amount is valid number
+    if (isNaN(amount) || amount <= 0) {
+      console.log(`Invalid amount: ${value} -> ${amount}`);
+      this.clearQuote();
+      return;
+    }
+    
     // Minimum amounts to avoid pool errors
-    // Pool rejects amounts < ~0.0005 ETH due to precision/rounding issues
+    // Pool rejects amounts < ~0.001 ETH due to precision/rounding issues
+    // Testing shows even 0.005 ETH can fail, so we'll use estimation for smaller amounts
     const minAmounts = {
-      'ETH': 0.0005,    // Pool minimum (tested - smaller amounts cause "transfer to zero address")
-      'ADRIAN': 500     // Equivalent to ~0.0005 ETH at current ratio
+      'ETH': 0.001,     // Recommended minimum for reliable quotes
+      'ADRIAN': 1000   // Equivalent to ~0.001 ETH at current ratio
     };
     
     if (amount < minAmounts[fromSymbol]) {
-      console.log(`Amount below minimum: ${amount} ${fromSymbol} < ${minAmounts[fromSymbol]} ${fromSymbol}`);
-      this.clearQuote();
-      NetworkManager.showToast(
-        'Amount Too Small',
-        `Minimum ${minAmounts[fromSymbol]} ${fromSymbol} required for swap.`,
-        'warning'
-      );
-      return;
+      console.log(`Amount below recommended minimum: ${amount} ${fromSymbol} < ${minAmounts[fromSymbol]} ${fromSymbol}`);
+      // Don't block, but will use estimation if staticCall fails
     }
 
     // Get quote
@@ -122,10 +124,50 @@ const QuoteManager = {
         // Asegurarse que approve section esté oculta
         this.hideApprovalSection();
         
-        estimatedOutput = await swapperContract.buyAdrian.staticCall(
-          amountInWei,
-          { value: amountInWei }
-        );
+        try {
+          estimatedOutput = await swapperContract.buyAdrian.staticCall(
+            amountInWei,
+            { value: amountInWei }
+          );
+        } catch (staticCallError) {
+          // If staticCall fails (e.g., "transfer to zero address"), use estimation
+          if (staticCallError.message.includes('transfer to zero address') || 
+              staticCallError.message.includes('revert')) {
+            console.log('⚠️ StaticCall failed, using pool ratio estimation');
+            
+            // Estimate based on pool ratio: ~1 ETH = 130,000 ADRIAN
+            // With 10% tax: output = amountIn * 130000 * 0.9
+            const ratio = 130000n;
+            estimatedOutput = (amountInWei * ratio * 9n) / 10n;
+            
+            // Mark as estimate
+            const estimatedAmountOut = ethers.formatEther(estimatedOutput);
+            this.lastQuote = {
+              amountIn,
+              amountOut: estimatedAmountOut,
+              fromSymbol,
+              toSymbol,
+              timestamp: Date.now(),
+              isEstimate: true
+            };
+            
+            this.updateQuoteDisplay(estimatedAmountOut);
+            this.updateToValueUSD(estimatedAmountOut); // Update USD for output
+            this.updateTransactionDetails();
+            this.updateSwapButton();
+            
+            NetworkManager.showToast(
+              'Estimated Quote',
+              'Exact quote unavailable. Showing estimate based on pool ratio.',
+              'info'
+            );
+            
+            return; // Exit early with estimate
+          } else {
+            // Re-throw if it's a different error
+            throw staticCallError;
+          }
+        }
       } else if (fromSymbol === 'ADRIAN' && toSymbol === 'ETH') {
         // Sell ADRIAN for ETH
         // Para vender necesitamos primero verificar allowance
@@ -451,29 +493,34 @@ const QuoteManager = {
     // If ETH, leave some for gas
     if (fromSymbol === 'ETH') {
       const gasReserve = 0.0002; // Reserve 0.0002 ETH for gas (Base is cheap, ~$0.50-1.00)
-      const minSwapAmount = 0.0005; // Minimum swap amount (pool requirement - tested)
-      const minTotalRequired = minSwapAmount + gasReserve; // 0.0007 ETH total
+      const recommendedMin = 0.001; // Recommended minimum for reliable quotes
+      const minTotalRequired = recommendedMin + gasReserve; // 0.0012 ETH total
       
       if (balance < minTotalRequired) {
+        // Still allow swap if balance > gas reserve, but warn about estimation
+        if (balance < gasReserve + 0.0001) {
+          NetworkManager.showToast(
+            'Insufficient Balance',
+            `You need at least ${(gasReserve + 0.0001).toFixed(4)} ETH for gas and minimum swap. Current: ${balance.toFixed(4)} ETH`,
+            'warning'
+          );
+          return;
+        }
+        
+        // Allow smaller amounts but warn about estimation
+        const availableBalance = balance - gasReserve;
+        fromAmount.value = availableBalance.toFixed(6);
+        this.handleAmountInput(fromAmount.value);
+        
         NetworkManager.showToast(
-          'Insufficient Balance',
-          `You need at least ${minTotalRequired} ETH total (${minSwapAmount} to swap + ${gasReserve} for gas). Current: ${balance.toFixed(4)} ETH`,
-          'warning'
+          'Note',
+          'Amount below recommended minimum. Quote will be estimated if exact calculation fails.',
+          'info'
         );
         return;
       }
       
       const availableBalance = balance - gasReserve;
-      
-      // Ensure we don't set amount below pool minimum
-      if (availableBalance < minSwapAmount) {
-        NetworkManager.showToast(
-          'Insufficient Balance',
-          `After gas reserve, you have ${availableBalance.toFixed(4)} ETH, but minimum swap is ${minSwapAmount} ETH.`,
-          'warning'
-        );
-        return;
-      }
       
       // Set the available balance
       fromAmount.value = availableBalance.toFixed(6);
