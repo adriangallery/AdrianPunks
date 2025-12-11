@@ -215,6 +215,14 @@ const QuoteManager = {
       this.updateTransactionDetails();
       this.updateSwapButton();
 
+      // Update ADRIAN price based on real quote ratio
+      if (window.PriceManager && this.lastQuote) {
+        window.PriceManager.getADRIANPrice().then(newPrice => {
+          window.PriceManager.prices.ADRIAN = newPrice;
+          window.PriceManager.updateValueDisplays();
+        });
+      }
+
       console.log('💱 Quote:', this.lastQuote);
 
     } catch (error) {
