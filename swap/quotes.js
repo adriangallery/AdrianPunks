@@ -49,6 +49,9 @@ const QuoteManager = {
       return;
     }
 
+    // Update USD value for from amount
+    this.updateFromValueUSD(value);
+
     // Check if wallet is ready
     if (!WalletManager.isReady()) {
       return;
@@ -207,6 +210,30 @@ const QuoteManager = {
     const toAmount = document.getElementById('toAmount');
     if (toAmount) {
       toAmount.value = parseFloat(amountOut).toFixed(6);
+      // Update USD value for to amount
+      this.updateToValueUSD(amountOut);
+    }
+  },
+
+  // Update from value in USD
+  updateFromValueUSD(amount) {
+    const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
+    const fromValueUSD = document.getElementById('fromValueUSD');
+    
+    if (fromValueUSD && window.PriceManager) {
+      const value = PriceManager.calculateUSDValue(amount, fromSymbol);
+      fromValueUSD.textContent = value.toFixed(2);
+    }
+  },
+
+  // Update to value in USD
+  updateToValueUSD(amount) {
+    const toSymbol = document.getElementById('toTokenSymbol').textContent;
+    const toValueUSD = document.getElementById('toValueUSD');
+    
+    if (toValueUSD && window.PriceManager) {
+      const value = PriceManager.calculateUSDValue(amount, toSymbol);
+      toValueUSD.textContent = value.toFixed(2);
     }
   },
 
@@ -293,9 +320,13 @@ const QuoteManager = {
     
     const toAmount = document.getElementById('toAmount');
     const detailsSection = document.getElementById('transactionDetails');
+    const fromValueUSD = document.getElementById('fromValueUSD');
+    const toValueUSD = document.getElementById('toValueUSD');
     
     if (toAmount) toAmount.value = '';
     if (detailsSection) detailsSection.style.display = 'none';
+    if (fromValueUSD) fromValueUSD.textContent = '0.00';
+    if (toValueUSD) toValueUSD.textContent = '0.00';
     
     // Also hide approve section when clearing
     this.hideApprovalSection();
@@ -374,23 +405,38 @@ const QuoteManager = {
   setMaxAmount() {
     const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
     let balance = parseFloat(WalletManager.getBalance(fromSymbol));
+    
+    const fromAmount = document.getElementById('fromAmount');
+    
+    if (!fromAmount) return;
 
     // If ETH, leave some for gas
     if (fromSymbol === 'ETH') {
-      balance = Math.max(0, balance - 0.002); // Reserve 0.002 ETH for gas (más seguro)
-    }
-
-    const fromAmount = document.getElementById('fromAmount');
-    if (fromAmount && balance > 0) {
-      // Limitar a un mínimo razonable para evitar errores
-      const minAmount = fromSymbol === 'ETH' ? 0.0001 : 1;
-      if (balance >= minAmount) {
+      const gasReserve = 0.001; // Reserve 0.001 ETH for gas
+      const availableBalance = Math.max(0, balance - gasReserve);
+      
+      if (availableBalance <= 0) {
+        NetworkManager.showToast(
+          'Insufficient Balance',
+          `You need at least ${gasReserve} ETH for gas fees`,
+          'warning'
+        );
+        return;
+      }
+      
+      // Set the available balance (even if small)
+      fromAmount.value = availableBalance.toFixed(6);
+      this.handleAmountInput(fromAmount.value);
+      
+    } else {
+      // For ADRIAN, use full balance
+      if (balance > 0) {
         fromAmount.value = balance.toFixed(6);
         this.handleAmountInput(fromAmount.value);
       } else {
         NetworkManager.showToast(
-          'Insufficient Balance',
-          `Minimum ${minAmount} ${fromSymbol} required (plus gas for ETH)`,
+          'No Balance',
+          `You don't have any ${fromSymbol}`,
           'warning'
         );
       }

@@ -55,6 +55,9 @@ const App = {
     // Initialize wallet manager
     await WalletManager.init();
 
+    // Initialize price manager
+    await PriceManager.init();
+
     // Initialize quote manager
     QuoteManager.init();
 
