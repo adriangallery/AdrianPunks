@@ -120,6 +120,13 @@ const FloorEngineHoldings = {
         return;
       }
 
+      // Ensure panel is expanded (show content)
+      const collapseElement = holdingsPanel.closest('.collapse');
+      if (collapseElement && !collapseElement.classList.contains('show')) {
+        console.log('📂 Expanding holdings panel');
+        collapseElement.classList.add('show');
+      }
+
       // Update hero card with balance and NFTs
       const ethHoldingEl = document.getElementById('floorEngineEthHolding');
       if (ethHoldingEl) {
@@ -144,11 +151,17 @@ const FloorEngineHoldings = {
       const addressEl = document.getElementById('floorEngineAddress');
       if (addressEl) {
         addressEl.textContent = `${this.FLOOR_ENGINE_ADDRESS.substring(0, 6)}...${this.FLOOR_ENGINE_ADDRESS.substring(38)}`;
+        console.log('✅ Updated floorEngineAddress');
+      } else {
+        console.warn('⚠️ floorEngineAddress element not found');
       }
       
       const holdingCountEl = document.getElementById('floorEngineHoldingCount');
       if (holdingCountEl) {
         holdingCountEl.textContent = engineListings.length;
+        console.log('✅ Updated floorEngineHoldingCount:', engineListings.length);
+      } else {
+        console.warn('⚠️ floorEngineHoldingCount element not found');
       }
       
       // Sold count should be updated by FloorEngineHeader, but we can also update it here if needed
