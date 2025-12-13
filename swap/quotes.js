@@ -429,7 +429,9 @@ const QuoteManager = {
     
     if (toValueUSD && window.PriceManager) {
       const value = PriceManager.calculateUSDValue(amount, toSymbol);
-      toValueUSD.textContent = value.toFixed(2);
+      if (toValueUSD) {
+        toValueUSD.textContent = value.toFixed(2);
+      }
     }
   },
 

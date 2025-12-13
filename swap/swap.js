@@ -216,8 +216,10 @@ const SwapManager = {
     });
 
     // Clear form
-    document.getElementById('fromAmount').value = '';
-    document.getElementById('toAmount').value = '';
+    const fromAmount = document.getElementById('fromAmount');
+    const toAmount = document.getElementById('toAmount');
+    if (fromAmount) fromAmount.value = '';
+    if (toAmount) toAmount.value = '';
     QuoteManager.clearQuote();
 
     // Update balances
@@ -263,7 +265,7 @@ const SwapManager = {
       loadingState.style.display = show ? 'flex' : 'none';
     }
 
-    if (loadingText) {
+    if (loadingText && message) {
       loadingText.textContent = message;
     }
 
