@@ -256,20 +256,15 @@ const TestSwapWidget = {
         return;
       }
 
-      // Get quote
-      const fromSymbol = this.swapDirection === 'buy' ? 'ETH' : 'ADRIAN';
-      const toSymbol = this.swapDirection === 'buy' ? 'ADRIAN' : 'ETH';
-
-      // Convert amount to wei using ethers6
-      const ethers6 = window.ethers6 || window.ethers;
-      const amountInWei = ethers6.parseEther(amount);
-
-      // Get quote from QuoteManager (temporarily use ethers6)
+      // Get quote - QuoteManager.getQuote expects a string (decimal amount), not BigInt
+      // It will convert to wei internally using ethers.parseEther()
       const originalEthers = window.ethers;
+      const ethers6 = window.ethers6 || window.ethers;
       window.ethers = ethers6;
       
       try {
-        const quote = await QuoteManager.getQuote(amountInWei, fromSymbol, toSymbol);
+        // Pass the string amount, not the BigInt
+        const quote = await QuoteManager.getQuote(amount);
         
         if (quote && quote.amountOut) {
           // Format output amount
