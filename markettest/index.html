@@ -3728,6 +3728,13 @@
 
     // Función para actualizar la barra pixelada
     function updatePixelBar(currentBalance, cheapestListing) {
+      // Use module if available
+      if (typeof FloorEngineHoldings !== 'undefined' && FloorEngineHoldings.isInitialized) {
+        FloorEngineHoldings.updateProgressBar(currentBalance, cheapestListing);
+        return;
+      }
+      
+      // Fallback implementation
       const pixelBarContainer = document.getElementById('floorEnginePixelBar');
       const balanceText = document.getElementById('pixelBarBalance');
       const targetText = document.getElementById('pixelBarTarget');
@@ -3736,7 +3743,8 @@
       if (!pixelBarContainer) return;
 
       if (cheapestListing) {
-        const targetPrice = parseFloat(ethers.utils.formatUnits(cheapestListing.price, 18));
+        const ethers5 = window.ethers5Backup || window.ethers;
+        const targetPrice = parseFloat(ethers5.utils.formatUnits(cheapestListing.price.toString(), 18));
         const percentage = Math.min(100, (currentBalance / targetPrice) * 100);
         
         // Actualizar textos
