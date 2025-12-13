@@ -79,6 +79,15 @@ const TestSwapWidget = {
       window.addEventListener('walletConnected', () => this.onWalletConnected());
       window.addEventListener('walletDisconnected', () => this.onWalletDisconnected());
 
+      // Escuchar eventos del market
+      window.addEventListener('marketWalletConnected', () => {
+        this.syncButtonState();
+      });
+
+      window.addEventListener('marketWalletDisconnected', () => {
+        this.syncButtonState();
+      });
+
       // Check market wallet connection periodically
       this.checkMarketWalletConnection();
 
