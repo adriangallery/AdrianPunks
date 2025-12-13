@@ -111,7 +111,13 @@ const FloorEngineHoldings = {
               </div>
             </div>
           `;
+          console.log('✅ Holdings HTML inserted');
+        } else {
+          console.log('ℹ️ Holdings HTML already exists, skipping insertion');
         }
+      } else {
+        console.error('❌ floorEngineHoldingsPanel or panel-body not found');
+        return;
       }
 
       // Update hero card with balance and NFTs
@@ -121,12 +127,32 @@ const FloorEngineHoldings = {
           minimumFractionDigits: 1,
           maximumFractionDigits: 1
         });
+        console.log('✅ Updated floorEngineEthHolding:', ethHoldingEl.textContent);
+      } else {
+        console.warn('⚠️ floorEngineEthHolding element not found');
       }
 
       const nftHoldingEl = document.getElementById('floorEngineNftHolding');
       if (nftHoldingEl) {
         nftHoldingEl.textContent = `+ ${engineListings.length} NFTs`;
+        console.log('✅ Updated floorEngineNftHolding:', nftHoldingEl.textContent);
+      } else {
+        console.warn('⚠️ floorEngineNftHolding element not found');
       }
+      
+      // Update address and counts (moved from header)
+      const addressEl = document.getElementById('floorEngineAddress');
+      if (addressEl) {
+        addressEl.textContent = `${this.FLOOR_ENGINE_ADDRESS.substring(0, 6)}...${this.FLOOR_ENGINE_ADDRESS.substring(38)}`;
+      }
+      
+      const holdingCountEl = document.getElementById('floorEngineHoldingCount');
+      if (holdingCountEl) {
+        holdingCountEl.textContent = engineListings.length;
+      }
+      
+      // Sold count should be updated by FloorEngineHeader, but we can also update it here if needed
+      // It's already being updated in FloorEngineHeader.update()
 
       // Update cheapest listing card
       if (cheapestUserListing) {
