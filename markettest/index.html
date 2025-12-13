@@ -3866,19 +3866,25 @@
         // Asegurar que readProvider y contratos estén inicializados
         if (!readProvider) {
           console.log('⚠️ ReadProvider no inicializado en updateSweepFloorInfo, inicializando...');
-          const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
-          readProvider = new ethers.providers.JsonRpcProvider(rpcUrl, {
-            name: "base",
-            chainId: 8453
-          });
-        }
-        
-        if (!floorEngineReadContract) {
-          floorEngineReadContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
-        }
-        
-        if (!multicallReadContract) {
-          multicallReadContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+          // Use ethers v5 (market uses v5)
+          const ethers5 = window.ethers5Backup || window.ethers;
+          if (ethers5 && ethers5.providers && ethers5.providers.JsonRpcProvider) {
+            const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
+            readProvider = new ethers5.providers.JsonRpcProvider(rpcUrl, {
+              name: "base",
+              chainId: 8453
+            });
+            
+            if (ethers5.Contract) {
+              if (!floorEngineReadContract) {
+                floorEngineReadContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
+              }
+              
+              if (!multicallReadContract) {
+                multicallReadContract = new ethers5.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+              }
+            }
+          }
         }
         
         // OPTIMIZACIÓN: Verificar caché primero
