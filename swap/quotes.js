@@ -404,6 +404,9 @@ const QuoteManager = {
             'You must approve ADRIAN first. Approximate quote shown.',
             'warning'
           );
+          
+          // Return the estimate quote
+          return this.lastQuote;
         } catch (e) {
           this.clearQuote();
         }
