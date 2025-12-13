@@ -1,0 +1,595 @@
+// Test Swap Widget Module for markettest
+// Reuses swap modules to provide simplified swap functionality
+// Uses 'test' prefix for all IDs to avoid conflicts
+
+const TestSwapWidget = {
+  isInitialized: false,
+  swapDirection: 'buy', // 'buy' = ETH→ADRIAN, 'sell' = ADRIAN→ETH
+  priceUpdateInterval: null,
+
+  // Initialize the widget
+  async init() {
+    if (this.isInitialized) {
+      console.warn('TestSwapWidget already initialized');
+      return;
+    }
+
+    console.log('🔄 Initializing Test Swap Widget...');
+
+    try {
+      // Wait for swap modules to be available
+      if (typeof CONFIG === 'undefined' || typeof NetworkManager === 'undefined') {
+        console.warn('⚠️ Swap modules not loaded yet, retrying...');
+        setTimeout(() => this.init(), 1000);
+        return;
+      }
+
+      // Initialize swap modules if not already initialized
+      if (!NetworkManager.isInitialized) {
+        await NetworkManager.init();
+      }
+
+      if (!WalletManager.isInitialized) {
+        await WalletManager.init();
+      }
+
+      if (!PriceManager.isInitialized) {
+        await PriceManager.init();
+      }
+
+      if (!QuoteManager.isInitialized) {
+        await QuoteManager.init();
+      }
+
+      if (!SwapManager.isInitialized) {
+        SwapManager.init();
+      }
+
+      // Setup event listeners
+      this.setupEventListeners();
+
+      // Check if wallet is already connected (from market menu)
+      if (window.ethereum) {
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          if (accounts.length > 0 && !WalletManager.isConnected) {
+            // Wallet is connected but WalletManager doesn't know - connect silently
+            await WalletManager.connect(false);
+          }
+        } catch (error) {
+          console.warn('Error checking wallet connection:', error);
+        }
+      }
+
+      // Update widget when wallet is connected
+      if (WalletManager.isConnected) {
+        this.onWalletConnected();
+      }
+
+      // Listen for wallet connection changes
+      window.addEventListener('walletConnected', () => this.onWalletConnected());
+      window.addEventListener('walletDisconnected', () => this.onWalletDisconnected());
+
+      this.isInitialized = true;
+      console.log('✅ Test Swap Widget initialized');
+
+    } catch (error) {
+      console.error('❌ Error initializing Test Swap Widget:', error);
+    }
+  },
+
+  // Setup event listeners for widget elements
+  setupEventListeners() {
+    // From amount input
+    const fromAmountInput = document.getElementById('testFromAmount');
+    if (fromAmountInput) {
+      fromAmountInput.addEventListener('input', () => this.handleAmountInput());
+      fromAmountInput.addEventListener('blur', () => this.handleAmountInput());
+    }
+
+    // MAX button
+    const maxBtn = document.getElementById('testMaxBtn');
+    if (maxBtn) {
+      maxBtn.addEventListener('click', () => this.handleMaxClick());
+    }
+
+    // Swap direction button
+    const swapDirectionBtn = document.getElementById('testSwapDirectionBtn');
+    if (swapDirectionBtn) {
+      swapDirectionBtn.addEventListener('click', () => this.toggleSwapDirection());
+    }
+
+    // Swap/Approve button
+    const swapBtn = document.getElementById('testSwapBtn');
+    if (swapBtn) {
+      swapBtn.addEventListener('click', () => this.handleSwap());
+    }
+
+    const approveBtn = document.getElementById('testApproveBtn');
+    if (approveBtn) {
+      approveBtn.addEventListener('click', () => this.handleApprove());
+    }
+
+    // Connect wallet button text click
+    if (swapBtn && !WalletManager.isConnected) {
+      swapBtn.addEventListener('click', () => {
+        if (swapBtn.textContent.includes('Connect')) {
+          // Use market's wallet connection if available
+          if (typeof window.connectMetaMaskWallet === 'function') {
+            window.connectMetaMaskWallet();
+          } else {
+            WalletManager.connectWallet();
+          }
+        }
+      });
+    }
+  },
+
+  // Handle wallet connected
+  onWalletConnected() {
+    this.updateBalances();
+    this.updateSwapButton();
+    this.startPriceUpdates();
+  },
+
+  // Handle wallet disconnected
+  onWalletDisconnected() {
+    this.updateBalances();
+    this.updateSwapButton();
+    this.stopPriceUpdates();
+    this.clearAmounts();
+  },
+
+  // Update balances display
+  async updateBalances() {
+    if (!WalletManager.isConnected) {
+      const fromBalanceEl = document.getElementById('testFromBalance');
+      const toBalanceEl = document.getElementById('testToBalance');
+      if (fromBalanceEl) fromBalanceEl.textContent = '0.0000';
+      if (toBalanceEl) toBalanceEl.textContent = '0.0000';
+      return;
+    }
+
+    try {
+      await WalletManager.updateBalances();
+      const balances = WalletManager.balances;
+
+      if (this.swapDirection === 'buy') {
+        // ETH → ADRIAN
+        const fromBalanceEl = document.getElementById('testFromBalance');
+        const toBalanceEl = document.getElementById('testToBalance');
+        if (fromBalanceEl) fromBalanceEl.textContent = parseFloat(balances.ETH || '0').toFixed(4);
+        if (toBalanceEl) toBalanceEl.textContent = parseFloat(balances.ADRIAN || '0').toFixed(4);
+      } else {
+        // ADRIAN → ETH
+        const fromBalanceEl = document.getElementById('testFromBalance');
+        const toBalanceEl = document.getElementById('testToBalance');
+        if (fromBalanceEl) fromBalanceEl.textContent = parseFloat(balances.ADRIAN || '0').toFixed(4);
+        if (toBalanceEl) toBalanceEl.textContent = parseFloat(balances.ETH || '0').toFixed(4);
+      }
+    } catch (error) {
+      console.error('Error updating balances:', error);
+    }
+  },
+
+  // Handle amount input
+  async handleAmountInput() {
+    const fromAmountInput = document.getElementById('testFromAmount');
+    const toAmountInput = document.getElementById('testToAmount');
+    
+    if (!fromAmountInput || !toAmountInput) return;
+
+    const amount = fromAmountInput.value.trim();
+    
+    if (!amount || amount === '0' || amount === '0.0' || amount === '0.00') {
+      toAmountInput.value = '';
+      this.updateUSDValues(0, 0);
+      this.updateSwapButton();
+      return;
+    }
+
+    if (!WalletManager.isConnected) {
+      this.updateSwapButton();
+      return;
+    }
+
+    try {
+      const amountNum = parseFloat(amount);
+      if (isNaN(amountNum) || amountNum <= 0) {
+        toAmountInput.value = '';
+        this.updateSwapButton();
+        return;
+      }
+
+      // Get quote
+      const fromSymbol = this.swapDirection === 'buy' ? 'ETH' : 'ADRIAN';
+      const toSymbol = this.swapDirection === 'buy' ? 'ADRIAN' : 'ETH';
+
+      // Convert amount to wei using ethers6
+      const ethers6 = window.ethers6 || window.ethers;
+      const amountInWei = ethers6.parseEther(amount);
+
+      // Get quote from QuoteManager (temporarily use ethers6)
+      const originalEthers = window.ethers;
+      window.ethers = ethers6;
+      
+      try {
+        const quote = await QuoteManager.getQuote(amountInWei, fromSymbol, toSymbol);
+        
+        if (quote && quote.amountOut) {
+          // Format output amount
+          const amountOutNum = parseFloat(quote.amountOut);
+          let formatted;
+          if (amountOutNum >= 1000) {
+            formatted = amountOutNum.toLocaleString('en-US', { maximumFractionDigits: 2 });
+          } else if (amountOutNum >= 1) {
+            formatted = amountOutNum.toLocaleString('en-US', { maximumFractionDigits: 4 });
+          } else {
+            formatted = amountOutNum.toFixed(6).replace(/\.?0+$/, '');
+          }
+          
+          toAmountInput.value = formatted;
+          
+          // Update USD values
+          const fromValueUSD = await this.calculateUSDValue(amountNum, fromSymbol);
+          const toValueUSD = await this.calculateUSDValue(amountOutNum, toSymbol);
+          this.updateUSDValues(fromValueUSD, toValueUSD);
+        } else {
+          toAmountInput.value = '';
+          this.updateUSDValues(0, 0);
+        }
+      } finally {
+        // Restore ethers v5
+        window.ethers = originalEthers;
+      }
+
+      this.updateSwapButton();
+    } catch (error) {
+      console.error('Error getting quote:', error);
+      toAmountInput.value = '';
+      this.updateSwapButton();
+    }
+  },
+
+  // Calculate USD value
+  async calculateUSDValue(amount, symbol) {
+    try {
+      if (symbol === 'ETH') {
+        const ethPrice = PriceManager.prices?.ETH || await PriceManager.getETHPrice();
+        return amount * parseFloat(ethPrice.replace('$', '').replace(/,/g, ''));
+      } else if (symbol === 'ADRIAN') {
+        const adrianPrice = PriceManager.prices?.ADRIAN || await PriceManager.getADRIANPrice();
+        return amount * parseFloat(adrianPrice.replace('$', '').replace(/,/g, ''));
+      }
+    } catch (error) {
+      console.error('Error calculating USD value:', error);
+    }
+    return 0;
+  },
+
+  // Update USD values display
+  updateUSDValues(fromValue, toValue) {
+    const fromValueEl = document.getElementById('testFromValueUSD');
+    const toValueEl = document.getElementById('testToValueUSD');
+    
+    if (fromValueEl) {
+      fromValueEl.textContent = fromValue.toFixed(2);
+    }
+    if (toValueEl) {
+      toValueEl.textContent = toValue.toFixed(2);
+    }
+  },
+
+  // Handle MAX button click
+  handleMaxClick() {
+    if (!WalletManager.isConnected) return;
+
+    const fromAmountInput = document.getElementById('testFromAmount');
+    if (!fromAmountInput) return;
+
+    const balances = WalletManager.balances;
+    let maxAmount;
+
+    if (this.swapDirection === 'buy') {
+      // ETH → ADRIAN: use ETH balance
+      maxAmount = balances.ETH || '0';
+    } else {
+      // ADRIAN → ETH: use ADRIAN balance
+      maxAmount = balances.ADRIAN || '0';
+    }
+
+    // Leave some ETH for gas (if buying)
+    if (this.swapDirection === 'buy' && parseFloat(maxAmount) > 0.001) {
+      maxAmount = (parseFloat(maxAmount) - 0.001).toString();
+    }
+
+    fromAmountInput.value = parseFloat(maxAmount).toFixed(6).replace(/\.?0+$/, '');
+    this.handleAmountInput();
+  },
+
+  // Toggle swap direction
+  toggleSwapDirection() {
+    this.swapDirection = this.swapDirection === 'buy' ? 'sell' : 'buy';
+    
+    // Update token symbols
+    const fromSymbol = document.getElementById('testFromTokenSymbol');
+    const toSymbol = document.getElementById('testToTokenSymbol');
+    
+    if (this.swapDirection === 'buy') {
+      if (fromSymbol) fromSymbol.textContent = 'ETH';
+      if (toSymbol) toSymbol.textContent = 'ADRIAN';
+    } else {
+      if (fromSymbol) fromSymbol.textContent = 'ADRIAN';
+      if (toSymbol) toSymbol.textContent = 'ETH';
+    }
+
+    // Clear amounts
+    this.clearAmounts();
+    
+    // Update balances
+    this.updateBalances();
+    
+    // Update button
+    this.updateSwapButton();
+  },
+
+  // Clear amounts
+  clearAmounts() {
+    const fromAmountInput = document.getElementById('testFromAmount');
+    const toAmountInput = document.getElementById('testToAmount');
+    
+    if (fromAmountInput) fromAmountInput.value = '';
+    if (toAmountInput) toAmountInput.value = '';
+    
+    this.updateUSDValues(0, 0);
+  },
+
+  // Update swap button state
+  updateSwapButton() {
+    const swapBtn = document.getElementById('testSwapBtn');
+    const approveSection = document.getElementById('testApproveSection');
+    const fromAmountInput = document.getElementById('testFromAmount');
+    
+    if (!swapBtn) return;
+
+    if (!WalletManager.isConnected) {
+      swapBtn.disabled = false;
+      const span = swapBtn.querySelector('span');
+      if (span) span.textContent = 'Connect Wallet';
+      if (approveSection) approveSection.style.display = 'none';
+      return;
+    }
+
+    const amount = fromAmountInput?.value.trim() || '';
+    const hasAmount = amount && parseFloat(amount) > 0;
+
+    if (!hasAmount) {
+      swapBtn.disabled = true;
+      const span = swapBtn.querySelector('span');
+      if (span) span.textContent = 'Enter an amount';
+      if (approveSection) approveSection.style.display = 'none';
+      return;
+    }
+
+    // Check if approval is needed (only for selling ADRIAN)
+    if (this.swapDirection === 'sell') {
+      // Check allowance
+      this.checkAllowance().then(needsApproval => {
+        if (needsApproval) {
+          swapBtn.disabled = true;
+          if (approveSection) approveSection.style.display = 'block';
+        } else {
+          swapBtn.disabled = false;
+          const span = swapBtn.querySelector('span');
+          if (span) span.textContent = 'Swap';
+          if (approveSection) approveSection.style.display = 'none';
+        }
+      });
+    } else {
+      // Buying ETH → ADRIAN: no approval needed
+      swapBtn.disabled = false;
+      const span = swapBtn.querySelector('span');
+      if (span) span.textContent = 'Swap';
+      if (approveSection) approveSection.style.display = 'none';
+    }
+  },
+
+  // Check if approval is needed
+  async checkAllowance() {
+    if (this.swapDirection !== 'sell') return false;
+
+    try {
+      const fromAmountInput = document.getElementById('testFromAmount');
+      const amount = fromAmountInput?.value.trim() || '';
+      if (!amount || parseFloat(amount) <= 0) return false;
+
+      const ethers6 = window.ethers6 || window.ethers;
+      const amountInWei = ethers6.parseEther(amount);
+      const allowance = await WalletManager.getAllowance(CONFIG.TOKENS.ADRIAN.address);
+      
+      return allowance < amountInWei;
+    } catch (error) {
+      console.error('Error checking allowance:', error);
+      return false;
+    }
+  },
+
+  // Handle approve
+  async handleApprove() {
+    if (!WalletManager.isConnected) {
+      if (typeof window.connectMetaMaskWallet === 'function') {
+        window.connectMetaMaskWallet();
+      } else {
+        WalletManager.connectWallet();
+      }
+      return;
+    }
+
+    const approveBtn = document.getElementById('testApproveBtn');
+    if (approveBtn) {
+      approveBtn.disabled = true;
+      const span = approveBtn.querySelector('span');
+      if (span) span.textContent = 'Approving...';
+    }
+
+    try {
+      const fromAmountInput = document.getElementById('testFromAmount');
+      const amount = fromAmountInput?.value.trim() || '';
+      
+      if (!amount || parseFloat(amount) <= 0) {
+        throw new Error('Invalid amount');
+      }
+
+      const ethers6 = window.ethers6 || window.ethers;
+      const amountInWei = ethers6.parseEther(amount);
+      
+      // Temporarily use ethers6 for approval
+      const originalEthers = window.ethers;
+      window.ethers = ethers6;
+      
+      try {
+        await WalletManager.approveToken(CONFIG.TOKENS.ADRIAN.address, amountInWei);
+      } finally {
+        window.ethers = originalEthers;
+      }
+
+      // Wait a bit for transaction to be mined
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Update button state
+      this.updateSwapButton();
+      
+      if (approveBtn) {
+        approveBtn.disabled = false;
+        const span = approveBtn.querySelector('span');
+        if (span) span.textContent = 'Approve ADRIAN';
+      }
+    } catch (error) {
+      console.error('Error approving:', error);
+      if (approveBtn) {
+        approveBtn.disabled = false;
+        const span = approveBtn.querySelector('span');
+        if (span) span.textContent = 'Approve ADRIAN';
+      }
+      alert('Error approving token: ' + error.message);
+    }
+  },
+
+  // Handle swap
+  async handleSwap() {
+    if (!WalletManager.isConnected) {
+      if (typeof window.connectMetaMaskWallet === 'function') {
+        window.connectMetaMaskWallet();
+      } else {
+        WalletManager.connectWallet();
+      }
+      return;
+    }
+
+    const swapBtn = document.getElementById('testSwapBtn');
+    if (swapBtn) {
+      swapBtn.disabled = true;
+      const span = swapBtn.querySelector('span');
+      if (span) span.textContent = 'Swapping...';
+    }
+
+    try {
+      const fromAmountInput = document.getElementById('testFromAmount');
+      const amount = fromAmountInput?.value.trim() || '';
+      
+      if (!amount || parseFloat(amount) <= 0) {
+        throw new Error('Invalid amount');
+      }
+
+      const ethers6 = window.ethers6 || window.ethers;
+      const amountInWei = ethers6.parseEther(amount);
+      const fromSymbol = this.swapDirection === 'buy' ? 'ETH' : 'ADRIAN';
+      const toSymbol = this.swapDirection === 'buy' ? 'ADRIAN' : 'ETH';
+
+      // Get quote first (SwapManager needs QuoteManager.lastQuote)
+      const originalEthers = window.ethers;
+      window.ethers = ethers6;
+      
+      try {
+        const quote = await QuoteManager.getQuote(amountInWei, fromSymbol, toSymbol);
+        
+        if (!quote) {
+          throw new Error('Could not get quote');
+        }
+
+        // Execute swap using SwapManager (it uses QuoteManager.lastQuote)
+        await SwapManager.executeSwap();
+      } finally {
+        window.ethers = originalEthers;
+      }
+
+      // Clear amounts after successful swap
+      this.clearAmounts();
+      
+      // Update balances
+      await this.updateBalances();
+      
+      // Update button
+      this.updateSwapButton();
+
+      if (swapBtn) {
+        swapBtn.disabled = false;
+        const span = swapBtn.querySelector('span');
+        if (span) span.textContent = 'Swap';
+      }
+    } catch (error) {
+      console.error('Error executing swap:', error);
+      if (swapBtn) {
+        swapBtn.disabled = false;
+        const span = swapBtn.querySelector('span');
+        if (span) span.textContent = 'Swap';
+      }
+      alert('Error executing swap: ' + error.message);
+    }
+  },
+
+  // Start price updates
+  startPriceUpdates() {
+    this.stopPriceUpdates();
+    this.priceUpdateInterval = setInterval(() => {
+      if (WalletManager.isConnected) {
+        this.updateBalances();
+        const fromAmountInput = document.getElementById('testFromAmount');
+        if (fromAmountInput?.value) {
+          this.handleAmountInput();
+        }
+      }
+    }, 10000); // Update every 10 seconds
+  },
+
+  // Stop price updates
+  stopPriceUpdates() {
+    if (this.priceUpdateInterval) {
+      clearInterval(this.priceUpdateInterval);
+      this.priceUpdateInterval = null;
+    }
+  }
+};
+
+// Initialize when DOM is ready and swap modules are loaded
+function initializeTestSwapWidget() {
+  // Check if swap modules are available
+  if (typeof CONFIG !== 'undefined' && typeof NetworkManager !== 'undefined') {
+    TestSwapWidget.init();
+  } else {
+    // Retry after a delay
+    setTimeout(initializeTestSwapWidget, 1000);
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(initializeTestSwapWidget, 2000); // Wait for swap modules to load
+  });
+} else {
+  setTimeout(initializeTestSwapWidget, 2000);
+}
+
+// Export for global access
+window.TestSwapWidget = TestSwapWidget;
+

@@ -1,0 +1,4868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AdrianPunks Market v4.0.1</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/market/styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./supabase-config.js"></script>
+  <style>
+    /* Estilos base */
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #333333;
+      --card-bg: #ffffff;
+      --border-color: #dee2e6;
+      --modal-bg: #ffffff;
+      --modal-header-bg: #f8f9fa;
+      --dropdown-bg: #ffffff;
+      --dropdown-text: #333333;
+      --badge-bg: #007bff;
+      --badge-text: #ffffff;
+      --list-group-bg: #ffffff;
+      --list-group-text: #333333;
+      --list-group-border: #dee2e6;
+    }
+
+    /* Estilos dark mode */
+    [data-theme="dark"] {
+      --bg-color: #1a1a1a;
+      --text-color: #ffffff;
+      --card-bg: #2d2d2d;
+      --border-color: #404040;
+      --modal-bg: #2d2d2d;
+      --modal-header-bg: #1a1a1a;
+      --dropdown-bg: #2d2d2d;
+      --dropdown-text: #ffffff;
+      --badge-bg: #0d6efd;
+      --badge-text: #ffffff;
+      --list-group-bg: #2d2d2d;
+      --list-group-text: #ffffff;
+      --list-group-border: #404040;
+      --modal-text: #ffffff;
+      --modal-border: #404040;
+      --modal-input-bg: #1a1a1a;
+      --modal-input-text: #ffffff;
+      --modal-input-border: #404040;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+    }
+
+    .container {
+      background-color: var(--bg-color);
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border-color: var(--border-color);
+      color: var(--text-color);
+    }
+
+    .card-title, .card-text {
+      color: var(--text-color);
+    }
+
+    .text-muted {
+      color: #a0a0a0 !important;
+    }
+
+    .modal-content {
+      background-color: var(--modal-bg);
+      color: var(--modal-text);
+      border-color: var(--modal-border);
+    }
+
+    .modal-header {
+      background-color: var(--modal-header-bg);
+      border-bottom-color: var(--modal-border);
+    }
+
+    .modal-body {
+      background-color: var(--modal-bg);
+      color: var(--modal-text);
+    }
+
+    .modal-footer {
+      background-color: var(--modal-bg);
+      border-top-color: var(--modal-border);
+    }
+
+    .form-control {
+      background-color: var(--modal-input-bg);
+      color: var(--modal-input-text);
+      border-color: var(--modal-input-border);
+    }
+
+    /* FloorENGINE Dashboard Styles (PunkStrategy Style) */
+    .floor-engine-dashboard {
+      width: 100%;
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 0;
+    }
+
+    .floor-engine-header-card,
+    .floor-engine-hero-card,
+    .floor-engine-cheapest-card {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 24px;
+      padding: 2rem 2.5rem;
+    }
+
+    [data-theme="dark"] .floor-engine-header-card,
+    [data-theme="dark"] .floor-engine-hero-card,
+    [data-theme="dark"] .floor-engine-cheapest-card {
+      background: var(--card-bg);
+      border-color: var(--border-color);
+    }
+
+    /* Avatar */
+    .floor-engine-avatar {
+      flex-shrink: 0;
+    }
+
+    .floor-engine-avatar-img {
+      width: 120px;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 16px;
+      border: 1px solid #e5e7eb;
+      background: #cbd5e1;
+    }
+
+    /* Title */
+    .floor-engine-title {
+      font-size: 40px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text-color);
+      margin: 0;
+    }
+
+    /* Pills */
+    .floor-engine-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.375rem 0.75rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 9999px;
+      background: white;
+      font-size: 0.875rem;
+      color: #374151;
+    }
+
+    .floor-engine-pill.holding-pill,
+    .floor-engine-pill.sold-pill {
+      background: #f3f4f6;
+    }
+
+    .floor-engine-pill.address-pill {
+      font-family: 'Courier New', monospace;
+      font-size: 0.75rem;
+    }
+
+    [data-theme="dark"] .floor-engine-pill {
+      background: var(--card-bg);
+      border-color: var(--border-color);
+      color: var(--text-color);
+    }
+
+
+    /* Cards Row Container */
+    .floor-engine-cards-row {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    @media (min-width: 1024px) {
+      .floor-engine-cards-row {
+        flex-direction: row;
+        gap: 1.5rem;
+      }
+      
+      .floor-engine-hero-card,
+      .floor-engine-cheapest-card {
+        flex: 1;
+        width: 50%;
+      }
+    }
+
+    /* Hero Card */
+    .floor-engine-hero-card {
+      padding: 2.5rem 2rem;
+    }
+
+    .floor-hero-label {
+      font-size: 1.25rem;
+      color: #374151;
+      margin-bottom: 0.5rem;
+    }
+
+    .floor-hero-value {
+      font-size: 96px;
+      line-height: 1;
+      font-weight: 900;
+      color: var(--text-color);
+    }
+
+    .floor-hero-suffix {
+      font-size: 1.875rem;
+      color: #6b7280;
+      font-weight: 600;
+    }
+
+    /* Cheapest Listing Card */
+    .floor-engine-cheapest-card {
+      padding: 2rem;
+    }
+
+    .floor-cheapest-image-wrapper {
+      width: 100%;
+      max-width: 300px;
+      aspect-ratio: 1;
+    }
+
+    .floor-cheapest-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 16px;
+      border: 1px solid #e5e7eb;
+      background: #cbd5e1;
+    }
+
+    .floor-cheapest-badge {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: #111827;
+      color: white;
+      font-size: 0.75rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+    }
+
+    .floor-cheapest-label {
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+
+    .floor-cheapest-price {
+      font-size: 72px;
+      line-height: 1;
+      font-weight: 900;
+      color: var(--text-color);
+    }
+
+    .floor-engine-pill.owner-pill {
+      font-family: 'Courier New', monospace;
+      font-size: 0.75rem;
+    }
+
+
+    /* Pixelated Progress Bar */
+    .floor-engine-pixel-bar-container {
+      width: 100%;
+      margin-top: 1rem;
+    }
+
+    .floor-engine-pixel-bar {
+      display: flex;
+      width: 100%;
+      gap: 2px;
+      height: 80px;
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      overflow: hidden;
+      padding: 2px;
+      flex-wrap: nowrap;
+      box-sizing: border-box;
+    }
+
+    .floor-engine-pixel-bar-pixel {
+      flex: 1;
+      min-width: 4px;
+      height: 100%;
+      background: #e5e7eb;
+      border-radius: 1px;
+      transition: background 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .floor-engine-pixel-bar-pixel.active {
+      background: #10b981;
+    }
+
+    .floor-engine-pixel-bar-pixel.partial {
+      background: #e5e7eb;
+    }
+
+    .floor-engine-pixel-bar-pixel.partial::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 50%;
+      background: #10b981;
+    }
+
+    .floor-engine-pixel-bar-info {
+      font-size: 1.25rem;
+      font-weight: 500;
+    }
+
+    .floor-engine-pixel-bar-info small {
+      font-size: 1.125rem;
+    }
+
+    [data-theme="dark"] .floor-engine-pixel-bar {
+      background: #1a1a1a;
+      border-color: var(--border-color);
+    }
+
+    [data-theme="dark"] .floor-engine-pixel-bar-pixel {
+      background: #374151;
+    }
+
+    [data-theme="dark"] .floor-engine-pixel-bar-pixel.active {
+      background: #10b981;
+    }
+
+    [data-theme="dark"] .floor-engine-pixel-bar-pixel.partial {
+      background: #374151;
+    }
+
+    [data-theme="dark"] .floor-engine-pixel-bar-pixel.partial::after {
+      background: #10b981;
+    }
+
+    /* Sales Section Styles */
+    .floor-engine-sales-card {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 24px;
+      padding: 1.5rem 1.25rem;
+      margin-top: 1rem;
+      margin-bottom: 0;
+    }
+
+    [data-theme="dark"] .floor-engine-sales-card {
+      background: var(--card-bg);
+      border-color: var(--border-color);
+    }
+
+    .sales-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .sales-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text-color);
+      margin: 0;
+    }
+
+    .sales-summary {
+      font-size: 1rem;
+      color: #6b7280;
+      line-height: 1.6;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .sales-summary .summary-number {
+      font-family: 'Courier New', monospace;
+      font-weight: 600;
+      font-size: 1.25rem;
+      color: #111827;
+    }
+
+    .sales-summary .summary-profit {
+      font-family: 'Courier New', monospace;
+      color: #10b981;
+      font-weight: 700;
+      font-size: 1.35rem;
+    }
+
+    .sales-view-toggles {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .sales-view-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      background: white;
+      color: #6b7280;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .sales-view-toggle-btn:hover {
+      background: #f9fafb;
+    }
+
+    .sales-view-toggle-btn.active {
+      border-color: #9ca3af;
+      color: #111827;
+      background: #f9fafb;
+    }
+
+    [data-theme="dark"] .sales-view-toggle-btn {
+      background: var(--card-bg);
+      border-color: var(--border-color);
+      color: var(--text-color);
+    }
+
+    [data-theme="dark"] .sales-view-toggle-btn:hover {
+      background: #374151;
+    }
+
+    .sales-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.25rem;
+      margin-top: 0.75rem;
+    }
+
+    @media (min-width: 1024px) {
+      .sales-grid {
+        grid-template-columns: repeat(6, 1fr);
+      }
+    }
+
+    .sales-card {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    [data-theme="dark"] .sales-card {
+      background: var(--card-bg);
+      border-color: var(--border-color);
+    }
+
+    .sales-card-image-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      background: #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sales-card-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .sales-card-token-badge {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(17, 24, 39, 0.9);
+      color: white;
+      font-size: 0.625rem;
+      font-weight: 500;
+      padding: 0.25rem 0.5rem;
+      border-radius: 9999px;
+    }
+
+    @media (min-width: 768px) {
+      .sales-card-token-badge {
+        font-size: 0.6875rem;
+        padding: 0.25rem 0.625rem;
+      }
+    }
+
+    .sales-card-info {
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      font-size: 0.6875rem;
+      color: #374151;
+    }
+
+    @media (min-width: 768px) {
+      .sales-card-info {
+        font-size: 0.75rem;
+        padding: 0.875rem;
+      }
+    }
+
+    .sales-card-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .sales-card-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #6b7280;
+    }
+
+    @media (min-width: 768px) {
+      .sales-card-label {
+        font-size: 0.8125rem;
+      }
+    }
+
+    .sales-card-value {
+      font-family: 'Courier New', monospace;
+      font-size: 0.9375rem;
+      color: #111827;
+      display: flex;
+      align-items: baseline;
+    }
+
+    @media (min-width: 768px) {
+      .sales-card-value {
+        font-size: 1.0625rem;
+      }
+    }
+
+    .sales-card-unit {
+      margin-left: 0.25rem;
+      font-size: 0.75rem;
+      color: #9ca3af;
+    }
+
+    .sales-card-profit {
+      margin-top: 0.25rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      padding: 0.375rem 0.75rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      font-family: 'Courier New', monospace;
+      border: 1px solid #6ee7b7;
+      background: #d1fae5;
+      color: #059669;
+    }
+
+    .sales-card-profit.negative {
+      border: 1px solid #fca5a5;
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    @media (min-width: 768px) {
+      .sales-card-profit {
+        font-size: 1rem;
+      }
+    }
+
+    .sales-empty-state {
+      grid-column: 1 / -1;
+      text-align: center;
+      color: #6b7280;
+      font-size: 0.6875rem;
+      padding: 1.5rem;
+    }
+
+    @media (min-width: 768px) {
+      .sales-empty-state {
+        font-size: 0.75rem;
+      }
+    }
+
+    /* Vista de lista/table */
+    .sales-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .sales-list-header {
+      display: grid;
+      grid-template-columns: 80px 100px 1fr 1fr 1fr;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      background: #f9fafb;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    [data-theme="dark"] .sales-list-header {
+      background: #1a1a1a;
+    }
+
+    .sales-list-row {
+      display: grid;
+      grid-template-columns: 80px 100px 1fr 1fr 1fr;
+      gap: 1rem;
+      padding: 0.75rem 1rem;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      align-items: center;
+      transition: all 0.2s;
+    }
+
+    .sales-list-row:hover {
+      background: #f9fafb;
+      border-color: #d1d5db;
+    }
+
+    [data-theme="dark"] .sales-list-row {
+      background: var(--card-bg);
+      border-color: var(--border-color);
+    }
+
+    [data-theme="dark"] .sales-list-row:hover {
+      background: #2d2d2d;
+    }
+
+    .sales-list-col-image {
+      width: 60px;
+      height: 60px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #cbd5e1;
+    }
+
+    .sales-list-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .sales-list-col-token {
+      font-family: 'Courier New', monospace;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+
+    .sales-list-col-paid,
+    .sales-list-col-sold {
+      font-family: 'Courier New', monospace;
+      font-size: 0.875rem;
+      color: #374151;
+    }
+
+    .sales-list-col-profit {
+      font-family: 'Courier New', monospace;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .sales-list-col-profit.profit-positive {
+      color: #10b981;
+    }
+
+    .sales-list-col-profit.profit-negative {
+      color: #ef4444;
+    }
+
+    /* Botón expandir */
+    .sales-expand-card {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .sales-expand-container {
+      display: flex;
+      justify-content: center;
+      padding: 1rem;
+      margin-top: 0.5rem;
+    }
+
+    .sales-expand-btn {
+      padding: 0.75rem 1.5rem;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #374151;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .sales-expand-btn:hover {
+      background: #f9fafb;
+      border-color: #d1d5db;
+    }
+
+    [data-theme="dark"] .sales-expand-btn {
+      background: var(--card-bg);
+      border-color: var(--border-color);
+      color: var(--text-color);
+    }
+
+    [data-theme="dark"] .sales-expand-btn:hover {
+      background: #2d2d2d;
+    }
+
+    @media (max-width: 768px) {
+      .sales-list-header,
+      .sales-list-row {
+        grid-template-columns: 60px 80px 1fr 1fr 1fr;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        font-size: 0.75rem;
+      }
+
+      .sales-list-col-image {
+        width: 50px;
+        height: 50px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .floor-engine-sales-card {
+        padding: 1.25rem 1rem;
+      }
+
+      .sales-title {
+        font-size: 1.25rem;
+      }
+
+      .sales-header {
+        gap: 0.75rem;
+      }
+
+      .sales-grid {
+        gap: 1rem;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .floor-engine-dashboard {
+        padding: 0 1rem;
+      }
+
+      .floor-engine-header-card,
+      .floor-engine-hero-card,
+      .floor-engine-cheapest-card {
+        padding: 1.5rem 1.25rem;
+      }
+
+      .floor-engine-title {
+        font-size: 28px;
+      }
+
+      .floor-engine-avatar-img {
+        width: 80px;
+        height: 80px;
+      }
+
+      .floor-hero-value {
+        font-size: 64px;
+      }
+
+      .floor-hero-suffix {
+        font-size: 1.5rem;
+      }
+
+      .floor-cheapest-price {
+        font-size: 48px;
+      }
+
+      .floor-metric-value {
+        font-size: 1.25rem;
+      }
+    }
+    }
+
+    .form-control:focus {
+      background-color: var(--modal-input-bg);
+      color: var(--modal-input-text);
+      border-color: var(--modal-input-border);
+    }
+
+    .dropdown-menu {
+      background-color: var(--dropdown-bg);
+      color: var(--dropdown-text);
+    }
+
+    .badge {
+      background-color: var(--badge-bg);
+      color: var(--badge-text);
+    }
+
+    .list-group-item {
+      background-color: var(--list-group-bg);
+      color: var(--list-group-text);
+      border-color: var(--list-group-border);
+    }
+
+    /* Estilos del switch */
+    .theme-switch {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 1000;
+      background-color: var(--card-bg);
+      padding: 8px 12px;
+      border-radius: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    .theme-switch .form-check-input {
+      cursor: pointer;
+    }
+
+    .theme-switch .form-check-label {
+      color: var(--text-color);
+      cursor: pointer;
+      margin-left: 8px;
+    }
+
+    /* Mantener los estilos existentes */
+    #tokenBalance {
+      margin-top: 10px;
+    }
+
+    /* Activity Page Styles */
+    .view-container {
+      min-height: 100vh;
+    }
+
+    .activity-list {
+      max-height: none;
+    }
+
+    .activity-card {
+      transition: transform 0.2s;
+    }
+
+    .activity-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .activity-card img {
+      border: 2px solid var(--border-color);
+      transition: border-color 0.2s;
+    }
+
+    .activity-card:hover img {
+      border-color: var(--badge-bg);
+    }
+
+    /* Statistics Cards Styles */
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      text-align: center;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--text-color);
+      opacity: 0.7;
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-value {
+      font-size: 1.25rem;
+      font-weight: bold;
+      color: var(--text-color);
+    }
+
+    .stat-value.positive {
+      color: #28a745;
+    }
+
+    .stat-value.negative {
+      color: #dc3545;
+    }
+
+    @media (max-width: 768px) {
+      .stat-card {
+        margin-bottom: 1rem;
+      }
+      
+      .stat-value {
+        font-size: 1.1rem;
+      }
+      
+      #tokenBalance {
+        margin-top: 70px;
+      }
+      .card-title {
+        font-size: 1rem;
+        line-height: 1.2;
+        margin-bottom: 0.25rem;
+      }
+      .nft-card .card-body {
+        padding: 0.5rem;
+      }
+      .nft-card .card-text {
+        font-size: 0.85rem;
+      }
+      .action-btn {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.6rem;
+      }
+      .action-btn.dropdown-toggle::after {
+        margin-left: 0.3rem;
+      }
+    }
+    .modal-dialog {
+      max-width: 500px;
+    }
+    .modal-body img {
+      max-width: 300px;
+      margin: 0 auto;
+      display: block;
+    }
+    /* Asegurar que el backdrop se elimine correctamente */
+    .modal-backdrop {
+      opacity: 0.5;
+    }
+    body.modal-open {
+      overflow: auto !important;
+      padding-right: 0 !important;
+    }
+    .offer-form {
+      transition: all 0.3s ease;
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .offer-form.hiding {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    .modal-body {
+      max-height: 80vh;
+      overflow-y: auto;
+      scroll-behavior: smooth;
+    }
+    .trait-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge {
+      font-size: 0.9em;
+      padding: 8px 12px;
+    }
+    .trait-categories {
+      max-height: 400px;
+      overflow-y: auto;
+      padding-right: 10px;
+    }
+    .trait-category {
+      margin-bottom: 1rem;
+    }
+    .trait-category-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #333;
+    }
+    .trait-values {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 0.5rem;
+    }
+    .trait-value-item button {
+      font-size: 0.8rem;
+      padding: 0.25rem 0.5rem;
+    }
+    #activeFilters {
+      margin-bottom: 1rem;
+    }
+    #activeFilters .badge {
+      font-size: 0.8rem;
+      padding: 0.35rem 0.65rem;
+    }
+    #traitFilterMenu {
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    /* Collapsible Panels Styles */
+    .collapsible-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.25rem;
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border-color);
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.2s ease;
+    }
+
+    .panel-header:hover {
+      background: var(--bg-color);
+    }
+
+    .panel-header h5 {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+
+    .collapse-icon {
+      transition: transform 0.3s ease;
+      color: var(--text-color);
+      opacity: 0.7;
+      font-size: 1rem;
+    }
+
+    .panel-header[aria-expanded="true"] .collapse-icon {
+      transform: rotate(180deg);
+    }
+
+    .panel-body {
+      padding: 1.25rem;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .project-avatar {
+      border: 2px solid var(--border-color);
+    }
+
+    .project-info {
+      margin-top: 1rem;
+    }
+
+    .info-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .info-item:last-child {
+      border-bottom: none;
+    }
+
+    .info-label {
+      font-size: 0.9rem;
+      color: var(--text-color);
+      opacity: 0.7;
+      font-weight: 500;
+    }
+
+    .info-value {
+      font-size: 0.9rem;
+      color: var(--text-color);
+      text-align: right;
+      word-break: break-all;
+    }
+
+    .info-value.small {
+      font-size: 0.75rem;
+    }
+
+    /* CoinGecko Terminal Chart Styles */
+    .gecko-terminal-chart {
+      width: 100%;
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--bg-color);
+      border: 1px solid var(--border-color);
+    }
+
+    .gecko-terminal-chart iframe {
+      display: block;
+      width: 100%;
+      min-height: 400px;
+      border: none;
+      background: transparent;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 991px) {
+      .col-lg-3, .col-lg-6 {
+        margin-bottom: 1rem;
+      }
+      
+      .panel-body {
+        max-height: 60vh;
+      }
+
+      .gecko-terminal-chart iframe {
+        min-height: 300px;
+      }
+    }
+
+    @media (max-width: 576px) {
+      .gecko-terminal-chart iframe {
+        min-height: 250px;
+      }
+    }
+  </style>
+  <!-- Load ethers.js v5 for market (must load first and stay as default) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    // Backup ethers v5 immediately after loading - this is the default for market
+    window.ethers5Backup = window.ethers;
+    window.ethers = window.ethers5Backup;
+  </script>
+  
+  <!-- Load ethers.js v6 for swap widget (load asynchronously, don't overwrite v5) -->
+  <script>
+    // Load ethers v6 asynchronously without affecting ethers v5
+    (function() {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js';
+      script.onload = function() {
+        // Save ethers v6 to separate namespace
+        window.ethers6 = window.ethers;
+        
+        // CRITICAL: Restore ethers v5 immediately - market code needs it!
+        window.ethers = window.ethers5Backup;
+        
+        console.log('✅ Ethers v6 loaded for swap widget, v5 restored for market');
+        
+        // Start loading swap modules after v6 is ready
+        loadSwapModules();
+      };
+      script.onerror = function() {
+        console.error('❌ Failed to load ethers v6');
+      };
+      document.head.appendChild(script);
+    })();
+    
+    // Load swap modules with ethers v6 context
+    function loadSwapModules() {
+      const swapScripts = [
+        '../swap/abis/erc20.js',
+        '../swap/abis/swapper.js',
+        '../swap/config.js',
+        '../swap/network.js',
+        '../swap/wallet.js',
+        '../swap/prices.js',
+        '../swap/quotes.js',
+        '../swap/swap.js'
+      ];
+      
+      let currentScript = 0;
+      
+      function loadNextScript() {
+        if (currentScript >= swapScripts.length) {
+          // All swap scripts loaded - ensure ethers v5 is restored
+          window.ethers = window.ethers5Backup;
+          console.log('✅ All swap modules loaded, ethers v5 restored');
+          return;
+        }
+        
+        // Temporarily set ethers to ethers6 ONLY for loading this script
+        if (window.ethers6) {
+          const originalEthers = window.ethers;
+          window.ethers = window.ethers6;
+          
+          const script = document.createElement('script');
+          script.src = swapScripts[currentScript];
+          script.onload = function() {
+            // Restore ethers v5 IMMEDIATELY after script loads
+            window.ethers = originalEthers;
+            currentScript++;
+            loadNextScript();
+          };
+          script.onerror = function() {
+            console.error('Failed to load swap script:', swapScripts[currentScript]);
+            // Restore ethers v5 even on error
+            window.ethers = originalEthers;
+            currentScript++;
+            loadNextScript();
+          };
+          document.head.appendChild(script);
+        } else {
+          // Wait for ethers6 to load
+          setTimeout(loadNextScript, 100);
+        }
+      }
+      
+      // Start loading after a short delay
+      setTimeout(loadNextScript, 100);
+    }
+  </script>
+</head>
+<body>
+  <!-- Include the menu -->
+  <div id="menu-container"></div>
+  <script>
+    // Load the menu with relative path
+    fetch('components/menu.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('menu-container').innerHTML = html;
+        
+        // Asegurar que el menú tenga el estilo correcto
+        const menu = document.querySelector('.navbar');
+        if (menu) {
+          menu.classList.add('navbar-dark', 'bg-dark');
+        }
+        
+        // Verificar si el script ya ha sido cargado para evitar duplicación
+        if (!document.querySelector('script[src="components/menu.js"]')) {
+          const script = document.createElement('script');
+          script.src = 'components/menu.js';
+          script.onload = function() {
+            // Esperar un momento para que el script se inicialice completamente
+            setTimeout(() => {
+              // Intentar configurar los event listeners manualmente
+              if (typeof window.connectMetaMaskWallet === 'function') {
+                const mobileButton = document.getElementById('connectWalletButtonMobile');
+                const desktopButton = document.getElementById('connectWalletButton');
+                
+                if (mobileButton) {
+                  mobileButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log("Mobile button clicked from index.html");
+                    window.connectMetaMaskWallet();
+                  });
+                }
+                
+                if (desktopButton) {
+                  desktopButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log("Desktop button clicked from index.html");
+                    window.connectMetaMaskWallet();
+                  });
+                }
+              }
+            }, 500);
+          };
+          document.head.appendChild(script);
+        }
+      })
+      .catch(error => console.error('Error loading menu:', error));
+  </script>
+
+  <!-- Marketplace View (default) -->
+  <div id="marketplaceView" class="view-container">
+  <div class="container-fluid px-3">
+    <!-- Collapsible Panels Layout -->
+    <div class="row g-3 mt-2">
+      <!-- Left Panel: Project Info -->
+      <div class="col-lg-3 col-md-4">
+        <div class="collapsible-panel">
+          <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#projectInfoPanel" aria-expanded="true">
+            <h5 class="mb-0">$ADRIAN</h5>
+            <i class="bi bi-chevron-down collapse-icon"></i>
+          </div>
+          <div class="collapse show" id="projectInfoPanel">
+            <div class="panel-body">
+              <!-- Project Avatar -->
+              <div class="text-center mb-3">
+                <img src="./adrianpunksimages/1.png" alt="AdrianPunks" class="project-avatar" style="width: 120px; height: 120px; border-radius: 16px; object-fit: cover;">
+              </div>
+              <!-- Project Name -->
+              <h4 class="text-center mb-3">AdrianPunks</h4>
+              <!-- Project Info -->
+              <div class="project-info">
+                <div class="info-item">
+                  <span class="info-label">Token:</span>
+                  <span class="info-value">$ADRIAN ERC20 on Base</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-label">Contract:</span>
+                  <span class="info-value small">0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center Panel: Main Content -->
+      <div class="col-lg-6 col-md-8">
+        <div class="collapsible-panel">
+          <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#mainContentPanel" aria-expanded="true">
+            <h5 class="mb-0">Marketplace</h5>
+            <i class="bi bi-chevron-down collapse-icon"></i>
+          </div>
+          <div class="collapse show" id="mainContentPanel">
+            <div class="panel-body">
+    <!-- FloorENGINE Dashboard Section (PunkStrategy Style) -->
+    <div id="floorEngineDashboard" class="floor-engine-dashboard mb-5" style="display: none;">
+      <!-- Header Block -->
+      <div class="floor-engine-header-card mb-4">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="d-flex align-items-center">
+            <!-- Avatar -->
+            <div class="floor-engine-avatar me-4">
+              <img id="floorEngineAvatar" src="./adrianpunksimages/1.png" alt="FloorENGINE" class="floor-engine-avatar-img">
+            </div>
+            <!-- Title and Pills -->
+            <div class="floor-engine-title-section">
+              <h1 class="floor-engine-title mb-3">FloorENGINE™</h1>
+              <div class="d-flex flex-wrap align-items-center gap-3">
+                <!-- Address Pill -->
+                <div class="floor-engine-pill address-pill">
+                  <span id="floorEngineAddress" class="me-2">0x...</span>
+                  <i class="bi bi-clipboard" onclick="copyFloorEngineAddress()" style="cursor: pointer;"></i>
+                </div>
+                <!-- Holding Pill -->
+                <div class="floor-engine-pill holding-pill">
+                  <span>Holding</span>
+                  <span class="badge bg-dark text-white ms-2" id="floorEngineHoldingCount">0</span>
+                </div>
+                <!-- Sold Pill -->
+                <div class="floor-engine-pill sold-pill">
+                  <span>Sold</span>
+                  <span class="badge bg-dark text-white ms-2" id="floorEngineSoldCount">0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- CTA Button -->
+          <a href="https://adrianpunks.com/swap/" class="btn btn-dark rounded-pill px-4 py-2 d-none d-md-inline-block">
+            Trade $ADRIAN
+          </a>
+        </div>
+      </div>
+
+
+      <!-- Hero and Cheapest Cards Container -->
+      <div class="floor-engine-cards-row mb-4">
+        <!-- Hero Currently Holding -->
+        <div class="floor-engine-hero-card">
+          <div class="floor-hero-label mb-2">FloorENGINE is currently holding</div>
+          <div class="d-flex align-items-baseline flex-wrap gap-4">
+            <div class="floor-hero-value" id="floorEngineEthHolding">0</div>
+            <div class="floor-hero-suffix" id="floorEngineNftHolding">+ 0 NFTs</div>
+          </div>
+        </div>
+
+        <!-- Cheapest Listing Card -->
+        <div class="floor-engine-cheapest-card" id="cheapestListingCard" style="display: none;">
+        <div class="d-flex flex-column flex-lg-row gap-4 align-items-center">
+          <!-- Left: Image -->
+          <div class="floor-cheapest-image-wrapper position-relative">
+            <img id="cheapestListingImage" src="" alt="Cheapest NFT" class="floor-cheapest-image">
+            <div class="floor-cheapest-badge" id="cheapestListingBadge">#0</div>
+          </div>
+          <!-- Right: Info -->
+          <div class="flex-grow-1 w-100">
+            <div class="d-flex justify-content-between align-items-start">
+              <div class="flex-grow-1">
+                <div class="floor-cheapest-label mb-2">Cheapest FloorENGINE NFT on Market</div>
+                <div class="floor-cheapest-price" id="cheapestListingPrice">0 $ADRIAN</div>
+                <div class="d-flex align-items-center gap-2 mt-3">
+                  <span class="text-muted">Owner:</span>
+                  <div class="floor-engine-pill owner-pill">
+                    <span id="cheapestListingOwner">0x...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </div>
+
+      <!-- Pixelated Progress Bar -->
+      <div class="floor-engine-pixel-bar-container">
+        <div class="floor-engine-pixel-bar" id="floorEnginePixelBar">
+          <!-- Pixel bars will be generated dynamically -->
+        </div>
+        <div class="floor-engine-pixel-bar-info d-flex justify-content-between align-items-center mt-2">
+          <small class="text-muted">
+            <span id="pixelBarBalance">0</span> $ADRIAN / <span id="pixelBarTarget">0</span> $ADRIAN
+          </small>
+          <small class="text-muted" id="pixelBarPercentage">0%</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sales Section -->
+    <div class="floor-engine-sales-card" id="floorEngineSalesSection" style="display: none;">
+      <div class="sales-header">
+        <div class="flex-grow-1">
+          <h2 class="sales-title">Sales</h2>
+          <div class="sales-summary" id="salesSummary">
+            FloorENGINE sold <span class="summary-number" id="salesTotalCount">0</span> AdrianPunks for <span class="summary-number" id="salesTotalAmount">0</span> $A, realizing a total of <span class="summary-profit" id="salesTotalProfit">0</span> $A profit.
+          </div>
+        </div>
+        <div class="sales-view-toggles">
+          <button class="sales-view-toggle-btn active" id="salesViewGrid" onclick="setSalesViewMode('grid')" title="Grid View">
+            <i class="bi bi-grid-3x3-gap"></i>
+          </button>
+          <button class="sales-view-toggle-btn" id="salesViewTable" onclick="setSalesViewMode('table')" title="Table View">
+            <i class="bi bi-list-ul"></i>
+          </button>
+        </div>
+      </div>
+      <div class="sales-grid" id="salesGrid">
+        <div class="sales-empty-state">No sales recorded yet.</div>
+      </div>
+    </div>
+
+    <!-- Botonera Principal Unificada -->
+    <div class="main-actions mb-4">
+      <div class="action-buttons">
+        <div class="dropdown">
+          <button class="action-btn primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <span>Traits</span>
+          </button>
+          <ul class="dropdown-menu p-3" id="traitFilterMenu">
+            <div class="d-flex justify-content-between mb-2">
+              <button class="btn btn-sm btn-danger me-2" onclick="clearTraitFilters()">Clear Filters</button>
+              <span class="text-muted" id="filteredCount"></span>
+            </div>
+            <div id="activeFilters" class="mb-2"></div>
+            <div class="trait-categories" id="traitCategories">
+              <!-- Categorías de traits se cargarán dinámicamente -->
+            </div>
+          </ul>
+        </div>
+        <button class="action-btn outline" onclick="filterByActiveListings()">
+          <span class="d-none d-md-inline">Listed</span><span class="d-md-none">Listed</span>
+        </button>
+        <button class="action-btn outline" onclick="sortByFloorPrice()">
+          <span class="d-none d-md-inline">Sort by FP</span><span class="d-md-none">Sort FP</span>
+        </button>
+        <div class="dropdown">
+            <button class="action-btn warning dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" onclick="updateSweepFloorInfo()">
+              <span>🚀 Sweep Floor</span>
+          </button>
+            <ul class="dropdown-menu p-3" id="sweepFloorMenu" style="min-width: 300px;">
+              <h6 class="dropdown-header">FloorEngine Sweep</h6>
+              <div id="sweepFloorInfo" class="mb-3">
+                <p class="text-muted mb-0">Loading...</p>
+            </div>
+              <button id="sweepFloorBtn" class="btn btn-warning w-100" onclick="sweepFloor()">Execute Sweep</button>
+          </ul>
+        </div>
+        <button class="action-btn outline" onclick="openMyTokensModal()">
+          <span class="d-none d-md-inline">My</span> Tokens
+        </button>
+          <button class="action-btn outline" id="activityButton" onclick="openActivityPage()">
+            <span>Activity</span>
+        </button>
+        <!-- Botón para cambiar entre colecciones de imágenes -->
+        <button class="action-btn" id="collectionToggleButton" onclick="toggleImageCollection()">
+          <span id="collectionToggleText">HalfxAdrian</span>
+        </button>
+        <!-- Nuevo botón de wallet para la botonera principal -->
+        <button class="action-btn outline" id="mainConnectWalletButton">
+          Connect Wallet
+        </button>
+      </div>
+    </div>
+
+    <!-- NFT Grid -->
+    <div class="nft-grid" id="nftGrid"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Panel: Swap & Stats -->
+      <div class="col-lg-3 col-md-12">
+        <!-- Swap Panel -->
+        <div class="collapsible-panel mb-3">
+          <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#swapPanel" aria-expanded="true">
+            <h5 class="mb-0">Swap</h5>
+            <i class="bi bi-chevron-down collapse-icon"></i>
+          </div>
+          <div class="collapse show" id="swapPanel">
+            <div class="panel-body">
+              <!-- Swap Widget -->
+              <div class="swap-widget-compact">
+                <div class="swap-widget-header-compact mb-3">
+                  <span class="text-muted small">Protocol fee: 10% on all swaps</span>
+                </div>
+                
+                <!-- From Token -->
+                <div class="token-input-container-compact mb-2">
+                  <div class="token-input-header-compact">
+                    <span class="input-label-compact">Selling</span>
+                    <div class="balance-max-container-compact">
+                      <span class="balance-label-compact">Balance: <span id="testFromBalance">0.0000</span></span>
+                      <button id="testMaxBtn" class="max-btn-compact">MAX</button>
+                    </div>
+                  </div>
+                  <div class="token-input-wrapper-compact">
+                    <input type="text" id="testFromAmount" class="token-input-compact" placeholder="0.0" inputmode="decimal">
+                    <button id="testFromTokenBtn" class="token-select-btn-compact" disabled>
+                      <span id="testFromTokenSymbol">ETH</span>
+                    </button>
+                  </div>
+                  <div class="token-value-compact">~$<span id="testFromValueUSD">0.00</span> USD</div>
+                </div>
+
+                <!-- Swap Direction Button -->
+                <div class="swap-direction-container-compact">
+                  <button id="testSwapDirectionBtn" class="swap-direction-btn-compact">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                      <path fill-rule="evenodd" d="M8 1a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L7.5 13.293V1.5A.5.5 0 0 1 8 1z"/>
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- To Token -->
+                <div class="token-input-container-compact mb-3">
+                  <div class="token-input-header-compact">
+                    <span class="input-label-compact">Buying</span>
+                    <span class="balance-label-compact">Balance: <span id="testToBalance">0.0000</span></span>
+                  </div>
+                  <div class="token-input-wrapper-compact">
+                    <input type="text" id="testToAmount" class="token-input-compact" placeholder="0.0" inputmode="decimal" readonly>
+                    <button id="testToTokenBtn" class="token-select-btn-compact" disabled>
+                      <span id="testToTokenSymbol">ADRIAN</span>
+                    </button>
+                  </div>
+                  <div class="token-value-compact">~$<span id="testToValueUSD">0.00</span> USD</div>
+                </div>
+
+                <!-- Approve/Swap Button -->
+                <div id="testApproveSection" style="display: none;">
+                  <button id="testApproveBtn" class="swap-btn-compact approve-btn-compact mb-2">
+                    <span>Approve ADRIAN</span>
+                  </button>
+                </div>
+
+                <button id="testSwapBtn" class="swap-btn-compact" disabled>
+                  <span id="testSwapBtnText">Connect Wallet</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Price Chart Panel -->
+        <div class="collapsible-panel mb-3">
+          <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#priceChartPanel" aria-expanded="true">
+            <h5 class="mb-0">ADRIAN/ETH Chart</h5>
+            <i class="bi bi-chevron-down collapse-icon"></i>
+          </div>
+          <div class="collapse show" id="priceChartPanel">
+            <div class="panel-body">
+              <!-- CoinGecko Terminal Chart -->
+              <div class="gecko-terminal-chart">
+                <iframe 
+                  src="https://www.geckoterminal.com/base/pools/0x79cdf2d48abd42872a26d1b1c92ece4245327a4837b427dc9cff5f1acc40e379/embed"
+                  width="100%"
+                  height="400"
+                  frameborder="0"
+                  allowtransparency="true"
+                  scrolling="no"
+                  style="border-radius: 8px; overflow: hidden;"
+                  title="ADRIAN/ETH Price Chart">
+                </iframe>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FloorENGINE Stats Panel -->
+        <div class="collapsible-panel mb-3">
+          <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#floorEnginePanel" aria-expanded="true">
+            <h5 class="mb-0">FloorENGINE</h5>
+            <i class="bi bi-chevron-down collapse-icon"></i>
+          </div>
+          <div class="collapse show" id="floorEnginePanel">
+            <div class="panel-body">
+              <!-- FloorENGINE Dashboard will be inserted here -->
+              <div id="floorEngineContainer"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Activity View -->
+  <div id="activityView" class="view-container" style="display: none;">
+    <div class="container">
+      <!-- Header con botón de volver -->
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>FloorEngine Activity</h2>
+        <button class="btn btn-outline-secondary" onclick="closeActivityPage()">
+          <i class="bi bi-arrow-left"></i> Back to Marketplace
+        </button>
+      </div>
+
+      <!-- Estadísticas del FloorEngine -->
+      <div class="card mb-4 bg-light">
+        <div class="card-body">
+          <h5 class="card-title mb-3">FloorEngine Statistics</h5>
+          <div id="engineStats" class="row g-3">
+            <div class="col-md-3">
+              <div class="stat-card">
+                <div class="stat-label">Total Invested</div>
+                <div class="stat-value" id="statTotalInvested">Loading...</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card">
+                <div class="stat-label">Total Earned</div>
+                <div class="stat-value" id="statTotalEarned">Loading...</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card">
+                <div class="stat-label">Net Profit</div>
+                <div class="stat-value" id="statNetProfit">Loading...</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card">
+                <div class="stat-label">ROI</div>
+                <div class="stat-value" id="statROI">Loading...</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card">
+                <div class="stat-label">Punks Bought</div>
+                <div class="stat-value" id="statPunksBought">Loading...</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card">
+                <div class="stat-label">Punks Sold</div>
+                <div class="stat-value" id="statPunksSold">Loading...</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card">
+                <div class="stat-label">Currently Listed</div>
+                <div class="stat-value" id="statCurrentlyListed">Loading...</div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="stat-card">
+                <div class="stat-label">Listings Value</div>
+                <div class="stat-value" id="statListingsValue">Loading...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtros -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <div class="row g-3">
+            <!-- Tipo de evento -->
+            <div class="col-md-3">
+              <label class="form-label">Event Type</label>
+              <select class="form-select" id="filterEventType" onchange="applyFilters()">
+                <option value="all">All Events</option>
+                <option value="Listed">Listings</option>
+                <option value="Cancelled">Cancelled</option>
+                <option value="Bought">Sales</option>
+                <option value="Sweep">Sweeps</option>
+              </select>
+            </div>
+            
+            <!-- Rango de fechas -->
+            <div class="col-md-3">
+              <label class="form-label">From Date</label>
+              <input type="date" class="form-control" id="filterDateFrom" onchange="applyFilters()">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">To Date</label>
+              <input type="date" class="form-control" id="filterDateTo" onchange="applyFilters()">
+            </div>
+            
+            <!-- Dirección (buyer/seller) -->
+            <div class="col-md-3">
+              <label class="form-label">Address</label>
+              <input type="text" class="form-control" id="filterAddress" placeholder="0x..." onchange="applyFilters()">
+            </div>
+            
+            <!-- Token ID -->
+            <div class="col-md-3">
+              <label class="form-label">Token ID</label>
+              <input type="number" class="form-control" id="filterTokenId" placeholder="Token ID" onchange="applyFilters()">
+            </div>
+            
+            <!-- Precio mínimo -->
+            <div class="col-md-3">
+              <label class="form-label">Min Price ($ADRIAN)</label>
+              <input type="number" class="form-control" id="filterMinPrice" step="0.01" onchange="applyFilters()">
+            </div>
+            
+            <!-- Precio máximo -->
+            <div class="col-md-3">
+              <label class="form-label">Max Price ($ADRIAN)</label>
+              <input type="number" class="form-control" id="filterMaxPrice" step="0.01" onchange="applyFilters()">
+            </div>
+            
+            <!-- Botón limpiar filtros -->
+            <div class="col-md-3 d-flex align-items-end">
+              <button class="btn btn-outline-danger w-100" onclick="clearActivityFilters()">Clear Filters</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lista de eventos -->
+      <div id="activityList" class="activity-list">
+        <!-- Eventos se cargarán aquí -->
+      </div>
+      
+      <!-- Loading indicator -->
+      <div id="activityLoading" class="text-center my-4" style="display: none;">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para NFT Details -->
+  <div class="modal fade" id="nftModal" tabindex="-1" aria-labelledby="nftModalLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content" id="nftModalContent">
+        <!-- Contenido cargado dinámicamente -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for My Offers -->
+  <div class="modal fade" id="myOffersModal" tabindex="-1" aria-labelledby="myOffersModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="myOffersModalLabel">My Active Offers</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Tabs: Token, Floor y Trait -->
+          <ul class="nav nav-tabs mb-3 d-flex" id="offersTab" role="tablist">
+            <li class="nav-item flex-equal" role="presentation">
+              <button class="nav-link active w-100" id="token-offers-tab" data-bs-toggle="tab" data-bs-target="#token-offers" type="button" role="tab">
+                Token
+              </button>
+            </li>
+            <li class="nav-item flex-equal" role="presentation">
+              <button class="nav-link w-100" id="floor-offers-tab" data-bs-toggle="tab" data-bs-target="#floor-offers" type="button" role="tab">
+                Floor
+              </button>
+            </li>
+            <li class="nav-item flex-equal" role="presentation">
+              <button class="nav-link w-100" id="trait-offers-tab" data-bs-toggle="tab" data-bs-target="#trait-offers" type="button" role="tab">
+                Trait
+              </button>
+            </li>
+          </ul>
+          
+          <style>
+            .flex-equal {
+              flex: 1 1 0;
+            }
+            #offersTab .nav-link {
+              padding: 0.5rem;
+              text-align: center;
+              white-space: nowrap;
+              color: #333;
+              background-color: #e9ecef;
+              border: 1px solid #dee2e6;
+              margin: 0 2px;
+              font-size: 0.9rem;
+            }
+            #offersTab .nav-link.active {
+              background-color: #007bff;
+              color: white;
+              border-color: #007bff;
+            }
+            #offersTab .nav-link:hover {
+              background-color: #dde2e6;
+              color: #333;
+            }
+            #offersTab .nav-link.active:hover {
+              background-color: #0069d9;
+              color: white;
+            }
+            @media (max-width: 768px) {
+              #offersTab .nav-link {
+                font-size: 0.8rem;
+                padding: 0.4rem;
+              }
+            }
+          </style>
+
+          <!-- Contenido de los tabs -->
+          <div class="tab-content" id="offersTabContent">
+            <!-- Token Offers -->
+            <div class="tab-pane fade show active" id="token-offers" role="tabpanel">
+              <div id="tokenOffersContent">
+                <div class="text-center">
+                  <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Floor Offers -->
+            <div class="tab-pane fade" id="floor-offers" role="tabpanel">
+              <div id="floorOffersContent">
+                <div class="text-center">
+                  <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Trait Offers -->
+            <div class="tab-pane fade" id="trait-offers" role="tabpanel">
+              <div id="traitOffersContent">
+                <div class="text-center">
+                  <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for Floor Offer Popup -->
+  <div class="modal fade" id="floorOfferPopupModal" tabindex="-1" aria-labelledby="floorOfferPopupModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="floorOfferPopupModalLabel">Make Floor Offer for the Collection</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="floorOfferPopupContent">
+          <div id="floorOfferForm">
+            <label>Offer Amount (in $ADRIAN): 
+              <input type="text" id="popupOfferAmount" value="10000" class="form-control">
+            </label>
+            <button class="btn btn-primary mt-2" onclick="makeFloorOfferPopup()">Submit Floor Offer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for My Tokens -->
+  <div class="modal fade" id="myTokensModal" tabindex="-1" aria-labelledby="myTokensModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="myTokensModalLabel">My Tokens</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="myTokensModalContent">
+          <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <!-- Main Script: NFT loading and Contract Interactions -->
+  <script>
+    /*********** Global Variables and Contract Setup ***********/
+    const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
+    const CHAIN_ID = 8453;
+
+    let nftData = [];
+    // Usar las variables existentes si ya fueron definidas por el menú
+    if (typeof window.provider === 'undefined') window.provider = null;
+    if (typeof window.signer === 'undefined') window.signer = null;
+    if (typeof window.userAccount === 'undefined') window.userAccount = null;
+    
+    // Referencias locales a las variables globales
+    let provider = window.provider;
+    let signer = window.signer;
+    let userAccount = window.userAccount;
+    
+    let tokenContract, nftContract, floorEngineContract, multicallContract;
+    let readProvider; // Provider de Alchemy para lecturas
+    let tokenReadContract, nftReadContract, floorEngineReadContract, multicallReadContract;
+
+    // Direcciones de contratos y ABIs
+    const TOKEN_ADDRESS  = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea"; // $ADRIAN
+    const NFT_ADDRESS    = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566"; // AdrianPunks
+    const FLOOR_ENGINE_ADDRESS = "0x0351F7cBA83277E891D4a85Da498A7eACD764D58"; // FloorEngine
+    const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11"; // Multicall3 on Base
+
+    // Alchemy API Configuration (from GitHub Secrets via environment)
+    const ALCHEMY_API_KEY = window.ALCHEMY_API_KEY || 'YOUR_ALCHEMY_API_KEY';
+    const ALCHEMY_RPC_URL = ALCHEMY_API_KEY !== 'YOUR_ALCHEMY_API_KEY' 
+      ? `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+      : null;
+    
+    // Debug: Verificar que el API key se cargó correctamente
+    if (ALCHEMY_API_KEY === 'YOUR_ALCHEMY_API_KEY' || !ALCHEMY_API_KEY) {
+      console.warn('⚠️ Alchemy API key not configured. Using fallback to Infura.');
+      console.log('window.ALCHEMY_API_KEY:', window.ALCHEMY_API_KEY);
+    } else {
+      console.log('✅ Alchemy API key loaded successfully');
+      // No mostrar el API key completo por seguridad, solo los primeros y últimos caracteres
+      const maskedKey = ALCHEMY_API_KEY.substring(0, 8) + '...' + ALCHEMY_API_KEY.substring(ALCHEMY_API_KEY.length - 4);
+      console.log('API Key (masked):', maskedKey);
+    }
+
+    // Supabase configuration (from GitHub Secrets via environment)
+    const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
+    const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
+
+    let supabaseClient = null;
+
+    function initSupabase() {
+      if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('Supabase initialized');
+      } else {
+        console.error('Supabase credentials not configured');
+      }
+    }
+
+    // Función auxiliar para convertir notación científica a string decimal completo
+    function convertToDecimalString(value) {
+      // Si es null o undefined, retornar "0"
+      if (value == null) return "0";
+      
+      // Si ya es string
+      if (typeof value === 'string') {
+        // Verificar si tiene notación científica
+        if (value.includes('e+') || value.includes('e-') || value.includes('E+') || value.includes('E-')) {
+          // Convertir notación científica a decimal completo
+          const parts = value.toLowerCase().split('e');
+          const base = parseFloat(parts[0]);
+          const exponent = parseInt(parts[1] || '0');
+          
+          if (exponent === 0) return parts[0];
+          
+          // Convertir a string con todos los decimales
+          const baseStr = base.toString();
+          const [integerPart, decimalPart = ''] = baseStr.split('.');
+          
+          if (exponent > 0) {
+            // e+ : mover decimal hacia la derecha
+            const totalDecimals = decimalPart.length;
+            if (exponent >= totalDecimals) {
+              // Mover todos los decimales y agregar zeros adicionales
+              const newInteger = integerPart + decimalPart + '0'.repeat(exponent - totalDecimals);
+              return newInteger;
+            } else {
+              // Mover el punto decimal parcialmente
+              const newInteger = integerPart + decimalPart.substring(0, exponent);
+              const newDecimal = decimalPart.substring(exponent);
+              return newInteger + (newDecimal ? '.' + newDecimal : '');
+            }
+          } else {
+            // e- : mover decimal hacia la izquierda
+            const absExp = Math.abs(exponent);
+            return '0.' + '0'.repeat(absExp - 1) + integerPart.replace('-', '') + decimalPart;
+          }
+        }
+        return value;
+      }
+      
+      // Si es número, convertir a string sin notación científica
+      if (typeof value === 'number') {
+        // Para números grandes, usar toFixed(0) para evitar notación científica
+        if (Math.abs(value) >= 1e15) {
+          // Usar una conversión más robusta para números muy grandes
+          const str = value.toString();
+          if (str.includes('e+') || str.includes('e-')) {
+            // Si toString() devuelve notación científica, usar el método manual
+            return convertToDecimalString(str);
+          }
+          return value.toFixed(0);
+        }
+        return String(value);
+      }
+      
+      return String(value);
+    }
+
+    // Supabase Data Layer para NFTs - Usar vista simplificada
+    async function loadListingsFromSupabase() {
+      if (!supabaseClient) return null;
+      
+      try {
+        console.log('📦 Cargando listings activos desde Supabase...');
+        
+        // Cargar desde la vista simplificada active_punk_listings
+        const { data: listings, error } = await supabaseClient
+          .from('active_punk_listings')
+          .select('token_id, price_adrian_wei, is_engine_owned, seller, last_block_number')
+          .order('last_block_number', { ascending: false });
+        
+        if (error) throw error;
+        
+        if (!listings || listings.length === 0) {
+          console.log('⚠️ No hay listings activos en Supabase');
+          return { listings: [], lastBlock: 0 };
+        }
+        
+        // Convertir a formato compatible con activeListingsData
+        const activeListings = listings.map(l => {
+          // Convertir price_adrian_wei a string decimal completo (sin notación científica)
+          const priceWeiStr = convertToDecimalString(l.price_adrian_wei);
+          
+          // Si is_engine_owned es true, el seller es el FloorEngine
+          const seller = l.is_engine_owned ? FLOOR_ENGINE_ADDRESS : (l.seller || '');
+          
+          return {
+            tokenId: l.token_id,
+            seller: seller,
+            price: ethers.BigNumber.from(priceWeiStr),
+            isContractOwned: l.is_engine_owned
+          };
+        });
+        
+        const maxBlock = listings[0]?.last_block_number || 0;
+        console.log(`✅ Cargados ${activeListings.length} listings activos desde Supabase (último bloque: ${maxBlock})`);
+        
+        return {
+          listings: activeListings,
+          lastBlock: maxBlock
+        };
+      } catch (error) {
+        console.error('Error loading from Supabase:', error);
+        return null;
+      }
+    }
+
+    async function getLatestBlockFromChain() {
+      try {
+        const currentBlock = await readProvider.getBlockNumber();
+        return currentBlock;
+      } catch (error) {
+        console.error('Error getting current block:', error);
+        return null;
+      }
+    }
+
+    async function checkNeedSync(supabaseLastBlock) {
+      const chainBlock = await getLatestBlockFromChain();
+      if (!chainBlock) return true; // Si falla, forzar sync
+      
+      const blockDiff = chainBlock - supabaseLastBlock;
+      const needSync = blockDiff > 10; // Sync si hay más de 10 bloques de diferencia
+      
+      console.log(`📊 Supabase block: ${supabaseLastBlock}, Chain block: ${chainBlock}, Diff: ${blockDiff}, Need sync: ${needSync}`);
+      
+      return needSync;
+    }
+
+    // Variables para manejar las rutas de imagen
+    let currentImageCollection = 'adrianpunks'; // Por defecto
+    // Array para rotar entre las colecciones disponibles en el orden correcto
+    const availableCollections = ['adrianpunks', 'halfxadrian', 'vectoradrians', 'adrianvectors'];
+
+    // FloorEngine ABI
+    const FLOOR_ENGINE_ABI = [
+      // Events
+      "event Listed(uint256 indexed tokenId, address indexed seller, uint256 price, bool isContractOwned)",
+      "event Cancelled(uint256 indexed tokenId, address indexed seller)",
+      "event Bought(uint256 indexed tokenId, address indexed buyer, address indexed seller, uint256 price, bool isContractOwned)",
+      "event FloorSweep(uint256 indexed tokenId, uint256 buyPrice, uint256 relistPrice, address indexed caller, uint256 callerReward)",
+      "event PremiumUpdated(uint16 oldPremiumBps, uint16 newPremiumBps)",
+      "event MaxBuyPriceUpdated(uint256 oldMaxBuyPrice, uint256 newMaxBuyPrice)",
+      
+      // Main functions
+      "function list(uint256 tokenId, uint256 price) external",
+      "function cancel(uint256 tokenId) external",
+      "function buy(uint256 tokenId) external",
+      "function sweepFloorWithBalance() external",
+      
+      // View functions
+      "function listings(uint256 tokenId) external view returns (address seller, uint256 price, bool isContractOwned)",
+      "function isListed(uint256 tokenId) external view returns (bool)",
+      "function getListedTokenIds() external view returns (uint256[])",
+      "function getListedCount() external view returns (uint256)",
+      "function token() external view returns (address)",
+      "function collection() external view returns (address)",
+      "function premiumBps() external view returns (uint16)",
+      "function maxBuyPrice() external view returns (uint256)",
+      "function callerRewardBps() external view returns (uint16)",
+      "function callerRewardFixed() external view returns (uint256)",
+      "function callerRewardIsPercentage() external view returns (bool)",
+      
+      // Admin functions
+      "function setPremiumBps(uint16 newPremiumBps) external",
+      "function setMaxBuyPrice(uint256 newMaxBuyPrice) external",
+      "function setCallerRewardBps(uint16 bps) external",
+      "function setCallerRewardFixed(uint256 amount) external",
+      "function rescueERC721(address to, uint256 tokenId) external",
+      "function rescueERC20(address tokenAddress, address to, uint256 amount) external",
+      "function owner() external view returns (address)"
+    ];
+
+    // Multicall3 ABI
+    const MULTICALL3_ABI = [
+      "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) external payable returns (tuple(bool success, bytes returnData)[] returnData)"
+    ];
+
+    const TOKEN_ABI = [
+      "function balanceOf(address account) view returns (uint256)",
+      "function approve(address spender, uint256 amount) external returns (bool)",
+      "function allowance(address owner, address spender) view returns (uint256)"
+    ];
+    const NFT_ABI = [
+      "function tokenURI(uint256 tokenId) view returns (string)",
+      "function ownerOf(uint256 tokenId) view returns (address)",
+      "function getApproved(uint256 tokenId) view returns (address)",
+      "function approve(address to, uint256 tokenId) external",
+      "function isApprovedForAll(address owner, address operator) view returns (bool)",
+      "function setApprovalForAll(address operator, bool approved) external",
+      "function balanceOf(address owner) view returns (uint256)",
+      "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+      "function totalMinted() view returns (uint256)"
+    ];
+    
+    /*********** Rate Limiter & Cache System ***********/
+    
+    // Rate Limiter: controla la velocidad de las solicitudes
+    class RateLimiter {
+      constructor(maxRequests = 25, windowMs = 1000) {
+        this.maxRequests = maxRequests;
+        this.windowMs = windowMs;
+        this.requests = [];
+      }
+      
+      async waitForSlot() {
+        const now = Date.now();
+        // Limpiar requests antiguos
+        this.requests = this.requests.filter(time => now - time < this.windowMs);
+        
+        if (this.requests.length >= this.maxRequests) {
+          const oldestRequest = this.requests[0];
+          const waitTime = this.windowMs - (now - oldestRequest);
+          console.log(`⏳ Rate limit alcanzado, esperando ${waitTime}ms...`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          return this.waitForSlot();
+        }
+        
+        this.requests.push(now);
+      }
+    }
+    
+    // Retry Logic con Exponential Backoff
+    async function retryWithBackoff(fn, maxRetries = 5, baseDelay = 1000) {
+      for (let i = 0; i < maxRetries; i++) {
+        try {
+          await rateLimiter.waitForSlot();
+          return await fn();
+        } catch (error) {
+          if (error.status === 429 || (error.message && error.message.includes('429'))) {
+            const delay = baseDelay * Math.pow(2, i) + Math.random() * 1000;
+            console.warn(`⚠️ Error 429, reintentando en ${Math.round(delay)}ms... (intento ${i + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          } else {
+            throw error;
+          }
+        }
+      }
+      throw new Error('Max retries alcanzado');
+    }
+    
+    // Sistema de caché simple
+    class SimpleCache {
+      constructor(ttlMs = 30000) {
+        this.cache = new Map();
+        this.ttlMs = ttlMs;
+        this.hits = 0;
+        this.misses = 0;
+      }
+      
+      get(key) {
+        const item = this.cache.get(key);
+        if (!item) {
+          this.misses++;
+          return null;
+        }
+        
+        if (Date.now() - item.timestamp > this.ttlMs) {
+          this.cache.delete(key);
+          this.misses++;
+          return null;
+        }
+        
+        this.hits++;
+        return item.value;
+      }
+      
+      set(key, value) {
+        this.cache.set(key, {
+          value,
+          timestamp: Date.now()
+        });
+      }
+      
+      clear() {
+        this.cache.clear();
+        console.log(`📊 Cache Stats: ${this.hits} hits, ${this.misses} misses (${this.hits > 0 ? ((this.hits / (this.hits + this.misses)) * 100).toFixed(1) : 0}% hit rate)`);
+        this.hits = 0;
+        this.misses = 0;
+      }
+      
+      getStats() {
+        return {
+          hits: this.hits,
+          misses: this.misses,
+          hitRate: this.hits > 0 ? ((this.hits / (this.hits + this.misses)) * 100).toFixed(1) : 0,
+          size: this.cache.size
+        };
+      }
+    }
+    
+    const rateLimiter = new RateLimiter(25, 1000); // 25 requests por segundo
+    const contractCache = new SimpleCache(30000); // 30 segundos TTL
+    
+    async function initContracts() {
+      // OPTIMIZACIÓN: No reinicializar si ya está configurado
+      if (readProvider && tokenReadContract) {
+        console.log('✅ Contratos ya inicializados, saltando...');
+        if (userAccount) {
+          updateTokenBalance();
+        }
+        return;
+      }
+      
+      // Configurar el provider de Alchemy para lecturas (fallback a Infura si no está configurado)
+      const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
+      readProvider = new ethers.providers.JsonRpcProvider(rpcUrl, {
+        name: "base",
+        chainId: 8453
+      });
+
+      // Inicializar contratos de solo lectura
+      tokenReadContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
+      nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+      floorEngineReadContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
+      multicallReadContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+
+      if (window.ethereum) {
+        // Usar el provider existente si ya fue definido por el menú, o crear uno nuevo
+        if (!window.provider) {
+          window.provider = new ethers.providers.Web3Provider(window.ethereum);
+          window.signer = window.provider.getSigner();
+          
+          try {
+            window.userAccount = await window.signer.getAddress();
+          } catch (e) {
+            console.log("No user connected yet");
+          }
+        }
+        
+        // Actualizar las referencias locales
+        provider = window.provider;
+        signer = window.signer;
+        userAccount = window.userAccount;
+        
+        if (userAccount) {
+          tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+          nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
+          floorEngineContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, signer);
+          multicallContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, signer);
+          updateTokenBalance();
+          updateFloorEngineBalance();
+        } else {
+          // Solo actualizar balance si no hay usuario conectado
+          updateFloorEngineBalance();
+        }
+      } else {
+        console.error("Ethereum provider not found.");
+      // Update FloorEngine balance even if user not connected
+        updateFloorEngineBalance();
+      }
+    }
+    
+    /*********** NFT Data Loading and Display ***********/
+    let activeFilters = new Map();
+    let allTraits = new Map();
+    
+    function extractTraits(nfts) {
+      allTraits.clear();
+      nfts.forEach(nft => {
+        if (nft.attributes) {
+          nft.attributes.forEach(attr => {
+            if (!allTraits.has(attr.trait_type)) {
+              allTraits.set(attr.trait_type, new Set());
+            }
+            allTraits.get(attr.trait_type).add(attr.value);
+          });
+        }
+      });
+      return allTraits;
+    }
+    
+    function renderTraitFilters() {
+      const container = document.getElementById('traitCategories');
+      container.innerHTML = '';
+      allTraits.forEach((values, traitType) => {
+        const categoryDiv = document.createElement('div');
+        categoryDiv.className = 'trait-category mb-3';
+        categoryDiv.innerHTML = `
+          <h6 class="trait-category-title mb-2">${traitType}</h6>
+          <div class="trait-values">
+            ${Array.from(values).map(value => `
+              <div class="trait-value-item">
+                <button class="btn btn-sm ${activeFilters.get(traitType) === value ? 'btn-primary' : 'btn-outline-secondary'} w-100 text-start mb-1"
+                  onclick="toggleTraitFilter('${traitType}', '${value}')">
+                  ${value}
+                </button>
+              </div>
+            `).join('')}
+          </div>
+        `;
+        container.appendChild(categoryDiv);
+      });
+      updateActiveFiltersDisplay();
+    }
+    
+    function updateActiveFiltersDisplay() {
+      const container = document.getElementById('activeFilters');
+      if (activeFilters.size === 0) {
+        container.innerHTML = '<small class="text-muted">No active filters</small>';
+        return;
+      }
+      container.innerHTML = Array.from(activeFilters.entries()).map(([type, value]) => `
+        <span class="badge bg-primary me-1 mb-1">
+          ${type}: ${value}
+          <button type="button" class="btn-close btn-close-white" style="font-size: 0.5em;" 
+            onclick="removeTraitFilter('${type}')"></button>
+        </span>
+      `).join('');
+    }
+    
+    function toggleTraitFilter(traitType, value) {
+      if (activeFilters.get(traitType) === value) {
+        activeFilters.delete(traitType);
+      } else {
+        activeFilters.set(traitType, value);
+      }
+      renderTraitFilters();
+      filterAndDisplayNFTs();
+    }
+    
+    function removeTraitFilter(traitType) {
+      activeFilters.delete(traitType);
+      renderTraitFilters();
+      filterAndDisplayNFTs();
+    }
+    
+    function clearTraitFilters() {
+      activeFilters.clear();
+      renderTraitFilters();
+      filterAndDisplayNFTs();
+    }
+    
+    function filterAndDisplayNFTs() {
+      if (!nftData) return;
+      let filteredNFTs = nftData;
+      if (activeFilters.size > 0) {
+        filteredNFTs = nftData.filter(nft => {
+          return Array.from(activeFilters.entries()).every(([type, value]) => {
+            return nft.attributes.some(attr => attr.trait_type === type && attr.value === value);
+          });
+        });
+      }
+      document.getElementById('filteredCount').textContent = `Showing ${filteredNFTs.length} of ${nftData.length}`;
+      displayNFTs(filteredNFTs);
+    }
+    
+    let activeListingsData = [];
+    let currentSortOrder = 'asc';
+    
+    // Función auxiliar para sincronizar con blockchain
+    async function syncListingsFromChain() {
+      try {
+        const listedTokenIds = await retryWithBackoff(() => 
+          floorEngineReadContract.getListedTokenIds()
+        );
+        
+        console.log(`Found ${listedTokenIds.length} listed tokens on FloorEngine`);
+        
+        const listings = [];
+        for (const tokenId of listedTokenIds) {
+          const listing = await retryWithBackoff(() =>
+            floorEngineReadContract.listings(tokenId)
+          );
+          listings.push({
+            tokenId: tokenId.toNumber(),
+            seller: listing.seller,
+            price: listing.price,
+            isContractOwned: listing.isContractOwned
+          });
+        }
+        
+        return listings;
+      } catch (error) {
+        console.error('Error syncing from chain:', error);
+        return null;
+      }
+    }
+
+    async function loadActiveListings() {
+      try {
+        // Verificar caché primero
+        const cacheKey = 'activeListings';
+        const cached = contractCache.get(cacheKey);
+        if (cached) {
+          console.log('✅ Usando listings cacheados');
+          activeListingsData = cached;
+          // Actualizar dashboard después de cargar desde caché
+          updateFloorEngineDashboard();
+          return;
+        }
+        
+        // PASO 1: Intentar cargar desde Supabase primero
+        console.log('📦 Cargando listings desde Supabase...');
+        const supabaseData = await loadListingsFromSupabase();
+        
+        if (supabaseData && supabaseData.listings.length > 0) {
+          activeListingsData = supabaseData.listings;
+          console.log(`✅ Cargados ${activeListingsData.length} listings desde Supabase`);
+          
+          // PASO 2: Verificar si necesita sincronización en background
+          const needSync = await checkNeedSync(supabaseData.lastBlock);
+          
+          if (needSync) {
+            console.log('🔄 Sincronizando con blockchain en background...');
+            // Mostrar indicador de verificación
+            const syncStatus = document.getElementById('syncStatus');
+            if (syncStatus) syncStatus.style.display = 'inline';
+            
+            // Sincronizar en background sin bloquear UI
+            syncListingsFromChain().then(chainListings => {
+              if (syncStatus) syncStatus.style.display = 'none';
+              
+              if (chainListings) {
+                // Verificar si hay cambios (no solo en cantidad, sino también en contenido)
+                const hasChanges = chainListings.length !== activeListingsData.length ||
+                  chainListings.some((listing, idx) => {
+                    const existing = activeListingsData[idx];
+                    return !existing || 
+                      existing.tokenId !== listing.tokenId ||
+                      !existing.price.eq(listing.price) ||
+                      existing.seller !== listing.seller;
+                  });
+                
+                if (hasChanges) {
+                  console.log('🔄 Actualizando con datos frescos del blockchain');
+                  activeListingsData = chainListings;
+                  contractCache.set(cacheKey, chainListings);
+                  
+                  // Preservar estado del sort si estaba activo
+                  const sortButton = document.querySelector('button[onclick="sortByFloorPrice()"]');
+                  const wasSorted = sortButton && sortButton.classList.contains('btn-primary');
+                  
+                  // Leer el orden actual desde el botón HTML en lugar de la variable
+                  let currentOrder = 'asc'; // default
+                  if (wasSorted) {
+                    // Leer el orden desde el contenido del botón (↑ = asc, ↓ = desc)
+                    const buttonText = sortButton.innerHTML;
+                    if (buttonText.includes('↓')) {
+                      currentOrder = 'desc';
+                    } else if (buttonText.includes('↑')) {
+                      currentOrder = 'asc';
+                    }
+                    console.log(`🔍 Sort detectado: botón activo, orden leído desde HTML: ${currentOrder} (${currentOrder === 'asc' ? '↑' : '↓'})`);
+                  } else {
+                    console.log('🔍 Sort detectado: botón inactivo, usando orden por defecto: asc (↑)');
+                  }
+                  
+                  // Re-render NFTs con datos actualizados
+                  if (wasSorted) {
+                    // Re-aplicar sort por floor price manteniendo el orden actual (sin toggle)
+                    console.log(`🔄 Preservando sort: ${currentOrder === 'asc' ? 'ascendente (↑)' : 'descendente (↓)'}`);
+                    applySortByFloorPrice(currentOrder);
+                  } else {
+                    // Aplicar sort por defecto (ascendente) como en la carga inicial
+                    applySortByFloorPrice('asc');
+                  }
+                  // Actualizar dashboard después de actualizar listings
+                  updateFloorEngineDashboard();
+                } else {
+                  console.log('✅ Datos de Supabase están sincronizados');
+                }
+              }
+            });
+          }
+          
+          // Guardar en caché
+          contractCache.set(cacheKey, activeListingsData);
+          // Actualizar dashboard después de cargar listings
+          updateFloorEngineDashboard();
+          return;
+        }
+        
+        // PASO 3: Fallback - cargar directamente desde blockchain
+        console.log('⚠️ Supabase no disponible, cargando desde blockchain...');
+        const chainListings = await syncListingsFromChain();
+        if (chainListings) {
+          activeListingsData = chainListings;
+          contractCache.set(cacheKey, chainListings);
+          // Actualizar dashboard después de cargar listings
+          updateFloorEngineDashboard();
+        }
+        
+      } catch (error) {
+        console.error("Error loading active listings:", error);
+        activeListingsData = [];
+      }
+    }
+    
+    // Función auxiliar para obtener el seller original desde Supabase (respaldo)
+    async function getOriginalSellerFromSupabase(tokenId) {
+      try {
+        if (!supabaseClient) {
+          console.log('Supabase client not available for seller lookup');
+          return null;
+        }
+
+        // Consultar listing_events para obtener el último evento "Listed" de este token
+        const { data: listingEvents, error } = await supabaseClient
+          .from('listing_events')
+          .select('seller')
+          .eq('token_id', tokenId)
+          .eq('event_type', 'Listed')
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (error) {
+          console.error('Error fetching original seller from Supabase:', error);
+          return null;
+        }
+
+        if (listingEvents && listingEvents.length > 0) {
+          return listingEvents[0].seller;
+        }
+
+        return null;
+      } catch (error) {
+        console.error('Error in getOriginalSellerFromSupabase:', error);
+        return null;
+      }
+    }
+
+    // MODIFICACIÓN: Filtrar NFTs según la cantidad minteada
+    // Funciona sin wallet conectada - solo lectura de datos
+    async function loadNFTs() {
+      try {
+        console.log('📦 Cargando NFTs...');
+        
+        // OPTIMIZACIÓN: Asegurar que readProvider esté inicializado solo UNA VEZ
+        if (!readProvider) {
+          console.log('⚠️ ReadProvider no inicializado, inicializando...');
+          const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
+          readProvider = new ethers.providers.JsonRpcProvider(rpcUrl, {
+            name: "base",
+            chainId: 8453
+          });
+          nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+          floorEngineReadContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
+          tokenReadContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
+          multicallReadContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+        }
+        
+        // Total minted es inmutable: 1000 punks
+        const mintedCount = 1000;
+        console.log("Minted count:", mintedCount);
+
+        const response = await fetch('./adrianpunks.json');
+        if (!response.ok) throw new Error('Error loading NFTs');
+        const data = await response.json();
+        // Filtrar para mostrar solo los tokens cuyo ID <= mintedCount
+        nftData = (data.collection || []).filter(nft => {
+          const tokenIdStr = nft.name.split('#')[1];
+          const tokenId = parseInt(tokenIdStr);
+          return tokenId <= mintedCount;
+        });
+        
+        // Cargar listings (con caché y multicall optimizado)
+        await loadActiveListings();
+        
+        extractTraits(nftData);
+        renderTraitFilters();
+        filterAndDisplayNFTs();
+        
+        // Ordenar automáticamente por Floor Price (ascendente) al cargar
+        applySortByFloorPrice('asc');
+        
+        // Actualizar dashboard después de cargar todo
+        updateFloorEngineDashboard();
+      } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('nftGrid').innerHTML = `<div class="alert alert-danger">Error loading NFTs: ${error.message}</div>`;
+      }
+    }
+    
+    async function displayNFTs(nfts) {
+      const grid = document.getElementById('nftGrid');
+      grid.innerHTML = '';
+      if (!nfts || nfts.length === 0) {
+        grid.innerHTML = '<div class="alert alert-info">No NFTs found</div>';
+        return;
+      }
+      
+      // Si estamos mostrando la colección halfxadrian, cargar ese JSON
+      let halfxadrianData = null;
+      if (currentImageCollection === 'halfxadrian') {
+        try {
+          const response = await fetch('./halfxadrian.json');
+          if (response.ok) {
+            const data = await response.json();
+            halfxadrianData = data.collection || [];
+          }
+        } catch (error) {
+          console.error('Error loading halfxadrian.json:', error);
+        }
+      }
+      
+      nfts.forEach(nft => {
+        const tokenId = nft.name.split('#')[1];
+        
+        // Determinar el nombre a mostrar según la colección
+        let displayName = nft.name;
+        if (currentImageCollection === 'halfxadrian' && halfxadrianData) {
+          const halfNft = halfxadrianData.find(n => parseInt(n.name.split('#')[1]) === parseInt(tokenId));
+          if (halfNft) {
+            displayName = halfNft.name;
+          }
+        } else if (currentImageCollection === 'vectoradrians') {
+          displayName = `VECTORAdrian#${tokenId}`;
+        } else if (currentImageCollection === 'adrianvectors') {
+          displayName = `ADRIANvector#${tokenId}`;
+        }
+        
+        const listing = activeListingsData.find(l => l.tokenId.toString() === tokenId);
+        const card = document.createElement('div');
+        card.className = 'card nft-card';
+        card.style.cursor = 'pointer';
+        card.onclick = () => showNFTDetails(nft.name);
+        
+        // Formatear el precio para mostrar K o M si es necesario
+        const formattedPrice = listing ? 
+          (parseFloat(ethers.utils.formatUnits(listing.price, 18)) >= 1000000 ? 
+            (parseFloat(ethers.utils.formatUnits(listing.price, 18)) / 1000000).toFixed(1) + 'M' :
+            parseFloat(ethers.utils.formatUnits(listing.price, 18)) >= 1000 ? 
+            (parseFloat(ethers.utils.formatUnits(listing.price, 18)) / 1000).toFixed(1) + 'K' :
+            parseFloat(ethers.utils.formatUnits(listing.price, 18)).toFixed(1)) : '';
+        
+        // Determinar el badge según si es del contrato o de usuario
+        const badgeHtml = listing ? (listing.isContractOwned ? 
+          '<span class="badge bg-primary">ENGINE</span>' : 
+          '<span class="badge bg-secondary">USER</span>') : '';
+
+        // Obtener URL de la imagen
+        const imgUrl = getImageUrl(nft);
+        
+        // Añadir atributos de datos para las imágenes de colecciones dinámicas
+        const dataAttrs = (currentImageCollection === 'vectoradrians' || currentImageCollection === 'adrianvectors') ?
+          `` : '';
+
+        card.innerHTML = `
+          <img src="${imgUrl}" class="card-img-top" alt="${displayName}" ${dataAttrs}>
+          <div class="card-body">
+            <h5 class="card-title">${displayName}</h5>
+            <p class="card-text">Rarity: ${typeof nft.rarity === 'number' ? nft.rarity.toFixed(2) : 'N/A'}</p>
+            ${listing ? `
+              <div class="price-tag alert alert-info py-1 px-2 mb-2">
+                <small>Listed: ${formattedPrice} $A ${badgeHtml}</small>
+              </div>
+              <button class="btn btn-primary btn-sm w-100" 
+                onclick="event.stopPropagation(); buyToken(${tokenId}, '${listing.price}')"
+                style="font-size: 0.8rem;">
+                Buy Now
+              </button>
+            ` : ''}
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+    
+    async function showNFTDetails(nftName) {
+      try {
+        // Cargar el JSON correspondiente a la colección actual
+        const jsonFile = currentImageCollection === 'adrianpunks' ? './adrianpunks.json' : './halfxadrian.json';
+        const data = await fetch(jsonFile).then(response => response.json());
+        
+        // Obtener el ID del token del nombre
+        const tokenId = parseInt(nftName.split('#')[1]);
+        
+        // Buscar el NFT por su ID en lugar de por su nombre, ya que el nombre puede variar entre colecciones
+        const nft = data.collection.find(n => parseInt(n.name.split('#')[1]) === tokenId);
+        
+        if (!nft) throw new Error("NFT not found");
+        
+        // Determinar el nombre a mostrar según la colección
+        let displayName = nft.name;
+        if (currentImageCollection === 'vectoradrians') {
+          displayName = `VECTORAdrian#${tokenId}`;
+        } else if (currentImageCollection === 'adrianvectors') {
+          displayName = `ADRIANvector#${tokenId}`;
+        }
+        
+        let ownershipStatus = '';
+        let isOwner = false;
+        try {
+          // Usar readProvider para verificar ownership (funciona sin wallet)
+          if (!nftReadContract) {
+            if (!readProvider) {
+              const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
+              readProvider = new ethers.providers.JsonRpcProvider(rpcUrl, {
+                name: "base",
+                chainId: 8453
+              });
+            }
+            nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+          }
+          const owner = await retryWithBackoff(() => nftReadContract.ownerOf(tokenId));
+          if (userAccount) {
+          isOwner = owner.toLowerCase() === userAccount.toLowerCase();
+          ownershipStatus = isOwner ? `<div class="alert alert-success">You are the owner of this token</div>` : `<div class="alert alert-info">Owner: ${owner.substring(0, 6)}...${owner.substring(38)}</div>`;
+          } else {
+            ownershipStatus = `<div class="alert alert-info">Owner: ${owner.substring(0, 6)}...${owner.substring(38)}</div>`;
+          }
+        } catch (error) {
+          ownershipStatus = `<div class="alert alert-warning">Could not verify token ownership</div>`;
+        }
+        
+        // Check if token is listed on FloorEngine
+        let tokenListing = null;
+        let isSeller = false; // Verificar si el usuario es el seller del listing
+        try {
+          const isListed = await retryWithBackoff(() => floorEngineReadContract.isListed(tokenId));
+          if (isListed) {
+            const listing = await retryWithBackoff(() => floorEngineReadContract.listings(tokenId));
+            tokenListing = {
+              price: listing.price,
+              seller: listing.seller,
+              isContractOwned: listing.isContractOwned
+            };
+            
+            // Verificar si el usuario conectado es el seller del listing
+            if (userAccount && !tokenListing.isContractOwned) {
+              // Verificar directamente desde el contrato
+              isSeller = tokenListing.seller.toLowerCase() === userAccount.toLowerCase();
+              
+              // Si no coincide, intentar obtener desde Supabase como respaldo
+              if (!isSeller && supabaseClient) {
+                const originalSeller = await getOriginalSellerFromSupabase(tokenId);
+                if (originalSeller) {
+                  isSeller = originalSeller.toLowerCase() === userAccount.toLowerCase();
+                  // Si encontramos el seller en Supabase y es diferente, actualizar tokenListing
+                  if (isSeller && tokenListing.seller.toLowerCase() !== originalSeller.toLowerCase()) {
+                    console.log(`Seller mismatch detected. Contract: ${tokenListing.seller}, Supabase: ${originalSeller}. Using Supabase value.`);
+                    tokenListing.seller = originalSeller;
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Error checking listing status:", error);
+        }
+        const modalContent = document.getElementById('nftModalContent');
+        modalContent.innerHTML = `
+          <div class="modal-header">
+            <h5 class="modal-title">${displayName}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body text-center">
+            <img src="${getImageUrl(nft)}" class="img-fluid rounded mb-3" alt="${displayName}">
+            <div class="nft-details text-start">
+              ${ownershipStatus}
+              <p><strong>Description:</strong> ${nft.description || 'N/A'}</p>
+              <p><strong>Compiler:</strong> ${nft.compiler || 'N/A'}</p>
+              <p><strong>Masterminds:</strong> ${nft.masterminds && Array.isArray(nft.masterminds) ? nft.masterminds.join(', ') : 'N/A'}</p>
+              <p><strong>Rarity:</strong> ${typeof nft.rarity === 'number' ? nft.rarity.toFixed(2) : 'N/A'}</p>
+              ${isOwner && !tokenListing ? `
+                <button class="btn btn-primary w-100 mb-2" onclick="openListingForm('${nft.name}', 'FloorEngine')">
+                  List for Sale on FloorEngine
+                  </button>
+              ` : ''}
+              ${tokenListing ? `
+                  <div class="listing-info alert alert-info">
+                  <h6>Active Listing ${tokenListing.isContractOwned ? '<span class="badge bg-primary">ENGINE</span>' : '<span class="badge bg-secondary">USER</span>'}</h6>
+                    <p>Price: ${parseFloat(ethers.utils.formatUnits(tokenListing.price, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1})} $ADRIAN</p>
+                    <p>Seller: ${tokenListing.seller.substring(0, 6)}...${tokenListing.seller.substring(38)}</p>
+                  ${!tokenListing.isContractOwned ? `
+                        ${isSeller ? `
+                      <button class="btn btn-danger btn-sm" onclick="cancelListing(${tokenId})">Cancel Listing</button>
+                      <p class="text-muted mb-0 mt-2"><small>Only the seller can cancel this listing</small></p>
+                    ` : `
+                      <button class="btn btn-primary btn-sm w-100" onclick="buyToken(${tokenId}, '${tokenListing.price}')">Buy Now</button>
+                    `}
+                  ` : `
+                    ${!isOwner ? `
+                      <button class="btn btn-primary btn-sm w-100" onclick="buyToken(${tokenId}, '${tokenListing.price}')">Buy Now</button>
+                    ` : '<p class="text-muted mb-0"><small>This listing is managed by the FloorEngine</small></p>'}
+                  `}
+                  </div>
+                ` : ''}
+            </div>
+          </div>
+        `;
+        const modal = new bootstrap.Modal(document.getElementById('nftModal'));
+        const modalElement = document.getElementById('nftModal');
+        modalElement.addEventListener('hidden.bs.modal', function () {
+          document.body.classList.remove('modal-open');
+          const backdrop = document.querySelector('.modal-backdrop');
+          if (backdrop) { backdrop.remove(); }
+          modalContent.innerHTML = '';
+        });
+        modal.show();
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error loading NFT details: ' + error.message);
+      }
+    }
+    
+    async function cancelListing(tokenId) {
+      try {
+        if (!userAccount || !floorEngineContract) {
+          alert("Please connect your wallet to cancel this listing");
+          return;
+        }
+        const tx = await floorEngineContract.cancel(tokenId, { gasLimit: 300000 });
+        await tx.wait();
+        alert("Listing cancelled successfully!");
+        const modal = bootstrap.Modal.getInstance(document.getElementById('nftModal'));
+        modal.hide();
+        loadNFTs();
+      } catch (error) {
+        console.error("Error cancelling listing:", error);
+        alert("Error cancelling listing: " + error.message);
+      }
+    }
+    
+    function openListingForm(nftName, marketType) {
+      if (!userAccount || !floorEngineContract) {
+        alert("Please connect your wallet to list this NFT");
+        return;
+      }
+      const tokenId = nftName.split('#')[1];
+      const modalBody = document.querySelector('.modal-body');
+      const existingForm = document.querySelector('.listing-form');
+      if (existingForm) existingForm.remove();
+      const listingForm = document.createElement('div');
+      listingForm.className = 'listing-form mt-4 border-top pt-3';
+      listingForm.innerHTML = `
+        <h5 class="mb-3">List Token #${tokenId} for Sale</h5>
+        <div class="form-group mb-3">
+          <label class="mb-2">Price (in $ADRIAN):</label>
+          <input type="text" id="listingPrice" class="form-control" value="10000">
+        </div>
+        <div class="d-flex justify-content-between">
+          <button class="btn btn-primary" onclick="createListing('${tokenId}')">Create Listing</button>
+          <button class="btn btn-outline-secondary" onclick="closeListingForm()">Cancel</button>
+        </div>
+      `;
+      modalBody.appendChild(listingForm);
+      listingForm.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    function closeListingForm() {
+      const form = document.querySelector('.listing-form');
+      if (form) form.remove();
+    }
+    
+    async function createListing(tokenId) {
+      try {
+        if (!userAccount || !floorEngineContract || !nftContract) {
+          alert("Please connect your wallet to list this NFT");
+          return;
+        }
+        const price = ethers.utils.parseUnits(document.getElementById('listingPrice').value, 18);
+        
+        // Step 1: Check if NFT is approved
+        const approvedAddress = await nftContract.getApproved(tokenId);
+        if (approvedAddress.toLowerCase() !== FLOOR_ENGINE_ADDRESS.toLowerCase()) {
+          alert("Approving NFT for FloorEngine...");
+          const txApprove = await nftContract.approve(FLOOR_ENGINE_ADDRESS, tokenId);
+          await txApprove.wait();
+          console.log("NFT approved for FloorEngine");
+        }
+        
+        // Step 2: List on FloorEngine
+        alert("Creating listing...");
+        const tx = await floorEngineContract.list(tokenId, price, { gasLimit: 300000 });
+        await tx.wait();
+        alert("Listing created successfully!");
+        
+        const modal = bootstrap.Modal.getInstance(document.getElementById('nftModal'));
+        modal.hide();
+        loadNFTs();
+      } catch (error) {
+        console.error("Error creating listing:", error);
+        alert("Error creating listing: " + error.message);
+      }
+    }
+    
+    async function buyNFT(nftName) {
+      try {
+        if (!marketplaceContract || !tokenContract) {
+          alert("Please connect your wallet to continue.");
+          return;
+        }
+        const response = await fetch('adrianpunks.json');
+        const data = await response.json();
+        const nft = data.collection.find(n => n.name === nftName);
+        if (!nft) { alert("NFT not found."); return; }
+        const tokenId = parseInt(nft.name.split("#")[1]);
+        const price = await marketplaceContract.buyListing(tokenId, 1);
+        console.log("NFT Price:", price.toString());
+        const currentAllowance = await tokenContract.allowance(userAccount, MARKET_ADDRESS);
+        if (currentAllowance.lt(price)) {
+          const txApprove = await tokenContract.approve(MARKET_ADDRESS, price);
+          await txApprove.wait();
+        }
+        const txPurchase = await marketplaceContract.buyListing(tokenId, 1);
+        await txPurchase.wait();
+        alert("Purchase successful!");
+      } catch (error) {
+        console.error("Error purchasing NFT:", error);
+        alert("Error purchasing NFT: " + error.message);
+      }
+    }
+    
+    async function buyToken(tokenId, priceStr) {
+      try {
+        if (!userAccount || !floorEngineContract || !tokenContract) {
+          alert("Please connect your wallet to purchase this NFT");
+          return;
+        }
+        const price = ethers.BigNumber.from(priceStr);
+        
+        // Step 1: Check allowance and approve if needed
+        const currentAllowance = await tokenContract.allowance(userAccount, FLOOR_ENGINE_ADDRESS);
+        if (currentAllowance.lt(price)) {
+          alert("Approving $ADRIAN for purchase...");
+          const txApprove = await tokenContract.approve(FLOOR_ENGINE_ADDRESS, price);
+          await txApprove.wait();
+          console.log("$ADRIAN approved");
+        }
+        
+        // Step 2: Buy from FloorEngine
+        alert("Purchasing token...");
+        const txPurchase = await floorEngineContract.buy(tokenId, { gasLimit: 300000 });
+        await txPurchase.wait();
+        alert("Purchase successful!");
+        
+        loadNFTs();
+        const modal = bootstrap.Modal.getInstance(document.getElementById('nftModal'));
+        modal.hide();
+      } catch (error) {
+        console.error("Error purchasing token:", error);
+        alert("Error purchasing token: " + error.message);
+      }
+    }
+    
+    async function updateTokenBalance() {
+      try {
+        if (!userAccount) return;
+        
+        // OPTIMIZACIÓN: Usar readContract para evitar prompts de wallet
+        const balanceRaw = await retryWithBackoff(() => 
+          tokenReadContract.balanceOf(userAccount)
+        );
+        const balance = parseFloat(ethers.utils.formatUnits(balanceRaw, 18));
+        let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
+                              balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
+                              balance.toFixed(1);
+        document.getElementById("tokenBalance").innerText = `Balance: ${formattedBalance} $ADRIAN`;
+      } catch (error) {
+        console.error("Error fetching token balance:", error);
+        document.getElementById("tokenBalance").innerText = "Balance: Error";
+      }
+    }
+    
+    async function updateFloorEngineBalance() {
+      try {
+        // OPTIMIZACIÓN: Verificar caché primero
+        const cacheKey = 'floorEngineBalance';
+        const cached = contractCache.get(cacheKey);
+        if (cached) {
+          document.getElementById("floorEngineBalance").innerHTML = `<span>💰 FloorEngine: ${cached} $ADRIAN</span>`;
+          return;
+        }
+        
+        const contractBalance = await retryWithBackoff(() => 
+          tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS)
+        );
+        const balance = parseFloat(ethers.utils.formatUnits(contractBalance, 18));
+        let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
+                              balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
+                              balance.toFixed(1);
+        
+        // Guardar en caché
+        contractCache.set(cacheKey, formattedBalance);
+        document.getElementById("floorEngineBalance").innerHTML = `<span>💰 FloorEngine: ${formattedBalance} $ADRIAN</span>`;
+        
+        // Actualizar dashboard si está visible
+        updateFloorEngineDashboard();
+      } catch (error) {
+        console.error("Error fetching FloorEngine balance:", error);
+        document.getElementById("floorEngineBalance").innerHTML = `<span>FloorEngine: Error</span>`;
+      }
+    }
+
+    // Función para actualizar el dashboard completo del FloorENGINE
+    async function updateFloorEngineDashboard() {
+      try {
+        const dashboard = document.getElementById('floorEngineDashboard');
+        if (!dashboard) return;
+
+        // Obtener balance del engine
+        const contractBalance = await retryWithBackoff(() => 
+          tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS)
+        );
+        const balanceFormatted = parseFloat(ethers.utils.formatUnits(contractBalance, 18));
+
+        // Encontrar cheapest user listing (no del engine)
+        let cheapestUserListing = null;
+        if (activeListingsData && activeListingsData.length > 0) {
+          for (const listing of activeListingsData) {
+            if (!listing.isContractOwned) {
+              if (!cheapestUserListing || listing.price.lt(cheapestUserListing.price)) {
+                cheapestUserListing = listing;
+              }
+            }
+          }
+        }
+
+        // Actualizar dirección del engine
+        document.getElementById('floorEngineAddress').textContent = 
+          `${FLOOR_ENGINE_ADDRESS.substring(0, 6)}...${FLOOR_ENGINE_ADDRESS.substring(38)}`;
+
+        // Contar holdings y sold
+        const engineListings = activeListingsData?.filter(l => l.isContractOwned) || [];
+        document.getElementById('floorEngineHoldingCount').textContent = engineListings.length;
+        
+        // Obtener contador de sold desde Supabase
+        const soldCount = await getFloorEngineSoldCount();
+        document.getElementById('floorEngineSoldCount').textContent = soldCount;
+
+        // Actualizar hero card con balance y NFTs
+        document.getElementById('floorEngineEthHolding').textContent = balanceFormatted.toLocaleString('en-US', {
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 1
+        });
+        document.getElementById('floorEngineNftHolding').textContent = `+ ${engineListings.length} NFTs`;
+
+        // Actualizar cheapest listing card
+        if (cheapestUserListing) {
+          const cheapestCard = document.getElementById('cheapestListingCard');
+          cheapestCard.style.display = 'flex';
+
+          const tokenId = cheapestUserListing.tokenId;
+          const priceFormatted = parseFloat(ethers.utils.formatUnits(cheapestUserListing.price, 18));
+          
+          // Actualizar badge
+          document.getElementById('cheapestListingBadge').textContent = `#${tokenId}`;
+          
+          // Actualizar precio
+          document.getElementById('cheapestListingPrice').textContent = 
+            `${priceFormatted.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} $ADRIAN`;
+          
+          // Actualizar owner
+          const ownerShort = `${cheapestUserListing.seller.substring(0, 6)}...${cheapestUserListing.seller.substring(38)}`;
+          document.getElementById('cheapestListingOwner').textContent = ownerShort;
+          
+          // Actualizar imagen - buscar en nftData
+          let imgUrl = `./adrianpunksimages/${tokenId}.png`;
+          if (nftData) {
+            const nft = nftData.find(n => {
+              const nftId = parseInt(n.name.split('#')[1]);
+              return nftId === tokenId;
+            });
+            if (nft) {
+              imgUrl = getImageUrl(nft);
+            }
+          }
+          document.getElementById('cheapestListingImage').src = imgUrl;
+        } else {
+          document.getElementById('cheapestListingCard').style.display = 'none';
+        }
+
+        // Actualizar barra pixelada
+        updatePixelBar(balanceFormatted, cheapestUserListing);
+
+        // Actualizar sección de Sales
+        updateSalesSection();
+
+        // Mostrar dashboard
+        dashboard.style.display = 'block';
+      } catch (error) {
+        console.error('Error updating FloorENGINE dashboard:', error);
+      }
+    }
+
+    // Función para copiar dirección del engine
+    function copyFloorEngineAddress() {
+      navigator.clipboard.writeText(FLOOR_ENGINE_ADDRESS).then(() => {
+        // Mostrar feedback visual
+        const icon = event.target;
+        const originalClass = icon.className;
+        icon.className = 'bi bi-check';
+        setTimeout(() => {
+          icon.className = originalClass;
+        }, 1000);
+      });
+    }
+
+    // Función para scroll a sección de trade
+    function scrollToTradeSection() {
+      document.getElementById('mainConnectWalletButton')?.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Función para scroll al cheapest listing
+    function scrollToCheapestListing() {
+      const cheapestTokenId = document.getElementById('cheapestListingBadge')?.textContent.replace('#', '');
+      if (cheapestTokenId) {
+        // Buscar el card del NFT en el grid y hacer scroll
+        const nftCards = document.querySelectorAll('.nft-card');
+        for (const card of nftCards) {
+          const cardTitle = card.querySelector('.card-title');
+          if (cardTitle && cardTitle.textContent.includes(`#${cheapestTokenId}`)) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Resaltar brevemente
+            card.style.transition = 'box-shadow 0.3s';
+            card.style.boxShadow = '0 0 20px rgba(0, 123, 255, 0.5)';
+            setTimeout(() => {
+              card.style.boxShadow = '';
+            }, 2000);
+            break;
+          }
+        }
+      }
+    }
+
+    // Función para obtener el contador de punks vendidos por el FloorENGINE
+    async function getFloorEngineSoldCount() {
+      try {
+        if (!supabaseClient) {
+          console.warn('Supabase client not initialized');
+          return 0;
+        }
+
+        // Consultar trade_events donde el seller es el FloorENGINE y is_contract_owned = true
+        const { data, error, count } = await supabaseClient
+          .from('trade_events')
+          .select('*', { count: 'exact', head: false })
+          .eq('seller', FLOOR_ENGINE_ADDRESS.toLowerCase())
+          .eq('is_contract_owned', true);
+
+        if (error) {
+          console.error('Error fetching sold count from Supabase:', error);
+          return 0;
+        }
+
+        // Retornar el count si está disponible, si no, la longitud del array
+        return count !== null ? count : (data?.length || 0);
+      } catch (error) {
+        console.error('Error getting FloorENGINE sold count:', error);
+        return 0;
+      }
+    }
+
+    // Función para formatear cantidades de $ADRIAN con 3 decimales
+    function formatAdrianAmount(value, decimals = 18) {
+      if (!value) return '0.000';
+      const numValue = typeof value === 'bigint' ? Number(value) / Math.pow(10, decimals) : Number(value);
+      return numValue.toLocaleString('en-US', {
+        minimumFractionDigits: 3,
+        maximumFractionDigits: 3
+      });
+    }
+
+    // Función para formatear cantidades sin decimales (para Sales)
+    function formatAdrianAmountNoDecimals(value, decimals = 18) {
+      if (!value) return '0';
+      const numValue = typeof value === 'bigint' ? Number(value) / Math.pow(10, decimals) : Number(value);
+      return Math.round(numValue).toLocaleString('en-US');
+    }
+
+    // Función para establecer el modo de vista de Sales
+    let salesViewMode = 'grid';
+    let allSalesData = [];
+    let salesExpanded = false;
+    
+    function setSalesViewMode(mode) {
+      salesViewMode = mode;
+      document.getElementById('salesViewGrid').classList.toggle('active', mode === 'grid');
+      document.getElementById('salesViewTable').classList.toggle('active', mode === 'table');
+      updateSalesDisplay(allSalesData);
+    }
+    
+    function toggleSalesExpand() {
+      salesExpanded = !salesExpanded;
+      updateSalesDisplay(allSalesData);
+    }
+
+    // Función para obtener los datos de ventas del FloorENGINE
+    async function getFloorEngineSales() {
+      try {
+        if (!supabaseClient) {
+          console.error('Supabase not initialized');
+          return [];
+        }
+
+        // Obtener todas las ventas del FloorENGINE desde trade_events
+        const { data: salesData, error: salesError } = await supabaseClient
+          .from('trade_events')
+          .select('*')
+          .eq('seller', FLOOR_ENGINE_ADDRESS.toLowerCase())
+          .eq('is_contract_owned', true)
+          .order('created_at', { ascending: false });
+
+        if (salesError) {
+          console.error('Error fetching sales from Supabase:', salesError);
+          return [];
+        }
+
+        if (!salesData || salesData.length === 0) {
+          return [];
+        }
+
+        // Obtener todos los sweep_events con timestamp para emparejar correctamente
+        const { data: sweepData, error: sweepError } = await supabaseClient
+          .from('sweep_events')
+          .select('token_id, buy_price_wei, created_at')
+          .order('created_at', { ascending: true });
+
+        if (sweepError) {
+          console.error('Error fetching sweep events from Supabase:', sweepError);
+        }
+
+        // Para cada venta, encontrar el sweep_event más reciente ANTES de esa venta
+        const salesWithImages = salesData.map(sale => {
+          const tokenId = sale.token_id;
+          const imageUrl = `./adrianpunksimages/${tokenId}.png`;
+          const saleTimestamp = new Date(sale.created_at);
+          
+          // Buscar el sweep_event más reciente para este token_id que ocurrió ANTES de la venta
+          let paidAmount = BigInt('0');
+          if (sweepData) {
+            const tokenSweeps = sweepData
+              .filter(sweep => sweep.token_id === tokenId)
+              .sort((a, b) => {
+                // Ordenar por fecha descendente (más reciente primero)
+                return new Date(b.created_at) - new Date(a.created_at);
+              });
+            
+            if (tokenSweeps.length > 0) {
+              // Primero intentar encontrar uno que ocurrió antes de la venta
+              const sweepBeforeSale = tokenSweeps.find(sweep => {
+                const sweepTimestamp = new Date(sweep.created_at);
+                return sweepTimestamp <= saleTimestamp;
+              });
+              
+              if (sweepBeforeSale) {
+                // Encontrado uno antes de la venta (caso normal)
+                paidAmount = BigInt(sweepBeforeSale.buy_price_wei || '0');
+              } else {
+                // Si no hay uno antes, usar el más reciente como fallback
+                // (puede ser un problema de sincronización de timestamps)
+                paidAmount = BigInt(tokenSweeps[0].buy_price_wei || '0');
+                console.warn(`Token #${tokenId}: Using sweep event after sale date as fallback. Sale: ${sale.created_at}, Sweep: ${tokenSweeps[0].created_at}`);
+              }
+            }
+          }
+          
+          // Precio vendido desde trade_events
+          const soldAmount = BigInt(sale.price_wei || '0');
+          const profitAmount = soldAmount - paidAmount;
+
+          return {
+            tokenId: tokenId,
+            imageUrl: imageUrl,
+            paidAmount: paidAmount,
+            soldAmount: soldAmount,
+            profitAmount: profitAmount,
+            timestamp: sale.created_at,
+            saleId: sale.id // Para identificar ventas únicas
+          };
+        });
+
+        return salesWithImages;
+      } catch (error) {
+        console.error('Error getting FloorENGINE sales:', error);
+        return [];
+      }
+    }
+
+    // Función para actualizar la sección de Sales
+    async function updateSalesSection() {
+      try {
+        const sales = await getFloorEngineSales();
+        allSalesData = sales; // Guardar todas las ventas
+        const salesSection = document.getElementById('floorEngineSalesSection');
+        
+        if (!salesSection) return;
+
+        if (sales.length === 0) {
+          salesSection.style.display = 'none';
+          return;
+        }
+
+        salesSection.style.display = 'block';
+
+        // Calcular totales
+        const totalSoldCount = sales.length;
+        const totalSoldAmount = sales.reduce((sum, sale) => sum + sale.soldAmount, BigInt('0'));
+        const totalPaidAmount = sales.reduce((sum, sale) => sum + sale.paidAmount, BigInt('0'));
+        const totalProfitAmount = totalSoldAmount - totalPaidAmount;
+
+        // Actualizar resumen
+        document.getElementById('salesTotalCount').textContent = totalSoldCount;
+        document.getElementById('salesTotalAmount').textContent = formatAdrianAmountNoDecimals(totalSoldAmount);
+        document.getElementById('salesTotalProfit').textContent = formatAdrianAmountNoDecimals(totalProfitAmount);
+
+        // Actualizar display
+        updateSalesDisplay(sales);
+      } catch (error) {
+        console.error('Error updating sales section:', error);
+      }
+    }
+
+    // Función para actualizar el display de las ventas
+    function updateSalesDisplay(sales = null) {
+      const salesGrid = document.getElementById('salesGrid');
+      if (!salesGrid) return;
+
+      // Si no se proporcionan sales, usar las guardadas
+      if (!sales) {
+        sales = allSalesData;
+      }
+
+      if (sales.length === 0) {
+        salesGrid.innerHTML = '<div class="sales-empty-state">No sales recorded yet.</div>';
+        return;
+      }
+
+      // Determinar cuántas ventas mostrar (12 en desktop, 4 en móvil)
+      const isMobile = window.innerWidth < 1024;
+      const maxInitial = isMobile ? 4 : 12;
+      const salesToShow = salesExpanded ? sales : sales.slice(0, maxInitial);
+      const hasMore = sales.length > maxInitial;
+
+      const tokenLabel = '$A';
+
+      if (salesViewMode === 'table') {
+        // Vista de lista/table
+        salesGrid.className = 'sales-list';
+        salesGrid.innerHTML = `
+          <div class="sales-list-header">
+            <div class="sales-list-col-image">Punk</div>
+            <div class="sales-list-col-token">Token ID</div>
+            <div class="sales-list-col-paid">Paid</div>
+            <div class="sales-list-col-sold">Sold</div>
+            <div class="sales-list-col-profit">Profit</div>
+          </div>
+          ${salesToShow.map(sale => {
+            const paidFormatted = formatAdrianAmountNoDecimals(sale.paidAmount);
+            const soldFormatted = formatAdrianAmountNoDecimals(sale.soldAmount);
+            const profitFormatted = formatAdrianAmountNoDecimals(sale.profitAmount);
+            const profitClass = sale.profitAmount >= 0 ? 'profit-positive' : 'profit-negative';
+            
+            return `
+              <div class="sales-list-row">
+                <div class="sales-list-col-image">
+                  <img src="${sale.imageUrl}" alt="AdrianPunk #${sale.tokenId}" class="sales-list-image" onerror="this.src='./adrianpunksimages/1.png'">
+                </div>
+                <div class="sales-list-col-token">#${sale.tokenId}</div>
+                <div class="sales-list-col-paid">${paidFormatted} ${tokenLabel}</div>
+                <div class="sales-list-col-sold">${soldFormatted} ${tokenLabel}</div>
+                <div class="sales-list-col-profit ${profitClass}">${sale.profitAmount >= 0 ? '+' : ''}${profitFormatted} ${tokenLabel}</div>
+              </div>
+            `;
+          }).join('')}
+          ${hasMore && !salesExpanded ? `
+            <div class="sales-expand-container">
+              <button class="sales-expand-btn" onclick="toggleSalesExpand()">
+                Show ${sales.length - maxInitial} more sales
+              </button>
+            </div>
+          ` : ''}
+          ${salesExpanded && hasMore ? `
+            <div class="sales-expand-container">
+              <button class="sales-expand-btn" onclick="toggleSalesExpand()">
+                Show less
+              </button>
+            </div>
+          ` : ''}
+        `;
+      } else {
+        // Vista de grid
+        salesGrid.className = 'sales-grid';
+        salesGrid.innerHTML = salesToShow.map(sale => {
+          const paidFormatted = formatAdrianAmountNoDecimals(sale.paidAmount);
+          const soldFormatted = formatAdrianAmountNoDecimals(sale.soldAmount);
+          const profitFormatted = formatAdrianAmountNoDecimals(sale.profitAmount);
+
+          return `
+            <div class="sales-card">
+              <div class="sales-card-image-wrapper">
+                <img src="${sale.imageUrl}" alt="AdrianPunk #${sale.tokenId}" class="sales-card-image" onerror="this.src='./adrianpunksimages/1.png'">
+                <div class="sales-card-token-badge">#${sale.tokenId}</div>
+              </div>
+              <div class="sales-card-info">
+                <div class="sales-card-row">
+                  <div class="sales-card-label">Paid:</div>
+                  <div class="sales-card-value">
+                    ${paidFormatted}
+                    <span class="sales-card-unit">${tokenLabel}</span>
+                  </div>
+                </div>
+                <div class="sales-card-row">
+                  <div class="sales-card-label">Sold:</div>
+                  <div class="sales-card-value">
+                    ${soldFormatted}
+                    <span class="sales-card-unit">${tokenLabel}</span>
+                  </div>
+                </div>
+                <div class="sales-card-profit ${sale.profitAmount < 0 ? 'negative' : ''}">
+                  ${sale.profitAmount >= 0 ? '+' : ''}${profitFormatted} ${tokenLabel}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('') + 
+        (hasMore && !salesExpanded ? `
+          <div class="sales-expand-card">
+            <button class="sales-expand-btn" onclick="toggleSalesExpand()">
+              Show ${sales.length - maxInitial} more sales
+            </button>
+          </div>
+        ` : '') +
+        (salesExpanded && hasMore ? `
+          <div class="sales-expand-card">
+            <button class="sales-expand-btn" onclick="toggleSalesExpand()">
+              Show less
+            </button>
+          </div>
+        ` : '');
+      }
+    }
+
+    // Función para actualizar la barra pixelada
+    function updatePixelBar(currentBalance, cheapestListing) {
+      const pixelBarContainer = document.getElementById('floorEnginePixelBar');
+      const balanceText = document.getElementById('pixelBarBalance');
+      const targetText = document.getElementById('pixelBarTarget');
+      const percentageText = document.getElementById('pixelBarPercentage');
+
+      if (!pixelBarContainer) return;
+
+      if (cheapestListing) {
+        const targetPrice = parseFloat(ethers.utils.formatUnits(cheapestListing.price, 18));
+        const percentage = Math.min(100, (currentBalance / targetPrice) * 100);
+        
+        // Actualizar textos
+        balanceText.textContent = currentBalance.toLocaleString('en-US', {
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 1
+        });
+        targetText.textContent = targetPrice.toLocaleString('en-US', {
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 1
+        });
+        percentageText.textContent = `${percentage.toFixed(1)}%`;
+
+        // Generar barras pixeladas (más barras para efecto pixelado)
+        pixelBarContainer.innerHTML = '';
+        const totalPixels = 60; // 30% de 200
+        const exactActivePixels = (percentage / 100) * totalPixels;
+        const fullActivePixels = Math.floor(exactActivePixels);
+        const hasPartial = exactActivePixels % 1 !== 0 && percentage < 100;
+        
+        for (let i = 0; i < totalPixels; i++) {
+          const pixel = document.createElement('div');
+          if (i < fullActivePixels) {
+            // Barras completamente activas
+            pixel.className = 'floor-engine-pixel-bar-pixel active';
+          } else if (i === fullActivePixels && hasPartial) {
+            // Última barra activa parcial (medio verde medio gris)
+            pixel.className = 'floor-engine-pixel-bar-pixel partial';
+          } else {
+            // Barras inactivas
+            pixel.className = 'floor-engine-pixel-bar-pixel';
+          }
+          pixelBarContainer.appendChild(pixel);
+        }
+      } else {
+        // Sin cheapest listing
+        balanceText.textContent = currentBalance.toLocaleString('en-US', {
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 1
+        });
+        targetText.textContent = '0';
+        percentageText.textContent = '0%';
+
+        // Generar barras grises
+        pixelBarContainer.innerHTML = '';
+        const totalPixels = 60; // 30% de 200
+        for (let i = 0; i < totalPixels; i++) {
+          const pixel = document.createElement('div');
+          pixel.className = 'floor-engine-pixel-bar-pixel';
+          pixelBarContainer.appendChild(pixel);
+        }
+      }
+    }
+    
+    async function sweepFloor() {
+      try {
+        if (!floorEngineContract || !userAccount) {
+        alert("Please connect your wallet first.");
+        return;
+      }
+        
+        // Get info before sweeping
+        const contractBalance = await tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS);
+        console.log("Contract balance:", ethers.utils.formatUnits(contractBalance, 18), "$ADRIAN");
+        
+        if (contractBalance.eq(0)) {
+          alert("FloorEngine has no balance to sweep the floor.");
+          return;
+        }
+        
+        // Execute sweep
+        alert("Executing Sweep Floor...");
+        const tx = await floorEngineContract.sweepFloorWithBalance({ gasLimit: 500000 });
+        await tx.wait();
+        alert("Sweep Floor executed successfully! Check your wallet for rewards.");
+        
+        // Reload marketplace and balances
+        loadNFTs();
+        updateFloorEngineBalance();
+      } catch (error) {
+        console.error("Error during Sweep Floor:", error);
+        alert("Error during Sweep Floor: " + error.message);
+      }
+    }
+    
+    async function updateSweepFloorInfo() {
+      try {
+        // Asegurar que readProvider y contratos estén inicializados
+        if (!readProvider) {
+          console.log('⚠️ ReadProvider no inicializado en updateSweepFloorInfo, inicializando...');
+          const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
+          readProvider = new ethers.providers.JsonRpcProvider(rpcUrl, {
+            name: "base",
+            chainId: 8453
+          });
+        }
+        
+        if (!floorEngineReadContract) {
+          floorEngineReadContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
+        }
+        
+        if (!multicallReadContract) {
+          multicallReadContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+        }
+        
+        // OPTIMIZACIÓN: Verificar caché primero
+        const cacheKey = 'sweepFloorInfo';
+        const cached = contractCache.get(cacheKey);
+        if (cached) {
+          updateSweepFloorUI(cached);
+          return;
+        }
+        
+        // Get contract balance and config usando multicall3
+        const iface = new ethers.utils.Interface(FLOOR_ENGINE_ABI);
+        const tokenIface = new ethers.utils.Interface(TOKEN_ABI);
+        
+        const configCalls = [
+          {
+            target: TOKEN_ADDRESS,
+            allowFailure: false,
+            callData: tokenIface.encodeFunctionData('balanceOf', [FLOOR_ENGINE_ADDRESS])
+          },
+          {
+            target: FLOOR_ENGINE_ADDRESS,
+            allowFailure: false,
+            callData: iface.encodeFunctionData('getListedTokenIds', [])
+          },
+          {
+            target: FLOOR_ENGINE_ADDRESS,
+            allowFailure: false,
+            callData: iface.encodeFunctionData('premiumBps', [])
+          },
+          {
+            target: FLOOR_ENGINE_ADDRESS,
+            allowFailure: false,
+            callData: iface.encodeFunctionData('callerRewardBps', [])
+          },
+          {
+            target: FLOOR_ENGINE_ADDRESS,
+            allowFailure: false,
+            callData: iface.encodeFunctionData('callerRewardIsPercentage', [])
+          },
+          {
+            target: FLOOR_ENGINE_ADDRESS,
+            allowFailure: false,
+            callData: iface.encodeFunctionData('callerRewardFixed', [])
+          }
+        ];
+        
+        const configResults = await retryWithBackoff(() => 
+          multicallReadContract.callStatic.aggregate3(configCalls)
+        );
+        
+        const contractBalance = tokenIface.decodeFunctionResult('balanceOf', configResults[0].returnData)[0];
+        const listedTokenIds = iface.decodeFunctionResult('getListedTokenIds', configResults[1].returnData)[0];
+        const premiumBps = iface.decodeFunctionResult('premiumBps', configResults[2].returnData)[0];
+        const callerRewardBps = iface.decodeFunctionResult('callerRewardBps', configResults[3].returnData)[0];
+        const callerRewardIsPercentage = iface.decodeFunctionResult('callerRewardIsPercentage', configResults[4].returnData)[0];
+        const callerRewardFixed = iface.decodeFunctionResult('callerRewardFixed', configResults[5].returnData)[0];
+        
+        const balanceFormatted = parseFloat(ethers.utils.formatUnits(contractBalance, 18)).toFixed(2);
+        
+        // OPTIMIZACIÓN: Usar activeListingsData si ya está cargado
+        let cheapestPrice = null;
+        let cheapestTokenId = null;
+        
+        if (activeListingsData && activeListingsData.length > 0) {
+          // Usar datos ya cargados
+          for (const listing of activeListingsData) {
+            if (!listing.isContractOwned) {
+              if (!cheapestPrice || listing.price.lt(cheapestPrice)) {
+                cheapestPrice = listing.price;
+                cheapestTokenId = listing.tokenId;
+              }
+            }
+          }
+        } else if (listedTokenIds.length > 0) {
+          // Si no hay datos cargados, usar multicall3 para obtener los listings
+          const listingCalls = listedTokenIds.map(tokenId => ({
+            target: FLOOR_ENGINE_ADDRESS,
+            allowFailure: true,
+            callData: iface.encodeFunctionData('listings', [tokenId])
+          }));
+          
+          const listingResults = await retryWithBackoff(() => 
+            multicallReadContract.callStatic.aggregate3(listingCalls)
+          );
+          
+          for (let i = 0; i < listingResults.length; i++) {
+            if (listingResults[i].success) {
+              const listing = iface.decodeFunctionResult('listings', listingResults[i].returnData);
+          if (!listing.isContractOwned) {
+            const price = listing.price;
+            if (!cheapestPrice || price.lt(cheapestPrice)) {
+              cheapestPrice = price;
+                  cheapestTokenId = listedTokenIds[i].toNumber();
+                }
+              }
+            }
+          }
+        }
+        
+        const sweepData = {
+          contractBalance,
+          balanceFormatted,
+          cheapestPrice,
+          cheapestTokenId,
+          premiumBps,
+          callerRewardBps,
+          callerRewardIsPercentage,
+          callerRewardFixed
+        };
+        
+        // Guardar en caché
+        contractCache.set(cacheKey, sweepData);
+        updateSweepFloorUI(sweepData);
+      } catch (error) {
+        console.error("Error updating sweep floor info:", error);
+      }
+    }
+    
+    function updateSweepFloorUI(sweepData) {
+      const { contractBalance, balanceFormatted, cheapestPrice, cheapestTokenId, premiumBps, callerRewardBps, callerRewardIsPercentage, callerRewardFixed } = sweepData;
+        const infoDiv = document.getElementById('sweepFloorInfo');
+        if (!infoDiv) return;
+        
+        if (!cheapestPrice) {
+          infoDiv.innerHTML = '<p class="text-muted mb-0">No external listings available for sweeping</p>';
+        const sweepBtn = document.getElementById('sweepFloorBtn');
+        if (sweepBtn) sweepBtn.disabled = true;
+        return;
+      }
+        
+        const cheapestFormatted = parseFloat(ethers.utils.formatUnits(cheapestPrice, 18)).toFixed(2);
+        
+        // Calculate estimated reward
+        let rewardFormatted = "0";
+        if (callerRewardIsPercentage) {
+          const rewardEstimate = cheapestPrice.mul(callerRewardBps).div(10000);
+          rewardFormatted = parseFloat(ethers.utils.formatUnits(rewardEstimate, 18)).toFixed(2);
+        } else {
+          rewardFormatted = parseFloat(ethers.utils.formatUnits(callerRewardFixed, 18)).toFixed(2);
+        }
+        
+        const premiumBpsNumber = typeof premiumBps.toNumber === 'function' ? premiumBps.toNumber() : Number(premiumBps);
+        const relistPrice = cheapestPrice.mul(10000 + premiumBpsNumber).div(10000);
+        const relistFormatted = parseFloat(ethers.utils.formatUnits(relistPrice, 18)).toFixed(2);
+        
+        // Check if contract has enough balance
+        const canExecute = contractBalance.gte(cheapestPrice);
+        
+        infoDiv.innerHTML = `
+          <div class="mb-2">
+            <strong>Cheapest Listing:</strong> Token #${cheapestTokenId} - ${cheapestFormatted} $ADRIAN
+                </div>
+          <div class="mb-2">
+            <strong>Contract Balance:</strong> ${balanceFormatted} $ADRIAN
+              </div>
+          <div class="mb-2">
+            <strong>Your Reward:</strong> ~${rewardFormatted} $ADRIAN
+          </div>
+          <div class="mb-2">
+            <strong>Relist Price:</strong> ${relistFormatted} $ADRIAN
+          </div>
+          ${!canExecute ? '<div class="alert alert-warning mb-0 p-2">Insufficient contract balance</div>' : ''}
+        `;
+        
+      const sweepBtn = document.getElementById('sweepFloorBtn');
+      if (sweepBtn) sweepBtn.disabled = !canExecute;
+    }
+    
+    function closeAndShowNFTDetails(nftName) {
+      try {
+        const currentModal = document.querySelector('.modal.show');
+        if (currentModal) {
+          const modalInstance = bootstrap.Modal.getInstance(currentModal);
+          if (modalInstance) {
+            modalInstance.hide();
+          }
+        }
+        showNFTDetails(nftName);
+      } catch (error) {
+        console.error("Error al manejar los modales:", error);
+        showNFTDetails(nftName);
+      }
+    }
+    
+    async function openMyTokensModal() {
+      if (!nftContract || !userAccount) {
+        alert("Please connect your wallet first.");
+        return;
+      }
+      const modal = new bootstrap.Modal(document.getElementById('myTokensModal'));
+      modal.show();
+      loadMyTokensModal();
+    }
+    
+    async function loadMyTokensModal() {
+      const container = document.getElementById('myTokensModalContent');
+      container.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+      
+      try {
+        if (!userAccount) {
+          container.innerHTML = '<p class="text-center text-muted">Please connect your wallet first.</p>';
+          return;
+        }
+
+        // Configurar el provider de Alchemy para consultas más rápidas (fallback a Infura si no está configurado)
+        if (!readProvider) {
+          const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
+          readProvider = new ethers.providers.JsonRpcProvider(rpcUrl, {
+            name: "base",
+            chainId: 8453
+          });
+          // Inicializar todos los contratos de solo lectura
+          tokenReadContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
+          nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+          floorEngineReadContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
+          multicallReadContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+        }
+
+        // Cargar tokens usando Multicall3 para mayor velocidad
+        console.log('Loading tokens using Multicall3...');
+        
+        // Step 1: Get balance
+        const balance = await nftReadContract.balanceOf(userAccount);
+        const totalTokens = balance.toNumber();
+        console.log(`User has ${totalTokens} tokens`);
+        
+        if (totalTokens === 0) {
+          container.innerHTML = '<p class="text-center text-muted">No tokens found for this wallet.</p>';
+          return;
+        }
+        
+        // Step 2: Prepare multicall to get all tokenIds
+        const calls = [];
+        for (let i = 0; i < totalTokens; i++) {
+          calls.push({
+            target: NFT_ADDRESS,
+            allowFailure: true,
+            callData: nftReadContract.interface.encodeFunctionData('tokenOfOwnerByIndex', [userAccount, i])
+          });
+        }
+        
+        // Step 3: Execute multicall (as read-only call)
+        const results = await multicallReadContract.callStatic.aggregate3(calls);
+        const tokenIds = results
+          .filter(result => result.success)
+          .map(result => {
+            const decoded = nftReadContract.interface.decodeFunctionResult('tokenOfOwnerByIndex', result.returnData);
+            return decoded[0].toNumber();
+          });
+        
+        console.log(`Retrieved ${tokenIds.length} token IDs via Multicall3`);
+        
+        // Step 4: Load metadata and render tokens
+        let tokensHtml = '<div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-2">';
+          
+          // Cargar el JSON con la información de los tokens
+          const response = await fetch('./adrianpunks.json');
+          const data = await response.json();
+          const jsonCollection = data.collection;
+
+        // Procesar cada tokenId obtenido con Multicall
+        for (const tokenIdInt of tokenIds) {
+          try {
+            const tokenInfo = jsonCollection.find(item => parseInt(item.name.split('#')[1]) === tokenIdInt);
+              
+              // Crear un objeto nft con el formato necesario para getImageUrl
+            const nftObj = tokenInfo || { name: `AdrianPunk #${tokenIdInt}` };
+            
+            // Usar la misma función getImageUrl para mantener consistencia
+            const imgUrl = getImageUrl(nftObj);
+
+              tokensHtml += `
+                <div class="col">
+                <div class="card h-100" style="cursor: pointer;" onclick="closeAndShowNFTDetails('${tokenInfo ? tokenInfo.name : `AdrianPunk #${tokenIdInt}`}')">
+                    <div class="ratio ratio-1x1">
+                    <img src="${imgUrl}" class="card-img-top" alt="Token #${tokenIdInt}" style="object-fit: cover;">
+                    </div>
+                    <div class="card-body p-2">
+                    <h6 class="card-title mb-0">#${tokenIdInt}</h6>
+                      ${tokenInfo ? `<small class="text-muted">Rarity: ${tokenInfo.rarity.toFixed(2)}</small>` : ''}
+                    </div>
+                  </div>
+                </div>
+              `;
+          } catch (error) {
+            console.error(`Error processing token ${tokenIdInt}:`, error);
+            }
+          }
+          tokensHtml += '</div>';
+        container.innerHTML = tokensHtml;
+      } catch (error) {
+        console.error("Error loading MyTokens:", error);
+        let errorMessage = 'Error loading tokens';
+        if (error.message.includes('429') || error.message.includes('rate limit')) {
+          errorMessage = 'Too many requests. Please wait a moment and try again.';
+        }
+        container.innerHTML = `<div class="alert alert-danger">${errorMessage}</div>`;
+      }
+    }
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+      console.log('🚀 Iniciando aplicación con optimizaciones...');
+      console.log('✅ Rate Limiter: 25 req/segundo con exponential backoff');
+      console.log('✅ Cache: 30 segundos TTL');
+      console.log('✅ Multicall3: Batch requests optimizadas');
+      
+      initSupabase();
+      await initContracts();
+      loadNFTs();
+      
+      // Mostrar estadísticas de caché cada 60 segundos
+      setInterval(() => {
+        const stats = contractCache.getStats();
+        if (stats.hits + stats.misses > 0) {
+          console.log(`📊 Cache Stats: ${stats.hits} hits, ${stats.misses} misses (${stats.hitRate}% hit rate), ${stats.size} items`);
+        }
+      }, 60000);
+      
+      // Escuchar eventos de cambio de cuenta desde MetaMask
+      if (window.ethereum) {
+        window.ethereum.on('accountsChanged', async (accounts) => {
+          console.log("Accounts changed:", accounts);
+          if (accounts.length > 0) {
+            // Actualizar las referencias locales
+            window.userAccount = accounts[0];
+            userAccount = window.userAccount;
+            
+            // OPTIMIZACIÓN: Limpiar caché al cambiar de cuenta
+            contractCache.clear();
+            
+            // Reinicializar los contratos con la nueva cuenta
+            tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+            nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
+            floorEngineContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, signer);
+            multicallContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, signer);
+            
+            updateTokenBalance();
+            loadNFTs();
+          } else {
+            // Desconexión
+            window.userAccount = null;
+            userAccount = null;
+            contractCache.clear();
+            location.reload();
+          }
+        });
+      }
+    });
+
+    // Función para cambiar el tema
+
+    async function filterByActiveListings() {
+      const button = document.querySelector('button[onclick="filterByActiveListings()"]');
+      const isActive = button.classList.contains('active');
+      if (!isActive) {
+        button.classList.remove('btn-outline-primary');
+        button.classList.add('btn-primary', 'active');
+        const listedNFTs = nftData.filter(nft => {
+          const tokenId = parseInt(nft.name.split('#')[1]);
+          return activeListingsData.some(listing => listing.tokenId.toString() === tokenId.toString());
+        });
+        displayNFTs(listedNFTs);
+      } else {
+        button.classList.remove('btn-primary', 'active');
+        button.classList.add('btn-outline-primary');
+        filterAndDisplayNFTs();
+      }
+    }
+    
+    // Función auxiliar para aplicar sort sin hacer toggle (preserva el orden)
+    function applySortByFloorPrice(order) {
+      console.log(`🔧 applySortByFloorPrice llamado con orden: ${order}`);
+      const button = document.querySelector('button[onclick="sortByFloorPrice()"]');
+      const oldOrder = currentSortOrder;
+      currentSortOrder = order; // Establecer orden sin toggle
+      console.log(`🔧 currentSortOrder cambió de ${oldOrder} a ${currentSortOrder}`);
+      button.classList.remove('btn-outline-primary');
+      button.classList.add('btn-primary');
+      const arrowDirection = currentSortOrder === 'asc' ? '↑' : '↓';
+      button.innerHTML = `<span class="d-none d-md-inline">Sort by FP</span><span class="d-md-none">Sort FP</span> ${arrowDirection}`;
+      console.log(`🔧 Botón actualizado con flecha: ${arrowDirection}`);
+      const priceMap = new Map();
+      activeListingsData.forEach(listing => {
+        const currentPrice = priceMap.get(listing.tokenId.toString());
+        const thisPrice = parseFloat(ethers.utils.formatUnits(listing.price, 18));
+        if (!currentPrice || thisPrice < currentPrice) {
+          priceMap.set(listing.tokenId.toString(), thisPrice);
+        }
+      });
+      const sortedNFTs = [...nftData].sort((a, b) => {
+        const tokenIdA = a.name.split('#')[1];
+        const tokenIdB = b.name.split('#')[1];
+        const priceA = priceMap.get(tokenIdA) || Number.MAX_VALUE;
+        const priceB = priceMap.get(tokenIdB) || Number.MAX_VALUE;
+        return currentSortOrder === 'asc' ? priceA - priceB : priceB - priceA;
+      });
+      console.log(`🔧 NFTs ordenados: ${sortedNFTs.length} items con orden ${currentSortOrder}`);
+      displayNFTs(sortedNFTs);
+    }
+
+    async function sortByFloorPrice() {
+      // Toggle del orden cuando el usuario hace click
+      const newOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+      applySortByFloorPrice(newOrder);
+    }
+
+    // Función para mostrar notificaciones
+    function showToast(message, type = 'info') {
+      // Eliminar cualquier toast anterior
+      const oldToast = document.getElementById('customToast');
+      if (oldToast) {
+        oldToast.remove();
+      }
+      
+      // Crear el nuevo toast
+      const toast = document.createElement('div');
+      toast.id = 'customToast';
+      toast.className = `toast-notification ${type}`;
+      toast.textContent = message;
+      
+      // Agregar estilos al toast
+      toast.style.position = 'fixed';
+      toast.style.bottom = '20px';
+      toast.style.left = '50%';
+      toast.style.transform = 'translateX(-50%)';
+      toast.style.padding = '10px 20px';
+      toast.style.borderRadius = '4px';
+      toast.style.backgroundColor = type === 'error' ? '#f44336' : '#4CAF50';
+      toast.style.color = 'white';
+      toast.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+      toast.style.zIndex = '9999';
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.3s ease-in-out';
+      
+      // Añadir al DOM
+      document.body.appendChild(toast);
+      
+      // Mostrar y ocultar automáticamente
+      setTimeout(() => {
+        toast.style.opacity = '1';
+      }, 100);
+      
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => {
+          toast.remove();
+        }, 300);
+      }, 3000);
+    }
+    
+    async function toggleImageCollection() {
+      const button = document.getElementById('collectionToggleButton');
+      const buttonText = document.getElementById('collectionToggleText');
+      
+      // Obtener el índice actual en el array de colecciones
+      const currentIndex = availableCollections.indexOf(currentImageCollection);
+      // Calcular el siguiente índice (volviendo al principio si llegamos al final)
+      const nextIndex = (currentIndex + 1) % availableCollections.length;
+      // Actualizar la colección actual
+      currentImageCollection = availableCollections[nextIndex];
+      
+      // Actualizar texto del botón según la colección
+      switch(currentImageCollection) {
+        case 'halfxadrian':
+          buttonText.textContent = 'HalfxAdrian';
+          button.classList.remove('btn-danger', 'btn-info', 'btn-warning');
+          button.classList.add('btn-success');
+          break;
+        case 'vectoradrians':
+          buttonText.textContent = 'VECTORadrians';
+          button.classList.remove('btn-danger', 'btn-success', 'btn-warning');
+          button.classList.add('btn-info');
+          break;
+        case 'adrianvectors':
+          buttonText.textContent = 'ADRIANvectors';
+          button.classList.remove('btn-danger', 'btn-success', 'btn-info');
+          button.classList.add('btn-warning');
+          break;
+        default: // adrianpunks
+          buttonText.textContent = 'AdrianPunks';
+          button.classList.remove('btn-success', 'btn-info', 'btn-warning');
+          button.classList.add('btn-danger');
+      }
+      
+      // Mostrar mensaje de confirmación
+      let toastMessage;
+      switch(currentImageCollection) {
+        case 'halfxadrian':
+          toastMessage = 'Showing images from HalfxAdrian';
+          break;
+        case 'vectoradrians':
+          toastMessage = 'Showing images from VECTORadrians';
+          break;
+        case 'adrianvectors':
+          toastMessage = 'Showing images from ADRIANvectors';
+          break;
+        default:
+          toastMessage = 'Showing images from AdrianPunks';
+      }
+      showToast(toastMessage);
+      
+      // Recargar la visualización con las nuevas imágenes
+      filterAndDisplayNFTs();
+    }
+
+    function getImageUrl(nft) {
+      const tokenId = nft.name.split('#')[1];
+      const gifIds = ['1', '13', '221', '369', '420', '555', '69', '690', '777', '807', '911'];
+      
+      switch(currentImageCollection) {
+        case 'halfxadrian':
+          // Mantener intacta la lógica original para halfxadrian
+          return `./halfxadrianimages/${tokenId}.jpg`;
+          
+        case 'vectoradrians':
+          // Cargar directamente como JPG o GIF, similar a halfxadrian
+          if (gifIds.includes(tokenId)) {
+            return `/market/alpha/${tokenId}.gif`;
+          } else {
+            return `/market/alpha/${tokenId}.jpg`;
+          }
+          
+        case 'adrianvectors':
+          // Cargar directamente como JPG o GIF, similar a halfxadrian
+          if (gifIds.includes(tokenId)) {
+            return `/market/omega/${tokenId}.gif`;
+          } else {
+            return `/market/omega/${tokenId}.jpg`;
+          }
+          
+        default: // adrianpunks
+          // Mantener intacta la lógica original para adrianpunks
+          const extension = gifIds.includes(tokenId) ? 'gif' : 'png';
+          return `./adrianpunksimages/${tokenId}.${extension}`;
+      }
+    }
+    
+    // Función para cargar imágenes dinámicamente e intentar diferentes formatos
+    // Esta función ya no se usa, pero la dejamos por si acaso es necesaria en el futuro
+    function loadDynamicImage(tokenId, collection) {
+      // Definir los formatos a probar en orden
+      const formats = ['jpg', 'png', 'jpeg', 'webp'];
+      let basePath = collection === 'vectoradrians' ? '/market/alpha/' : '/market/omega/';
+      
+      // Crear un mapa para identificar qué imagen pertenece a qué token y colección
+      let imageElements = document.querySelectorAll(`img[data-token-id="${tokenId}"][data-collection="${collection}"]`);
+      if (imageElements.length === 0) {
+        // Si no encontramos elementos con los atributos de datos, buscar por src
+        imageElements = document.querySelectorAll(`img[src="${basePath}placeholder.jpg"], img[src^="${basePath}${tokenId}."]`);
+      }
+      
+      // Función para probar secuencialmente cada formato
+      function tryNextFormat(index = 0) {
+        if (index >= formats.length) {
+          console.log(`No se pudo cargar ningún formato para el token ${tokenId} en ${collection}`);
+          return;
+        }
+        
+        const format = formats[index];
+        const imgUrl = `${basePath}${tokenId}.${format}`;
+        
+        // Crear una imagen temporal para probar si existe
+        const testImg = new Image();
+        testImg.onload = function() {
+          // La imagen cargó correctamente, actualizar todas las referencias
+          imageElements.forEach(img => {
+            // Verificar si el elemento tiene los atributos de datos correctos
+            const imgTokenId = img.getAttribute('data-token-id');
+            const imgCollection = img.getAttribute('data-collection');
+            
+            if ((imgTokenId === tokenId.toString() && imgCollection === collection) || 
+                img.src.includes(`${basePath}placeholder.jpg`) || 
+                img.src.includes(`${basePath}${tokenId}.`)) {
+              img.src = imgUrl;
+              // Asegurarnos de que tenga los atributos correctos
+              img.setAttribute('data-token-id', tokenId);
+              img.setAttribute('data-collection', collection);
+            }
+          });
+        };
+        
+        testImg.onerror = function() {
+          // Probar el siguiente formato
+          tryNextFormat(index + 1);
+        };
+        
+        // Iniciar la carga con un pequeño timeout para asegurar que la red tenga tiempo de responder
+        setTimeout(() => {
+          testImg.src = imgUrl;
+        }, 50);
+      }
+      
+      // Iniciar la secuencia de pruebas
+      setTimeout(() => {
+        // Actualizar referencias a imágenes después de que el DOM se ha actualizado
+        if (imageElements.length === 0) {
+          imageElements = document.querySelectorAll(`img[src="${basePath}placeholder.jpg"], img[src^="${basePath}${tokenId}."]`);
+        }
+        
+        // Añadir atributos de datos para identificar las imágenes si no los tienen
+        imageElements.forEach(img => {
+          if (!img.hasAttribute('data-token-id')) {
+            img.setAttribute('data-token-id', tokenId);
+          }
+          if (!img.hasAttribute('data-collection')) {
+            img.setAttribute('data-collection', collection);
+          }
+        });
+        
+        tryNextFormat();
+      }, 100);
+    }
+  </script>
+
+  <!-- Inicialización de Web3 y conexión a la wallet -->
+  <script>
+    // Setup para el nuevo botón de wallet en la botonera principal
+    document.addEventListener('DOMContentLoaded', function() {
+      const mainWalletButton = document.getElementById('mainConnectWalletButton');
+      if (mainWalletButton) {
+        mainWalletButton.addEventListener('click', connectMainWallet);
+      }
+
+      // Verificar si ya hay una wallet conectada al cargar la página
+      checkWalletConnection();
+    });
+
+    let mainWalletProvider;
+    let mainWalletSigner;
+    let mainWalletConnected = false;
+    let mainWalletAddress = '';
+
+    async function connectMainWallet() {
+      try {
+        const mainWalletButton = document.getElementById('mainConnectWalletButton');
+        
+        if (!window.ethereum) {
+          showToast("Por favor instala MetaMask para conectar tu wallet");
+          return;
+        }
+
+        if (!mainWalletConnected) {
+          mainWalletProvider = new ethers.providers.Web3Provider(window.ethereum);
+          await mainWalletProvider.send("eth_requestAccounts", []);
+          mainWalletSigner = mainWalletProvider.getSigner();
+          mainWalletAddress = await mainWalletSigner.getAddress();
+          
+          // Reducir a solo 4 caracteres al inicio y 4 al final para que quepa mejor
+          const shortAddress = `${mainWalletAddress.slice(0, 4)}..${mainWalletAddress.slice(-4)}`;
+          mainWalletButton.innerHTML = shortAddress;
+          mainWalletButton.classList.add('active');
+          
+          mainWalletConnected = true;
+          
+          // Escuchar cambios de cuenta
+          window.ethereum.on('accountsChanged', handleMainAccountsChanged);
+          
+          // Notificar al usuario
+          showToast("Wallet conectada: " + shortAddress);
+          
+          // Actualizar la información de NFTs del usuario si es necesario
+          loadUserNFTs();
+        } else {
+          // Desconectar
+          disconnectMainWallet();
+        }
+      } catch (error) {
+        console.error("Error conectando wallet:", error);
+        showToast("Error conectando wallet: " + error.message);
+      }
+    }
+
+    function disconnectMainWallet() {
+      mainWalletConnected = false;
+      mainWalletProvider = null;
+      mainWalletSigner = null;
+      mainWalletAddress = '';
+      
+      const mainWalletButton = document.getElementById('mainConnectWalletButton');
+      mainWalletButton.innerHTML = "Connect Wallet";
+      mainWalletButton.classList.remove('active');
+      
+      // Remover listener
+      if (window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', handleMainAccountsChanged);
+      }
+      
+      showToast("Wallet desconectada");
+    }
+
+    function handleMainAccountsChanged(accounts) {
+      if (accounts.length === 0) {
+        // Usuario desconectó desde MetaMask
+        disconnectMainWallet();
+      } else {
+        // Actualizar con la nueva dirección
+        mainWalletAddress = accounts[0];
+        const shortAddress = `${mainWalletAddress.slice(0, 6)}...${mainWalletAddress.slice(-4)}`;
+        
+        const mainWalletButton = document.getElementById('mainConnectWalletButton');
+        mainWalletButton.innerHTML = `Connected: ${shortAddress}`;
+        
+        // Actualizar la información de NFTs del usuario si es necesario
+        loadUserNFTs();
+      }
+    }
+
+    // Verificar si hay una wallet conectada al cargar la página
+    async function checkWalletConnection() {
+      if (window.ethereum) {
+        try {
+          mainWalletProvider = new ethers.providers.Web3Provider(window.ethereum);
+          const accounts = await mainWalletProvider.listAccounts();
+          
+          if (accounts.length > 0) {
+            mainWalletSigner = mainWalletProvider.getSigner();
+            mainWalletAddress = accounts[0];
+            const shortAddress = `${mainWalletAddress.slice(0, 6)}...${mainWalletAddress.slice(-4)}`;
+            
+            const mainWalletButton = document.getElementById('mainConnectWalletButton');
+            if (mainWalletButton) {
+              mainWalletButton.innerHTML = `Connected: ${shortAddress}`;
+              mainWalletButton.classList.add('active');
+            }
+            
+            mainWalletConnected = true;
+            
+            // Escuchar cambios de cuenta
+            window.ethereum.on('accountsChanged', handleMainAccountsChanged);
+            
+            // Actualizar información de NFTs si es necesario
+            loadUserNFTs();
+          }
+        } catch (error) {
+          console.error("Error verificando conexión de wallet:", error);
+        }
+      }
+    }
+
+    // Función para cargar NFTs del usuario si es necesario
+    function loadUserNFTs() {
+      // Aquí puedes agregar la lógica para cargar los NFTs del usuario
+      // cuando se conecte la wallet
+      console.log("Wallet conectada. Puedes implementar la carga de NFTs del usuario aquí.");
+    }
+
+    // ============================================
+    // ACTIVITY PAGE FUNCTIONS
+    // ============================================
+
+    // Variables globales para Activity
+    let activityPage = 0;
+    let activityLoading = false;
+    let activityHasMore = true;
+    let currentActivityFilters = {};
+    let activityScrollHandler = null;
+
+    // Función para abrir Activity
+    function openActivityPage() {
+      document.getElementById('marketplaceView').style.display = 'none';
+      document.getElementById('activityView').style.display = 'block';
+      
+      // Inicializar Supabase si no está inicializado
+      if (!supabaseClient) {
+        initSupabase();
+      }
+      
+      // Resetear paginación
+      activityPage = 0;
+      activityHasMore = true;
+      document.getElementById('activityList').innerHTML = '';
+      
+      // Cargar estadísticas del engine
+      loadEngineStats();
+      
+      // Cargar primera página
+      loadActivityEvents();
+      
+      // Configurar scroll infinito
+      setupActivityScroll();
+    }
+
+    // Función para cerrar Activity
+    function closeActivityPage() {
+      document.getElementById('activityView').style.display = 'none';
+      document.getElementById('marketplaceView').style.display = 'block';
+      
+      // Remover scroll handler
+      removeActivityScroll();
+    }
+
+    // Función principal para cargar eventos
+    async function loadActivityEvents() {
+      if (!supabaseClient || activityLoading || !activityHasMore) return;
+      
+      activityLoading = true;
+      document.getElementById('activityLoading').style.display = 'block';
+      
+      try {
+        const filters = currentActivityFilters;
+        const eventType = filters.eventType || 'all';
+        
+        // Determinar qué tabla(s) consultar
+        let data = [];
+        const limit = 20;
+        const from = activityPage * limit;
+        const to = from + limit - 1;
+        
+        if (eventType === 'all') {
+          // Para "all events", necesitamos obtener más datos de cada tabla y luego combinar
+          // Obtener más resultados de cada tabla para poder combinar y paginar correctamente
+          const fetchLimit = limit * 3; // Obtener más para tener suficiente después de combinar
+          const [listingsResult, tradesResult, sweepsResult] = await Promise.all([
+            buildListingEventsQuery(filters).limit(fetchLimit),
+            buildTradeEventsQuery(filters).limit(fetchLimit),
+            buildSweepEventsQuery(filters).limit(fetchLimit)
+          ]);
+          
+          // Combinar y ordenar por fecha
+          const allEvents = [
+            ...(listingsResult.data || []).map(e => ({ ...e, _eventType: 'listing' })),
+            ...(tradesResult.data || []).map(e => ({ ...e, _eventType: 'trade' })),
+            ...(sweepsResult.data || []).map(e => ({ ...e, _eventType: 'sweep' }))
+          ];
+          
+          allEvents.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          
+          // Aplicar paginación manual
+          data = allEvents.slice(from, to + 1);
+        } else if (eventType === 'Listed' || eventType === 'Cancelled') {
+          const result = await buildListingEventsQuery(filters).range(from, to);
+          data = result.data || [];
+        } else if (eventType === 'Bought') {
+          const result = await buildTradeEventsQuery(filters).range(from, to);
+          data = result.data || [];
+        } else if (eventType === 'Sweep') {
+          const result = await buildSweepEventsQuery(filters).range(from, to);
+          data = result.data || [];
+        }
+        
+        if (data && data.length > 0) {
+          renderActivityEvents(data);
+          activityPage++;
+          activityHasMore = data.length === limit;
+        } else {
+          activityHasMore = false;
+        }
+      } catch (error) {
+        console.error('Error loading activity:', error);
+        document.getElementById('activityList').innerHTML += 
+          '<div class="alert alert-danger">Error loading activity: ' + error.message + '</div>';
+      } finally {
+        activityLoading = false;
+        document.getElementById('activityLoading').style.display = 'none';
+      }
+    }
+
+    // Funciones para construir queries
+    function buildListingEventsQuery(filters) {
+      let query = supabaseClient
+        .from('listing_events')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (filters.eventType && filters.eventType !== 'all') {
+        query = query.eq('event_type', filters.eventType);
+      }
+      if (filters.dateFrom) {
+        query = query.gte('created_at', filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        query = query.lte('created_at', filters.dateTo + 'T23:59:59');
+      }
+      if (filters.address) {
+        query = query.ilike('seller', filters.address.toLowerCase());
+      }
+      if (filters.tokenId) {
+        query = query.eq('token_id', filters.tokenId);
+      }
+      if (filters.minPrice) {
+        const minPriceWei = ethers.utils.parseUnits(filters.minPrice.toString(), 18).toString();
+        query = query.gte('price_wei', minPriceWei);
+      }
+      if (filters.maxPrice) {
+        const maxPriceWei = ethers.utils.parseUnits(filters.maxPrice.toString(), 18).toString();
+        query = query.lte('price_wei', maxPriceWei);
+      }
+      
+      return query;
+    }
+
+    function buildTradeEventsQuery(filters) {
+      let query = supabaseClient
+        .from('trade_events')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (filters.dateFrom) {
+        query = query.gte('created_at', filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        query = query.lte('created_at', filters.dateTo + 'T23:59:59');
+      }
+      if (filters.address) {
+        const addr = filters.address.toLowerCase();
+        query = query.or(`buyer.ilike.%${addr}%,seller.ilike.%${addr}%`);
+      }
+      if (filters.tokenId) {
+        query = query.eq('token_id', filters.tokenId);
+      }
+      if (filters.minPrice) {
+        const minPriceWei = ethers.utils.parseUnits(filters.minPrice.toString(), 18).toString();
+        query = query.gte('price_wei', minPriceWei);
+      }
+      if (filters.maxPrice) {
+        const maxPriceWei = ethers.utils.parseUnits(filters.maxPrice.toString(), 18).toString();
+        query = query.lte('price_wei', maxPriceWei);
+      }
+      
+      return query;
+    }
+
+    function buildSweepEventsQuery(filters) {
+      let query = supabaseClient
+        .from('sweep_events')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (filters.dateFrom) {
+        query = query.gte('created_at', filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        query = query.lte('created_at', filters.dateTo + 'T23:59:59');
+      }
+      if (filters.address) {
+        query = query.ilike('caller', filters.address.toLowerCase());
+      }
+      if (filters.tokenId) {
+        query = query.eq('token_id', filters.tokenId);
+      }
+      if (filters.minPrice) {
+        const minPriceWei = ethers.utils.parseUnits(filters.minPrice.toString(), 18).toString();
+        query = query.gte('buy_price_wei', minPriceWei);
+      }
+      if (filters.maxPrice) {
+        const maxPriceWei = ethers.utils.parseUnits(filters.maxPrice.toString(), 18).toString();
+        query = query.lte('relist_price_wei', maxPriceWei);
+      }
+      
+      return query;
+    }
+
+    // Función para renderizar eventos
+    function renderActivityEvents(events) {
+      const container = document.getElementById('activityList');
+      
+      events.forEach(event => {
+        const eventCard = createEventCard(event);
+        container.appendChild(eventCard);
+      });
+    }
+
+    function createEventCard(event) {
+      const card = document.createElement('div');
+      card.className = 'card mb-3 activity-card';
+      
+      // Determinar tipo de evento y datos
+      let eventType, title, price, date, addresses = {};
+      
+      if (event.event_type) {
+        // listing_events
+        eventType = event.event_type;
+        title = `Token #${event.token_id} ${event.event_type}`;
+        price = event.price_wei ? formatADRIAN(event.price_wei) : null;
+        date = new Date(event.created_at);
+        addresses = { seller: event.seller };
+      } else if (event.buyer) {
+        // trade_events
+        eventType = 'Bought';
+        title = `Token #${event.token_id} Sold`;
+        price = formatADRIAN(event.price_wei);
+        date = new Date(event.created_at);
+        addresses = { buyer: event.buyer, seller: event.seller };
+      } else if (event.caller) {
+        // sweep_events
+        eventType = 'Sweep';
+        title = `Token #${event.token_id} Swept`;
+        price = formatADRIAN(event.buy_price_wei);
+        date = new Date(event.created_at);
+        addresses = { caller: event.caller };
+      }
+      
+      // Obtener URL de la imagen del token
+      const tokenId = event.token_id;
+      const nftObj = { name: `AdrianPunk #${tokenId}` };
+      const imgUrl = getImageUrl(nftObj);
+      
+      card.innerHTML = `
+        <div class="card-body">
+          <div class="d-flex align-items-start">
+            <div class="me-3" style="flex-shrink: 0;">
+              <img src="${imgUrl}" alt="AdrianPunk #${tokenId}" class="rounded" style="width: 80px; height: 80px; object-fit: cover;" onerror="this.src='./adrianpunksimages/${tokenId}.png'; this.onerror=null;">
+            </div>
+            <div class="flex-grow-1">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                  <h6 class="card-title mb-1">
+                    <span class="badge bg-${getEventBadgeColor(eventType)} me-2">${eventType}</span>
+                    ${title}
+                  </h6>
+                  <p class="text-muted mb-1"><small>${date.toLocaleString()}</small></p>
+                </div>
+                <a href="https://basescan.org/tx/${event.tx_hash}" target="_blank" class="btn btn-sm btn-outline-primary">
+                  View TX
+                </a>
+              </div>
+              ${price ? `<p class="mb-1"><strong>Price:</strong> ${price} $ADRIAN</p>` : ''}
+              ${addresses.seller ? `<p class="mb-1"><strong>Seller:</strong> <code>${shortAddress(addresses.seller)}</code></p>` : ''}
+              ${addresses.buyer ? `<p class="mb-1"><strong>Buyer:</strong> <code>${shortAddress(addresses.buyer)}</code></p>` : ''}
+              ${addresses.caller ? `<p class="mb-1"><strong>Caller:</strong> <code>${shortAddress(addresses.caller)}</code></p>` : ''}
+              ${event.caller_reward_wei ? `<p class="mb-1"><strong>Reward:</strong> ${formatADRIAN(event.caller_reward_wei)} $ADRIAN</p>` : ''}
+              ${event.relist_price_wei ? `<p class="mb-1"><strong>Relist Price:</strong> ${formatADRIAN(event.relist_price_wei)} $ADRIAN</p>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+      
+      return card;
+    }
+
+    // Funciones auxiliares
+    function formatADRIAN(weiString) {
+      try {
+        // Convertir a string si viene como número
+        let weiStr = String(weiString);
+        
+        // Si viene en notación científica, convertir a decimal
+        if (weiStr.includes('e') || weiStr.includes('E')) {
+          const num = parseFloat(weiStr);
+          // Convertir a string sin notación científica
+          weiStr = num.toLocaleString('fullwide', { useGrouping: false, maximumFractionDigits: 0 });
+        }
+        
+        // Remover comas si las hay
+        weiStr = weiStr.replace(/,/g, '');
+        
+        // Verificar que sea un número válido
+        if (!/^\d+$/.test(weiStr)) {
+          console.warn('Invalid wei value:', weiString);
+          return '0.00';
+        }
+        
+        const wei = ethers.BigNumber.from(weiStr);
+        const adrian = parseFloat(ethers.utils.formatUnits(wei, 18));
+        return adrian.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      } catch (error) {
+        console.error('Error formatting ADRIAN:', error, 'Value:', weiString);
+        // Intentar conversión directa si falla BigNumber
+        try {
+          const num = parseFloat(weiString);
+          const adrian = num / 1e18;
+          return adrian.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } catch (e) {
+          return '0.00';
+        }
+      }
+    }
+
+    function shortAddress(address) {
+      return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    }
+
+    function getEventBadgeColor(eventType) {
+      const colors = {
+        'Listed': 'primary',
+        'Cancelled': 'secondary',
+        'Bought': 'success',
+        'Sweep': 'warning'
+      };
+      return colors[eventType] || 'info';
+    }
+
+    // Función para aplicar filtros
+    function applyFilters() {
+      currentActivityFilters = {
+        eventType: document.getElementById('filterEventType').value,
+        dateFrom: document.getElementById('filterDateFrom').value,
+        dateTo: document.getElementById('filterDateTo').value,
+        address: document.getElementById('filterAddress').value.trim(),
+        tokenId: document.getElementById('filterTokenId').value ? parseInt(document.getElementById('filterTokenId').value) : null,
+        minPrice: document.getElementById('filterMinPrice').value ? parseFloat(document.getElementById('filterMinPrice').value) : null,
+        maxPrice: document.getElementById('filterMaxPrice').value ? parseFloat(document.getElementById('filterMaxPrice').value) : null
+      };
+      
+      // Resetear paginación
+      activityPage = 0;
+      activityHasMore = true;
+      document.getElementById('activityList').innerHTML = '';
+      
+      // Recargar eventos
+      loadActivityEvents();
+    }
+
+    // Función para limpiar filtros
+    function clearActivityFilters() {
+      document.getElementById('filterEventType').value = 'all';
+      document.getElementById('filterDateFrom').value = '';
+      document.getElementById('filterDateTo').value = '';
+      document.getElementById('filterAddress').value = '';
+      document.getElementById('filterTokenId').value = '';
+      document.getElementById('filterMinPrice').value = '';
+      document.getElementById('filterMaxPrice').value = '';
+      applyFilters();
+    }
+
+    // Scroll infinito
+    function setupActivityScroll() {
+      activityScrollHandler = () => {
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const windowHeight = window.innerHeight;
+        const documentHeight = document.documentElement.scrollHeight;
+        
+        // Cargar más cuando esté cerca del final (100px antes)
+        if (scrollTop + windowHeight >= documentHeight - 100) {
+          loadActivityEvents();
+        }
+      };
+      
+      window.addEventListener('scroll', activityScrollHandler);
+    }
+
+    function removeActivityScroll() {
+      if (activityScrollHandler) {
+        window.removeEventListener('scroll', activityScrollHandler);
+        activityScrollHandler = null;
+      }
+    }
+
+    // Función auxiliar para formatear wei strings (maneja notación científica)
+    function formatWeiString(weiValue) {
+      let weiStr = String(weiValue);
+      if (weiStr.includes('e') || weiStr.includes('E')) {
+        const num = parseFloat(weiStr);
+        weiStr = num.toLocaleString('fullwide', { useGrouping: false, maximumFractionDigits: 0 });
+      }
+      weiStr = weiStr.replace(/,/g, '');
+      return weiStr;
+    }
+
+    // Función para cargar estadísticas del FloorEngine
+    async function loadEngineStats() {
+      if (!supabaseClient) return;
+      
+      try {
+        // 1. Total invertido (suma de buy_price_wei de sweep_events)
+        const { data: sweeps, error: sweepsError } = await supabaseClient
+          .from('sweep_events')
+          .select('buy_price_wei');
+        
+        let totalInvested = ethers.BigNumber.from(0);
+        if (sweeps && !sweepsError) {
+          sweeps.forEach(sweep => {
+            try {
+              const buyPrice = formatWeiString(sweep.buy_price_wei);
+              totalInvested = totalInvested.add(ethers.BigNumber.from(buyPrice));
+            } catch (e) {
+              console.warn('Error processing sweep buy_price:', e);
+            }
+          });
+        }
+        
+        // 2. Total ganado (suma de price_wei de trade_events donde is_contract_owned = true)
+        const { data: trades, error: tradesError } = await supabaseClient
+          .from('trade_events')
+          .select('price_wei, is_contract_owned');
+        
+        let totalEarned = ethers.BigNumber.from(0);
+        let punksSold = 0;
+        if (trades && !tradesError) {
+          trades.forEach(trade => {
+            if (trade.is_contract_owned) {
+              try {
+                const price = formatWeiString(trade.price_wei);
+                totalEarned = totalEarned.add(ethers.BigNumber.from(price));
+                punksSold++;
+              } catch (e) {
+                console.warn('Error processing trade price:', e);
+              }
+            }
+          });
+        }
+        
+        // 3. Punks comprados (count de sweep_events)
+        const punksBought = sweeps ? sweeps.length : 0;
+        
+        // 4. Punks actualmente listados (punk_listings donde is_contract_owned = true y is_listed = true)
+        const { data: listings, error: listingsError } = await supabaseClient
+          .from('punk_listings')
+          .select('price_wei')
+          .eq('is_contract_owned', true)
+          .eq('is_listed', true);
+        
+        let currentlyListed = 0;
+        let listingsValue = ethers.BigNumber.from(0);
+        if (listings && !listingsError) {
+          currentlyListed = listings.length;
+          listings.forEach(listing => {
+            try {
+              const price = formatWeiString(listing.price_wei);
+              listingsValue = listingsValue.add(ethers.BigNumber.from(price));
+            } catch (e) {
+              console.warn('Error processing listing price:', e);
+            }
+          });
+        }
+        
+        // 5. Calcular beneficio neto y ROI
+        const netProfit = totalEarned.sub(totalInvested);
+        const roi = totalInvested.gt(0) 
+          ? netProfit.mul(10000).div(totalInvested).toNumber() / 100 
+          : 0;
+        
+        // 6. Actualizar UI
+        document.getElementById('statTotalInvested').textContent = formatADRIAN(totalInvested.toString());
+        document.getElementById('statTotalEarned').textContent = formatADRIAN(totalEarned.toString());
+        
+        const netProfitEl = document.getElementById('statNetProfit');
+        netProfitEl.textContent = formatADRIAN(netProfit.toString());
+        netProfitEl.className = 'stat-value ' + (netProfit.gte(0) ? 'positive' : 'negative');
+        
+        const roiEl = document.getElementById('statROI');
+        roiEl.textContent = roi.toFixed(2) + '%';
+        roiEl.className = 'stat-value ' + (roi >= 0 ? 'positive' : 'negative');
+        
+        document.getElementById('statPunksBought').textContent = punksBought;
+        document.getElementById('statPunksSold').textContent = punksSold;
+        document.getElementById('statCurrentlyListed').textContent = currentlyListed;
+        document.getElementById('statListingsValue').textContent = formatADRIAN(listingsValue.toString());
+        
+      } catch (error) {
+        console.error('Error loading engine stats:', error);
+        // Mostrar errores en UI
+        document.getElementById('engineStats').innerHTML = 
+          '<div class="col-12"><div class="alert alert-danger">Error loading statistics: ' + error.message + '</div></div>';
+      }
+    }
+  </script>
+  
+  <!-- Test Swap Widget -->
+  <script src="test-swap-widget.js"></script>
+</body>
+</html>
