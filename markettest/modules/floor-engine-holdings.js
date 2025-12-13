@@ -18,6 +18,67 @@ const FloorEngineHoldings = {
   // Update holdings display
   async update(balance, engineListings = [], cheapestUserListing = null, nftData = [], getImageUrl = null) {
     try {
+      // Ensure holdings panel is visible
+      const holdingsPanel = document.getElementById('floorEngineHoldingsPanel');
+      if (holdingsPanel) {
+        const panelBody = holdingsPanel.querySelector('.panel-body');
+        if (panelBody && panelBody.innerHTML.trim() === '<!-- Holdings content is managed by FloorEngineHoldings module -->') {
+          // Insert holdings content
+          panelBody.innerHTML = `
+            <!-- Hero and Cheapest Cards Container -->
+            <div class="floor-engine-cards-row mb-4">
+              <!-- Hero Currently Holding -->
+              <div class="floor-engine-hero-card">
+                <div class="floor-hero-label mb-2">FloorENGINE is currently holding</div>
+                <div class="d-flex align-items-baseline flex-wrap gap-4">
+                  <div class="floor-hero-value" id="floorEngineEthHolding">0</div>
+                  <div class="floor-hero-suffix" id="floorEngineNftHolding">+ 0 NFTs</div>
+                </div>
+              </div>
+
+              <!-- Cheapest Listing Card -->
+              <div class="floor-engine-cheapest-card" id="cheapestListingCard" style="display: none;">
+                <div class="d-flex flex-column flex-lg-row gap-4 align-items-center">
+                  <!-- Left: Image -->
+                  <div class="floor-cheapest-image-wrapper position-relative">
+                    <img id="cheapestListingImage" src="" alt="Cheapest NFT" class="floor-cheapest-image">
+                    <div class="floor-cheapest-badge" id="cheapestListingBadge">#0</div>
+                  </div>
+                  <!-- Right: Info -->
+                  <div class="flex-grow-1 w-100">
+                    <div class="d-flex justify-content-between align-items-start">
+                      <div class="flex-grow-1">
+                        <div class="floor-cheapest-label mb-2">Cheapest FloorENGINE NFT on Market</div>
+                        <div class="floor-cheapest-price" id="cheapestListingPrice">0 $ADRIAN</div>
+                        <div class="d-flex align-items-center gap-2 mt-3">
+                          <span class="text-muted">Owner:</span>
+                          <div class="floor-engine-pill owner-pill">
+                            <span id="cheapestListingOwner">0x...</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pixelated Progress Bar -->
+            <div class="floor-engine-pixel-bar-container">
+              <div class="floor-engine-pixel-bar" id="floorEnginePixelBar">
+                <!-- Pixel bars will be generated dynamically -->
+              </div>
+              <div class="floor-engine-pixel-bar-info d-flex justify-content-between align-items-center mt-2">
+                <small class="text-muted">
+                  <span id="pixelBarBalance">0</span> $ADRIAN / <span id="pixelBarTarget">0</span> $ADRIAN
+                </small>
+                <small class="text-muted" id="pixelBarPercentage">0%</small>
+              </div>
+            </div>
+          `;
+        }
+      }
+
       // Update hero card with balance and NFTs
       const ethHoldingEl = document.getElementById('floorEngineEthHolding');
       if (ethHoldingEl) {
