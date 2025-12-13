@@ -4195,6 +4195,36 @@
       await initContracts();
       loadNFTs();
       
+      // Detectar si estamos en MetaMask móvil y aplicar fixes adicionales para scroll
+      const isMetaMaskMobile = /MetaMaskMobile/i.test(navigator.userAgent) || 
+                                (window.ethereum && window.ethereum.isMetaMask && window.innerWidth <= 768);
+      
+      if (isMetaMaskMobile) {
+        // Forzar que todos los paneles no tengan scroll interno
+        document.querySelectorAll('.panel-body').forEach(panel => {
+          panel.style.maxHeight = 'none';
+          panel.style.overflowY = 'visible';
+          panel.style.overscrollBehavior = 'auto';
+          panel.style.touchAction = 'pan-y';
+        });
+        
+        // Asegurar que el body y html permitan scroll continuo
+        document.body.style.overflowY = 'auto';
+        document.body.style.height = 'auto';
+        document.body.style.touchAction = 'pan-y';
+        document.documentElement.style.overflowY = 'auto';
+        document.documentElement.style.height = 'auto';
+        
+        // Asegurar que los contenedores no bloqueen el scroll
+        const container = document.querySelector('.container-fluid');
+        if (container) {
+          container.style.overflow = 'visible';
+          container.style.maxHeight = 'none';
+        }
+        
+        console.log('✅ MetaMask móvil detectado - fixes de scroll aplicados');
+      }
+      
       // En desktop, expandir paneles que tienen aria-expanded-desktop="true"
       if (window.innerWidth >= 769) {
         const swapPanel = document.getElementById('swapWidgetPanel');
