@@ -130,7 +130,9 @@ const QuoteManager = {
     }
 
     // Validate minimum amounts before getting quote
-    const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
+    const fromTokenSymbolEl = document.getElementById('fromTokenSymbol') || document.getElementById('testFromTokenSymbol');
+    if (!fromTokenSymbolEl) return;
+    const fromSymbol = fromTokenSymbolEl.textContent;
     const amount = parseFloat(value);
     
     // Check if amount is valid number
@@ -168,8 +170,17 @@ const QuoteManager = {
       return;
     }
 
-    const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
-    const toSymbol = document.getElementById('toTokenSymbol').textContent;
+    // Get token symbols - check both standard swap page and test widget
+    const fromTokenSymbolEl = document.getElementById('fromTokenSymbol') || document.getElementById('testFromTokenSymbol');
+    const toTokenSymbolEl = document.getElementById('toTokenSymbol') || document.getElementById('testToTokenSymbol');
+    
+    if (!fromTokenSymbolEl || !toTokenSymbolEl) {
+      console.warn('Token symbol elements not found');
+      return;
+    }
+
+    const fromSymbol = fromTokenSymbolEl.textContent;
+    const toSymbol = toTokenSymbolEl.textContent;
 
     try {
       this.isLoadingQuote = true;
@@ -413,8 +424,13 @@ const QuoteManager = {
 
   // Update from value in USD
   updateFromValueUSD(amount) {
-    const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
-    const fromValueUSD = document.getElementById('fromValueUSD');
+    // Get from symbol - check both standard swap page and test widget
+    const fromTokenSymbolEl = document.getElementById('fromTokenSymbol') || document.getElementById('testFromTokenSymbol');
+    if (!fromTokenSymbolEl) return;
+    const fromSymbol = fromTokenSymbolEl.textContent;
+    
+    // Get from value USD - check both standard swap page and test widget
+    const fromValueUSD = document.getElementById('fromValueUSD') || document.getElementById('testFromValueUSD');
     
     if (fromValueUSD && window.PriceManager) {
       const value = PriceManager.calculateUSDValue(amount, fromSymbol);
@@ -424,14 +440,17 @@ const QuoteManager = {
 
   // Update to value in USD
   updateToValueUSD(amount) {
-    const toSymbol = document.getElementById('toTokenSymbol').textContent;
-    const toValueUSD = document.getElementById('toValueUSD');
+    // Get to symbol - check both standard swap page and test widget
+    const toTokenSymbolEl = document.getElementById('toTokenSymbol') || document.getElementById('testToTokenSymbol');
+    if (!toTokenSymbolEl) return;
+    const toSymbol = toTokenSymbolEl.textContent;
+    
+    // Get to value USD - check both standard swap page and test widget
+    const toValueUSD = document.getElementById('toValueUSD') || document.getElementById('testToValueUSD');
     
     if (toValueUSD && window.PriceManager) {
       const value = PriceManager.calculateUSDValue(amount, toSymbol);
-      if (toValueUSD) {
-        toValueUSD.textContent = value.toFixed(2);
-      }
+      toValueUSD.textContent = value.toFixed(2);
     }
   },
 
