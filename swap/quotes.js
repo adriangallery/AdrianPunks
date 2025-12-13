@@ -224,8 +224,16 @@ const QuoteManager = {
           );
         } catch (staticCallError) {
           // If staticCall fails for small amounts, use cached ratio
-          if (staticCallError.message.includes('transfer to zero address') || 
-              staticCallError.message.includes('revert')) {
+          // Check for various error formats (v5 vs v6)
+          const errorMessage = staticCallError?.message || staticCallError?.reason || String(staticCallError);
+          const errorData = staticCallError?.data || staticCallError?.error?.data;
+          
+          // Check if it's a revert error (could be "transfer to zero address" or "invalid length for result data")
+          if (errorMessage.includes('transfer to zero address') || 
+              errorMessage.includes('revert') ||
+              errorMessage.includes('invalid length') ||
+              errorMessage.includes('BAD_DATA') ||
+              (errorData && typeof errorData === 'string' && errorData.includes('08c379a0'))) { // Error selector
             
             // Use cached ratio (always available from init)
             if (!this.cachedRatio) {

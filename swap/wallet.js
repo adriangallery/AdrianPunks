@@ -14,10 +14,34 @@ function getEthers() {
 // Helper function to format ether values (compatible with v5 and v6)
 function formatEther(value) {
   const ethersLib = getEthers();
+  
+  // Convert BigNumber (v5) or BigInt to string/BigInt for v6
+  let normalizedValue = value;
+  if (value && typeof value === 'object') {
+    // Handle ethers v5 BigNumber
+    if (value._hex || value.hex) {
+      normalizedValue = value._hex || value.hex;
+    } else if (value.toString && typeof value.toString === 'function') {
+      // Try to get hex string from BigNumber
+      try {
+        normalizedValue = value.toString();
+        // If it's a decimal string, convert to BigInt for v6
+        if (ethersLib && typeof ethersLib.formatEther === 'function') {
+          normalizedValue = BigInt(normalizedValue);
+        }
+      } catch (e) {
+        // Fallback: try hex
+        normalizedValue = value._hex || value.hex || value.toString();
+      }
+    }
+  }
+  
   // Check if it's v6 (has formatEther directly) or v5 (has utils.formatEther)
   if (ethersLib && typeof ethersLib.formatEther === 'function') {
-    return ethersLib.formatEther(value);
+    // v6: expects string or BigInt
+    return ethersLib.formatEther(normalizedValue);
   } else if (ethersLib && ethersLib.utils && typeof ethersLib.utils.formatEther === 'function') {
+    // v5: can handle BigNumber directly
     return ethersLib.utils.formatEther(value);
   } else {
     throw new Error('formatEther not available in ethers library');
