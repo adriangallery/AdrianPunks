@@ -365,6 +365,9 @@ const QuoteManager = {
       }
 
       console.log('💱 Quote:', this.lastQuote);
+      
+      // Return the quote
+      return this.lastQuote;
 
     } catch (error) {
       console.error('Error getting quote:', error);
