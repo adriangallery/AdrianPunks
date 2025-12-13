@@ -304,7 +304,6 @@ const WalletManager = {
         CONFIG.SWAPPER_ADDRESS
       );
 
-      const ethersLib = getEthers();
       return ethersLib.formatEther(allowance);
 
     } catch (error) {
