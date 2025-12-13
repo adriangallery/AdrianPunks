@@ -85,11 +85,14 @@ const FloorEngineHoldings = {
                       <div class="flex-grow-1">
                         <div class="floor-cheapest-label mb-2">Cheapest FloorENGINE NFT on Market</div>
                         <div class="floor-cheapest-price" id="cheapestListingPrice">0 $ADRIAN</div>
-                        <div class="d-flex align-items-center gap-2 mt-3">
+                        <div class="d-flex align-items-center gap-2 mt-3 flex-wrap">
                           <span class="text-muted">Owner:</span>
                           <div class="floor-engine-pill owner-pill">
                             <span id="cheapestListingOwner">0x...</span>
                           </div>
+                          <button class="floor-engine-pill sweep-pill" id="cheapestListingSweepBtn" onclick="sweepFloor()" style="cursor: pointer;">
+                            <span>Sweep</span>
+                          </button>
                         </div>
                       </div>
                     </div>
