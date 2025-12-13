@@ -263,7 +263,8 @@ const QuoteManager = {
             this.updateTransactionDetails();
             this.updateSwapButton();
             
-            return; // Exit early with estimate
+            this.isLoadingQuote = false;
+            return this.lastQuote; // Return the estimate quote
           } else {
             // Re-throw if it's a different error
             throw staticCallError;
