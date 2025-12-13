@@ -3,7 +3,12 @@
 
 // Helper function to get the correct ethers instance (v6 for swap, v5 fallback)
 function getEthers() {
-  return window.swapEthers || window.ethers;
+  // Prioritize swapEthers (v6) if available, otherwise fallback to ethers (v5)
+  if (window.swapEthers) {
+    return window.swapEthers;
+  }
+  // Fallback to global ethers if swapEthers is not defined (e.g., in full swap page)
+  return window.ethers;
 }
 
 const WalletManager = {
@@ -25,7 +30,15 @@ const WalletManager = {
       if (ALCHEMY_API_KEY && ALCHEMY_API_KEY !== 'YOUR_ALCHEMY_API_KEY') {
         const ALCHEMY_RPC_URL = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
         const ethersLib = getEthers();
-        this.readProvider = new ethersLib.JsonRpcProvider(ALCHEMY_RPC_URL);
+        // Check if ethersLib is v6 (has JsonRpcProvider) or v5 (has providers.JsonRpcProvider)
+        if (ethersLib && ethersLib.JsonRpcProvider) {
+          this.readProvider = new ethersLib.JsonRpcProvider(ALCHEMY_RPC_URL);
+        } else if (ethersLib && ethersLib.providers && ethersLib.providers.JsonRpcProvider) {
+          // Fallback to v5 format
+          this.readProvider = new ethersLib.providers.JsonRpcProvider(ALCHEMY_RPC_URL);
+        } else {
+          throw new Error('Ethers library not properly loaded');
+        }
         console.log('✅ Read provider initialized (Alchemy)');
       } else {
         console.warn('⚠️ Alchemy API key not configured. Will use MetaMask for reads.');
@@ -97,8 +110,18 @@ const WalletManager = {
       
       // Create provider and signer
       const ethersLib = getEthers();
-      this.provider = new ethersLib.BrowserProvider(window.ethereum);
-      this.signer = await this.provider.getSigner();
+      // Check if ethersLib is v6 (has BrowserProvider) or v5 (has providers.Web3Provider)
+      if (ethersLib && ethersLib.BrowserProvider) {
+        // Ethers v6
+        this.provider = new ethersLib.BrowserProvider(window.ethereum);
+        this.signer = await this.provider.getSigner();
+      } else if (ethersLib && ethersLib.providers && ethersLib.providers.Web3Provider) {
+        // Ethers v5 fallback
+        this.provider = new ethersLib.providers.Web3Provider(window.ethereum);
+        this.signer = this.provider.getSigner();
+      } else {
+        throw new Error('Ethers library not properly loaded');
+      }
       this.isConnected = true;
 
       console.log('✅ Wallet connected:', this.address);

@@ -145,8 +145,12 @@ const TestSwapWidget = {
     if (!WalletManager.isConnected) {
       const fromBalanceEl = document.getElementById('testFromBalance');
       const toBalanceEl = document.getElementById('testToBalance');
+      const toBalanceHeaderEl = document.getElementById('testToBalanceHeader');
+      const toTokenSymbolHeaderEl = document.getElementById('testToTokenSymbolHeader');
       if (fromBalanceEl) fromBalanceEl.textContent = '0.0000';
       if (toBalanceEl) toBalanceEl.textContent = '0.0000';
+      if (toBalanceHeaderEl) toBalanceHeaderEl.textContent = '0.0000';
+      if (toTokenSymbolHeaderEl) toTokenSymbolHeaderEl.textContent = this.swapDirection === 'buy' ? 'ADRIAN' : 'ETH';
       return;
     }
 
