@@ -1508,10 +1508,17 @@
           </div>
           <div class="collapse show" id="mainContentPanel">
             <div class="panel-body">
-    <!-- FloorENGINE Dashboard Section (PunkStrategy Style) -->
-    <div id="floorEngineDashboard" class="floor-engine-dashboard mb-5" style="display: none;">
-      <!-- Header Block -->
-      <div class="floor-engine-header-card mb-4">
+    <!-- FloorENGINE Dashboard Section (PunkStrategy Style) - Header -->
+    <div class="collapsible-panel mb-3">
+      <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#floorEngineHeaderPanel" aria-expanded="true">
+        <h5 class="mb-0">FloorENGINE</h5>
+        <i class="bi bi-chevron-down collapse-icon"></i>
+      </div>
+      <div class="collapse show" id="floorEngineHeaderPanel">
+        <div class="panel-body">
+          <div id="floorEngineDashboard" class="floor-engine-dashboard" style="display: none;">
+            <!-- Header Block -->
+            <div class="floor-engine-header-card mb-4">
         <div class="d-flex justify-content-between align-items-start">
           <div class="d-flex align-items-center">
             <!-- Avatar -->
@@ -1586,22 +1593,45 @@
       </div>
       </div>
 
-      <!-- Pixelated Progress Bar -->
-      <div class="floor-engine-pixel-bar-container">
-        <div class="floor-engine-pixel-bar" id="floorEnginePixelBar">
-          <!-- Pixel bars will be generated dynamically -->
-        </div>
-        <div class="floor-engine-pixel-bar-info d-flex justify-content-between align-items-center mt-2">
-          <small class="text-muted">
-            <span id="pixelBarBalance">0</span> $ADRIAN / <span id="pixelBarTarget">0</span> $ADRIAN
-          </small>
-          <small class="text-muted" id="pixelBarPercentage">0%</small>
+            <!-- Pixelated Progress Bar -->
+            <div class="floor-engine-pixel-bar-container">
+              <div class="floor-engine-pixel-bar" id="floorEnginePixelBar">
+                <!-- Pixel bars will be generated dynamically -->
+              </div>
+              <div class="floor-engine-pixel-bar-info d-flex justify-content-between align-items-center mt-2">
+                <small class="text-muted">
+                  <span id="pixelBarBalance">0</span> $ADRIAN / <span id="pixelBarTarget">0</span> $ADRIAN
+                </small>
+                <small class="text-muted" id="pixelBarPercentage">0%</small>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Sales Section -->
-    <div class="floor-engine-sales-card" id="floorEngineSalesSection" style="display: none;">
+    <!-- FloorENGINE Holdings Section -->
+    <div class="collapsible-panel mb-3">
+      <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#floorEngineHoldingsPanel" aria-expanded="true">
+        <h5 class="mb-0">FloorENGINE Holdings</h5>
+        <i class="bi bi-chevron-down collapse-icon"></i>
+      </div>
+      <div class="collapse show" id="floorEngineHoldingsPanel">
+        <div class="panel-body">
+          <!-- Holdings content is managed by FloorEngineHoldings module -->
+        </div>
+      </div>
+    </div>
+
+    <!-- FloorENGINE Sales Section -->
+    <div class="collapsible-panel mb-3">
+      <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#floorEngineSalesPanel" aria-expanded="true">
+        <h5 class="mb-0">Sales</h5>
+        <i class="bi bi-chevron-down collapse-icon"></i>
+      </div>
+      <div class="collapse show" id="floorEngineSalesPanel">
+        <div class="panel-body">
+          <div class="floor-engine-sales-card" id="floorEngineSalesSection" style="display: none;">
       <div class="sales-header">
         <div class="flex-grow-1">
           <h2 class="sales-title">Sales</h2>
@@ -1618,8 +1648,11 @@
           </button>
         </div>
       </div>
-      <div class="sales-grid" id="salesGrid">
-        <div class="sales-empty-state">No sales recorded yet.</div>
+            <div class="sales-grid" id="salesGrid">
+              <div class="sales-empty-state">No sales recorded yet.</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2514,12 +2547,12 @@
       });
 
       // Inicializar contratos de solo lectura (use ethers v5)
-      const ethers5 = window.ethers5Backup || window.ethers;
-      if (ethers5 && ethers5.Contract) {
-        tokenReadContract = new ethers5.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
-        nftReadContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
-        floorEngineReadContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
-        multicallReadContract = new ethers5.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+      const ethers5Contracts = window.ethers5Backup || window.ethers;
+      if (ethers5Contracts && ethers5Contracts.Contract) {
+        tokenReadContract = new ethers5Contracts.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
+        nftReadContract = new ethers5Contracts.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+        floorEngineReadContract = new ethers5Contracts.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
+        multicallReadContract = new ethers5Contracts.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
       }
 
       if (window.ethereum) {
@@ -3004,15 +3037,15 @@
           if (!nftReadContract) {
             if (!readProvider) {
               // Use ethers v5 (market uses v5)
-              const ethers5 = window.ethers5Backup || window.ethers;
-              if (ethers5 && ethers5.providers && ethers5.providers.JsonRpcProvider) {
+              const ethers5Owner = window.ethers5Backup || window.ethers;
+              if (ethers5Owner && ethers5Owner.providers && ethers5Owner.providers.JsonRpcProvider) {
                 const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
-                readProvider = new ethers5.providers.JsonRpcProvider(rpcUrl, {
+                readProvider = new ethers5Owner.providers.JsonRpcProvider(rpcUrl, {
                   name: "base",
                   chainId: 8453
                 });
-                if (ethers5.Contract) {
-                  nftReadContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+                if (ethers5Owner.Contract) {
+                  nftReadContract = new ethers5Owner.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
                 }
               }
             }
@@ -3330,11 +3363,11 @@
         // Check if modular dashboard is available
         if (typeof FloorEngineDashboard !== 'undefined' && FloorEngineDashboard.isInitialized) {
           // Get balance
-          const ethers5 = window.ethers5Backup || window.ethers;
+          const ethers5Balance = window.ethers5Backup || window.ethers;
           const contractBalance = await retryWithBackoff(() => 
             tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS)
           );
-          const balanceFormatted = parseFloat(ethers5.utils.formatUnits(contractBalance.toString(), 18));
+          const balanceFormatted = parseFloat(ethers5Balance.utils.formatUnits(contractBalance.toString(), 18));
 
           // Find cheapest user listing (not from engine)
           let cheapestUserListing = null;
@@ -3743,8 +3776,8 @@
       if (!pixelBarContainer) return;
 
       if (cheapestListing) {
-        const ethers5 = window.ethers5Backup || window.ethers;
-        const targetPrice = parseFloat(ethers5.utils.formatUnits(cheapestListing.price.toString(), 18));
+        const ethers5Pixel = window.ethers5Backup || window.ethers;
+        const targetPrice = parseFloat(ethers5Pixel.utils.formatUnits(cheapestListing.price.toString(), 18));
         const percentage = Math.min(100, (currentBalance / targetPrice) * 100);
         
         // Actualizar textos
@@ -3836,21 +3869,21 @@
         if (!readProvider) {
           console.log('⚠️ ReadProvider no inicializado en updateSweepFloorInfo, inicializando...');
           // Use ethers v5 (market uses v5)
-          const ethers5 = window.ethers5Backup || window.ethers;
-          if (ethers5 && ethers5.providers && ethers5.providers.JsonRpcProvider) {
+          const ethers5Sweep = window.ethers5Backup || window.ethers;
+          if (ethers5Sweep && ethers5Sweep.providers && ethers5Sweep.providers.JsonRpcProvider) {
             const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
-            readProvider = new ethers5.providers.JsonRpcProvider(rpcUrl, {
+            readProvider = new ethers5Sweep.providers.JsonRpcProvider(rpcUrl, {
               name: "base",
               chainId: 8453
             });
             
-            if (ethers5.Contract) {
+            if (ethers5Sweep.Contract) {
               if (!floorEngineReadContract) {
-                floorEngineReadContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
+                floorEngineReadContract = new ethers5Sweep.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
               }
               
               if (!multicallReadContract) {
-                multicallReadContract = new ethers5.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+                multicallReadContract = new ethers5Sweep.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
               }
             }
           }
@@ -4062,19 +4095,19 @@
         // Configurar el provider de Alchemy para consultas más rápidas (fallback a Infura si no está configurado)
         if (!readProvider) {
           // Use ethers v5 (market uses v5)
-          const ethers5 = window.ethers5Backup || window.ethers;
-          if (ethers5 && ethers5.providers && ethers5.providers.JsonRpcProvider) {
+          const ethers5MyTokens = window.ethers5Backup || window.ethers;
+          if (ethers5MyTokens && ethers5MyTokens.providers && ethers5MyTokens.providers.JsonRpcProvider) {
             const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
-            readProvider = new ethers5.providers.JsonRpcProvider(rpcUrl, {
+            readProvider = new ethers5MyTokens.providers.JsonRpcProvider(rpcUrl, {
               name: "base",
               chainId: 8453
             });
             // Inicializar todos los contratos de solo lectura
-            if (ethers5.Contract) {
-              tokenReadContract = new ethers5.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
-              nftReadContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
-              floorEngineReadContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
-              multicallReadContract = new ethers5.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+            if (ethers5MyTokens.Contract) {
+              tokenReadContract = new ethers5MyTokens.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
+              nftReadContract = new ethers5MyTokens.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+              floorEngineReadContract = new ethers5MyTokens.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
+              multicallReadContract = new ethers5MyTokens.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
             }
           }
         }
@@ -4192,12 +4225,12 @@
             contractCache.clear();
             
             // Reinicializar los contratos con la nueva cuenta (use ethers v5)
-            const ethers5 = window.ethers5Backup || window.ethers;
-            if (ethers5 && ethers5.Contract) {
-              tokenContract = new ethers5.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
-              nftContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, signer);
-              floorEngineContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, signer);
-              multicallContract = new ethers5.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, signer);
+            const ethers5Account = window.ethers5Backup || window.ethers;
+            if (ethers5Account && ethers5Account.Contract) {
+              tokenContract = new ethers5Account.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+              nftContract = new ethers5Account.Contract(NFT_ADDRESS, NFT_ABI, signer);
+              floorEngineContract = new ethers5Account.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, signer);
+              multicallContract = new ethers5Account.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, signer);
             }
             
             updateTokenBalance();
