@@ -192,7 +192,9 @@ const QuoteManager = {
 
     try {
       this.isLoadingQuote = true;
-      const amountInWei = ethers.parseEther(amountIn);
+      // Asegurar que amountIn es un string (ethers v6 requiere string)
+      const amountInStr = typeof amountIn === 'string' ? amountIn : String(amountIn);
+      const amountInWei = ethers.parseEther(amountInStr);
 
       // Use Alchemy read provider for quotes (faster and more reliable)
       const readProvider = WalletManager.getReadProvider();
