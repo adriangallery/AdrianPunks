@@ -18,6 +18,14 @@ const QuoteManager = {
   // Fetch the real pool ratio from contract
   async fetchRatioFromContract() {
     try {
+      // Verificar que CONFIG existe y tiene BASE_MAINNET
+      if (!CONFIG || (!CONFIG.NETWORK && !CONFIG.BASE_MAINNET)) {
+        console.warn('⚠️ Network configuration not available, using fallback');
+        this.cachedRatio = ethers.parseEther('117000000');
+        this.ratioTimestamp = Date.now();
+        return this.cachedRatio;
+      }
+      
       const { SWAPPER_ADDRESS, SWAPPER_ABI } = CONFIG;
       // Use CONFIG.BASE_MAINNET if CONFIG.NETWORK doesn't exist
       const networkConfig = CONFIG.NETWORK || CONFIG.BASE_MAINNET;

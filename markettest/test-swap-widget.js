@@ -642,7 +642,41 @@ const TestSwapWidget = {
         WalletManager.disconnect();
         this.onWalletDisconnected();
       }
+      // Sincronizar estado del botón
+      this.syncButtonState();
     }, 2000); // Check every 2 seconds
+  },
+
+  // Sincronizar estado del botón con el market
+  syncButtonState() {
+    const swapBtn = document.getElementById('testSwapBtn');
+    const mainBtn = document.getElementById('mainConnectWalletButton');
+    if (!swapBtn || !mainBtn) return;
+    
+    const span = swapBtn.querySelector('span');
+    if (!span) return;
+    
+    // Si el market tiene wallet conectada pero WalletManager no, sincronizar
+    if (window.userAccount && !WalletManager.isConnected) {
+      WalletManager.connect(false).then(() => {
+        this.onWalletConnected();
+        this.updateSwapButton();
+      }).catch(err => console.warn('Error syncing wallet:', err));
+      return;
+    }
+    
+    // Sincronizar texto del botón con el estado del market
+    const mainBtnText = mainBtn.textContent.trim();
+    if (mainBtnText.includes('Connected:') && span.textContent.includes('Connect')) {
+      // Market tiene wallet pero el botón del swap aún muestra "Connect Wallet"
+      if (WalletManager.isConnected) {
+        this.updateSwapButton();
+      }
+    } else if (!mainBtnText.includes('Connected:') && !span.textContent.includes('Connect')) {
+      // Market desconectó pero el botón del swap aún muestra estado conectado
+      span.textContent = 'Connect Wallet';
+      swapBtn.disabled = false;
+    }
   }
 };
 
