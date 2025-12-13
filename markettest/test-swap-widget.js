@@ -79,7 +79,7 @@ const TestSwapWidget = {
       window.addEventListener('walletConnected', () => this.onWalletConnected());
       window.addEventListener('walletDisconnected', () => this.onWalletDisconnected());
 
-      // Listen for market wallet connection (polling approach)
+      // Check market wallet connection periodically
       this.checkMarketWalletConnection();
 
       this.isInitialized = true;
@@ -627,6 +627,24 @@ const TestSwapWidget = {
       clearInterval(this.priceUpdateInterval);
       this.priceUpdateInterval = null;
     }
+  },
+
+  // Check market wallet connection periodically
+  checkMarketWalletConnection() {
+    setInterval(async () => {
+      if (window.userAccount && !WalletManager.isConnected) {
+        try {
+          await WalletManager.connect(false);
+          this.onWalletConnected();
+        } catch (error) {
+          // Silently fail - wallet might not be ready
+        }
+      } else if (!window.userAccount && WalletManager.isConnected) {
+        // Market wallet disconnected
+        WalletManager.disconnect();
+        this.onWalletDisconnected();
+      }
+    }, 2000); // Check every 2 seconds
   }
 };
 
