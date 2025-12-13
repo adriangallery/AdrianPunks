@@ -158,18 +158,25 @@ const TestSwapWidget = {
       await WalletManager.updateBalances();
       const balances = WalletManager.balances;
 
+      const toBalanceHeaderEl = document.getElementById('testToBalanceHeader');
+      const toTokenSymbolHeaderEl = document.getElementById('testToTokenSymbolHeader');
+      
       if (this.swapDirection === 'buy') {
         // ETH → ADRIAN
         const fromBalanceEl = document.getElementById('testFromBalance');
         const toBalanceEl = document.getElementById('testToBalance');
         if (fromBalanceEl) fromBalanceEl.textContent = parseFloat(balances.ETH || '0').toFixed(4);
         if (toBalanceEl) toBalanceEl.textContent = parseFloat(balances.ADRIAN || '0').toFixed(4);
+        if (toBalanceHeaderEl) toBalanceHeaderEl.textContent = parseFloat(balances.ADRIAN || '0').toFixed(4);
+        if (toTokenSymbolHeaderEl) toTokenSymbolHeaderEl.textContent = 'ADRIAN';
       } else {
         // ADRIAN → ETH
         const fromBalanceEl = document.getElementById('testFromBalance');
         const toBalanceEl = document.getElementById('testToBalance');
         if (fromBalanceEl) fromBalanceEl.textContent = parseFloat(balances.ADRIAN || '0').toFixed(4);
         if (toBalanceEl) toBalanceEl.textContent = parseFloat(balances.ETH || '0').toFixed(4);
+        if (toBalanceHeaderEl) toBalanceHeaderEl.textContent = parseFloat(balances.ETH || '0').toFixed(4);
+        if (toTokenSymbolHeaderEl) toTokenSymbolHeaderEl.textContent = 'ETH';
       }
     } catch (error) {
       console.error('Error updating balances:', error);
@@ -318,13 +325,16 @@ const TestSwapWidget = {
     // Update token symbols
     const fromSymbol = document.getElementById('testFromTokenSymbol');
     const toSymbol = document.getElementById('testToTokenSymbol');
+    const toTokenSymbolHeaderEl = document.getElementById('testToTokenSymbolHeader');
     
     if (this.swapDirection === 'buy') {
       if (fromSymbol) fromSymbol.textContent = 'ETH';
       if (toSymbol) toSymbol.textContent = 'ADRIAN';
+      if (toTokenSymbolHeaderEl) toTokenSymbolHeaderEl.textContent = 'ADRIAN';
     } else {
       if (fromSymbol) fromSymbol.textContent = 'ADRIAN';
       if (toSymbol) toSymbol.textContent = 'ETH';
+      if (toTokenSymbolHeaderEl) toTokenSymbolHeaderEl.textContent = 'ETH';
     }
 
     // Clear amounts
