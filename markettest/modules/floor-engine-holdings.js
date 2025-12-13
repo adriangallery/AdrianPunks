@@ -115,10 +115,6 @@ const FloorEngineHoldings = {
         } else {
           console.log('ℹ️ Holdings HTML already exists, skipping insertion');
         }
-      } else {
-        console.error('❌ floorEngineHoldingsPanel or panel-body not found');
-        return;
-      }
 
       // Ensure panel is expanded (show content)
       const collapseElement = holdingsPanel.closest('.collapse');
