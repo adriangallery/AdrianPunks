@@ -305,19 +305,46 @@ const WalletManager = {
 
   // Update balance display in UI
   updateBalanceDisplay() {
+    // Check for standard swap page elements
     const fromBalance = document.getElementById('fromBalance');
     const toBalance = document.getElementById('toBalance');
-    const fromSymbol = document.getElementById('fromTokenSymbol').textContent;
-    const toSymbol = document.getElementById('toTokenSymbol').textContent;
+    const fromTokenSymbolEl = document.getElementById('fromTokenSymbol');
+    const toTokenSymbolEl = document.getElementById('toTokenSymbol');
 
-    if (fromBalance) {
+    // Check for test swap widget elements
+    const testFromBalance = document.getElementById('testFromBalance');
+    const testToBalance = document.getElementById('testToBalance');
+    const testFromTokenSymbolEl = document.getElementById('testFromTokenSymbol');
+    const testToTokenSymbolEl = document.getElementById('testToTokenSymbol');
+
+    // Update standard swap page if elements exist
+    if (fromBalance && fromTokenSymbolEl && toTokenSymbolEl) {
+      const fromSymbol = fromTokenSymbolEl.textContent;
+      const toSymbol = toTokenSymbolEl.textContent;
       const balance = this.balances[fromSymbol] || '0';
       fromBalance.textContent = parseFloat(balance).toFixed(4);
     }
 
-    if (toBalance) {
+    if (toBalance && fromTokenSymbolEl && toTokenSymbolEl) {
+      const fromSymbol = fromTokenSymbolEl.textContent;
+      const toSymbol = toTokenSymbolEl.textContent;
       const balance = this.balances[toSymbol] || '0';
       toBalance.textContent = parseFloat(balance).toFixed(4);
+    }
+
+    // Update test swap widget if elements exist
+    if (testFromBalance && testFromTokenSymbolEl && testToTokenSymbolEl) {
+      const fromSymbol = testFromTokenSymbolEl.textContent;
+      const toSymbol = testToTokenSymbolEl.textContent;
+      const balance = this.balances[fromSymbol] || '0';
+      testFromBalance.textContent = parseFloat(balance).toFixed(4);
+    }
+
+    if (testToBalance && testFromTokenSymbolEl && testToTokenSymbolEl) {
+      const fromSymbol = testFromTokenSymbolEl.textContent;
+      const toSymbol = testToTokenSymbolEl.textContent;
+      const balance = this.balances[toSymbol] || '0';
+      testToBalance.textContent = parseFloat(balance).toFixed(4);
     }
   },
 

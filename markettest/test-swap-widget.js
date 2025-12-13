@@ -48,7 +48,7 @@ const TestSwapWidget = {
       // Setup event listeners
       this.setupEventListeners();
 
-      // Check if wallet is already connected (from market menu)
+      // Check if wallet is already connected (from market)
       if (window.ethereum) {
         try {
           const accounts = await window.ethereum.request({ method: 'eth_accounts' });
@@ -61,14 +61,26 @@ const TestSwapWidget = {
         }
       }
 
+      // Check if market wallet is connected
+      if (window.userAccount && !WalletManager.isConnected) {
+        try {
+          await WalletManager.connect(false);
+        } catch (error) {
+          console.warn('Error syncing with market wallet:', error);
+        }
+      }
+
       // Update widget when wallet is connected
       if (WalletManager.isConnected) {
         this.onWalletConnected();
       }
 
-      // Listen for wallet connection changes
+      // Listen for wallet connection changes from swap modules
       window.addEventListener('walletConnected', () => this.onWalletConnected());
       window.addEventListener('walletDisconnected', () => this.onWalletDisconnected());
+
+      // Listen for market wallet connection (polling approach)
+      this.checkMarketWalletConnection();
 
       this.isInitialized = true;
       console.log('✅ Test Swap Widget initialized');
@@ -110,15 +122,40 @@ const TestSwapWidget = {
       approveBtn.addEventListener('click', () => this.handleApprove());
     }
 
-    // Connect wallet button text click
-    if (swapBtn && !WalletManager.isConnected) {
-      swapBtn.addEventListener('click', () => {
-        if (swapBtn.textContent.includes('Connect')) {
-          // Use market's wallet connection if available
-          if (typeof window.connectMetaMaskWallet === 'function') {
+    // Connect wallet button - redirect to market's connect button
+    if (swapBtn) {
+      swapBtn.addEventListener('click', async () => {
+        const span = swapBtn.querySelector('span');
+        if (span && span.textContent.includes('Connect')) {
+          // Use market's wallet connection
+          if (typeof connectMainWallet === 'function') {
+            connectMainWallet();
+            // After market connects, sync with WalletManager
+            setTimeout(async () => {
+              if (window.userAccount && !WalletManager.isConnected) {
+                try {
+                  await WalletManager.connect(false);
+                  this.onWalletConnected();
+                } catch (error) {
+                  console.warn('Error syncing wallet after market connection:', error);
+                }
+              }
+            }, 1500);
+          } else if (typeof window.connectMetaMaskWallet === 'function') {
             window.connectMetaMaskWallet();
+            setTimeout(async () => {
+              if (window.userAccount && !WalletManager.isConnected) {
+                try {
+                  await WalletManager.connect(false);
+                  this.onWalletConnected();
+                } catch (error) {
+                  console.warn('Error syncing wallet after market connection:', error);
+                }
+              }
+            }, 1500);
           } else {
-            WalletManager.connectWallet();
+            // Fallback to WalletManager
+            await WalletManager.connect();
           }
         }
       });
@@ -369,7 +406,15 @@ const TestSwapWidget = {
     if (!WalletManager.isConnected) {
       swapBtn.disabled = false;
       const span = swapBtn.querySelector('span');
-      if (span) span.textContent = 'Connect Wallet';
+      if (span) {
+        // Check if market wallet is connected
+        if (window.userAccount) {
+          // Market wallet is connected, trigger WalletManager connection
+          span.textContent = 'Connect Wallet';
+        } else {
+          span.textContent = 'Connect Wallet';
+        }
+      }
       if (approveSection) approveSection.style.display = 'none';
       return;
     }
