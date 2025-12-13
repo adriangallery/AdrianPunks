@@ -18,20 +18,29 @@ function formatEther(value) {
   // Convert BigNumber (v5) or BigInt to string/BigInt for v6
   let normalizedValue = value;
   if (value && typeof value === 'object') {
-    // Handle ethers v5 BigNumber
-    if (value._hex || value.hex) {
-      normalizedValue = value._hex || value.hex;
+    // Handle ethers v5 BigNumber - check for hex property first
+    if (value.hex) {
+      // ethers v5 BigNumber has .hex property
+      normalizedValue = value.hex;
+    } else if (value._hex) {
+      // Some versions use _hex
+      normalizedValue = value._hex;
     } else if (value.toString && typeof value.toString === 'function') {
       // Try to get hex string from BigNumber
       try {
-        normalizedValue = value.toString();
-        // If it's a decimal string, convert to BigInt for v6
-        if (ethersLib && typeof ethersLib.formatEther === 'function') {
-          normalizedValue = BigInt(normalizedValue);
+        // For ethers v5 BigNumber, toString() returns decimal string
+        // We need to get the hex value instead
+        if (value._isBigNumber || value.type === 'BigNumber') {
+          // It's a BigNumber, try to get hex
+          normalizedValue = value.hex || value._hex || value.toString(16);
+        } else {
+          // Try toString as decimal, then convert to BigInt
+          const decimalStr = value.toString();
+          normalizedValue = BigInt(decimalStr);
         }
       } catch (e) {
-        // Fallback: try hex
-        normalizedValue = value._hex || value.hex || value.toString();
+        // Fallback: try to extract hex or use toString
+        normalizedValue = value.hex || value._hex || value.toString();
       }
     }
   }
@@ -39,6 +48,10 @@ function formatEther(value) {
   // Check if it's v6 (has formatEther directly) or v5 (has utils.formatEther)
   if (ethersLib && typeof ethersLib.formatEther === 'function') {
     // v6: expects string or BigInt
+    // If normalizedValue is a hex string, convert to BigInt
+    if (typeof normalizedValue === 'string' && normalizedValue.startsWith('0x')) {
+      normalizedValue = BigInt(normalizedValue);
+    }
     return ethersLib.formatEther(normalizedValue);
   } else if (ethersLib && ethersLib.utils && typeof ethersLib.utils.formatEther === 'function') {
     // v5: can handle BigNumber directly
