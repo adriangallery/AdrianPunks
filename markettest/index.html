@@ -3324,110 +3324,69 @@
     }
 
     // Función para actualizar el dashboard completo del FloorENGINE
+    // Updated function to use modular FloorENGINE Dashboard
     async function updateFloorEngineDashboard() {
       try {
-        const dashboard = document.getElementById('floorEngineDashboard');
-        if (!dashboard) return;
+        // Check if modular dashboard is available
+        if (typeof FloorEngineDashboard !== 'undefined' && FloorEngineDashboard.isInitialized) {
+          // Get balance
+          const ethers5 = window.ethers5Backup || window.ethers;
+          const contractBalance = await retryWithBackoff(() => 
+            tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS)
+          );
+          const balanceFormatted = parseFloat(ethers5.utils.formatUnits(contractBalance.toString(), 18));
 
-        // Show the dashboard
-        dashboard.style.display = 'block';
-
-        // Obtener balance del engine
-        const contractBalance = await retryWithBackoff(() => 
-          tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS)
-        );
-        const balanceFormatted = parseFloat(ethers.utils.formatUnits(contractBalance.toString(), 18));
-
-        // Encontrar cheapest user listing (no del engine)
-        let cheapestUserListing = null;
-        if (activeListingsData && activeListingsData.length > 0) {
-          for (const listing of activeListingsData) {
-            if (!listing.isContractOwned) {
-              if (!cheapestUserListing || listing.price.lt(cheapestUserListing.price)) {
-                cheapestUserListing = listing;
+          // Find cheapest user listing (not from engine)
+          let cheapestUserListing = null;
+          if (activeListingsData && activeListingsData.length > 0) {
+            for (const listing of activeListingsData) {
+              if (!listing.isContractOwned) {
+                if (!cheapestUserListing || listing.price.lt(cheapestUserListing.price)) {
+                  cheapestUserListing = listing;
+                }
               }
             }
           }
-        }
 
-        // Actualizar dirección del engine
-        document.getElementById('floorEngineAddress').textContent = 
-          `${FLOOR_ENGINE_ADDRESS.substring(0, 6)}...${FLOOR_ENGINE_ADDRESS.substring(38)}`;
+          // Get engine listings
+          const engineListings = activeListingsData?.filter(l => l.isContractOwned) || [];
 
-        // Contar holdings y sold
-        const engineListings = activeListingsData?.filter(l => l.isContractOwned) || [];
-        document.getElementById('floorEngineHoldingCount').textContent = engineListings.length;
-        
-        // Obtener contador de sold desde Supabase
-        const soldCount = await getFloorEngineSoldCount();
-        document.getElementById('floorEngineSoldCount').textContent = soldCount;
-
-        // Actualizar hero card con balance y NFTs
-        document.getElementById('floorEngineEthHolding').textContent = balanceFormatted.toLocaleString('en-US', {
-          minimumFractionDigits: 1,
-          maximumFractionDigits: 1
-        });
-        document.getElementById('floorEngineNftHolding').textContent = `+ ${engineListings.length} NFTs`;
-
-        // Actualizar cheapest listing card
-        if (cheapestUserListing) {
-          const cheapestCard = document.getElementById('cheapestListingCard');
-          cheapestCard.style.display = 'flex';
-
-          const tokenId = cheapestUserListing.tokenId;
-          const priceFormatted = parseFloat(ethers.utils.formatUnits(cheapestUserListing.price, 18));
-          
-          // Actualizar badge
-          document.getElementById('cheapestListingBadge').textContent = `#${tokenId}`;
-          
-          // Actualizar precio
-          document.getElementById('cheapestListingPrice').textContent = 
-            `${priceFormatted.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} $ADRIAN`;
-          
-          // Actualizar owner
-          const ownerShort = `${cheapestUserListing.seller.substring(0, 6)}...${cheapestUserListing.seller.substring(38)}`;
-          document.getElementById('cheapestListingOwner').textContent = ownerShort;
-          
-          // Actualizar imagen - buscar en nftData
-          let imgUrl = `./adrianpunksimages/${tokenId}.png`;
-          if (nftData) {
-            const nft = nftData.find(n => {
-              const nftId = parseInt(n.name.split('#')[1]);
-              return nftId === tokenId;
-            });
-            if (nft) {
-              imgUrl = getImageUrl(nft);
-            }
-          }
-          document.getElementById('cheapestListingImage').src = imgUrl;
+          // Update using modular dashboard
+          await FloorEngineDashboard.update({
+            balance: balanceFormatted,
+            engineListings: engineListings,
+            cheapestUserListing: cheapestUserListing,
+            activeListingsData: activeListingsData,
+            nftData: nftData,
+            getImageUrl: getImageUrl,
+            supabaseClient: supabaseClient,
+            tokenReadContract: tokenReadContract
+          });
         } else {
-          document.getElementById('cheapestListingCard').style.display = 'none';
+          // Fallback to old implementation if modules not loaded
+          console.warn('FloorENGINE modules not loaded, using fallback');
+          const dashboard = document.getElementById('floorEngineDashboard');
+          if (dashboard) dashboard.style.display = 'block';
         }
-
-        // Actualizar barra pixelada
-        updatePixelBar(balanceFormatted, cheapestUserListing);
-
-        // Actualizar sección de Sales
-        updateSalesSection();
-
-        // Mostrar dashboard
-        dashboard.style.display = 'block';
       } catch (error) {
         console.error('Error updating FloorENGINE dashboard:', error);
       }
     }
 
-    // Función para copiar dirección del engine
+    // Función para copiar dirección del engine (mantener para compatibilidad)
     function copyFloorEngineAddress() {
-      navigator.clipboard.writeText(FLOOR_ENGINE_ADDRESS).then(() => {
-        // Mostrar feedback visual
-        const icon = event.target;
-        const originalClass = icon.className;
-        icon.className = 'bi bi-check';
-        setTimeout(() => {
-          icon.className = originalClass;
-        }, 1000);
-      });
+      if (typeof FloorEngineHeader !== 'undefined') {
+        FloorEngineHeader.copyAddress();
+      } else {
+        navigator.clipboard.writeText(FLOOR_ENGINE_ADDRESS).then(() => {
+          const icon = event.target;
+          const originalClass = icon.className;
+          icon.className = 'bi bi-check';
+          setTimeout(() => {
+            icon.className = originalClass;
+          }, 1000);
+        });
+      }
     }
 
     // Función para scroll a sección de trade
@@ -3611,35 +3570,37 @@
       }
     }
 
-    // Función para actualizar la sección de Sales
+    // Función para actualizar la sección de Sales (usar módulo si está disponible)
     async function updateSalesSection() {
       try {
-        const sales = await getFloorEngineSales();
-        allSalesData = sales; // Guardar todas las ventas
-        const salesSection = document.getElementById('floorEngineSalesSection');
-        
-        if (!salesSection) return;
+        if (typeof FloorEngineSales !== 'undefined' && FloorEngineSales.isInitialized) {
+          await FloorEngineSales.update(supabaseClient);
+        } else {
+          // Fallback to old implementation
+          const sales = await getFloorEngineSales();
+          allSalesData = sales;
+          const salesSection = document.getElementById('floorEngineSalesSection');
+          
+          if (!salesSection) return;
 
-        if (sales.length === 0) {
-          salesSection.style.display = 'none';
-          return;
+          if (sales.length === 0) {
+            salesSection.style.display = 'none';
+            return;
+          }
+
+          salesSection.style.display = 'block';
+
+          const totalSoldCount = sales.length;
+          const totalSoldAmount = sales.reduce((sum, sale) => sum + sale.soldAmount, BigInt('0'));
+          const totalPaidAmount = sales.reduce((sum, sale) => sum + sale.paidAmount, BigInt('0'));
+          const totalProfitAmount = totalSoldAmount - totalPaidAmount;
+
+          document.getElementById('salesTotalCount').textContent = totalSoldCount;
+          document.getElementById('salesTotalAmount').textContent = formatAdrianAmountNoDecimals(totalSoldAmount);
+          document.getElementById('salesTotalProfit').textContent = formatAdrianAmountNoDecimals(totalProfitAmount);
+
+          updateSalesDisplay(sales);
         }
-
-        salesSection.style.display = 'block';
-
-        // Calcular totales
-        const totalSoldCount = sales.length;
-        const totalSoldAmount = sales.reduce((sum, sale) => sum + sale.soldAmount, BigInt('0'));
-        const totalPaidAmount = sales.reduce((sum, sale) => sum + sale.paidAmount, BigInt('0'));
-        const totalProfitAmount = totalSoldAmount - totalPaidAmount;
-
-        // Actualizar resumen
-        document.getElementById('salesTotalCount').textContent = totalSoldCount;
-        document.getElementById('salesTotalAmount').textContent = formatAdrianAmountNoDecimals(totalSoldAmount);
-        document.getElementById('salesTotalProfit').textContent = formatAdrianAmountNoDecimals(totalProfitAmount);
-
-        // Actualizar display
-        updateSalesDisplay(sales);
       } catch (error) {
         console.error('Error updating sales section:', error);
       }
@@ -5148,6 +5109,12 @@
       }
     }
   </script>
+  
+  <!-- FloorENGINE Modules -->
+  <script src="modules/floor-engine-header.js"></script>
+  <script src="modules/floor-engine-holdings.js"></script>
+  <script src="modules/floor-engine-sales.js"></script>
+  <script src="modules/floor-engine-dashboard.js"></script>
   
   <!-- Test Swap Widget -->
   <script src="test-swap-widget.js"></script>
