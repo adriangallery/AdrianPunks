@@ -66,14 +66,9 @@ const FloorEngineDashboard = {
         await this.init();
       }
 
-      const dashboard = document.getElementById('floorEngineDashboard');
-      if (!dashboard) {
-        console.warn('⚠️ floorEngineDashboard element not found');
-        return;
-      }
-
-      // Show dashboard
-      dashboard.style.display = 'block';
+      // El elemento floorEngineDashboard ya no existe en markettest
+      // Los paneles individuales (Holdings, Sales) ya están visibles
+      // Continuar con la actualización de los módulos
 
       // Get sold count
       const soldCount = await this.getSoldCount(supabaseClient);
