@@ -562,17 +562,15 @@ const TestSwapWidget = {
         throw new Error('Invalid amount');
       }
 
-      const ethers6 = window.ethers6 || window.ethers;
-      const amountInWei = ethers6.parseEther(amount);
-      const fromSymbol = this.swapDirection === 'buy' ? 'ETH' : 'ADRIAN';
-      const toSymbol = this.swapDirection === 'buy' ? 'ADRIAN' : 'ETH';
-
       // Get quote first (SwapManager needs QuoteManager.lastQuote)
+      // QuoteManager.getQuote expects a string (decimal amount), not BigInt
       const originalEthers = window.ethers;
+      const ethers6 = window.ethers6 || window.ethers;
       window.ethers = ethers6;
       
       try {
-        const quote = await QuoteManager.getQuote(amountInWei, fromSymbol, toSymbol);
+        // Pass the string amount, not the BigInt
+        const quote = await QuoteManager.getQuote(amount);
         
         if (!quote) {
           throw new Error('Could not get quote');
