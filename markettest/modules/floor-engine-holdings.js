@@ -18,11 +18,28 @@ const FloorEngineHoldings = {
   // Update holdings display
   async update(balance, engineListings = [], cheapestUserListing = null, nftData = [], getImageUrl = null) {
     try {
+      console.log('🔄 FloorEngineHoldings.update called with:', { balance, engineListingsCount: engineListings.length, cheapestUserListing: !!cheapestUserListing });
+      
       // Ensure holdings panel is visible
       const holdingsPanel = document.getElementById('floorEngineHoldingsPanel');
-      if (holdingsPanel) {
-        const panelBody = holdingsPanel.querySelector('.panel-body');
-        if (panelBody && panelBody.innerHTML.trim() === '<!-- Holdings content is managed by FloorEngineHoldings module -->') {
+      if (!holdingsPanel) {
+        console.error('❌ floorEngineHoldingsPanel not found');
+        return;
+      }
+      
+      const panelBody = holdingsPanel.querySelector('.panel-body');
+      if (!panelBody) {
+        console.error('❌ panel-body not found in floorEngineHoldingsPanel');
+        return;
+      }
+      
+      const panelBodyContent = panelBody.innerHTML.trim();
+      const isPlaceholder = panelBodyContent === '<!-- Holdings content is managed by FloorEngineHoldings module -->' || 
+                           panelBodyContent === '' ||
+                           (panelBodyContent.includes('Holdings content is managed') && !panelBodyContent.includes('floor-engine-hero-card'));
+      
+      if (isPlaceholder) {
+          console.log('📝 Inserting holdings HTML content');
           // Insert holdings content
           panelBody.innerHTML = `
             <!-- Hero and Cheapest Cards Container -->

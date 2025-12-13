@@ -34,18 +34,30 @@ const FloorEngineDashboard = {
     tokenReadContract = null
   }) {
     try {
+      console.log('🔄 FloorEngineDashboard.update called with:', { 
+        balance, 
+        engineListingsCount: engineListings.length, 
+        cheapestUserListing: !!cheapestUserListing,
+        nftDataCount: nftData?.length || 0,
+        hasGetImageUrl: !!getImageUrl
+      });
+      
       if (!this.isInitialized) {
         await this.init();
       }
 
       const dashboard = document.getElementById('floorEngineDashboard');
-      if (!dashboard) return;
+      if (!dashboard) {
+        console.warn('⚠️ floorEngineDashboard element not found');
+        return;
+      }
 
       // Show dashboard
       dashboard.style.display = 'block';
 
       // Get sold count
       const soldCount = await this.getSoldCount(supabaseClient);
+      console.log('📊 Sold count:', soldCount);
 
       // Update header
       await FloorEngineHeader.update(engineListings, soldCount);
@@ -55,7 +67,7 @@ const FloorEngineDashboard = {
         balance,
         engineListings,
         cheapestUserListing,
-        nftData,
+        nftData || [],
         getImageUrl
       );
 
