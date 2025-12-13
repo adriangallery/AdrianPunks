@@ -18,7 +18,7 @@ const TestSwapWidget = {
 
     try {
       // Wait for swap modules to be available
-      if (typeof CONFIG === 'undefined' || typeof NetworkManager === 'undefined') {
+      if (typeof CONFIG === 'undefined' || typeof NetworkManager === 'undefined' || typeof WalletManager === 'undefined') {
         console.warn('⚠️ Swap modules not loaded yet, retrying...');
         setTimeout(() => this.init(), 1000);
         return;

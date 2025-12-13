@@ -225,7 +225,6 @@ const WalletManager = {
       );
 
       const balance = await adrianContract.balanceOf(this.address);
-      const ethersLib = getEthers();
       return ethersLib.formatEther(balance);
     } catch (error) {
       console.error('Error getting ADRIAN balance:', error);
@@ -336,17 +335,16 @@ const WalletManager = {
       // Check user preference for unlimited approvals
       const unlimitedApproval = localStorage.getItem(CONFIG.STORAGE_KEYS.unlimitedApproval) === 'true';
       
+      const ethersLib = getEthers();
       let approvalAmount;
       
       if (unlimitedApproval) {
         // Unlimited approval (MaxUint256)
-        const ethersLib = getEthers();
         approvalAmount = ethersLib.MaxUint256;
         console.log('🔓 Approving ADRIAN: UNLIMITED (MaxUint256)');
       } else {
         // Specific amount approval
         if (amount) {
-          const ethersLib = getEthers();
           approvalAmount = ethersLib.parseEther(amount.toString());
         } else {
           // Obtener del input actual
@@ -354,10 +352,8 @@ const WalletManager = {
           if (!fromAmount || !fromAmount.value) {
             throw new Error('No amount specified');
           }
-          const ethersLib = getEthers();
           approvalAmount = ethersLib.parseEther(fromAmount.value);
         }
-        const ethersLib = getEthers();
         console.log('🔓 Approving ADRIAN:', ethersLib.formatEther(approvalAmount), '(specific amount)');
       }
       
