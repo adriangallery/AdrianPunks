@@ -292,9 +292,35 @@ const QuoteManager = {
           // Ocultar approve section si ya está aprobado
           this.hideApprovalSection();
           
-          estimatedOutput = await swapperContract.sellAdrian.staticCall(
-            amountInWei
-          );
+          try {
+            estimatedOutput = await swapperContract.sellAdrian.staticCall(
+              amountInWei
+            );
+          } catch (staticCallError) {
+            // Handle revert errors for sellAdrian
+            const errorMessage = staticCallError?.message || staticCallError?.reason || String(staticCallError);
+            const errorData = staticCallError?.data || staticCallError?.error?.data;
+            
+            if (errorMessage.includes('revert') ||
+                errorMessage.includes('invalid length') ||
+                errorMessage.includes('BAD_DATA') ||
+                (errorData && typeof errorData === 'string' && errorData.includes('08c379a0'))) {
+              // Use cached ratio for estimation
+              if (!this.cachedRatio) {
+                await this.fetchRatioFromContract();
+              }
+              
+              const ratioNumber = Number(this.cachedRatio) / Number(10n ** 18n);
+              console.log('⚠️ Using cached ratio for sellAdrian:', ratioNumber.toLocaleString(), 'ADRIAN/ETH');
+              
+              // Calculate estimate: amountIn ADRIAN / ratio = ETH out (before tax)
+              const ethOutBeforeTax = (amountInWei * 10n ** 18n) / this.cachedRatio;
+              // Apply 10% tax
+              estimatedOutput = (ethOutBeforeTax * 9n) / 10n;
+            } else {
+              throw staticCallError;
+            }
+          }
         }
       } else {
         throw new Error('Invalid token pair');
