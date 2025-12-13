@@ -2501,17 +2501,26 @@
       }
       
       // Configurar el provider de Alchemy para lecturas (fallback a Infura si no está configurado)
+      // Use ethers v5 (market uses v5)
+      const ethers5 = window.ethers5Backup || window.ethers;
+      if (!ethers5 || !ethers5.providers || !ethers5.providers.JsonRpcProvider) {
+        console.error('Ethers v5 not available for contract initialization');
+        return;
+      }
       const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
-      readProvider = new ethers.providers.JsonRpcProvider(rpcUrl, {
+      readProvider = new ethers5.providers.JsonRpcProvider(rpcUrl, {
         name: "base",
         chainId: 8453
       });
 
-      // Inicializar contratos de solo lectura
-      tokenReadContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
-      nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
-      floorEngineReadContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
-      multicallReadContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+      // Inicializar contratos de solo lectura (use ethers v5)
+      const ethers5 = window.ethers5Backup || window.ethers;
+      if (ethers5 && ethers5.Contract) {
+        tokenReadContract = new ethers5.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
+        nftReadContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+        floorEngineReadContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
+        multicallReadContract = new ethers5.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+      }
 
       if (window.ethereum) {
         // Usar el provider existente si ya fue definido por el menú, o crear uno nuevo
@@ -2532,10 +2541,14 @@
         userAccount = window.userAccount;
         
         if (userAccount) {
-          tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
-          nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
-          floorEngineContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, signer);
-          multicallContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, signer);
+          // Use ethers v5 (market uses v5)
+          const ethers5 = window.ethers5Backup || window.ethers;
+          if (ethers5 && ethers5.Contract) {
+            tokenContract = new ethers5.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+            nftContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, signer);
+            floorEngineContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, signer);
+            multicallContract = new ethers5.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, signer);
+          }
           updateTokenBalance();
           updateFloorEngineBalance();
         } else {
@@ -2828,14 +2841,21 @@
         if (!readProvider) {
           console.log('⚠️ ReadProvider no inicializado, inicializando...');
           const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
-          readProvider = new ethers.providers.JsonRpcProvider(rpcUrl, {
-            name: "base",
-            chainId: 8453
-          });
-          nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
-          floorEngineReadContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
-          tokenReadContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
-          multicallReadContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+          // Use ethers v5 (market uses v5)
+          const ethers5 = window.ethers5Backup || window.ethers;
+          if (ethers5 && ethers5.providers && ethers5.providers.JsonRpcProvider) {
+            readProvider = new ethers5.providers.JsonRpcProvider(rpcUrl, {
+              name: "base",
+              chainId: 8453
+            });
+            nftReadContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+            // Use ethers v5 (market uses v5)
+            const ethers5 = window.ethers5Backup || window.ethers;
+            if (ethers5 && ethers5.Contract) {
+              floorEngineReadContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
+              tokenReadContract = new ethers5.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
+              multicallReadContract = new ethers5.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+            }
         }
         
         // Total minted es inmutable: 1000 punks
@@ -2983,13 +3003,19 @@
           // Usar readProvider para verificar ownership (funciona sin wallet)
           if (!nftReadContract) {
             if (!readProvider) {
-              const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
-              readProvider = new ethers.providers.JsonRpcProvider(rpcUrl, {
-                name: "base",
-                chainId: 8453
-              });
+              // Use ethers v5 (market uses v5)
+              const ethers5 = window.ethers5Backup || window.ethers;
+              if (ethers5 && ethers5.providers && ethers5.providers.JsonRpcProvider) {
+                const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
+                readProvider = new ethers5.providers.JsonRpcProvider(rpcUrl, {
+                  name: "base",
+                  chainId: 8453
+                });
+                if (ethers5.Contract) {
+                  nftReadContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+                }
+              }
             }
-            nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
           }
           const owner = await retryWithBackoff(() => nftReadContract.ownerOf(tokenId));
           if (userAccount) {
@@ -4060,16 +4086,22 @@
 
         // Configurar el provider de Alchemy para consultas más rápidas (fallback a Infura si no está configurado)
         if (!readProvider) {
-          const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
-          readProvider = new ethers.providers.JsonRpcProvider(rpcUrl, {
-            name: "base",
-            chainId: 8453
-          });
-          // Inicializar todos los contratos de solo lectura
-          tokenReadContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
-          nftReadContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
-          floorEngineReadContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
-          multicallReadContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+          // Use ethers v5 (market uses v5)
+          const ethers5 = window.ethers5Backup || window.ethers;
+          if (ethers5 && ethers5.providers && ethers5.providers.JsonRpcProvider) {
+            const rpcUrl = ALCHEMY_RPC_URL || INFURA_URL;
+            readProvider = new ethers5.providers.JsonRpcProvider(rpcUrl, {
+              name: "base",
+              chainId: 8453
+            });
+            // Inicializar todos los contratos de solo lectura
+            if (ethers5.Contract) {
+              tokenReadContract = new ethers5.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
+              nftReadContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+              floorEngineReadContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
+              multicallReadContract = new ethers5.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+            }
+          }
         }
 
         // Cargar tokens usando Multicall3 para mayor velocidad
@@ -4184,11 +4216,14 @@
             // OPTIMIZACIÓN: Limpiar caché al cambiar de cuenta
             contractCache.clear();
             
-            // Reinicializar los contratos con la nueva cuenta
-            tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
-            nftContract = new ethers.Contract(NFT_ADDRESS, NFT_ABI, signer);
-            floorEngineContract = new ethers.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, signer);
-            multicallContract = new ethers.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, signer);
+            // Reinicializar los contratos con la nueva cuenta (use ethers v5)
+            const ethers5 = window.ethers5Backup || window.ethers;
+            if (ethers5 && ethers5.Contract) {
+              tokenContract = new ethers5.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+              nftContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, signer);
+              floorEngineContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, signer);
+              multicallContract = new ethers5.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, signer);
+            }
             
             updateTokenBalance();
             loadNFTs();
@@ -4565,7 +4600,13 @@
     async function checkWalletConnection() {
       if (window.ethereum) {
         try {
-          mainWalletProvider = new ethers.providers.Web3Provider(window.ethereum);
+          // Use ethers v5 (market uses v5)
+          const ethers5 = window.ethers5Backup || window.ethers;
+          if (!ethers5 || !ethers5.providers || !ethers5.providers.Web3Provider) {
+            console.error('Ethers v5 not available for wallet connection');
+            return;
+          }
+          mainWalletProvider = new ethers5.providers.Web3Provider(window.ethereum);
           const accounts = await mainWalletProvider.listAccounts();
           
           if (accounts.length > 0) {

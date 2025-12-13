@@ -19,7 +19,10 @@ const QuoteManager = {
   async fetchRatioFromContract() {
     try {
       const { SWAPPER_ADDRESS, SWAPPER_ABI } = CONFIG;
-      const readProvider = WalletManager.readProvider || new ethers.JsonRpcProvider(CONFIG.NETWORK.rpcUrls[0]);
+      // Use CONFIG.BASE_MAINNET if CONFIG.NETWORK doesn't exist
+      const networkConfig = CONFIG.NETWORK || CONFIG.BASE_MAINNET;
+      const rpcUrl = networkConfig?.rpcUrls?.[0] || 'https://mainnet.base.org';
+      const readProvider = WalletManager.readProvider || new ethers.JsonRpcProvider(rpcUrl);
       
       const swapperContract = new ethers.Contract(
         SWAPPER_ADDRESS,

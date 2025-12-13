@@ -11,6 +11,32 @@ function getEthers() {
   return window.ethers;
 }
 
+// Helper function to format ether values (compatible with v5 and v6)
+function formatEther(value) {
+  const ethersLib = getEthers();
+  // Check if it's v6 (has formatEther directly) or v5 (has utils.formatEther)
+  if (ethersLib && typeof ethersLib.formatEther === 'function') {
+    return ethersLib.formatEther(value);
+  } else if (ethersLib && ethersLib.utils && typeof ethersLib.utils.formatEther === 'function') {
+    return ethersLib.utils.formatEther(value);
+  } else {
+    throw new Error('formatEther not available in ethers library');
+  }
+}
+
+// Helper function to parse ether values (compatible with v5 and v6)
+function parseEther(value) {
+  const ethersLib = getEthers();
+  // Check if it's v6 (has parseEther directly) or v5 (has utils.parseEther)
+  if (ethersLib && typeof ethersLib.parseEther === 'function') {
+    return ethersLib.parseEther(value);
+  } else if (ethersLib && ethersLib.utils && typeof ethersLib.utils.parseEther === 'function') {
+    return ethersLib.utils.parseEther(value);
+  } else {
+    throw new Error('parseEther not available in ethers library');
+  }
+}
+
 const WalletManager = {
   provider: null, // MetaMask provider (for transactions)
   readProvider: null, // Alchemy provider (for read calls)
@@ -223,8 +249,7 @@ const WalletManager = {
       if (!provider) return '0';
       
       const balance = await provider.getBalance(this.address);
-      const ethersLib = getEthers();
-      return ethersLib.formatEther(balance);
+      return formatEther(balance);
     } catch (error) {
       console.error('Error getting ETH balance:', error);
       return '0';
@@ -248,7 +273,7 @@ const WalletManager = {
       );
 
       const balance = await adrianContract.balanceOf(this.address);
-      return ethersLib.formatEther(balance);
+      return formatEther(balance);
     } catch (error) {
       console.error('Error getting ADRIAN balance:', error);
       return '0';
@@ -327,7 +352,7 @@ const WalletManager = {
         CONFIG.SWAPPER_ADDRESS
       );
 
-      return ethersLib.formatEther(allowance);
+      return formatEther(allowance);
 
     } catch (error) {
       console.error('Error checking allowance:', error);
@@ -366,16 +391,16 @@ const WalletManager = {
       } else {
         // Specific amount approval
         if (amount) {
-          approvalAmount = ethersLib.parseEther(amount.toString());
+          approvalAmount = parseEther(amount.toString());
         } else {
           // Obtener del input actual
           const fromAmount = document.getElementById('fromAmount');
           if (!fromAmount || !fromAmount.value) {
             throw new Error('No amount specified');
           }
-          approvalAmount = ethersLib.parseEther(fromAmount.value);
+          approvalAmount = parseEther(fromAmount.value);
         }
-        console.log('🔓 Approving ADRIAN:', ethersLib.formatEther(approvalAmount), '(specific amount)');
+        console.log('🔓 Approving ADRIAN:', formatEther(approvalAmount), '(specific amount)');
       }
       
       const tx = await adrianContract.approve(
