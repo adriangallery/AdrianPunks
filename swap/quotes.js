@@ -341,7 +341,9 @@ const QuoteManager = {
         
         // Intentar dar una estimación aproximada
         try {
-          const amountInWei = ethers.parseEther(amountIn);
+          // Asegurar que amountIn es un string (ethers v6 requiere string)
+          const amountInStr = typeof amountIn === 'string' ? amountIn : String(amountIn);
+          const amountInWei = ethers.parseEther(amountInStr);
           const ratio = 130000n;
           const estimatedOutput = (amountInWei * ethers.parseEther('1')) / (ratio * ethers.parseEther('1')) * 9n / 10n;
           const amountOut = ethers.formatEther(estimatedOutput);
