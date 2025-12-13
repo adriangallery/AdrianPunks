@@ -111,18 +111,8 @@ const TestSwapWidget = {
       swapDirectionBtn.addEventListener('click', () => this.toggleSwapDirection());
     }
 
-    // Swap/Approve button
+    // Swap/Approve button - unified handler
     const swapBtn = document.getElementById('testSwapBtn');
-    if (swapBtn) {
-      swapBtn.addEventListener('click', () => this.handleSwap());
-    }
-
-    const approveBtn = document.getElementById('testApproveBtn');
-    if (approveBtn) {
-      approveBtn.addEventListener('click', () => this.handleApprove());
-    }
-
-    // Connect wallet button - redirect to market's connect button
     if (swapBtn) {
       swapBtn.addEventListener('click', async () => {
         const span = swapBtn.querySelector('span');
@@ -157,8 +147,16 @@ const TestSwapWidget = {
             // Fallback to WalletManager
             await WalletManager.connect();
           }
+        } else {
+          // Execute swap
+          await this.handleSwap();
         }
       });
+    }
+
+    const approveBtn = document.getElementById('testApproveBtn');
+    if (approveBtn) {
+      approveBtn.addEventListener('click', () => this.handleApprove());
     }
   },
 
