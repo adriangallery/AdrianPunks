@@ -238,9 +238,24 @@ const TestSwapWidget = {
     
     if (!amount || amount === '0' || amount === '0.0' || amount === '0.00') {
       toAmountInput.value = '';
-      this.updateUSDValues(0, 0);
+      // Update USD values to 0
+      const fromValueEl = document.getElementById('testFromValueUSD');
+      const toValueEl = document.getElementById('testToValueUSD');
+      if (fromValueEl) fromValueEl.textContent = '0.00';
+      if (toValueEl) toValueEl.textContent = '0.00';
       this.updateSwapButton();
       return;
+    }
+    
+    // Update from USD value immediately when user types
+    if (window.PriceManager) {
+      const fromTokenSymbolEl = document.getElementById('testFromTokenSymbol');
+      if (fromTokenSymbolEl) {
+        const fromSymbol = fromTokenSymbolEl.textContent;
+        const fromValueUSD = window.PriceManager.calculateUSDValue(amount, fromSymbol);
+        const fromValueEl = document.getElementById('testFromValueUSD');
+        if (fromValueEl) fromValueEl.textContent = fromValueUSD.toFixed(2);
+      }
     }
 
     if (!WalletManager.isConnected) {
