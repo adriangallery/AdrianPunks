@@ -1497,6 +1497,102 @@
   <!-- Marketplace View (default) -->
   <div id="marketplaceView" class="view-container">
   <div class="container-fluid px-3">
+    <!-- FloorENGINE Header Section (Independent) -->
+    <div class="collapsible-panel mb-3">
+      <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#floorEngineHeaderPanel" aria-expanded="true">
+        <h5 class="mb-0">FloorENGINE</h5>
+        <i class="bi bi-chevron-down collapse-icon"></i>
+      </div>
+      <div class="collapse show" id="floorEngineHeaderPanel">
+        <div class="panel-body">
+          <div id="floorEngineDashboard" class="floor-engine-dashboard" style="display: none;">
+            <!-- Header Block -->
+            <div class="floor-engine-header-card mb-4">
+              <div class="d-flex justify-content-between align-items-start">
+                <div class="d-flex align-items-center">
+                  <!-- Avatar -->
+                  <div class="floor-engine-avatar me-4">
+                    <img id="floorEngineAvatar" src="./adrianpunksimages/1.png" alt="FloorENGINE" class="floor-engine-avatar-img">
+                  </div>
+                  <!-- Title and Pills -->
+                  <div class="floor-engine-title-section">
+                    <h1 class="floor-engine-title mb-3">FloorENGINE™</h1>
+                    <div class="d-flex flex-wrap align-items-center gap-3">
+                      <!-- Address Pill -->
+                      <div class="floor-engine-pill address-pill">
+                        <span id="floorEngineAddress" class="me-2">0x...</span>
+                        <i class="bi bi-clipboard" onclick="copyFloorEngineAddress()" style="cursor: pointer;"></i>
+                      </div>
+                      <!-- Holding Pill -->
+                      <div class="floor-engine-pill holding-pill">
+                        <span>Holding</span>
+                        <span class="badge bg-dark text-white ms-2" id="floorEngineHoldingCount">0</span>
+                      </div>
+                      <!-- Sold Pill -->
+                      <div class="floor-engine-pill sold-pill">
+                        <span>Sold</span>
+                        <span class="badge bg-dark text-white ms-2" id="floorEngineSoldCount">0</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <!-- CTA Button -->
+                <a href="https://adrianpunks.com/swap/" class="btn btn-dark rounded-pill px-4 py-2 d-none d-md-inline-block">
+                  Trade $ADRIAN
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FloorENGINE Holdings Section (Independent) -->
+    <div class="collapsible-panel mb-3">
+      <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#floorEngineHoldingsPanel" aria-expanded="true">
+        <h5 class="mb-0">FloorENGINE Holdings</h5>
+        <i class="bi bi-chevron-down collapse-icon"></i>
+      </div>
+      <div class="collapse show" id="floorEngineHoldingsPanel">
+        <div class="panel-body">
+          <!-- Holdings content is managed by FloorEngineHoldings module -->
+        </div>
+      </div>
+    </div>
+
+    <!-- FloorENGINE Sales Section (Independent) -->
+    <div class="collapsible-panel mb-3">
+      <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#floorEngineSalesPanel" aria-expanded="true">
+        <h5 class="mb-0">Sales</h5>
+        <i class="bi bi-chevron-down collapse-icon"></i>
+      </div>
+      <div class="collapse show" id="floorEngineSalesPanel">
+        <div class="panel-body">
+          <div class="floor-engine-sales-card" id="floorEngineSalesSection" style="display: none;">
+            <div class="sales-header">
+              <div class="flex-grow-1">
+                <h2 class="sales-title">Sales</h2>
+                <div class="sales-summary" id="salesSummary">
+                  FloorENGINE sold <span class="summary-number" id="salesTotalCount">0</span> AdrianPunks for <span class="summary-number" id="salesTotalAmount">0</span> $A, realizing a total of <span class="summary-profit" id="salesTotalProfit">0</span> $A profit.
+                </div>
+              </div>
+              <div class="sales-view-toggles">
+                <button class="sales-view-toggle-btn active" id="salesViewGrid" onclick="setSalesViewMode('grid')" title="Grid View">
+                  <i class="bi bi-grid-3x3-gap"></i>
+                </button>
+                <button class="sales-view-toggle-btn" id="salesViewTable" onclick="setSalesViewMode('table')" title="Table View">
+                  <i class="bi bi-list-ul"></i>
+                </button>
+              </div>
+            </div>
+            <div class="sales-grid" id="salesGrid">
+              <div class="sales-empty-state">No sales recorded yet.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Collapsible Panels Layout - 2 Columns -->
     <div class="row g-3 mt-2">
       <!-- Left Panel: Main Content -->
@@ -1508,17 +1604,7 @@
           </div>
           <div class="collapse show" id="mainContentPanel">
             <div class="panel-body">
-    <!-- FloorENGINE Dashboard Section (PunkStrategy Style) - Header -->
-    <div class="collapsible-panel mb-3">
-      <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#floorEngineHeaderPanel" aria-expanded="true">
-        <h5 class="mb-0">FloorENGINE</h5>
-        <i class="bi bi-chevron-down collapse-icon"></i>
-      </div>
-      <div class="collapse show" id="floorEngineHeaderPanel">
-        <div class="panel-body">
-          <div id="floorEngineDashboard" class="floor-engine-dashboard" style="display: none;">
-            <!-- Header Block -->
-            <div class="floor-engine-header-card mb-4">
+              <!-- Marketplace content (NFTs grid) will be here -->
         <div class="d-flex justify-content-between align-items-start">
           <div class="d-flex align-items-center">
             <!-- Avatar -->
@@ -2295,6 +2381,10 @@
         console.log('📦 Cargando listings activos desde Supabase...');
         
         // Cargar desde la vista simplificada active_punk_listings
+        if (!supabaseClient || !supabaseClient.from) {
+          console.warn('⚠️ Supabase client not properly initialized');
+          return null;
+        }
         const { data: listings, error } = await supabaseClient
           .from('active_punk_listings')
           .select('token_id, price_adrian_wei, is_engine_owned, seller, last_block_number')
@@ -3300,7 +3390,12 @@
           tokenReadContract.balanceOf(userAccount)
         );
         // Use ethers v5 formatUnits (market uses v5)
-        const balance = parseFloat(ethers.utils.formatUnits(balanceRaw.toString(), 18));
+        const ethers5Token = window.ethers5Backup || window.ethers;
+        if (!ethers5Token || !ethers5Token.utils || !ethers5Token.utils.formatUnits) {
+          console.error('Ethers v5 not available for token balance');
+          return;
+        }
+        const balance = parseFloat(ethers5Token.utils.formatUnits(balanceRaw.toString(), 18));
         let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
                               balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
                               balance.toFixed(1);
