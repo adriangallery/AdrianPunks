@@ -1,6 +1,11 @@
 // Wallet Management Module
 // Handles wallet connection, balances, and user interactions
 
+// Helper function to get the correct ethers instance (v6 for swap, v5 fallback)
+function getEthers() {
+  return window.swapEthers || window.ethers;
+}
+
 const WalletManager = {
   provider: null, // MetaMask provider (for transactions)
   readProvider: null, // Alchemy provider (for read calls)
@@ -19,7 +24,8 @@ const WalletManager = {
       const ALCHEMY_API_KEY = window.ALCHEMY_API_KEY;
       if (ALCHEMY_API_KEY && ALCHEMY_API_KEY !== 'YOUR_ALCHEMY_API_KEY') {
         const ALCHEMY_RPC_URL = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
-        this.readProvider = new ethers.JsonRpcProvider(ALCHEMY_RPC_URL);
+        const ethersLib = getEthers();
+        this.readProvider = new ethersLib.JsonRpcProvider(ALCHEMY_RPC_URL);
         console.log('✅ Read provider initialized (Alchemy)');
       } else {
         console.warn('⚠️ Alchemy API key not configured. Will use MetaMask for reads.');
@@ -90,7 +96,8 @@ const WalletManager = {
       this.address = accounts[0];
       
       // Create provider and signer
-      this.provider = new ethers.BrowserProvider(window.ethereum);
+      const ethersLib = getEthers();
+      this.provider = new ethersLib.BrowserProvider(window.ethereum);
       this.signer = await this.provider.getSigner();
       this.isConnected = true;
 
@@ -193,7 +200,8 @@ const WalletManager = {
       if (!provider) return '0';
       
       const balance = await provider.getBalance(this.address);
-      return ethers.formatEther(balance);
+      const ethersLib = getEthers();
+      return ethersLib.formatEther(balance);
     } catch (error) {
       console.error('Error getting ETH balance:', error);
       return '0';
@@ -209,14 +217,16 @@ const WalletManager = {
       const provider = this.getReadProvider();
       if (!provider) return '0';
       
-      const adrianContract = new ethers.Contract(
+      const ethersLib = getEthers();
+      const adrianContract = new ethersLib.Contract(
         CONFIG.TOKENS.ADRIAN.address,
         ERC20_ABI,
         provider
       );
 
       const balance = await adrianContract.balanceOf(this.address);
-      return ethers.formatEther(balance);
+      const ethersLib = getEthers();
+      return ethersLib.formatEther(balance);
     } catch (error) {
       console.error('Error getting ADRIAN balance:', error);
       return '0';
@@ -283,7 +293,8 @@ const WalletManager = {
       const provider = this.getReadProvider();
       if (!provider) return '0';
       
-      const adrianContract = new ethers.Contract(
+      const ethersLib = getEthers();
+      const adrianContract = new ethersLib.Contract(
         CONFIG.TOKENS.ADRIAN.address,
         ERC20_ABI,
         provider
@@ -294,7 +305,8 @@ const WalletManager = {
         CONFIG.SWAPPER_ADDRESS
       );
 
-      return ethers.formatEther(allowance);
+      const ethersLib = getEthers();
+      return ethersLib.formatEther(allowance);
 
     } catch (error) {
       console.error('Error checking allowance:', error);
@@ -314,7 +326,8 @@ const WalletManager = {
     }
 
     try {
-      const adrianContract = new ethers.Contract(
+      const ethersLib = getEthers();
+      const adrianContract = new ethersLib.Contract(
         CONFIG.TOKENS.ADRIAN.address,
         ERC20_ABI,
         this.signer
@@ -327,21 +340,25 @@ const WalletManager = {
       
       if (unlimitedApproval) {
         // Unlimited approval (MaxUint256)
-        approvalAmount = ethers.MaxUint256;
+        const ethersLib = getEthers();
+        approvalAmount = ethersLib.MaxUint256;
         console.log('🔓 Approving ADRIAN: UNLIMITED (MaxUint256)');
       } else {
         // Specific amount approval
         if (amount) {
-          approvalAmount = ethers.parseEther(amount.toString());
+          const ethersLib = getEthers();
+          approvalAmount = ethersLib.parseEther(amount.toString());
         } else {
           // Obtener del input actual
           const fromAmount = document.getElementById('fromAmount');
           if (!fromAmount || !fromAmount.value) {
             throw new Error('No amount specified');
           }
-          approvalAmount = ethers.parseEther(fromAmount.value);
+          const ethersLib = getEthers();
+          approvalAmount = ethersLib.parseEther(fromAmount.value);
         }
-        console.log('🔓 Approving ADRIAN:', ethers.formatEther(approvalAmount), '(specific amount)');
+        const ethersLib = getEthers();
+        console.log('🔓 Approving ADRIAN:', ethersLib.formatEther(approvalAmount), '(specific amount)');
       }
       
       const tx = await adrianContract.approve(

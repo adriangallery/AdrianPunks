@@ -1589,15 +1589,14 @@
             <div class="panel-body">
               <!-- CoinGecko Terminal Chart -->
               <div class="gecko-terminal-chart">
-                <iframe 
-                  src="https://www.geckoterminal.com/base/pools/0x79cdf2d48abd42872a26d1b1c92ece4245327a4837b427dc9cff5f1acc40e379/embed"
-                  width="100%"
-                  height="400"
+                <iframe
+                  id="geckoterminal-embed"
+                  title="GeckoTerminal Embed"
+                  src="https://www.geckoterminal.com/base/pools/0x7e99075ce287f1cf8cbcaaa6a1c7894e404fd7ea?embed=1&info=0&swaps=0&light_chart=1&chart_type=price&resolution=1m&bg_color=f1f5f9"
                   frameborder="0"
-                  allowtransparency="true"
-                  scrolling="no"
-                  style="border-radius: 8px; overflow: hidden;"
-                  title="ADRIAN/ETH Price Chart">
+                  allow="clipboard-write"
+                  allowfullscreen
+                  style="width: 100%; height: 100%; min-height: 400px; border-radius: 8px; overflow: hidden;">
                 </iframe>
               </div>
             </div>
@@ -3023,20 +3022,29 @@
         let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
                               balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
                               balance.toFixed(1);
-        document.getElementById("tokenBalance").innerText = `Balance: ${formattedBalance} $ADRIAN`;
+        const tokenBalanceEl = document.getElementById("tokenBalance");
+        if (tokenBalanceEl) {
+          tokenBalanceEl.innerText = `Balance: ${formattedBalance} $ADRIAN`;
+        }
       } catch (error) {
         console.error("Error fetching token balance:", error);
-        document.getElementById("tokenBalance").innerText = "Balance: Error";
+        const tokenBalanceEl = document.getElementById("tokenBalance");
+        if (tokenBalanceEl) {
+          tokenBalanceEl.innerText = "Balance: Error";
+        }
       }
     }
     
     async function updateFloorEngineBalance() {
       try {
         // OPTIMIZACIÓN: Verificar caché primero
+        const floorEngineBalanceEl = document.getElementById("floorEngineBalance");
+        if (!floorEngineBalanceEl) return;
+        
         const cacheKey = 'floorEngineBalance';
         const cached = contractCache.get(cacheKey);
         if (cached) {
-          document.getElementById("floorEngineBalance").innerHTML = `<span>💰 FloorEngine: ${cached} $ADRIAN</span>`;
+          floorEngineBalanceEl.innerHTML = `<span>💰 FloorEngine: ${cached} $ADRIAN</span>`;
           return;
         }
         
@@ -3050,13 +3058,18 @@
         
         // Guardar en caché
         contractCache.set(cacheKey, formattedBalance);
-        document.getElementById("floorEngineBalance").innerHTML = `<span>💰 FloorEngine: ${formattedBalance} $ADRIAN</span>`;
+        if (floorEngineBalanceEl) {
+          floorEngineBalanceEl.innerHTML = `<span>💰 FloorEngine: ${formattedBalance} $ADRIAN</span>`;
+        }
         
         // Actualizar dashboard si está visible
         updateFloorEngineDashboard();
       } catch (error) {
         console.error("Error fetching FloorEngine balance:", error);
-        document.getElementById("floorEngineBalance").innerHTML = `<span>FloorEngine: Error</span>`;
+        const floorEngineBalanceEl = document.getElementById("floorEngineBalance");
+        if (floorEngineBalanceEl) {
+          floorEngineBalanceEl.innerHTML = `<span>FloorEngine: Error</span>`;
+        }
       }
     }
 
