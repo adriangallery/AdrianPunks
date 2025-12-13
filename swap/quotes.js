@@ -21,7 +21,10 @@ const QuoteManager = {
       const { SWAPPER_ADDRESS, SWAPPER_ABI } = CONFIG;
       // Use CONFIG.BASE_MAINNET if CONFIG.NETWORK doesn't exist
       const networkConfig = CONFIG.NETWORK || CONFIG.BASE_MAINNET;
-      const rpcUrl = networkConfig?.rpcUrls?.[0] || 'https://mainnet.base.org';
+      if (!networkConfig || !networkConfig.rpcUrls || !Array.isArray(networkConfig.rpcUrls)) {
+        throw new Error('Network configuration not available');
+      }
+      const rpcUrl = networkConfig.rpcUrls[0] || 'https://mainnet.base.org';
       const readProvider = WalletManager.readProvider || new ethers.JsonRpcProvider(rpcUrl);
       
       const swapperContract = new ethers.Contract(
