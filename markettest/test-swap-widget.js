@@ -280,10 +280,13 @@ const TestSwapWidget = {
           
           toAmountInput.value = formatted;
           
-          // Update USD values
-          const fromValueUSD = await this.calculateUSDValue(amountNum, fromSymbol);
-          const toValueUSD = await this.calculateUSDValue(amountOutNum, toSymbol);
-          this.updateUSDValues(fromValueUSD, toValueUSD);
+          // USD values are updated automatically by QuoteManager.updateFromValueUSD and updateToValueUSD
+          // But we can also update them manually if needed
+          if (window.PriceManager && quote.fromSymbol && quote.toSymbol) {
+            const fromValueUSD = window.PriceManager.calculateUSDValue(amountNum, quote.fromSymbol);
+            const toValueUSD = window.PriceManager.calculateUSDValue(amountOutNum, quote.toSymbol);
+            this.updateUSDValues(fromValueUSD, toValueUSD);
+          }
         } else {
           toAmountInput.value = '';
           this.updateUSDValues(0, 0);
