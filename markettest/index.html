@@ -2740,12 +2740,14 @@
         card.onclick = () => showNFTDetails(nft.name);
         
         // Formatear el precio para mostrar K o M si es necesario
+        const ethers5 = window.ethers5Backup || window.ethers;
+        const priceValue = listing ? parseFloat(ethers5.utils.formatUnits(listing.price, 18)) : 0;
         const formattedPrice = listing ? 
-          (parseFloat(ethers.utils.formatUnits(listing.price, 18)) >= 1000000 ? 
-            (parseFloat(ethers.utils.formatUnits(listing.price, 18)) / 1000000).toFixed(1) + 'M' :
-            parseFloat(ethers.utils.formatUnits(listing.price, 18)) >= 1000 ? 
-            (parseFloat(ethers.utils.formatUnits(listing.price, 18)) / 1000).toFixed(1) + 'K' :
-            parseFloat(ethers.utils.formatUnits(listing.price, 18)).toFixed(1)) : '';
+          (priceValue >= 1000000 ? 
+            (priceValue / 1000000).toFixed(1) + 'M' :
+            priceValue >= 1000 ? 
+            (priceValue / 1000).toFixed(1) + 'K' :
+            priceValue.toFixed(1)) : '';
         
         // Determinar el badge según si es del contrato o de usuario
         const badgeHtml = listing ? (listing.isContractOwned ? 
@@ -2890,7 +2892,7 @@
               ${tokenListing ? `
                   <div class="listing-info alert alert-info">
                   <h6>Active Listing ${tokenListing.isContractOwned ? '<span class="badge bg-primary">ENGINE</span>' : '<span class="badge bg-secondary">USER</span>'}</h6>
-                    <p>Price: ${parseFloat(ethers.utils.formatUnits(tokenListing.price, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1})} $ADRIAN</p>
+                    <p>Price: ${parseFloat((window.ethers5Backup || window.ethers).utils.formatUnits(tokenListing.price, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1})} $ADRIAN</p>
                     <p>Seller: ${tokenListing.seller.substring(0, 6)}...${tokenListing.seller.substring(38)}</p>
                   ${!tokenListing.isContractOwned ? `
                         ${isSeller ? `
@@ -3038,7 +3040,8 @@
           alert("Please connect your wallet to purchase this NFT");
           return;
         }
-        const price = ethers.BigNumber.from(priceStr);
+        const ethers5 = window.ethers5Backup || window.ethers;
+        const price = ethers5.BigNumber.from(priceStr);
         
         // Step 1: Check allowance and approve if needed
         const currentAllowance = await tokenContract.allowance(userAccount, FLOOR_ENGINE_ADDRESS);
@@ -3111,7 +3114,8 @@
         const contractBalance = await retryWithBackoff(() => 
           tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS)
         );
-        const balance = parseFloat(ethers.utils.formatUnits(contractBalance, 18));
+        const ethers5 = window.ethers5Backup || window.ethers;
+        const balance = parseFloat(ethers5.utils.formatUnits(contractBalance, 18));
         let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
                               balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
                               balance.toFixed(1);
@@ -3618,7 +3622,8 @@
         
         // Get info before sweeping
         const contractBalance = await tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS);
-        console.log("Contract balance:", ethers.utils.formatUnits(contractBalance, 18), "$ADRIAN");
+        const ethers5 = window.ethers5Backup || window.ethers;
+        console.log("Contract balance:", ethers5.utils.formatUnits(contractBalance, 18), "$ADRIAN");
         
         if (contractBalance.eq(0)) {
           alert("FloorEngine has no balance to sweep the floor.");
@@ -3722,7 +3727,8 @@
         const callerRewardIsPercentage = iface.decodeFunctionResult('callerRewardIsPercentage', configResults[4].returnData)[0];
         const callerRewardFixed = iface.decodeFunctionResult('callerRewardFixed', configResults[5].returnData)[0];
         
-        const balanceFormatted = parseFloat(ethers.utils.formatUnits(contractBalance, 18)).toFixed(2);
+        const ethers5 = window.ethers5Backup || window.ethers;
+        const balanceFormatted = parseFloat(ethers5.utils.formatUnits(contractBalance, 18)).toFixed(2);
         
         // OPTIMIZACIÓN: Usar activeListingsData si ya está cargado
         let cheapestPrice = null;
@@ -3795,20 +3801,21 @@
         return;
       }
         
-        const cheapestFormatted = parseFloat(ethers.utils.formatUnits(cheapestPrice, 18)).toFixed(2);
+        const ethers5 = window.ethers5Backup || window.ethers;
+        const cheapestFormatted = parseFloat(ethers5.utils.formatUnits(cheapestPrice, 18)).toFixed(2);
         
         // Calculate estimated reward
         let rewardFormatted = "0";
         if (callerRewardIsPercentage) {
           const rewardEstimate = cheapestPrice.mul(callerRewardBps).div(10000);
-          rewardFormatted = parseFloat(ethers.utils.formatUnits(rewardEstimate, 18)).toFixed(2);
+          rewardFormatted = parseFloat(ethers5.utils.formatUnits(rewardEstimate, 18)).toFixed(2);
         } else {
-          rewardFormatted = parseFloat(ethers.utils.formatUnits(callerRewardFixed, 18)).toFixed(2);
+          rewardFormatted = parseFloat(ethers5.utils.formatUnits(callerRewardFixed, 18)).toFixed(2);
         }
         
         const premiumBpsNumber = typeof premiumBps.toNumber === 'function' ? premiumBps.toNumber() : Number(premiumBps);
         const relistPrice = cheapestPrice.mul(10000 + premiumBpsNumber).div(10000);
-        const relistFormatted = parseFloat(ethers.utils.formatUnits(relistPrice, 18)).toFixed(2);
+        const relistFormatted = parseFloat(ethers5.utils.formatUnits(relistPrice, 18)).toFixed(2);
         
         // Check if contract has enough balance
         const canExecute = contractBalance.gte(cheapestPrice);
@@ -4058,7 +4065,8 @@
       const priceMap = new Map();
       activeListingsData.forEach(listing => {
         const currentPrice = priceMap.get(listing.tokenId.toString());
-        const thisPrice = parseFloat(ethers.utils.formatUnits(listing.price, 18));
+        const ethers5 = window.ethers5Backup || window.ethers;
+        const thisPrice = parseFloat(ethers5.utils.formatUnits(listing.price, 18));
         if (!currentPrice || thisPrice < currentPrice) {
           priceMap.set(listing.tokenId.toString(), thisPrice);
         }
@@ -4732,8 +4740,9 @@
           return '0.00';
         }
         
-        const wei = ethers.BigNumber.from(weiStr);
-        const adrian = parseFloat(ethers.utils.formatUnits(wei, 18));
+        const ethers5 = window.ethers5Backup || window.ethers;
+        const wei = ethers5.BigNumber.from(weiStr);
+        const adrian = parseFloat(ethers5.utils.formatUnits(wei, 18));
         return adrian.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       } catch (error) {
         console.error('Error formatting ADRIAN:', error, 'Value:', weiString);
@@ -4839,12 +4848,13 @@
           .from('sweep_events')
           .select('buy_price_wei');
         
-        let totalInvested = ethers.BigNumber.from(0);
+        const ethers5 = window.ethers5Backup || window.ethers;
+        let totalInvested = ethers5.BigNumber.from(0);
         if (sweeps && !sweepsError) {
           sweeps.forEach(sweep => {
             try {
               const buyPrice = formatWeiString(sweep.buy_price_wei);
-              totalInvested = totalInvested.add(ethers.BigNumber.from(buyPrice));
+              totalInvested = totalInvested.add(ethers5.BigNumber.from(buyPrice));
             } catch (e) {
               console.warn('Error processing sweep buy_price:', e);
             }
@@ -4856,14 +4866,14 @@
           .from('trade_events')
           .select('price_wei, is_contract_owned');
         
-        let totalEarned = ethers.BigNumber.from(0);
+        let totalEarned = ethers5.BigNumber.from(0);
         let punksSold = 0;
         if (trades && !tradesError) {
           trades.forEach(trade => {
             if (trade.is_contract_owned) {
               try {
                 const price = formatWeiString(trade.price_wei);
-                totalEarned = totalEarned.add(ethers.BigNumber.from(price));
+                totalEarned = totalEarned.add(ethers5.BigNumber.from(price));
                 punksSold++;
               } catch (e) {
                 console.warn('Error processing trade price:', e);
@@ -4883,13 +4893,13 @@
           .eq('is_listed', true);
         
         let currentlyListed = 0;
-        let listingsValue = ethers.BigNumber.from(0);
+        let listingsValue = ethers5.BigNumber.from(0);
         if (listings && !listingsError) {
           currentlyListed = listings.length;
           listings.forEach(listing => {
             try {
               const price = formatWeiString(listing.price_wei);
-              listingsValue = listingsValue.add(ethers.BigNumber.from(price));
+              listingsValue = listingsValue.add(ethers5.BigNumber.from(price));
             } catch (e) {
               console.warn('Error processing listing price:', e);
             }
