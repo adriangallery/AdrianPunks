@@ -61,7 +61,10 @@ const FloorEngineDashboard = {
 
       // Update sales
       if (supabaseClient) {
-        await FloorEngineSales.update(supabaseClient);
+        // Get formatAdrianAmountNoDecimals from global scope or use the one from FloorEngineSales
+        const formatAdrianAmountNoDecimals = window.formatAdrianAmountNoDecimals || 
+          ((value) => FloorEngineSales.formatAdrianAmountNoDecimals(value));
+        await FloorEngineSales.update(supabaseClient, formatAdrianAmountNoDecimals);
       }
     } catch (error) {
       console.error('Error updating FloorENGINE dashboard:', error);
