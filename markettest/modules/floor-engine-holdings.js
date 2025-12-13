@@ -205,9 +205,9 @@ const FloorEngineHoldings = {
       pixelBar.innerHTML = '';
       for (let i = 0; i < numBars; i++) {
         const bar = document.createElement('div');
-        bar.className = 'pixel-bar-segment';
+        bar.className = 'floor-engine-pixel-bar-pixel';
         if (i < filledBars) {
-          bar.classList.add('filled');
+          bar.classList.add('active');
         }
         pixelBar.appendChild(bar);
       }
