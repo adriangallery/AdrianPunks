@@ -209,7 +209,7 @@ const FloorEngineSales = {
 
     // Determine how many sales to show
     const isMobile = window.innerWidth < 1024;
-    const maxInitial = isMobile ? 4 : 12;
+    const maxInitial = isMobile ? 4 : 6; // Desktop: show 6 punks (one row) by default
     const salesToShow = this.salesExpanded ? sales : sales.slice(0, maxInitial);
     const hasMore = sales.length > maxInitial;
 
