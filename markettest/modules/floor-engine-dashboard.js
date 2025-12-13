@@ -11,6 +11,26 @@ const FloorEngineDashboard = {
     
     console.log('🔄 Initializing FloorENGINE Dashboard...');
     
+    // Wait for all modules to be available
+    let retries = 0;
+    const maxRetries = 10;
+    while (retries < maxRetries) {
+      if (typeof FloorEngineHeader !== 'undefined' && 
+          typeof FloorEngineHoldings !== 'undefined' && 
+          typeof FloorEngineSales !== 'undefined') {
+        break;
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+      retries++;
+    }
+    
+    if (typeof FloorEngineHeader === 'undefined' || 
+        typeof FloorEngineHoldings === 'undefined' || 
+        typeof FloorEngineSales === 'undefined') {
+      console.error('❌ FloorENGINE modules not available after waiting');
+      return;
+    }
+    
     // Wait for all modules to be ready
     await Promise.all([
       FloorEngineHeader.init(),
@@ -110,12 +130,23 @@ const FloorEngineDashboard = {
   }
 };
 
-// Auto-initialize when DOM is ready
+// Auto-initialize when DOM is ready and modules are loaded
+function initializeDashboard() {
+  if (typeof FloorEngineHeader !== 'undefined' && 
+      typeof FloorEngineHoldings !== 'undefined' && 
+      typeof FloorEngineSales !== 'undefined') {
+    FloorEngineDashboard.init();
+  } else {
+    // Retry after a short delay
+    setTimeout(initializeDashboard, 100);
+  }
+}
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    FloorEngineDashboard.init();
+    initializeDashboard();
   });
 } else {
-  FloorEngineDashboard.init();
+  initializeDashboard();
 }
 
