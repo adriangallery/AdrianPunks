@@ -2469,7 +2469,13 @@
       if (window.ethereum) {
         // Usar el provider existente si ya fue definido por el menú, o crear uno nuevo
         if (!window.provider) {
-          window.provider = new ethers.providers.Web3Provider(window.ethereum);
+          // CRITICAL: Use ethers v5 for market code
+          const ethers5 = window.ethers5Backup || window.ethers;
+          if (!ethers5 || !ethers5.providers || !ethers5.providers.Web3Provider) {
+            console.error('❌ Ethers v5 not available for initContracts');
+            return;
+          }
+          window.provider = new ethers5.providers.Web3Provider(window.ethereum);
           window.signer = window.provider.getSigner();
           
           try {

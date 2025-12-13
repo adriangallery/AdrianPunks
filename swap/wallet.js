@@ -15,46 +15,34 @@ function getEthers() {
 function formatEther(value) {
   const ethersLib = getEthers();
   
-  // Convert BigNumber (v5) or BigInt to string/BigInt for v6
-  let normalizedValue = value;
-  if (value && typeof value === 'object') {
-    // Handle ethers v5 BigNumber - check for hex property first
-    if (value.hex) {
-      // ethers v5 BigNumber has .hex property
-      normalizedValue = value.hex;
-    } else if (value._hex) {
-      // Some versions use _hex
-      normalizedValue = value._hex;
-    } else if (value.toString && typeof value.toString === 'function') {
+  // Handle BigNumber from ethers v5 - convert to string/BigInt for v6
+  if (value && typeof value === 'object' && ethersLib && typeof ethersLib.formatEther === 'function') {
+    // We're using ethers v6, need to convert BigNumber to BigInt
+    try {
       // Try to get hex string from BigNumber
-      try {
-        // For ethers v5 BigNumber, toString() returns decimal string
-        // We need to get the hex value instead
-        if (value._isBigNumber || value.type === 'BigNumber') {
-          // It's a BigNumber, try to get hex
-          normalizedValue = value.hex || value._hex || value.toString(16);
+      if (value.hex) {
+        value = BigInt(value.hex);
+      } else if (value._hex) {
+        value = BigInt(value._hex);
+      } else if (value.toString && typeof value.toString === 'function') {
+        // Try toString - if it's a decimal string, convert to BigInt
+        const str = value.toString();
+        if (str && !str.startsWith('0x')) {
+          value = BigInt(str);
         } else {
-          // Try toString as decimal, then convert to BigInt
-          const decimalStr = value.toString();
-          normalizedValue = BigInt(decimalStr);
+          value = BigInt(str);
         }
-      } catch (e) {
-        // Fallback: try to extract hex or use toString
-        normalizedValue = value.hex || value._hex || value.toString();
       }
+    } catch (e) {
+      // If conversion fails, try to use the value as-is
+      console.warn('Warning: Could not convert BigNumber to BigInt, using as-is:', e);
     }
   }
   
   // Check if it's v6 (has formatEther directly) or v5 (has utils.formatEther)
   if (ethersLib && typeof ethersLib.formatEther === 'function') {
-    // v6: expects string or BigInt
-    // If normalizedValue is a hex string, convert to BigInt
-    if (typeof normalizedValue === 'string' && normalizedValue.startsWith('0x')) {
-      normalizedValue = BigInt(normalizedValue);
-    }
-    return ethersLib.formatEther(normalizedValue);
+    return ethersLib.formatEther(value);
   } else if (ethersLib && ethersLib.utils && typeof ethersLib.utils.formatEther === 'function') {
-    // v5: can handle BigNumber directly
     return ethersLib.utils.formatEther(value);
   } else {
     throw new Error('formatEther not available in ethers library');
