@@ -483,24 +483,32 @@ const QuoteManager = {
 
     // Calculate price impact (simplified - in real scenario would compare to pool price)
     if (priceImpact) {
-      const impact = this.calculatePriceImpact();
-      priceImpact.textContent = `${impact.toFixed(2)}%`;
-      
-      // Update color based on impact
-      priceImpact.className = '';
-      if (impact < 1) priceImpact.className = 'price-impact-low';
-      else if (impact < 3) priceImpact.className = 'price-impact-medium';
-      else priceImpact.className = 'price-impact-high';
+      try {
+        const impact = this.calculatePriceImpact();
+        priceImpact.textContent = `${impact.toFixed(2)}%`;
+        
+        // Update color based on impact
+        priceImpact.className = '';
+        if (impact < 1) priceImpact.className = 'price-impact-low';
+        else if (impact < 3) priceImpact.className = 'price-impact-medium';
+        else priceImpact.className = 'price-impact-high';
+      } catch (error) {
+        console.warn('Error updating price impact:', error);
+      }
     }
 
     // Calculate minimum received with slippage
     if (minimumReceived) {
-      const min = this.calculateMinimumReceived();
-      // Format based on token - ADRIAN can be large numbers, ETH is small
-      const formattedMin = this.lastQuote.toSymbol === 'ADRIAN'
-        ? min.toLocaleString('en-US', { maximumFractionDigits: 2 })
-        : min.toFixed(8);
-      minimumReceived.textContent = `${formattedMin} ${this.lastQuote.toSymbol}`;
+      try {
+        const min = this.calculateMinimumReceived();
+        // Format based on token - ADRIAN can be large numbers, ETH is small
+        const formattedMin = this.lastQuote.toSymbol === 'ADRIAN'
+          ? min.toLocaleString('en-US', { maximumFractionDigits: 2 })
+          : min.toFixed(8);
+        minimumReceived.textContent = `${formattedMin} ${this.lastQuote.toSymbol}`;
+      } catch (error) {
+        console.warn('Error updating minimum received:', error);
+      }
     }
   },
 
