@@ -573,21 +573,44 @@ const TestSwapWidget = {
 
 // Initialize when DOM is ready and swap modules are loaded
 function initializeTestSwapWidget() {
-  // Check if swap modules are available
-  if (typeof CONFIG !== 'undefined' && typeof NetworkManager !== 'undefined') {
+  // Check if ALL swap modules are available
+  const modulesReady = typeof CONFIG !== 'undefined' && 
+                       typeof NetworkManager !== 'undefined' && 
+                       typeof WalletManager !== 'undefined' &&
+                       typeof PriceManager !== 'undefined' &&
+                       typeof QuoteManager !== 'undefined' &&
+                       typeof SwapManager !== 'undefined';
+  
+  if (modulesReady) {
     TestSwapWidget.init();
+    return true;
   } else {
-    // Retry after a delay
-    setTimeout(initializeTestSwapWidget, 1000);
+    // Retry after a delay (max 30 seconds)
+    const retryCount = window.swapWidgetRetryCount || 0;
+    if (retryCount < 30) {
+      window.swapWidgetRetryCount = retryCount + 1;
+      setTimeout(initializeTestSwapWidget, 1000);
+    } else {
+      console.error('❌ Swap modules failed to load after 30 seconds');
+    }
+    return false;
   }
 }
 
+// Listen for swap modules ready event
+window.addEventListener('swapModulesReady', () => {
+  console.log('📦 Swap modules ready event received');
+  initializeTestSwapWidget();
+});
+
+// Wait for swap modules to be loaded before initializing
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(initializeTestSwapWidget, 2000); // Wait for swap modules to load
+    // Start checking after a short delay to let scripts load
+    setTimeout(initializeTestSwapWidget, 3000);
   });
 } else {
-  setTimeout(initializeTestSwapWidget, 2000);
+  setTimeout(initializeTestSwapWidget, 3000);
 }
 
 // Export for global access

@@ -334,7 +334,6 @@ const WalletManager = {
       // Check user preference for unlimited approvals
       const unlimitedApproval = localStorage.getItem(CONFIG.STORAGE_KEYS.unlimitedApproval) === 'true';
       
-      const ethersLib = getEthers();
       let approvalAmount;
       
       if (unlimitedApproval) {
