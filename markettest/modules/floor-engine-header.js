@@ -55,14 +55,17 @@ const FloorEngineHeader = {
   // Copy address to clipboard
   copyAddress() {
     navigator.clipboard.writeText(this.FLOOR_ENGINE_ADDRESS).then(() => {
-      // Show feedback visual
-      const icon = event.target;
-      if (icon) {
-        const originalClass = icon.className;
-        icon.className = 'bi bi-check';
-        setTimeout(() => {
-          icon.className = originalClass;
-        }, 1000);
+      // Show feedback visual - find the icon next to the address
+      const addressEl = document.getElementById('floorEngineAddress');
+      if (addressEl) {
+        const icon = addressEl.nextElementSibling;
+        if (icon && icon.classList.contains('bi-clipboard')) {
+          const originalClass = icon.className;
+          icon.className = 'bi bi-check';
+          setTimeout(() => {
+            icon.className = originalClass;
+          }, 1000);
+        }
       }
     }).catch(err => {
       console.error('Failed to copy address:', err);

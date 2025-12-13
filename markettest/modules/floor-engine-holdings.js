@@ -34,6 +34,24 @@ const FloorEngineHoldings = {
                   <div class="floor-hero-value" id="floorEngineEthHolding">0</div>
                   <div class="floor-hero-suffix" id="floorEngineNftHolding">+ 0 NFTs</div>
                 </div>
+                <!-- FloorENGINE Info (moved from header) -->
+                <div class="d-flex flex-wrap align-items-center gap-3 mt-3 pt-3" style="border-top: 1px solid var(--border-color);">
+                  <!-- Address Pill -->
+                  <div class="floor-engine-pill address-pill">
+                    <span id="floorEngineAddress" class="me-2">0x...</span>
+                    <i class="bi bi-clipboard" onclick="copyFloorEngineAddress()" style="cursor: pointer;"></i>
+                  </div>
+                  <!-- Holding Pill -->
+                  <div class="floor-engine-pill holding-pill">
+                    <span>Holding</span>
+                    <span class="badge bg-dark text-white ms-2" id="floorEngineHoldingCount">0</span>
+                  </div>
+                  <!-- Sold Pill -->
+                  <div class="floor-engine-pill sold-pill">
+                    <span>Sold</span>
+                    <span class="badge bg-dark text-white ms-2" id="floorEngineSoldCount">0</span>
+                  </div>
+                </div>
               </div>
 
               <!-- Cheapest Listing Card -->
