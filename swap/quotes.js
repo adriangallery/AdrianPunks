@@ -33,7 +33,18 @@ const QuoteManager = {
         throw new Error('Network configuration not available');
       }
       const rpcUrl = networkConfig.rpcUrls[0] || 'https://mainnet.base.org';
-      const readProvider = WalletManager.readProvider || new ethers.JsonRpcProvider(rpcUrl);
+      
+      // Get read provider - ensure it's initialized
+      let readProvider = WalletManager.getReadProvider ? WalletManager.getReadProvider() : WalletManager.readProvider;
+      
+      // If no read provider available, create one
+      if (!readProvider) {
+        if (ethers && ethers.JsonRpcProvider) {
+          readProvider = new ethers.JsonRpcProvider(rpcUrl);
+        } else {
+          throw new Error('Ethers library not available for creating read provider');
+        }
+      }
       
       const swapperContract = new ethers.Contract(
         SWAPPER_ADDRESS,
@@ -193,7 +204,17 @@ const QuoteManager = {
     try {
       this.isLoadingQuote = true;
       // Asegurar que amountIn es un string (ethers v6 requiere string)
-      const amountInStr = typeof amountIn === 'string' ? amountIn : String(amountIn);
+      let amountInStr = typeof amountIn === 'string' ? amountIn : String(amountIn);
+      
+      // Clean invalid input patterns (e.g., "0.010.", "0.010.0", trailing dots)
+      amountInStr = amountInStr.replace(/\.+$/, ''); // Remove trailing dots
+      amountInStr = amountInStr.replace(/\.{2,}/g, '.'); // Replace multiple dots with single dot
+      
+      // Validate format before parsing
+      if (!/^\d+\.?\d*$/.test(amountInStr) || amountInStr === '.' || (amountInStr.startsWith('.') && amountInStr.length === 1)) {
+        throw new Error('Invalid amount format');
+      }
+      
       const amountInWei = ethers.parseEther(amountInStr);
 
       // Use Alchemy read provider for quotes (faster and more reliable)

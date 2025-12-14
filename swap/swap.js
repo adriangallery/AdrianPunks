@@ -59,16 +59,30 @@ const SwapManager = {
 
       // Get signer
       const signer = WalletManager.getSigner();
+      if (!signer) {
+        throw new Error('Wallet not connected or signer not available');
+      }
+
+      // Get correct ethers instance (v6 for swap)
+      const ethersLib = window.swapEthers || window.ethers6 || window.ethers;
+      if (!ethersLib) {
+        throw new Error('Ethers library not available');
+      }
 
       // Create swapper contract
-      const swapperContract = new ethers.Contract(
+      const swapperContract = new ethersLib.Contract(
         CONFIG.SWAPPER_ADDRESS,
         SWAPPER_ABI,
         signer
       );
 
       let tx;
-      const amountInWei = ethers.parseEther(amountIn);
+      // Clean and validate amount before parsing
+      let cleanAmount = String(amountIn).replace(/\.+$/, '').replace(/\.{2,}/g, '.');
+      if (!/^\d+\.?\d*$/.test(cleanAmount) || cleanAmount === '.' || (cleanAmount.startsWith('.') && cleanAmount.length === 1)) {
+        throw new Error('Invalid amount format');
+      }
+      const amountInWei = ethersLib.parseEther(cleanAmount);
 
       if (fromSymbol === 'ETH' && toSymbol === 'ADRIAN') {
         // Buy ADRIAN with ETH
@@ -94,7 +108,8 @@ const SwapManager = {
     try {
       this.showLoadingState(true, 'Buying ADRIAN...');
 
-      console.log('🔵 Buying ADRIAN with ETH:', ethers.formatEther(amountInWei), 'ETH');
+      const ethersLib = window.swapEthers || window.ethers6 || window.ethers;
+      console.log('🔵 Buying ADRIAN with ETH:', ethersLib.formatEther(amountInWei), 'ETH');
 
       // Execute transaction
       const tx = await contract.buyAdrian(amountInWei, {
@@ -127,7 +142,8 @@ const SwapManager = {
     try {
       // Check allowance first
       const allowance = await WalletManager.checkAllowance();
-      const amountIn = ethers.formatEther(amountInWei);
+      const ethersLib = window.swapEthers || window.ethers6 || window.ethers;
+      const amountIn = ethersLib.formatEther(amountInWei);
 
       if (parseFloat(allowance) < parseFloat(amountIn)) {
         // Need approval
@@ -144,7 +160,7 @@ const SwapManager = {
 
       this.showLoadingState(true, 'Selling ADRIAN...');
 
-      console.log('🟠 Selling ADRIAN for ETH:', ethers.formatEther(amountInWei), 'ADRIAN');
+      console.log('🟠 Selling ADRIAN for ETH:', ethersLib.formatEther(amountInWei), 'ADRIAN');
 
       // Execute transaction
       const tx = await contract.sellAdrian(amountInWei);

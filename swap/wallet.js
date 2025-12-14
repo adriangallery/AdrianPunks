@@ -288,9 +288,22 @@ const WalletManager = {
     try {
       // Use read provider (Alchemy) for balance checks, fallback to MetaMask
       const provider = this.getReadProvider();
-      if (!provider) return '0';
+      if (!provider) {
+        console.warn('No provider available for ADRIAN balance check');
+        return '0';
+      }
       
       const ethersLib = getEthers();
+      if (!ethersLib || !ethersLib.Contract) {
+        console.warn('Ethers library not available for ADRIAN balance check');
+        return '0';
+      }
+      
+      if (!CONFIG || !CONFIG.TOKENS || !CONFIG.TOKENS.ADRIAN || !CONFIG.TOKENS.ADRIAN.address) {
+        console.warn('CONFIG not available for ADRIAN balance check');
+        return '0';
+      }
+      
       const adrianContract = new ethersLib.Contract(
         CONFIG.TOKENS.ADRIAN.address,
         ERC20_ABI,
@@ -510,7 +523,31 @@ const WalletManager = {
 
   // Get read provider (Alchemy for quotes, fallback to MetaMask)
   getReadProvider() {
-    return this.readProvider || this.provider;
+    if (this.readProvider) {
+      return this.readProvider;
+    }
+    if (this.provider) {
+      return this.provider;
+    }
+    // If neither is available, try to create a read provider from Alchemy
+    try {
+      const ALCHEMY_API_KEY = window.ALCHEMY_API_KEY;
+      if (ALCHEMY_API_KEY && ALCHEMY_API_KEY !== 'YOUR_ALCHEMY_API_KEY') {
+        const ALCHEMY_RPC_URL = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+        const ethersLib = getEthers();
+        if (ethersLib && ethersLib.JsonRpcProvider) {
+          this.readProvider = new ethersLib.JsonRpcProvider(ALCHEMY_RPC_URL);
+          return this.readProvider;
+        } else if (ethersLib && ethersLib.providers && ethersLib.providers.JsonRpcProvider) {
+          this.readProvider = new ethersLib.providers.JsonRpcProvider(ALCHEMY_RPC_URL);
+          return this.readProvider;
+        }
+      }
+    } catch (error) {
+      console.warn('Could not create read provider:', error);
+    }
+    // Last resort: return null and let caller handle it
+    return null;
   },
 
   // Check if wallet is ready for transactions

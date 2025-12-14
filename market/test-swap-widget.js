@@ -237,7 +237,17 @@ const TestSwapWidget = {
     
     if (!fromAmountInput || !toAmountInput) return;
 
-    const amount = fromAmountInput.value.trim();
+    let amount = fromAmountInput.value.trim();
+    
+    // Clean invalid input patterns (e.g., "0.010.", "0.010.0", trailing dots)
+    // Remove trailing dots and multiple consecutive dots
+    amount = amount.replace(/\.+$/, ''); // Remove trailing dots
+    amount = amount.replace(/\.{2,}/g, '.'); // Replace multiple dots with single dot
+    
+    // Update input value if it was cleaned
+    if (amount !== fromAmountInput.value.trim()) {
+      fromAmountInput.value = amount;
+    }
     
     if (!amount || amount === '0' || amount === '0.0' || amount === '0.00') {
       toAmountInput.value = '';
@@ -247,6 +257,13 @@ const TestSwapWidget = {
       if (fromValueEl) fromValueEl.textContent = '0.00';
       if (toValueEl) toValueEl.textContent = '0.00';
       this.updateSwapButton();
+      return;
+    }
+    
+    // Validate that amount is a valid number format
+    // Must match: optional digits, optional dot, optional digits (but not just a dot)
+    if (!/^\d*\.?\d*$/.test(amount) || amount === '.' || amount.startsWith('.') && amount.length === 1) {
+      // Invalid format, don't process
       return;
     }
     
