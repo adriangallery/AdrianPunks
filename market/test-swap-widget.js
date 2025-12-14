@@ -61,8 +61,9 @@ const TestSwapWidget = {
         }
       }
 
-      // Check if market wallet is connected
-      if (window.userAccount && !WalletManager.isConnected) {
+      // Check if market wallet is connected (only in market context)
+      const mainBtn = document.getElementById('mainConnectWalletButton');
+      if (mainBtn && window.userAccount && !WalletManager.isConnected) {
         try {
           await WalletManager.connect(false);
         } catch (error) {
@@ -713,6 +714,13 @@ const TestSwapWidget = {
 
   // Check market wallet connection periodically
   checkMarketWalletConnection() {
+    // Only check if we're in market context (has mainConnectWalletButton)
+    const mainBtn = document.getElementById('mainConnectWalletButton');
+    if (!mainBtn) {
+      // Not in market context, skip periodic checking
+      return;
+    }
+    
     setInterval(async () => {
       if (window.userAccount && !WalletManager.isConnected) {
         try {
