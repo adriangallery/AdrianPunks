@@ -320,8 +320,13 @@ const QuoteManager = {
       } else if (fromSymbol === 'ADRIAN' && toSymbol === 'ETH') {
         // Sell ADRIAN for ETH
         // Para vender necesitamos primero verificar allowance
+        const ethersLib = window.swapEthers || window.ethers6 || window.ethers;
+        if (!ethersLib) {
+          throw new Error('Ethers library not available');
+        }
+        
         const allowance = await WalletManager.checkAllowance();
-        const allowanceWei = ethers.parseEther(allowance);
+        const allowanceWei = ethersLib.parseEther(allowance);
         
         if (allowanceWei < amountInWei) {
           // No hay allowance suficiente - mostrar mensaje pero calcular estimado
@@ -331,7 +336,7 @@ const QuoteManager = {
           // Aproximadamente 1 ETH = 130,000 ADRIAN (ajustar según pool real)
           // Con 10% tax: output = (amountIn / 130000) * 0.9
           const ratio = 130000n; // Ratio aproximado ETH:ADRIAN
-          estimatedOutput = (amountInWei * ethers.parseEther('1')) / (ratio * ethers.parseEther('1')) * 9n / 10n;
+          estimatedOutput = (amountInWei * ethersLib.parseEther('1')) / (ratio * ethersLib.parseEther('1')) * 9n / 10n;
           
           // Mostrar que necesita aprobación
           this.showApprovalNeeded();
