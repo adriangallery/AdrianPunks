@@ -116,17 +116,28 @@ const FloorENGINEExcerpt = {
             .order('price_wei', { ascending: true })
             .limit(1);
           
-          if (userCheapest && userCheapest.length > 0) {
+          if (userCheapest && userCheapest.length > 0 && userCheapest[0].token_id) {
             cheapestTokenId = userCheapest[0].token_id;
             // Get image URL - use correct path from index.html root
             const gifIds = ['1', '13', '221', '369', '420', '555', '69', '690', '777', '807', '911'];
-            const extension = gifIds.includes(String(cheapestTokenId)) ? 'gif' : 'png';
-            cheapestImage = `market/adrianpunksimages/${cheapestTokenId}.${extension}`;
+            const tokenIdStr = String(cheapestTokenId);
+            const extension = gifIds.includes(tokenIdStr) ? 'gif' : 'png';
+            // Try multiple path formats
+            cheapestImage = `./market/adrianpunksimages/${tokenIdStr}.${extension}`;
             
             if (window.ethers && userCheapest[0].price_wei) {
-              const priceWeiStr = String(userCheapest[0].price_wei);
-              const priceEth = parseFloat(window.ethers.utils.formatUnits(priceWeiStr, 18));
-              cheapestPriceFormatted = priceEth.toFixed(2) + ' $ADRIAN';
+              try {
+                const priceWeiStr = String(userCheapest[0].price_wei);
+                const priceEth = parseFloat(window.ethers.utils.formatUnits(priceWeiStr, 18));
+                cheapestPriceFormatted = priceEth >= 1000000 
+                  ? (priceEth / 1000000).toFixed(1) + 'M'
+                  : priceEth >= 1000 
+                  ? (priceEth / 1000).toFixed(1) + 'K'
+                  : priceEth.toFixed(2);
+                cheapestPriceFormatted += ' $ADRIAN';
+              } catch (e) {
+                console.warn('Error formatting price:', e);
+              }
             }
           } else {
             // If no user listings, try to get cheapest engine listing
@@ -138,18 +149,29 @@ const FloorENGINEExcerpt = {
               .order('price_wei', { ascending: true })
               .limit(1);
             
-            if (cheapestListing && cheapestListing.length > 0) {
+            if (cheapestListing && cheapestListing.length > 0 && cheapestListing[0].token_id) {
               cheapestTokenId = cheapestListing[0].token_id;
               // Get image URL - use correct path from index.html root
               const gifIds = ['1', '13', '221', '369', '420', '555', '69', '690', '777', '807', '911'];
-              const extension = gifIds.includes(String(cheapestTokenId)) ? 'gif' : 'png';
-              cheapestImage = `market/adrianpunksimages/${cheapestTokenId}.${extension}`;
+              const tokenIdStr = String(cheapestTokenId);
+              const extension = gifIds.includes(tokenIdStr) ? 'gif' : 'png';
+              // Try multiple path formats
+              cheapestImage = `./market/adrianpunksimages/${tokenIdStr}.${extension}`;
               
               // Format price
               if (window.ethers && cheapestListing[0].price_wei) {
-                const priceWeiStr = String(cheapestListing[0].price_wei);
-                const priceEth = parseFloat(window.ethers.utils.formatUnits(priceWeiStr, 18));
-                cheapestPriceFormatted = priceEth.toFixed(2) + ' $ADRIAN';
+                try {
+                  const priceWeiStr = String(cheapestListing[0].price_wei);
+                  const priceEth = parseFloat(window.ethers.utils.formatUnits(priceWeiStr, 18));
+                  cheapestPriceFormatted = priceEth >= 1000000 
+                    ? (priceEth / 1000000).toFixed(1) + 'M'
+                    : priceEth >= 1000 
+                    ? (priceEth / 1000).toFixed(1) + 'K'
+                    : priceEth.toFixed(2);
+                  cheapestPriceFormatted += ' $ADRIAN';
+                } catch (e) {
+                  console.warn('Error formatting price:', e);
+                }
               }
             }
           }
@@ -165,7 +187,7 @@ const FloorENGINEExcerpt = {
             <div class="excerpt-image mb-3" style="text-align: center;">
               <img src="${cheapestImage}" alt="Cheapest NFT #${cheapestTokenId}" 
                    style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 1px solid var(--border-color);"
-                   onerror="this.style.display='none'">
+                   onerror="this.onerror=null; this.src='market/adrianpunksimages/${cheapestTokenId}.png'; this.onerror=function(){this.style.display='none';}">
               <div style="font-size: 0.75rem; color: var(--text-color); opacity: 0.7; margin-top: 0.5rem;">
                 Cheapest: #${cheapestTokenId}
               </div>
