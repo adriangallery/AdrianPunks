@@ -18,10 +18,19 @@ const QuoteManager = {
   // Fetch the real pool ratio from contract
   async fetchRatioFromContract() {
     try {
+      // Get ethers library (v6 for swap)
+      const ethersLib = window.swapEthers || window.ethers6 || window.ethers;
+      if (!ethersLib) {
+        console.warn('⚠️ Ethers not available, using fallback');
+        this.cachedRatio = BigInt('117000000000000000000000000'); // 117M * 10^18
+        this.ratioTimestamp = Date.now();
+        return this.cachedRatio;
+      }
+      
       // Verificar que CONFIG existe y tiene BASE_MAINNET
       if (!CONFIG || (!CONFIG.NETWORK && !CONFIG.BASE_MAINNET)) {
         console.warn('⚠️ Network configuration not available, using fallback');
-        this.cachedRatio = ethers.parseEther('117000000');
+        this.cachedRatio = ethersLib.parseEther('117000000');
         this.ratioTimestamp = Date.now();
         return this.cachedRatio;
       }
@@ -42,14 +51,14 @@ const QuoteManager = {
       
       // If no read provider available, create one
       if (!readProvider) {
-        if (ethers && ethers.JsonRpcProvider) {
-          readProvider = new ethers.JsonRpcProvider(rpcUrl);
+        if (ethersLib && ethersLib.JsonRpcProvider) {
+          readProvider = new ethersLib.JsonRpcProvider(rpcUrl);
         } else {
           throw new Error('Ethers library not available for creating read provider');
         }
       }
       
-      const swapperContract = new ethers.Contract(
+      const swapperContract = new ethersLib.Contract(
         SWAPPER_ADDRESS,
         SWAPPER_ABI,
         readProvider
@@ -60,7 +69,7 @@ const QuoteManager = {
       
       for (const amountStr of testAmounts) {
         try {
-          const referenceAmount = ethers.parseEther(amountStr);
+          const referenceAmount = ethersLib.parseEther(amountStr);
           const referenceOutput = await swapperContract.buyAdrian.staticCall(
             referenceAmount,
             { value: referenceAmount }
@@ -85,7 +94,7 @@ const QuoteManager = {
       // This is calculated from: 0.0001 ETH → ~11,700 ADRIAN (observed)
       // Ratio = 11,700 / 0.0001 = 117,000,000 ADRIAN per ETH (after tax)
       console.log('⚠️ Could not get ratio from contract, using calculated fallback');
-      this.cachedRatio = ethers.parseEther('117000000'); // 117M ADRIAN per ETH
+      this.cachedRatio = ethersLib.parseEther('117000000'); // 117M ADRIAN per ETH
       this.ratioTimestamp = Date.now();
       
       return this.cachedRatio;
