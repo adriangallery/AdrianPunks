@@ -441,8 +441,8 @@ const QuoteManager = {
           const amountInStr = typeof amountIn === 'string' ? amountIn : String(amountIn);
           const amountInWei = ethersLib.parseEther(amountInStr);
           const ratio = 130000n;
-          const estimatedOutput = (amountInWei * ethers.parseEther('1')) / (ratio * ethers.parseEther('1')) * 9n / 10n;
-          const amountOut = ethers.formatEther(estimatedOutput);
+          const estimatedOutput = (amountInWei * ethersLib.parseEther('1')) / (ratio * ethersLib.parseEther('1')) * 9n / 10n;
+          const amountOut = ethersLib.formatEther(estimatedOutput);
           
           this.lastQuote = {
             amountIn,
