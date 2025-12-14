@@ -1,6 +1,56 @@
 // FloorENGINE Excerpt Module for index.html
 // Displays real-time FloorENGINE data (read-only excerpt)
 
+// Helper function to convert scientific notation to string
+function scientificToFixed(num) {
+  if (typeof num === 'string') {
+    if (num.includes('e+') || num.includes('e-') || num.includes('E+') || num.includes('E-')) {
+      const [base, exponent] = num.toLowerCase().split('e');
+      const exp = parseInt(exponent);
+      const [intPart, decPart = ''] = base.split('.');
+      const fullDec = intPart + decPart;
+      
+      if (exp > 0) {
+        const totalLength = fullDec.length;
+        const newDecPos = exp;
+        if (newDecPos >= totalLength) {
+          return fullDec + '0'.repeat(newDecPos - totalLength);
+        } else {
+          const newInt = fullDec.slice(0, newDecPos);
+          const newDec = fullDec.slice(newDecPos);
+          return newInt + (newDec ? '.' + newDec : '');
+        }
+      } else {
+        return '0.' + '0'.repeat(-exp - 1) + fullDec.replace(/^0+/, '');
+      }
+    }
+    return num;
+  }
+  if (typeof num === 'number') {
+    if (num > 1e15 || num < -1e15) {
+      const str = num.toString();
+      if (str.includes('e')) {
+        try {
+          return num.toLocaleString('fullwide', { useGrouping: false });
+        } catch (e) {
+          const [base, exp] = str.toLowerCase().split('e');
+          const exponent = parseInt(exp);
+          const [intPart, decPart = ''] = base.split('.');
+          const fullNum = intPart + (decPart || '');
+          if (exponent > 0) {
+            return fullNum + '0'.repeat(exponent - (decPart?.length || 0));
+          } else {
+            return '0.' + '0'.repeat(-exponent - 1) + fullNum;
+          }
+        }
+      }
+      return str;
+    }
+    return num.toString();
+  }
+  return String(num);
+}
+
 const FloorENGINEExcerpt = {
   isInitialized: false,
   updateInterval: null,
@@ -70,15 +120,25 @@ const FloorENGINEExcerpt = {
       // Get holdings and sold count from Supabase
       if (this.supabaseClient) {
         try {
-          // Get active listings count
-          const { count: listingsCount } = await this.supabaseClient
-            .from('listings')
-            .select('*', { count: 'exact', head: true })
-            .eq('seller', this.FLOOR_ENGINE_ADDRESS.toLowerCase())
-            .eq('is_active', true);
+          // Get holdings count from active_punk_listings where is_engine_owned = true
+          // This counts all NFTs currently owned by FloorENGINE (listed or not)
+          const { data: engineListings, error: listingsError } = await this.supabaseClient
+            .from('active_punk_listings')
+            .select('token_id')
+            .eq('is_engine_owned', true);
           
-          if (listingsCount !== null) {
-            holdingCount = listingsCount;
+          if (!listingsError && engineListings) {
+            holdingCount = engineListings.length;
+          } else {
+            // Fallback: try punk_listings table
+            const { data: punkListings, error: punkError } = await this.supabaseClient
+              .from('punk_listings')
+              .select('token_id')
+              .eq('is_contract_owned', true);
+            
+            if (!punkError && punkListings) {
+              holdingCount = punkListings.length;
+            }
           }
 
           // Get sold count
@@ -110,28 +170,57 @@ const FloorENGINEExcerpt = {
       
       if (this.supabaseClient) {
         try {
-          // Get cheapest user listing (not from engine) - this is what FloorENGINE can sweep
-          const { data: userCheapest } = await this.supabaseClient
-            .from('listings')
-            .select('token_id, price_wei')
-            .neq('seller', this.FLOOR_ENGINE_ADDRESS.toLowerCase())
-            .eq('is_active', true)
-            .order('price_wei', { ascending: true })
-            .limit(1);
+          const ethers5 = window.ethers5Backup || window.ethers;
           
-          if (userCheapest && userCheapest.length > 0 && userCheapest[0].token_id) {
-            cheapestTokenId = userCheapest[0].token_id;
+          // Get cheapest user listing (not from engine) - this is what FloorENGINE can sweep
+          // Try active_punk_listings first (preferred)
+          let userCheapest = null;
+          try {
+            const { data: activeListings } = await this.supabaseClient
+              .from('active_punk_listings')
+              .select('token_id, price_adrian_wei')
+              .eq('is_engine_owned', false)
+              .order('price_adrian_wei', { ascending: true })
+              .limit(1);
+            
+            if (activeListings && activeListings.length > 0) {
+              userCheapest = {
+                token_id: activeListings[0].token_id,
+                price_wei: activeListings[0].price_adrian_wei
+              };
+            }
+          } catch (e) {
+            console.warn('Error fetching from active_punk_listings, trying punk_listings:', e);
+          }
+          
+          // Fallback to punk_listings if active_punk_listings doesn't work
+          if (!userCheapest) {
+            const { data: punkListings } = await this.supabaseClient
+              .from('punk_listings')
+              .select('token_id, price_wei')
+              .eq('is_contract_owned', false)
+              .eq('is_listed', true)
+              .order('price_wei', { ascending: true })
+              .limit(1);
+            
+            if (punkListings && punkListings.length > 0) {
+              userCheapest = punkListings[0];
+            }
+          }
+          
+          if (userCheapest && userCheapest.token_id) {
+            cheapestTokenId = userCheapest.token_id;
             // Get image URL - use correct path from index.html root
             const gifIds = ['1', '13', '221', '369', '420', '555', '69', '690', '777', '807', '911'];
             const tokenIdStr = String(cheapestTokenId);
             const extension = gifIds.includes(tokenIdStr) ? 'gif' : 'png';
-            // Try multiple path formats
             cheapestImage = `./market/adrianpunksimages/${tokenIdStr}.${extension}`;
             
-            if (window.ethers && userCheapest[0].price_wei) {
+            // Format price
+            if (ethers5 && ethers5.utils && userCheapest.price_wei) {
               try {
-                const priceWeiStr = String(userCheapest[0].price_wei);
-                const priceEth = parseFloat(window.ethers.utils.formatUnits(priceWeiStr, 18));
+                const priceWeiStr = scientificToFixed(userCheapest.price_wei);
+                const priceEth = parseFloat(ethers5.utils.formatUnits(priceWeiStr, 18));
                 cheapestPriceFormatted = priceEth >= 1000000 
                   ? (priceEth / 1000000).toFixed(1) + 'M'
                   : priceEth >= 1000 
@@ -142,44 +231,9 @@ const FloorENGINEExcerpt = {
                 console.warn('Error formatting price:', e);
               }
             }
-          } else {
-            // If no user listings, try to get cheapest engine listing
-            const { data: cheapestListing } = await this.supabaseClient
-              .from('listings')
-              .select('token_id, price_wei, seller')
-              .eq('seller', this.FLOOR_ENGINE_ADDRESS.toLowerCase())
-              .eq('is_active', true)
-              .order('price_wei', { ascending: true })
-              .limit(1);
-            
-            if (cheapestListing && cheapestListing.length > 0 && cheapestListing[0].token_id) {
-              cheapestTokenId = cheapestListing[0].token_id;
-              // Get image URL - use correct path from index.html root
-              const gifIds = ['1', '13', '221', '369', '420', '555', '69', '690', '777', '807', '911'];
-              const tokenIdStr = String(cheapestTokenId);
-              const extension = gifIds.includes(tokenIdStr) ? 'gif' : 'png';
-              // Try multiple path formats
-              cheapestImage = `./market/adrianpunksimages/${tokenIdStr}.${extension}`;
-              
-              // Format price
-              if (window.ethers && cheapestListing[0].price_wei) {
-                try {
-                  const priceWeiStr = String(cheapestListing[0].price_wei);
-                  const priceEth = parseFloat(window.ethers.utils.formatUnits(priceWeiStr, 18));
-                  cheapestPriceFormatted = priceEth >= 1000000 
-                    ? (priceEth / 1000000).toFixed(1) + 'M'
-                    : priceEth >= 1000 
-                    ? (priceEth / 1000).toFixed(1) + 'K'
-                    : priceEth.toFixed(2);
-                  cheapestPriceFormatted += ' $ADRIAN';
-                } catch (e) {
-                  console.warn('Error formatting price:', e);
-                }
-              }
-            }
           }
         } catch (error) {
-          console.warn('Could not fetch cheapest listing image:', error);
+          console.warn('Could not fetch cheapest listing:', error);
         }
       }
 
