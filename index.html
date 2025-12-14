@@ -932,16 +932,56 @@
         const response = await fetch('/market/adrianpunks.json');
         const data = await response.json();
         const collection = data.collection || [];
-        // Filtrar los primeros 400 tokens
-        const first400Tokens = collection.filter(nft => {
-          const tokenId = parseInt(nft.name.split('#')[1]);
-          return tokenId <= 400;
+        
+        // Filtrar tokens válidos: deben tener formato "AdrianPunks #número" y estar entre 1-1000
+        // Excluir tokens con nombres problemáticos como "token1", "Token #1", etc.
+        const validTokens = collection.filter(nft => {
+          // Verificar que el nombre tenga el formato correcto con #
+          if (!nft.name || !nft.name.includes('#')) {
+            return false;
+          }
+          
+          try {
+            const tokenId = parseInt(nft.name.split('#')[1]);
+            // Verificar que el tokenId sea válido (1-1000) y que sea un número
+            if (isNaN(tokenId) || tokenId < 1 || tokenId > 1000) {
+              return false;
+            }
+            
+            // Excluir nombres problemáticos (case insensitive)
+            const nameLower = nft.name.toLowerCase();
+            if (nameLower.includes('token1') || 
+                nameLower.includes('token 1') ||
+                nameLower === 'adrianpunks token #1' ||
+                nameLower === 'adrianpunks token1') {
+              return false;
+            }
+            
+            // Verificar que tenga una imagen válida
+            if (!nft.image || !nft.image.trim()) {
+              return false;
+            }
+            
+            return true;
+          } catch (e) {
+            return false;
+          }
         });
-        // Seleccionar un token aleatorio
-        const randomIndex = Math.floor(Math.random() * first400Tokens.length);
-        const randomToken = first400Tokens[randomIndex];
-        document.getElementById('featuredImage').src = randomToken.image;
-        document.getElementById('featuredImage').alt = randomToken.name;
+        
+        if (validTokens.length === 0) {
+          console.warn('No valid tokens found for featured image');
+          return;
+        }
+        
+        // Seleccionar un token aleatorio de todos los tokens válidos (1-1000)
+        const randomIndex = Math.floor(Math.random() * validTokens.length);
+        const randomToken = validTokens[randomIndex];
+        
+        const featuredImageEl = document.getElementById('featuredImage');
+        if (featuredImageEl) {
+          featuredImageEl.src = randomToken.image;
+          featuredImageEl.alt = randomToken.name;
+        }
       } catch (error) {
         console.error('Error loading featured image:', error);
       }
