@@ -91,6 +91,9 @@ const TestSwapWidget = {
       // Check market wallet connection periodically
       this.checkMarketWalletConnection();
 
+      // Set default value of 0.01 ETH
+      this.setDefaultAmount();
+
       this.isInitialized = true;
       console.log('✅ Test Swap Widget initialized');
 
