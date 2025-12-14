@@ -239,16 +239,17 @@ const TestSwapWidget = {
 
     let amount = fromAmountInput.value.trim();
     
-    // Clean invalid input patterns (e.g., "0.010.", "0.010.0", trailing dots)
-    // Remove trailing dots and multiple consecutive dots
-    amount = amount.replace(/\.+$/, ''); // Remove trailing dots
-    amount = amount.replace(/\.{2,}/g, '.'); // Replace multiple dots with single dot
-    
-    // Update input value if it was cleaned
-    if (amount !== fromAmountInput.value.trim()) {
+    // Allow user to type "." while writing, but clean invalid patterns
+    // Only clean on blur or when processing, not while typing
+    // For now, just prevent multiple dots
+    if ((amount.match(/\./g) || []).length > 1) {
+      // Multiple dots - remove extra ones
+      const firstDotIndex = amount.indexOf('.');
+      amount = amount.substring(0, firstDotIndex + 1) + amount.substring(firstDotIndex + 1).replace(/\./g, '');
       fromAmountInput.value = amount;
     }
     
+    // If empty or just zero, clear output
     if (!amount || amount === '0' || amount === '0.0' || amount === '0.00') {
       toAmountInput.value = '';
       // Update USD values to 0
@@ -260,10 +261,18 @@ const TestSwapWidget = {
       return;
     }
     
-    // Validate that amount is a valid number format
-    // Must match: optional digits, optional dot, optional digits (but not just a dot)
-    if (!/^\d*\.?\d*$/.test(amount) || amount === '.' || amount.startsWith('.') && amount.length === 1) {
-      // Invalid format, don't process
+    // Validate that amount is a valid number format (allow "." while typing)
+    // Must match: optional digits, optional dot, optional digits
+    // Allow "." alone or at start (user might be typing "0.5")
+    if (!/^\d*\.?\d*$/.test(amount)) {
+      // Invalid format, don't process but allow typing
+      return;
+    }
+    
+    // If amount is just "." or starts with "." and has no digits after, don't process quote yet
+    // But allow the user to continue typing
+    if (amount === '.' || (amount.startsWith('.') && amount.length === 1)) {
+      // User is typing, don't process yet
       return;
     }
     

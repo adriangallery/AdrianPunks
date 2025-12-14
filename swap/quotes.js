@@ -388,13 +388,15 @@ const QuoteManager = {
       console.log('💱 Quote:', this.lastQuote);
       
       // Return the quote
+      this.isLoadingQuote = false;
       return this.lastQuote;
 
     } catch (error) {
       console.error('Error getting quote:', error);
+      this.isLoadingQuote = false;
       
       // Si es error de allowance y estamos vendiendo ADRIAN, mostrar mensaje especial
-      if (error.message.includes('allowance') && fromSymbol === 'ADRIAN' && toSymbol === 'ETH') {
+      if (error.message && error.message.includes('allowance') && fromSymbol === 'ADRIAN' && toSymbol === 'ETH') {
         console.log('💡 You need to approve ADRIAN first to sell');
         this.showApprovalNeeded();
         
