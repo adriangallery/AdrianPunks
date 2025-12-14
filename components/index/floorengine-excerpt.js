@@ -1,0 +1,160 @@
+// FloorENGINE Excerpt Module for index.html
+// Displays real-time FloorENGINE data (read-only excerpt)
+
+const FloorENGINEExcerpt = {
+  isInitialized: false,
+  updateInterval: null,
+  supabaseClient: null,
+  FLOOR_ENGINE_ADDRESS: '0x0351F7cBA83277E891D4a85Da498A7eACD764D58',
+
+  // Initialize the FloorENGINE excerpt
+  async init() {
+    if (this.isInitialized) return;
+    
+    console.log('🔄 Initializing FloorENGINE Excerpt...');
+    
+    // Get Supabase client
+    if (window.supabaseClient) {
+      this.supabaseClient = window.supabaseClient;
+    } else {
+      try {
+        if (window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
+          const { createClient } = supabase;
+          this.supabaseClient = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+        }
+      } catch (error) {
+        console.warn('Supabase not available for FloorENGINE excerpt:', error);
+      }
+    }
+    
+    this.isInitialized = true;
+    console.log('✅ FloorENGINE Excerpt initialized');
+    
+    // Load initial data
+    await this.updateDisplay();
+    
+    // Set up auto-update (every 30 seconds)
+    this.updateInterval = setInterval(() => {
+      this.updateDisplay();
+    }, 30000);
+  },
+
+  // Update the display with current FloorENGINE data
+  async updateDisplay() {
+    try {
+      const container = document.getElementById('floorengineExcerptContent');
+      if (!container) return;
+
+      let balance = 0;
+      let holdingCount = 0;
+      let soldCount = 0;
+      let cheapestPrice = '--';
+
+      // Get balance from contract if available
+      if (window.ethereum && window.ethers) {
+        try {
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const tokenAddress = '0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea';
+          const tokenABI = ['function balanceOf(address) view returns (uint256)'];
+          const tokenContract = new ethers.Contract(tokenAddress, tokenABI, provider);
+          const balanceRaw = await tokenContract.balanceOf(this.FLOOR_ENGINE_ADDRESS);
+          balance = parseFloat(ethers.utils.formatUnits(balanceRaw, 18));
+        } catch (error) {
+          console.warn('Could not fetch FloorENGINE balance:', error);
+        }
+      }
+
+      // Get holdings and sold count from Supabase
+      if (this.supabaseClient) {
+        try {
+          // Get active listings count
+          const { count: listingsCount } = await this.supabaseClient
+            .from('listings')
+            .select('*', { count: 'exact', head: true })
+            .eq('seller', this.FLOOR_ENGINE_ADDRESS.toLowerCase())
+            .eq('is_active', true);
+          
+          if (listingsCount !== null) {
+            holdingCount = listingsCount;
+          }
+
+          // Get sold count
+          const { count: soldCountData } = await this.supabaseClient
+            .from('trade_events')
+            .select('*', { count: 'exact', head: true })
+            .eq('seller', this.FLOOR_ENGINE_ADDRESS.toLowerCase())
+            .eq('is_contract_owned', true);
+          
+          if (soldCountData !== null) {
+            soldCount = soldCountData;
+          }
+
+          // Get cheapest listing
+          const { data: cheapestListing } = await this.supabaseClient
+            .from('listings')
+            .select('price_wei')
+            .eq('seller', this.FLOOR_ENGINE_ADDRESS.toLowerCase())
+            .eq('is_active', true)
+            .order('price_wei', { ascending: true })
+            .limit(1);
+          
+          if (cheapestListing && cheapestListing.length > 0 && window.ethers) {
+            const priceWei = cheapestListing[0].price_wei;
+            const priceEth = parseFloat(ethers.utils.formatUnits(priceWei, 18));
+            cheapestPrice = priceEth.toFixed(2) + ' ETH';
+          }
+        } catch (error) {
+          console.warn('Could not fetch FloorENGINE data from Supabase:', error);
+        }
+      }
+
+      // Format balance
+      const formattedBalance = balance >= 1000000 
+        ? (balance / 1000000).toFixed(1) + 'M'
+        : balance >= 1000 
+        ? (balance / 1000).toFixed(1) + 'K'
+        : balance.toFixed(1);
+
+      // Render excerpt
+      container.innerHTML = `
+        <div class="excerpt-section">
+          <div class="excerpt-item">
+            <span class="excerpt-label">Balance</span>
+            <span class="excerpt-value">${formattedBalance} $ADRIAN</span>
+          </div>
+          <div class="excerpt-item">
+            <span class="excerpt-label">Holdings</span>
+            <span class="excerpt-value">${holdingCount} NFTs</span>
+          </div>
+          <div class="excerpt-item">
+            <span class="excerpt-label">Sold</span>
+            <span class="excerpt-value">${soldCount} NFTs</span>
+          </div>
+          <div class="excerpt-item">
+            <span class="excerpt-label">Cheapest Listing</span>
+            <span class="excerpt-value">${cheapestPrice}</span>
+          </div>
+        </div>
+        <div class="excerpt-footer">
+          <a href="/market/" class="btn btn-primary btn-sm w-100">View FloorENGINE</a>
+        </div>
+      `;
+    } catch (error) {
+      console.error('Error updating FloorENGINE excerpt:', error);
+    }
+  },
+
+  // Cleanup
+  destroy() {
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+      this.updateInterval = null;
+    }
+  }
+};
+
+// Export for use in other modules
+if (typeof window !== 'undefined') {
+  window.FloorENGINEExcerpt = FloorENGINEExcerpt;
+}
+

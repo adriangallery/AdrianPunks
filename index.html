@@ -6,8 +6,10 @@
   <title>AdrianPunks - About</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/market/styles.css">
+  <link rel="stylesheet" href="market/styles.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="market/supabase-config.js"></script>
   <style>
     /* Estilos base */
     :root {
@@ -190,6 +192,193 @@
         grid-template-columns: 1fr;
       }
     }
+
+    /* 3-Column Layout Styles */
+    .main-layout {
+      display: flex;
+      gap: 1.5rem;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+
+    .sidebar {
+      width: 300px;
+      flex-shrink: 0;
+    }
+
+    .main-content {
+      flex: 1;
+      min-width: 0;
+      max-width: 800px;
+    }
+
+    /* Collapsible Panels (from market) */
+    .collapsible-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.25rem;
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border-color);
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.2s ease;
+    }
+
+    .panel-header:hover {
+      background: var(--bg-color);
+    }
+
+    .panel-header h5 {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .collapse-icon {
+      transition: transform 0.3s ease;
+      color: var(--text-color);
+      opacity: 0.7;
+      font-size: 1rem;
+    }
+
+    .panel-header[aria-expanded="true"] .collapse-icon {
+      transform: rotate(180deg);
+    }
+
+    .panel-body {
+      padding: 1.25rem;
+    }
+
+    /* Excerpt Styles */
+    .excerpt-section {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .excerpt-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .excerpt-item:last-child {
+      border-bottom: none;
+    }
+
+    .excerpt-label {
+      font-size: 0.9rem;
+      color: var(--text-color);
+      opacity: 0.7;
+      font-weight: 500;
+    }
+
+    .excerpt-value {
+      font-size: 0.9rem;
+      color: var(--text-color);
+      font-weight: 600;
+      text-align: right;
+    }
+
+    .excerpt-footer {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    /* Announcement Styles */
+    .announcement-item {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    .announcement-item:last-child {
+      border-bottom: none;
+    }
+
+    .announcement-item.new {
+      background: rgba(40, 167, 69, 0.1);
+    }
+
+    .announcement-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      color: var(--text-color);
+    }
+
+    .announcement-text {
+      font-size: 0.85rem;
+      color: var(--text-color);
+      opacity: 0.8;
+      margin-bottom: 0.5rem;
+    }
+
+    .announcement-date {
+      font-size: 0.75rem;
+      color: var(--text-color);
+      opacity: 0.6;
+    }
+
+    /* Stat Styles */
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .stat-item:last-child {
+      border-bottom: none;
+    }
+
+    .stat-label {
+      font-size: 0.9rem;
+      color: var(--text-color);
+      opacity: 0.7;
+    }
+
+    .stat-value {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .main-layout {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+      }
+
+      .main-content {
+        max-width: 100%;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .main-layout {
+        padding: 1rem;
+      }
+    }
   </style>
   <!-- Load ethers.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -210,123 +399,155 @@
       .catch(error => console.error('Error loading menu:', error));
   </script>
 
-  <!-- Main Container -->
-  <div class="container">
-    <!-- Balance y Floor Offer Info -->
-    <div class="info-section mb-4">
-      <h2 id="tokenBalance" class="mb-2">Balance: Loading...</h2>
-      <div id="floorOfferSection" class="text-secondary">
-        <span id="floorOfferText">Highest floor offer: -- $ADRIAN</span>
+  <!-- Main Layout: 3 Columns -->
+  <div class="main-layout">
+    <!-- Sidebar Left: Admin Panel -->
+    <aside class="sidebar">
+      <div class="collapsible-panel">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#adminPanel" aria-expanded="true">
+          <h5 class="mb-0">Administration</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="adminPanel">
+          <div class="panel-body">
+            <h6 class="mb-3">Project News</h6>
+            <div id="adminAnnouncements"></div>
+            
+            <h6 class="mb-3 mt-4">Ecosystem Stats</h6>
+            <div id="adminStats"></div>
+          </div>
+        </div>
       </div>
-    </div>
+    </aside>
 
-    <!-- Project Information -->
-    <div class="info-section">
-      <img id="featuredImage" src="" alt="AdrianPunks Token #1" class="featured-image">
-      
-      <div class="info-content">
-        <h2>Welcome to AdrianPunks</h2>
-        <p>AdrianPunks is a unique NFT collection that combines digital art with blockchain technology. Each token in the collection is a one-of-a-kind piece of art, featuring distinctive traits and characteristics that make it truly special.</p>
+    <!-- Main Content: Project Info -->
+    <main class="main-content">
+      <div class="info-section">
+        <img id="featuredImage" src="" alt="AdrianPunks Token #1" class="featured-image">
         
-        <div class="info-grid">
-          <div class="info-card">
+        <div class="info-content">
+          <h2>Welcome to AdrianPunks</h2>
+          <p>AdrianPunks is a unique NFT collection of 1,000 tokens that successfully completed its mint phase. Each token was minted for 100,000 $ADRIAN, creating a total supply of carefully crafted digital art pieces with distinctive traits and characteristics.</p>
+          
+          <div class="mb-4">
             <h3>Mint Completed</h3>
             <ul>
               <li>✅ 1,000 NFTs minteados</li>
               <li>💰 Precio: 100,000 $ADRIAN cada uno</li>
               <li>📊 Total recaudado: 100,000,000 $ADRIAN</li>
               <li>🎉 Mint finalizado exitosamente</li>
-              <li><a href="/market/" class="btn btn-primary mt-2">View Collection</a></li>
             </ul>
+            <a href="/market/" class="btn btn-primary mt-2">View Collection</a>
           </div>
+          
+          <h3 class="mt-4">About the Project</h3>
+          <p>The project is built on the BASE blockchain, ensuring security and transparency for all transactions. Our marketplace provides a seamless experience for collectors to trade and interact with their digital assets, featuring the innovative FloorENGINE™ system for automated floor price management and an integrated swap widget for instant ETH ↔ $ADRIAN trading.</p>
+          
+          <p>With FloorENGINE™ tracking holdings and sales, real-time swap functionality powered by Uniswap V4, and comprehensive ecosystem statistics, AdrianPunks offers a complete Web3 experience. Join our growing community and become part of the AdrianPunks ecosystem today!</p>
 
-          <div class="info-card">
-            <h3>Collection Features</h3>
+          <div class="mt-4">
+            <h4>Collection Features</h4>
             <ul>
-              <li>Limited edition collection</li>
-              <li>Unique traits and attributes</li>
+              <li>Limited edition collection of 1,000 unique tokens</li>
+              <li>Unique traits and attributes for each NFT</li>
               <li>Rarity-based system</li>
               <li>Community-driven development</li>
-            </ul>
-          </div>
-          
-          <div class="info-card">
-            <h3>Marketplace</h3>
-            <ul>
-              <li>Buy and sell NFTs</li>
-              <li>Make offers on tokens</li>
-              <li>FloorENGINE dashboard</li>
-              <li>Integrated swap widget</li>
-              <li>Real-time trading</li>
-            </ul>
-          </div>
-          
-          <div class="info-card">
-            <h3>FloorENGINE™</h3>
-            <ul>
-              <li>Automated floor price management</li>
-              <li>Real-time holdings tracking</li>
-              <li>Engine sweeps history</li>
-              <li>Progress bar visualization</li>
-              <li><a href="/market/" class="btn btn-primary mt-2">View FloorENGINE</a></li>
+              <li>Created by <a href="https://x.com/halfxtiger" target="_blank">HalfXtiger</a></li>
             </ul>
           </div>
 
-          <div class="info-card">
-            <h3>Swap $ADRIAN</h3>
-            <ul>
-              <li>Trade ETH ↔ $ADRIAN instantly</li>
-              <li>Integrated with Uniswap V4</li>
-              <li>10% protocol fee on all swaps</li>
-              <li>Available in Market & Swap page</li>
-              <li><a href="/swap/" class="btn btn-primary mt-2">Go to Swap</a></li>
-            </ul>
-          </div>
-
-          <div class="info-card">
-            <h3>Ecosystem Stats</h3>
-            <ul>
-              <li>Real-time $ADRIAN statistics</li>
-              <li>Transaction history</li>
-              <li>Price charts and analytics</li>
-              <li>Community metrics</li>
-              <li><a href="/activity/" class="btn btn-primary mt-2">View Stats</a></li>
-            </ul>
-          </div>
-          
-          <div class="info-card">
-            <h3>AdrianPunks Artist</h3>
-            <ul>
-              <li>Created by HalfXtiger</li>
-              <li>Unique artistic vision</li>
-              <li>Digital art specialist</li>
-              <li><a href="https://x.com/halfxtiger" target="_blank" class="btn btn-outline-primary mt-2">Follow on X</a></li>
-            </ul>
-          </div>
-
-          <div class="info-card">
-            <h3>$ADRIAN Token</h3>
-            <ul>
-              <li>The original token that started it all</li>
-              <li>Primary currency for minting and trading</li>
-              <li>Used across AdrianGallery's ecosystem</li>
-              <li>Integrated with multiple dApps</li>
-            </ul>
+          <div class="mt-4">
+            <h4>$ADRIAN Token</h4>
+            <p>The original token that started it all. Primary currency for minting and trading, used across AdrianGallery's ecosystem and integrated with multiple dApps.</p>
           </div>
         </div>
-        
-        <h3 class="mt-4">About the Project</h3>
-        <p>AdrianPunks is a unique NFT collection of 1,000 tokens that successfully completed its mint phase. Each token was minted for 100,000 $ADRIAN, creating a total supply of carefully crafted digital art pieces with distinctive traits and characteristics.</p>
-        
-        <p>The project is built on the BASE blockchain, ensuring security and transparency for all transactions. Our marketplace provides a seamless experience for collectors to trade and interact with their digital assets, featuring the innovative FloorENGINE™ system for automated floor price management and an integrated swap widget for instant ETH ↔ $ADRIAN trading.</p>
-        
-        <p>With FloorENGINE™ tracking holdings and sales, real-time swap functionality powered by Uniswap V4, and comprehensive ecosystem statistics, AdrianPunks offers a complete Web3 experience. Join our growing community and become part of the AdrianPunks ecosystem today!</p>
       </div>
-    </div>
+    </main>
+
+    <!-- Sidebar Right: Excerpts -->
+    <aside class="sidebar">
+      <!-- Swap Excerpt -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#swapExcerpt" aria-expanded="true">
+          <h5 class="mb-0">Swap</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="swapExcerpt">
+          <div class="panel-body">
+            <div id="swapExcerptContent">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FloorENGINE Excerpt -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#floorengineExcerpt" aria-expanded="true">
+          <h5 class="mb-0">FloorENGINE™</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="floorengineExcerpt">
+          <div class="panel-body">
+            <div id="floorengineExcerptContent">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity Excerpt -->
+      <div class="collapsible-panel">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#activityExcerpt" aria-expanded="true">
+          <h5 class="mb-0">Activity</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="activityExcerpt">
+          <div class="panel-body">
+            <div id="activityExcerptContent">Loading...</div>
+          </div>
+        </div>
+      </div>
+    </aside>
   </div>
 
   <!-- Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <!-- Load Excerpt Modules -->
+  <script src="components/index/admin-panel.js"></script>
+  <script src="components/index/swap-excerpt.js"></script>
+  <script src="components/index/floorengine-excerpt.js"></script>
+  <script src="components/index/activity-excerpt.js"></script>
+
+  <!-- Load Swap Modules (for Swap Excerpt) -->
+  <script>
+    // Load swap modules for excerpt functionality
+    (async function loadSwapModules() {
+      const swapScripts = [
+        'swap/abis/erc20.js',
+        'swap/abis/swapper.js',
+        'swap/config.js',
+        'swap/network.js',
+        'swap/wallet.js',
+        'swap/prices.js',
+        'swap/quotes.js'
+      ];
+      
+      for (const src of swapScripts) {
+        await new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = src;
+          script.onload = resolve;
+          script.onerror = reject;
+          document.head.appendChild(script);
+        });
+      }
+      
+      // Initialize swap modules
+      if (window.QuoteManager) await window.QuoteManager.init();
+      if (window.PriceManager) await window.PriceManager.init();
+      if (window.WalletManager) await window.WalletManager.init();
+      
+      console.log('✅ Swap modules loaded for excerpts');
+    })();
+  </script>
   
   <!-- Main Script -->
   <script>
@@ -423,6 +644,14 @@
       }
     }
 
+    // Initialize Supabase client
+    let supabaseClient = null;
+    if (window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
+      const { createClient } = supabase;
+      supabaseClient = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+      window.supabaseClient = supabaseClient;
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
       // Cargar la imagen destacada inmediatamente
       await loadFeaturedImage();
@@ -430,6 +659,26 @@
       // Inicializar contratos si hay una wallet conectada
       if (window.ethereum) {
         await initContracts();
+      }
+
+      // Initialize excerpt modules
+      if (window.AdminPanel) {
+        await window.AdminPanel.init();
+      }
+      
+      // Wait a bit for swap modules to load
+      setTimeout(async () => {
+        if (window.SwapExcerpt) {
+          await window.SwapExcerpt.init();
+        }
+      }, 2000);
+      
+      if (window.FloorENGINEExcerpt) {
+        await window.FloorENGINEExcerpt.init();
+      }
+      
+      if (window.ActivityExcerpt) {
+        await window.ActivityExcerpt.init();
       }
     });
 
