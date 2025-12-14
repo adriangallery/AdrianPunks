@@ -929,59 +929,71 @@
 
     async function loadFeaturedImage() {
       try {
-        const response = await fetch('/market/adrianpunks.json');
-        const data = await response.json();
-        const collection = data.collection || [];
+        const featuredImageEl = document.getElementById('featuredImage');
+        if (!featuredImageEl) return;
         
-        // Filtrar tokens válidos: deben tener formato "AdrianPunks #número" y estar entre 1-1000
-        // Excluir tokens con nombres problemáticos como "token1", "Token #1", etc.
-        const validTokens = collection.filter(nft => {
-          // Verificar que el nombre tenga el formato correcto con #
-          if (!nft.name || !nft.name.includes('#')) {
-            return false;
-          }
-          
+        // Ocultar la imagen hasta que se cargue correctamente
+        featuredImageEl.style.display = 'none';
+        
+        // Get cheapest user listing from FloorENGINE (most important: what FloorENGINE can sweep)
+        let cheapestTokenId = null;
+        let cheapestImage = '';
+        let cheapestName = 'AdrianPunks';
+        
+        // Try to get from Supabase if available
+        if (window.supabaseClient) {
           try {
-            const tokenId = parseInt(nft.name.split('#')[1]);
-            // Verificar que el tokenId sea válido (1-1000) y que sea un número
-            if (isNaN(tokenId) || tokenId < 1 || tokenId > 1000) {
-              return false;
+            // Get cheapest user listing (not from engine) - this is what FloorENGINE can sweep
+            let userCheapest = null;
+            
+            // Try active_punk_listings first (preferred)
+            try {
+              const { data: activeListings } = await window.supabaseClient
+                .from('active_punk_listings')
+                .select('token_id')
+                .eq('is_engine_owned', false)
+                .order('price_adrian_wei', { ascending: true })
+                .limit(1);
+              
+              if (activeListings && activeListings.length > 0) {
+                userCheapest = activeListings[0];
+              }
+            } catch (e) {
+              console.warn('Error fetching from active_punk_listings, trying punk_listings:', e);
             }
             
-            // Excluir nombres problemáticos (case insensitive)
-            const nameLower = nft.name.toLowerCase();
-            if (nameLower.includes('token1') || 
-                nameLower.includes('token 1') ||
-                nameLower === 'adrianpunks token #1' ||
-                nameLower === 'adrianpunks token1') {
-              return false;
+            // Fallback to punk_listings if active_punk_listings doesn't work
+            if (!userCheapest) {
+              const { data: punkListings } = await window.supabaseClient
+                .from('punk_listings')
+                .select('token_id')
+                .eq('is_contract_owned', false)
+                .eq('is_listed', true)
+                .order('price_wei', { ascending: true })
+                .limit(1);
+              
+              if (punkListings && punkListings.length > 0) {
+                userCheapest = punkListings[0];
+              }
             }
             
-            // Verificar que tenga una imagen válida
-            if (!nft.image || !nft.image.trim()) {
-              return false;
+            if (userCheapest && userCheapest.token_id) {
+              cheapestTokenId = userCheapest.token_id;
+              cheapestName = `AdrianPunks #${cheapestTokenId}`;
+              
+              // Get image URL
+              const gifIds = ['1', '13', '221', '369', '420', '555', '69', '690', '777', '807', '911'];
+              const tokenIdStr = String(cheapestTokenId);
+              const extension = gifIds.includes(tokenIdStr) ? 'gif' : 'png';
+              cheapestImage = `./market/adrianpunksimages/${tokenIdStr}.${extension}`;
             }
-            
-            return true;
-          } catch (e) {
-            return false;
+          } catch (error) {
+            console.warn('Error fetching cheapest listing from Supabase:', error);
           }
-        });
-        
-        if (validTokens.length === 0) {
-          console.warn('No valid tokens found for featured image');
-          return;
         }
         
-        // Seleccionar un token aleatorio de todos los tokens válidos (1-1000)
-        const randomIndex = Math.floor(Math.random() * validTokens.length);
-        const randomToken = validTokens[randomIndex];
-        
-        const featuredImageEl = document.getElementById('featuredImage');
-        if (featuredImageEl) {
-          // Ocultar la imagen hasta que se cargue correctamente
-          featuredImageEl.style.display = 'none';
-          
+        // If we have a cheapest listing, use it; otherwise fallback to random token
+        if (cheapestImage && cheapestTokenId) {
           // Configurar el handler onload para mostrar la imagen cuando esté lista
           featuredImageEl.onload = function() {
             this.style.display = 'block';
@@ -989,21 +1001,58 @@
           
           // Configurar el handler onerror para manejar errores de carga
           featuredImageEl.onerror = function() {
-            console.warn('Failed to load featured image:', randomToken.image);
-            // Intentar cargar otro token si este falla
-            if (validTokens.length > 1) {
-              const fallbackIndex = (randomIndex + 1) % validTokens.length;
-              const fallbackToken = validTokens[fallbackIndex];
-              this.src = fallbackToken.image;
-              this.alt = fallbackToken.name;
+            console.warn('Failed to load featured image, trying fallback');
+            // Fallback: try PNG if GIF fails
+            if (cheapestImage.endsWith('.gif')) {
+              this.src = `./market/adrianpunksimages/${cheapestTokenId}.png`;
             } else {
               this.style.display = 'none';
             }
           };
           
-          // Asignar la imagen (esto disparará onload cuando se cargue)
-          featuredImageEl.src = randomToken.image;
-          featuredImageEl.alt = randomToken.name;
+          // Asignar la imagen del cheapest listing
+          featuredImageEl.src = cheapestImage;
+          featuredImageEl.alt = cheapestName;
+        } else {
+          // Fallback: load random token if no cheapest listing available
+          try {
+            const response = await fetch('/market/adrianpunks.json');
+            const data = await response.json();
+            const collection = data.collection || [];
+            
+            // Filtrar tokens válidos
+            const validTokens = collection.filter(nft => {
+              if (!nft.name || !nft.name.includes('#')) return false;
+              try {
+                const tokenId = parseInt(nft.name.split('#')[1]);
+                if (isNaN(tokenId) || tokenId < 1 || tokenId > 1000) return false;
+                const nameLower = nft.name.toLowerCase();
+                if (nameLower.includes('token1') || nameLower.includes('token 1')) return false;
+                if (!nft.image || !nft.image.trim()) return false;
+                return true;
+              } catch (e) {
+                return false;
+              }
+            });
+            
+            if (validTokens.length > 0) {
+              const randomIndex = Math.floor(Math.random() * validTokens.length);
+              const randomToken = validTokens[randomIndex];
+              
+              featuredImageEl.onload = function() {
+                this.style.display = 'block';
+              };
+              
+              featuredImageEl.onerror = function() {
+                this.style.display = 'none';
+              };
+              
+              featuredImageEl.src = randomToken.image;
+              featuredImageEl.alt = randomToken.name;
+            }
+          } catch (error) {
+            console.warn('Error loading fallback featured image:', error);
+          }
         }
       } catch (error) {
         console.error('Error loading featured image:', error);
