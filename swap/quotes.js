@@ -28,9 +28,12 @@ const QuoteManager = {
       
       const { SWAPPER_ADDRESS, SWAPPER_ABI } = CONFIG;
       // Use CONFIG.BASE_MAINNET if CONFIG.NETWORK doesn't exist
-      const networkConfig = CONFIG.NETWORK || CONFIG.BASE_MAINNET;
-      if (!networkConfig || !networkConfig.rpcUrls || !Array.isArray(networkConfig.rpcUrls)) {
+      const networkConfig = (CONFIG && CONFIG.NETWORK) ? CONFIG.NETWORK : (CONFIG && CONFIG.BASE_MAINNET ? CONFIG.BASE_MAINNET : null);
+      if (!networkConfig) {
         throw new Error('Network configuration not available');
+      }
+      if (!networkConfig.rpcUrls || !Array.isArray(networkConfig.rpcUrls) || networkConfig.rpcUrls.length === 0) {
+        throw new Error('RPC URLs not available in network configuration');
       }
       const rpcUrl = networkConfig.rpcUrls[0] || 'https://mainnet.base.org';
       

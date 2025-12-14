@@ -445,15 +445,33 @@ const TestSwapWidget = {
   },
 
   // Set default amount (0.01 ETH)
-  setDefaultAmount() {
+  async setDefaultAmount() {
     const fromAmountInput = document.getElementById('testFromAmount');
     if (!fromAmountInput) return;
 
     // Only set default if input is empty
     if (!fromAmountInput.value || fromAmountInput.value.trim() === '') {
-      fromAmountInput.value = '0.01';
-      // Trigger input handler to calculate quote
-      this.handleAmountInput();
+      // Check if wallet is connected and has enough balance
+      if (WalletManager.isConnected) {
+        const ethBalance = parseFloat(WalletManager.getBalance('ETH') || '0');
+        // Only set default if user has at least 0.02 ETH (0.01 for swap + 0.01 for gas)
+        if (ethBalance >= 0.02) {
+          fromAmountInput.value = '0.01';
+          // Trigger input handler to calculate quote
+          this.handleAmountInput();
+        } else {
+          // Set a smaller default based on available balance (leave 50% for gas)
+          const maxAmount = Math.max(0, (ethBalance * 0.5).toFixed(6));
+          if (maxAmount > 0.0001) {
+            fromAmountInput.value = maxAmount;
+            this.handleAmountInput();
+          }
+        }
+      } else {
+        // Wallet not connected, set default anyway
+        fromAmountInput.value = '0.01';
+        this.handleAmountInput();
+      }
     }
   },
 

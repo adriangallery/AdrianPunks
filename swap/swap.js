@@ -253,17 +253,39 @@ const SwapManager = {
     console.error('Swap error:', error);
 
     let errorMessage = 'Error executing swap';
+    const errorStr = JSON.stringify(error);
+    const errorData = error?.data || error?.error?.data || {};
 
     if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
       errorMessage = 'Transaction cancelled by user';
       NetworkManager.showToast('Cancelled', errorMessage, 'warning');
-    } else if (error.message.includes('insufficient funds')) {
-      errorMessage = 'Insufficient funds for gas';
+    } else if (error.message?.includes('insufficient funds') || 
+               errorStr?.includes('insufficient funds') ||
+               errorData?.message?.includes('insufficient funds')) {
+      // Check if it's insufficient for the swap amount or for gas
+      const dataMessage = errorData?.message || '';
+      if (dataMessage.includes('want') && dataMessage.includes('have')) {
+        // Extract amounts from error message
+        const wantMatch = dataMessage.match(/want (\d+)/);
+        const haveMatch = dataMessage.match(/have (\d+)/);
+        if (wantMatch && haveMatch) {
+          const wantWei = BigInt(wantMatch[1]);
+          const haveWei = BigInt(haveMatch[1]);
+          const ethersLib = window.swapEthers || window.ethers6 || window.ethers;
+          const wantEth = parseFloat(ethersLib.formatEther(wantWei));
+          const haveEth = parseFloat(ethersLib.formatEther(haveWei));
+          errorMessage = `Insufficient balance. You have ${haveEth.toFixed(6)} ETH but need ${wantEth.toFixed(6)} ETH (including gas).`;
+        } else {
+          errorMessage = 'Insufficient balance for this swap. You need more ETH (including gas fees).';
+        }
+      } else {
+        errorMessage = 'Insufficient funds for gas or swap amount';
+      }
       NetworkManager.showToast('Error', errorMessage, 'error');
-    } else if (error.message.includes('SPL')) {
+    } else if (error.message?.includes('SPL') || errorStr?.includes('SPL')) {
       errorMessage = 'Slippage exceeded. Try increasing slippage.';
       NetworkManager.showToast('Error', errorMessage, 'error');
-    } else if (error.message.includes('CurrencyNotSettled')) {
+    } else if (error.message?.includes('CurrencyNotSettled') || errorStr?.includes('CurrencyNotSettled')) {
       errorMessage = 'Internal swap error. Please try again.';
       NetworkManager.showToast('Error', errorMessage, 'error');
     } else {
