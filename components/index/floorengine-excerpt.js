@@ -115,9 +115,72 @@ const FloorENGINEExcerpt = {
         ? (balance / 1000).toFixed(1) + 'K'
         : balance.toFixed(1);
 
+      // Get cheapest listing with image
+      let cheapestImage = '';
+      let cheapestTokenId = null;
+      let cheapestPriceFormatted = cheapestPrice;
+      
+      if (this.supabaseClient) {
+        try {
+          // Get cheapest listing with token ID
+          const { data: cheapestListing } = await this.supabaseClient
+            .from('listings')
+            .select('token_id, price_wei, seller')
+            .eq('seller', this.FLOOR_ENGINE_ADDRESS.toLowerCase())
+            .eq('is_active', true)
+            .order('price_wei', { ascending: true })
+            .limit(1);
+          
+          if (cheapestListing && cheapestListing.length > 0) {
+            cheapestTokenId = cheapestListing[0].token_id;
+            // Get image URL
+            cheapestImage = `./adrianpunksimages/${cheapestTokenId}.png`;
+            
+            // Format price
+            if (window.ethers && cheapestListing[0].price_wei) {
+              const priceWei = cheapestListing[0].price_wei;
+              const priceEth = parseFloat(window.ethers.utils.formatUnits(priceWei, 18));
+              cheapestPriceFormatted = priceEth.toFixed(2) + ' ETH';
+            }
+          } else {
+            // Try to get cheapest user listing (not from engine)
+            const { data: userCheapest } = await this.supabaseClient
+              .from('listings')
+              .select('token_id, price_wei')
+              .neq('seller', this.FLOOR_ENGINE_ADDRESS.toLowerCase())
+              .eq('is_active', true)
+              .order('price_wei', { ascending: true })
+              .limit(1);
+            
+            if (userCheapest && userCheapest.length > 0) {
+              cheapestTokenId = userCheapest[0].token_id;
+              cheapestImage = `./adrianpunksimages/${cheapestTokenId}.png`;
+              
+              if (window.ethers && userCheapest[0].price_wei) {
+                const priceWei = userCheapest[0].price_wei;
+                const priceEth = parseFloat(window.ethers.utils.formatUnits(priceWei, 18));
+                cheapestPriceFormatted = priceEth.toFixed(2) + ' ETH';
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('Could not fetch cheapest listing image:', error);
+        }
+      }
+
       // Render excerpt
       container.innerHTML = `
         <div class="excerpt-section">
+          ${cheapestImage && cheapestTokenId ? `
+            <div class="excerpt-image mb-3" style="text-align: center;">
+              <img src="${cheapestImage}" alt="Cheapest NFT #${cheapestTokenId}" 
+                   style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 1px solid var(--border-color);"
+                   onerror="this.style.display='none'">
+              <div style="font-size: 0.75rem; color: var(--text-color); opacity: 0.7; margin-top: 0.5rem;">
+                Cheapest: #${cheapestTokenId}
+              </div>
+            </div>
+          ` : ''}
           <div class="excerpt-item">
             <span class="excerpt-label">Balance</span>
             <span class="excerpt-value">${formattedBalance} $ADRIAN</span>
@@ -132,7 +195,7 @@ const FloorENGINEExcerpt = {
           </div>
           <div class="excerpt-item">
             <span class="excerpt-label">Cheapest Listing</span>
-            <span class="excerpt-value">${cheapestPrice}</span>
+            <span class="excerpt-value">${cheapestPriceFormatted}</span>
           </div>
         </div>
         <div class="excerpt-footer">
