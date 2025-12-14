@@ -658,7 +658,7 @@
     <!-- Main Content: Project Info -->
     <main class="main-content">
       <div class="info-section">
-        <img id="featuredImage" src="" alt="AdrianPunks Token #1" class="featured-image">
+        <img id="featuredImage" src="" alt="AdrianPunks" class="featured-image" style="display: none;">
         
         <div class="info-content">
           <h2>Welcome to AdrianPunks</h2>
@@ -979,6 +979,29 @@
         
         const featuredImageEl = document.getElementById('featuredImage');
         if (featuredImageEl) {
+          // Ocultar la imagen hasta que se cargue correctamente
+          featuredImageEl.style.display = 'none';
+          
+          // Configurar el handler onload para mostrar la imagen cuando esté lista
+          featuredImageEl.onload = function() {
+            this.style.display = 'block';
+          };
+          
+          // Configurar el handler onerror para manejar errores de carga
+          featuredImageEl.onerror = function() {
+            console.warn('Failed to load featured image:', randomToken.image);
+            // Intentar cargar otro token si este falla
+            if (validTokens.length > 1) {
+              const fallbackIndex = (randomIndex + 1) % validTokens.length;
+              const fallbackToken = validTokens[fallbackIndex];
+              this.src = fallbackToken.image;
+              this.alt = fallbackToken.name;
+            } else {
+              this.style.display = 'none';
+            }
+          };
+          
+          // Asignar la imagen (esto disparará onload cuando se cargue)
           featuredImageEl.src = randomToken.image;
           featuredImageEl.alt = randomToken.name;
         }
