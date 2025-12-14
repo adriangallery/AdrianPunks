@@ -839,6 +839,9 @@
       let currentScript = 0;
       function loadNextScript() {
         if (currentScript >= swapScripts.length) {
+          // All swap scripts loaded - ensure ethers v5 is restored
+          window.ethers = window.ethers5Backup;
+          console.log('✅ All swap modules loaded, ethers v5 restored');
           // All scripts loaded, initialize widget
           setTimeout(() => {
             if (window.TestSwapWidget) {
@@ -848,21 +851,35 @@
           return;
         }
         
-        const script = document.createElement('script');
-        script.src = swapScripts[currentScript];
-        script.onload = () => {
-          currentScript++;
-          loadNextScript();
-        };
-        script.onerror = (error) => {
-          console.error(`Error loading ${swapScripts[currentScript]}:`, error);
-          currentScript++;
-          loadNextScript();
-        };
-        document.head.appendChild(script);
+        // Temporarily set ethers to ethers6 ONLY for loading this script
+        if (window.ethers6) {
+          const originalEthers = window.ethers;
+          window.ethers = window.ethers6;
+          
+          const script = document.createElement('script');
+          script.src = swapScripts[currentScript];
+          script.onload = function() {
+            // Restore ethers v5 IMMEDIATELY after script loads
+            window.ethers = originalEthers;
+            currentScript++;
+            loadNextScript();
+          };
+          script.onerror = function(error) {
+            console.error(`Error loading ${swapScripts[currentScript]}:`, error);
+            // Restore ethers v5 even on error
+            window.ethers = originalEthers;
+            currentScript++;
+            loadNextScript();
+          };
+          document.head.appendChild(script);
+        } else {
+          // Wait for ethers6 to load
+          setTimeout(loadNextScript, 100);
+        }
       }
       
-      loadNextScript();
+      // Start loading after a short delay
+      setTimeout(loadNextScript, 100);
     });
   </script>
   
