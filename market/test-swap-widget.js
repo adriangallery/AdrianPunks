@@ -639,6 +639,27 @@ const TestSwapWidget = {
       if (!amount || parseFloat(amount) <= 0) {
         throw new Error('Invalid amount');
       }
+      
+      // Check balance before executing swap
+      const amountNum = parseFloat(amount);
+      const ethBalance = parseFloat(WalletManager.getBalance('ETH') || '0');
+      
+      // For ETH swaps, need amount + gas (estimate ~0.001 ETH for gas)
+      if (this.swapDirection === 'buy' && amountNum + 0.001 > ethBalance) {
+        throw new Error(`Insufficient balance. You have ${ethBalance.toFixed(6)} ETH but need ${(amountNum + 0.001).toFixed(6)} ETH (including gas).`);
+      }
+      
+      // For ADRIAN swaps, check ADRIAN balance
+      if (this.swapDirection === 'sell') {
+        const adrianBalance = parseFloat(WalletManager.getBalance('ADRIAN') || '0');
+        if (amountNum > adrianBalance) {
+          throw new Error(`Insufficient ADRIAN balance. You have ${adrianBalance.toFixed(2)} ADRIAN.`);
+        }
+        // Also need ETH for gas
+        if (0.001 > ethBalance) {
+          throw new Error(`Insufficient ETH for gas. You need at least 0.001 ETH for gas fees.`);
+        }
+      }
 
       // Get quote first (SwapManager needs QuoteManager.lastQuote)
       // QuoteManager.getQuote expects a string (decimal amount), not BigInt
