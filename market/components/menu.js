@@ -108,7 +108,13 @@ function handleAccountsChanged(accounts) {
 window.addEventListener('load', () => {
   ensureEthers(async () => {
     if (window.ethereum) {
-      menuProvider = new ethers.providers.Web3Provider(window.ethereum);
+      // Use ethers v5 (backup) for menu
+      const ethers5 = window.ethers5Backup || window.ethers;
+      if (!ethers5 || !ethers5.providers) {
+        console.warn('Ethers v5 not available for menu');
+        return;
+      }
+      menuProvider = new ethers5.providers.Web3Provider(window.ethereum);
       try {
         const accounts = await menuProvider.listAccounts();
         if (accounts.length > 0) {

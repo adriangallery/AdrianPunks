@@ -94,7 +94,12 @@ const QuoteManager = {
       // Fallback ratio: 117M ADRIAN per ETH (after tax)
       // Based on observed: 0.0001 ETH → ~11,700 ADRIAN
       try {
-        this.cachedRatio = ethers.parseEther('117000000');
+        const ethersLib = window.swapEthers || window.ethers;
+        if (!ethersLib) {
+          console.warn('⚠️ Ethers not available for fallback ratio');
+          return null;
+        }
+        this.cachedRatio = ethersLib.parseEther('117000000');
       } catch (e) {
         // If ethers not available, use BigInt directly
         this.cachedRatio = BigInt('117000000000000000000000000'); // 117M * 10^18

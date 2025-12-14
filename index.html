@@ -857,11 +857,17 @@
     
     async function initContracts() {
       if (window.ethereum) {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
+        // Use ethers v5 (backup) for market contracts
+        const ethers5 = window.ethers5Backup || window.ethers;
+        if (!ethers5 || !ethers5.providers) {
+          console.warn('Ethers v5 not available for contracts');
+          return;
+        }
+        provider = new ethers5.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
         userAccount = await signer.getAddress();
-        tokenContract = new ethers.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
-        newMarketplaceContract = new ethers.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, signer);
+        tokenContract = new ethers5.Contract(TOKEN_ADDRESS, TOKEN_ABI, signer);
+        newMarketplaceContract = new ethers5.Contract(NEW_MARKET_ADDRESS, MARKET_ABI, signer);
         updateTokenBalance();
         loadFloorOffer();
       } else {
