@@ -51,16 +51,19 @@ const FloorENGINEExcerpt = {
       let cheapestPrice = '--';
 
       // Get balance from contract if available
-      if (window.ethereum && window.ethers) {
-        try {
-          const provider = new ethers.providers.Web3Provider(window.ethereum);
-          const tokenAddress = '0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea';
-          const tokenABI = ['function balanceOf(address) view returns (uint256)'];
-          const tokenContract = new ethers.Contract(tokenAddress, tokenABI, provider);
-          const balanceRaw = await tokenContract.balanceOf(this.FLOOR_ENGINE_ADDRESS);
-          balance = parseFloat(ethers.utils.formatUnits(balanceRaw, 18));
-        } catch (error) {
-          console.warn('Could not fetch FloorENGINE balance:', error);
+      if (window.ethereum) {
+        const ethers5 = window.ethers5Backup || window.ethers;
+        if (ethers5 && ethers5.utils && ethers5.utils.formatUnits) {
+          try {
+            const provider = new ethers5.providers.Web3Provider(window.ethereum);
+            const tokenAddress = '0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea';
+            const tokenABI = ['function balanceOf(address) view returns (uint256)'];
+            const tokenContract = new ethers5.Contract(tokenAddress, tokenABI, provider);
+            const balanceRaw = await tokenContract.balanceOf(this.FLOOR_ENGINE_ADDRESS);
+            balance = parseFloat(ethers5.utils.formatUnits(balanceRaw, 18));
+          } catch (error) {
+            console.warn('Could not fetch FloorENGINE balance:', error);
+          }
         }
       }
 

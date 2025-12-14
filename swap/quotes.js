@@ -80,8 +80,16 @@ const QuoteManager = {
           this.ratioTimestamp = Date.now();
           
           // Format ratio for display (avoid overflow)
-          const ratioNumber = Number(this.cachedRatio) / Number(10n ** 18n);
-          console.log(`📊 Pool ratio initialized (${amountStr} ETH test):`, ratioNumber.toLocaleString(), 'ADRIAN per ETH (after tax)');
+          try {
+            const ratioNumber = Number(this.cachedRatio) / Number(10n ** 18n);
+            if (isFinite(ratioNumber) && !isNaN(ratioNumber)) {
+              console.log(`📊 Pool ratio initialized (${amountStr} ETH test):`, ratioNumber.toLocaleString(), 'ADRIAN per ETH (after tax)');
+            } else {
+              console.log(`📊 Pool ratio initialized (${amountStr} ETH test):`, String(this.cachedRatio), 'ADRIAN per ETH (after tax)');
+            }
+          } catch (e) {
+            console.log(`📊 Pool ratio initialized (${amountStr} ETH test):`, String(this.cachedRatio), 'ADRIAN per ETH (after tax)');
+          }
           
           return this.cachedRatio;
         } catch (testError) {
@@ -99,7 +107,10 @@ const QuoteManager = {
       
       return this.cachedRatio;
     } catch (error) {
-      console.warn('⚠️ Error in fetchRatioFromContract:', error?.message || error);
+      const errorMessage = error && typeof error === 'object' 
+        ? (error.message || error.toString() || 'Unknown error')
+        : String(error || 'Unknown error');
+      console.warn('⚠️ Error in fetchRatioFromContract:', errorMessage);
       // Fallback ratio: 117M ADRIAN per ETH (after tax)
       // Based on observed: 0.0001 ETH → ~11,700 ADRIAN
       try {

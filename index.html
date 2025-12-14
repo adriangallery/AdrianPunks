@@ -955,8 +955,9 @@
         const floorOffer = await newMarketplaceContract.callStatic.floorOffers(NFT_ADDRESS, 0);
         const offerAmount = floorOffer.offerAmount;
         const floorSection = document.getElementById("floorOfferSection");
-        if (offerAmount.gt(0)) {
-          const formattedAmount = parseFloat(ethers.utils.formatUnits(offerAmount, 18));
+        const ethers5 = window.ethers5Backup || window.ethers;
+        if (offerAmount.gt(0) && ethers5 && ethers5.utils && ethers5.utils.formatUnits) {
+          const formattedAmount = parseFloat(ethers5.utils.formatUnits(offerAmount, 18));
           const displayAmount = formattedAmount >= 1000000 ? (formattedAmount / 1000000).toFixed(1) + 'M' :
                               formattedAmount >= 1000 ? (formattedAmount / 1000).toFixed(1) + 'K' :
                               formattedAmount.toFixed(1);
@@ -978,8 +979,14 @@
         }
       } catch (error) {
         console.error("Error loading floor offer:", error);
-        document.getElementById("floorOfferText").innerText = "Highest floor offer: 0 $ADRIAN";
-        document.getElementById("floorOfferSection").classList.add("no-offer");
+        const floorOfferTextEl = document.getElementById("floorOfferText");
+        const floorSection = document.getElementById("floorOfferSection");
+        if (floorOfferTextEl) {
+          floorOfferTextEl.innerText = "Highest floor offer: 0 $ADRIAN";
+        }
+        if (floorSection) {
+          floorSection.classList.add("no-offer");
+        }
       }
     }
 
