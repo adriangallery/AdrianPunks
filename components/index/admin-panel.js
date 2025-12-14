@@ -220,54 +220,36 @@ const AdminPanel = {
           }
         }
 
-        // Get total supply from token stats (minted - burned)
-        const { data: mints } = await this.supabaseClient
-          .from('erc20_transfers')
-          .select('value_wei')
-          .eq('contract_address', this.TOKEN_ADDRESS.toLowerCase())
-          .eq('from_address', '0x0000000000000000000000000000000000000000');
-        
-        const { data: burns } = await this.supabaseClient
-          .from('erc20_transfers')
-          .select('value_wei')
-          .eq('contract_address', this.TOKEN_ADDRESS.toLowerCase())
-          .eq('to_address', '0x0000000000000000000000000000000000000000');
-        
-        if (mints && burns && ethers5) {
-          let totalMinted = ethers5.BigNumber.from(0);
-          let totalBurned = ethers5.BigNumber.from(0);
-          
-          mints.forEach(mint => {
-            if (mint.value_wei) {
-              try {
-                // Convert to string to avoid overflow with scientific notation
-                const valueStr = scientificToFixed(mint.value_wei);
-                totalMinted = totalMinted.add(ethers5.BigNumber.from(valueStr));
-              } catch (e) {
-                console.warn('Error processing mint:', e);
-              }
+        // Get total supply directly from ERC20 contract
+        if (ethers5) {
+          try {
+            // Create a read-only provider (Alchemy or public RPC)
+            let readProvider;
+            if (window.ethereum) {
+              readProvider = new ethers5.providers.Web3Provider(window.ethereum);
+            } else {
+              // Fallback to public RPC
+              readProvider = new ethers5.providers.JsonRpcProvider('https://mainnet.base.org');
             }
-          });
-          
-          burns.forEach(burn => {
-            if (burn.value_wei) {
-              try {
-                // Convert to string to avoid overflow with scientific notation
-                const valueStr = scientificToFixed(burn.value_wei);
-                totalBurned = totalBurned.add(ethers5.BigNumber.from(valueStr));
-              } catch (e) {
-                console.warn('Error processing burn:', e);
-              }
-            }
-          });
-          
-          const totalSupply = totalMinted.sub(totalBurned);
-          const supplyFormatted = parseFloat(ethers5.utils.formatUnits(totalSupply, 18));
-          stats.totalSupply = supplyFormatted >= 1000000 
-            ? (supplyFormatted / 1000000).toFixed(1) + 'M'
-            : supplyFormatted >= 1000 
-            ? (supplyFormatted / 1000).toFixed(1) + 'K'
-            : supplyFormatted.toFixed(1);
+            
+            // ERC20 ABI with totalSupply function
+            const tokenABI = [
+              "function totalSupply() view returns (uint256)"
+            ];
+            
+            const tokenContract = new ethers5.Contract(this.TOKEN_ADDRESS, tokenABI, readProvider);
+            const totalSupplyWei = await tokenContract.totalSupply();
+            const supplyFormatted = parseFloat(ethers5.utils.formatUnits(totalSupplyWei, 18));
+            
+            stats.totalSupply = supplyFormatted >= 1000000 
+              ? (supplyFormatted / 1000000).toFixed(1) + 'M'
+              : supplyFormatted >= 1000 
+              ? (supplyFormatted / 1000).toFixed(1) + 'K'
+              : supplyFormatted.toFixed(1);
+          } catch (error) {
+            console.warn('Error reading totalSupply from contract:', error);
+            // Don't set stats.totalSupply if it fails
+          }
         }
       } catch (error) {
         console.warn('Could not fetch all stats from Supabase:', error);
