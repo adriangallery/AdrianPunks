@@ -180,13 +180,16 @@ const QuoteManager = {
 
   // Get quote for swap
   async getQuote(amountIn) {
-    if (this.isLoadingQuote) return;
+    if (this.isLoadingQuote) {
+      // Return last quote if available while loading
+      return this.lastQuote;
+    }
 
     // Check if swapper is deployed
     if (CONFIG.SWAPPER_ADDRESS === '0x0000000000000000000000000000000000000000') {
       console.warn('Swapper contract not deployed');
       this.showSwapperWarning();
-      return;
+      return this.lastQuote || undefined;
     }
 
     // Get token symbols - check both standard swap page and test widget
@@ -195,7 +198,7 @@ const QuoteManager = {
     
     if (!fromTokenSymbolEl || !toTokenSymbolEl) {
       console.warn('Token symbol elements not found');
-      return;
+      return this.lastQuote || undefined;
     }
 
     const fromSymbol = fromTokenSymbolEl.textContent;
