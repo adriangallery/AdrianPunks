@@ -235,7 +235,13 @@ const QuoteManager = {
         throw new Error('Invalid amount format');
       }
       
-      const amountInWei = ethers.parseEther(amountInStr);
+      // Get ethers library (v6 for swap)
+      const ethersLib = window.swapEthers || window.ethers6 || window.ethers;
+      if (!ethersLib) {
+        throw new Error('Ethers library not available');
+      }
+      
+      const amountInWei = ethersLib.parseEther(amountInStr);
 
       // Use Alchemy read provider for quotes (faster and more reliable)
       const readProvider = WalletManager.getReadProvider();
@@ -244,7 +250,7 @@ const QuoteManager = {
       }
       
       // Create swapper contract instance with read provider
-      const swapperContract = new ethers.Contract(
+      const swapperContract = new ethersLib.Contract(
         CONFIG.SWAPPER_ADDRESS,
         SWAPPER_ABI,
         readProvider
