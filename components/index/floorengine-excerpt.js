@@ -88,21 +88,6 @@ const FloorENGINEExcerpt = {
           if (soldCountData !== null) {
             soldCount = soldCountData;
           }
-
-          // Get cheapest listing
-          const { data: cheapestListing } = await this.supabaseClient
-            .from('listings')
-            .select('price_wei')
-            .eq('seller', this.FLOOR_ENGINE_ADDRESS.toLowerCase())
-            .eq('is_active', true)
-            .order('price_wei', { ascending: true })
-            .limit(1);
-          
-          if (cheapestListing && cheapestListing.length > 0 && window.ethers) {
-            const priceWei = cheapestListing[0].price_wei;
-            const priceEth = parseFloat(ethers.utils.formatUnits(priceWei, 18));
-            cheapestPrice = priceEth.toFixed(2) + ' ETH';
-          }
         } catch (error) {
           console.warn('Could not fetch FloorENGINE data from Supabase:', error);
         }
@@ -115,56 +100,56 @@ const FloorENGINEExcerpt = {
         ? (balance / 1000).toFixed(1) + 'K'
         : balance.toFixed(1);
 
-      // Get cheapest listing with image
+      // Get cheapest listing with image (for sweep - must be user listing, not engine)
       let cheapestImage = '';
       let cheapestTokenId = null;
-      let cheapestPriceFormatted = cheapestPrice;
+      let cheapestPriceFormatted = '--';
       
       if (this.supabaseClient) {
         try {
-          // Get cheapest listing with token ID
-          const { data: cheapestListing } = await this.supabaseClient
+          // Get cheapest user listing (not from engine) - this is what FloorENGINE can sweep
+          const { data: userCheapest } = await this.supabaseClient
             .from('listings')
-            .select('token_id, price_wei, seller')
-            .eq('seller', this.FLOOR_ENGINE_ADDRESS.toLowerCase())
+            .select('token_id, price_wei')
+            .neq('seller', this.FLOOR_ENGINE_ADDRESS.toLowerCase())
             .eq('is_active', true)
             .order('price_wei', { ascending: true })
             .limit(1);
           
-          if (cheapestListing && cheapestListing.length > 0) {
-            cheapestTokenId = cheapestListing[0].token_id;
+          if (userCheapest && userCheapest.length > 0) {
+            cheapestTokenId = userCheapest[0].token_id;
             // Get image URL - use correct path from index.html root
             const gifIds = ['1', '13', '221', '369', '420', '555', '69', '690', '777', '807', '911'];
             const extension = gifIds.includes(String(cheapestTokenId)) ? 'gif' : 'png';
             cheapestImage = `market/adrianpunksimages/${cheapestTokenId}.${extension}`;
             
-            // Format price
-            if (window.ethers && cheapestListing[0].price_wei) {
-              const priceWei = cheapestListing[0].price_wei;
-              const priceEth = parseFloat(window.ethers.utils.formatUnits(priceWei, 18));
-              cheapestPriceFormatted = priceEth.toFixed(2) + ' ETH';
+            if (window.ethers && userCheapest[0].price_wei) {
+              const priceWeiStr = String(userCheapest[0].price_wei);
+              const priceEth = parseFloat(window.ethers.utils.formatUnits(priceWeiStr, 18));
+              cheapestPriceFormatted = priceEth.toFixed(2) + ' $ADRIAN';
             }
           } else {
-            // Try to get cheapest user listing (not from engine)
-            const { data: userCheapest } = await this.supabaseClient
+            // If no user listings, try to get cheapest engine listing
+            const { data: cheapestListing } = await this.supabaseClient
               .from('listings')
-              .select('token_id, price_wei')
-              .neq('seller', this.FLOOR_ENGINE_ADDRESS.toLowerCase())
+              .select('token_id, price_wei, seller')
+              .eq('seller', this.FLOOR_ENGINE_ADDRESS.toLowerCase())
               .eq('is_active', true)
               .order('price_wei', { ascending: true })
               .limit(1);
             
-            if (userCheapest && userCheapest.length > 0) {
-              cheapestTokenId = userCheapest[0].token_id;
+            if (cheapestListing && cheapestListing.length > 0) {
+              cheapestTokenId = cheapestListing[0].token_id;
               // Get image URL - use correct path from index.html root
               const gifIds = ['1', '13', '221', '369', '420', '555', '69', '690', '777', '807', '911'];
               const extension = gifIds.includes(String(cheapestTokenId)) ? 'gif' : 'png';
               cheapestImage = `market/adrianpunksimages/${cheapestTokenId}.${extension}`;
               
-              if (window.ethers && userCheapest[0].price_wei) {
-                const priceWei = userCheapest[0].price_wei;
-                const priceEth = parseFloat(window.ethers.utils.formatUnits(priceWei, 18));
-                cheapestPriceFormatted = priceEth.toFixed(2) + ' ETH';
+              // Format price
+              if (window.ethers && cheapestListing[0].price_wei) {
+                const priceWeiStr = String(cheapestListing[0].price_wei);
+                const priceEth = parseFloat(window.ethers.utils.formatUnits(priceWeiStr, 18));
+                cheapestPriceFormatted = priceEth.toFixed(2) + ' $ADRIAN';
               }
             }
           }
