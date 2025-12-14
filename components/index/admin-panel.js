@@ -90,7 +90,7 @@ const AdminPanel = {
             let priceFormatted = '--';
             if (event.price_wei && ethers5) {
               try {
-                const priceWeiStr = String(event.price_wei);
+                const priceWeiStr = scientificToFixed(event.price_wei);
                 const priceEth = parseFloat(ethers5.utils.formatUnits(priceWeiStr, 18));
                 priceFormatted = priceEth >= 1000000 
                   ? (priceEth / 1000000).toFixed(1) + 'M'
@@ -176,7 +176,7 @@ const AdminPanel = {
             if (trade.price_wei) {
               try {
                 // Convert to string to avoid overflow with scientific notation
-                const valueStr = String(trade.price_wei);
+                const valueStr = scientificToFixed(trade.price_wei);
                 totalWei = totalWei.add(ethers5.BigNumber.from(valueStr));
               } catch (e) {
                 console.warn('Error processing trade price:', e);
@@ -207,7 +207,7 @@ const AdminPanel = {
         
         if (cheapestListing && cheapestListing.length > 0 && ethers5) {
           try {
-            const priceWei = String(cheapestListing[0].price_wei);
+            const priceWei = scientificToFixed(cheapestListing[0].price_wei);
             const priceEth = parseFloat(ethers5.utils.formatUnits(priceWei, 18));
           stats.floorPrice = priceEth >= 1000000 
             ? (priceEth / 1000000).toFixed(1) + 'M'
@@ -241,7 +241,7 @@ const AdminPanel = {
             if (mint.value_wei) {
               try {
                 // Convert to string to avoid overflow with scientific notation
-                const valueStr = String(mint.value_wei);
+                const valueStr = scientificToFixed(mint.value_wei);
                 totalMinted = totalMinted.add(ethers5.BigNumber.from(valueStr));
               } catch (e) {
                 console.warn('Error processing mint:', e);
@@ -253,7 +253,7 @@ const AdminPanel = {
             if (burn.value_wei) {
               try {
                 // Convert to string to avoid overflow with scientific notation
-                const valueStr = String(burn.value_wei);
+                const valueStr = scientificToFixed(burn.value_wei);
                 totalBurned = totalBurned.add(ethers5.BigNumber.from(valueStr));
               } catch (e) {
                 console.warn('Error processing burn:', e);
