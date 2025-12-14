@@ -1,10 +1,8 @@
 /* components/menu.js */
 
-(function() {
-  // Wrap in IIFE to avoid global scope conflicts
-  let menuProvider;
-  let menuSigner;
-  let menuIsConnected = false;
+let provider;
+let signer;
+let isConnected = false;
 
 function isMobile() {
   return /Mobi|Android/i.test(navigator.userAgent);
@@ -34,11 +32,11 @@ async function connectWallet() {
         return;
       }
 
-      if (!menuIsConnected) {
-        menuProvider = new ethers.providers.Web3Provider(window.ethereum);
-        await menuProvider.send("eth_requestAccounts", []);
-        menuSigner = menuProvider.getSigner();
-        const address = await menuSigner.getAddress();
+      if (!isConnected) {
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        const address = await signer.getAddress();
         
         // Actualizar botones con la dirección truncada
         const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -48,7 +46,7 @@ async function connectWallet() {
         if (desktopButton) desktopButton.innerHTML = `Connected: ${shortAddress}`;
         if (mobileButton) mobileButton.innerHTML = shortAddress;
         
-        menuIsConnected = true;
+        isConnected = true;
         
         // Escuchar cambios de cuenta
         window.ethereum.on('accountsChanged', handleAccountsChanged);
@@ -68,9 +66,9 @@ async function connectWallet() {
 }
 
 function disconnectWallet() {
-  menuIsConnected = false;
-  menuProvider = null;
-  menuSigner = null;
+  isConnected = false;
+  provider = null;
+  signer = null;
   
   // Restaurar texto de los botones
   const desktopButton = document.getElementById('connectWalletButton');
@@ -108,18 +106,18 @@ function handleAccountsChanged(accounts) {
 window.addEventListener('load', () => {
   ensureEthers(async () => {
     if (window.ethereum) {
-      menuProvider = new ethers.providers.Web3Provider(window.ethereum);
+      provider = new ethers.providers.Web3Provider(window.ethereum);
       try {
-        const accounts = await menuProvider.listAccounts();
+        const accounts = await provider.listAccounts();
         if (accounts.length > 0) {
-          menuSigner = menuProvider.getSigner();
+          signer = provider.getSigner();
           const shortAddress = `${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`;
           const desktopButton = document.getElementById('connectWalletButton');
           const mobileButton = document.getElementById('connectWalletButtonMobile');
           
           if (desktopButton) desktopButton.innerHTML = `Connected: ${shortAddress}`;
           if (mobileButton) mobileButton.innerHTML = shortAddress;
-          menuIsConnected = true;
+          isConnected = true;
           
           // Escuchar cambios de cuenta
           window.ethereum.on('accountsChanged', handleAccountsChanged);
@@ -189,6 +187,5 @@ const observer = new MutationObserver(function(mutations) {
 // Comenzar a observar el body para cambios en el DOM
 observer.observe(document.body, { childList: true, subtree: true });
 
-  // Función exportada para conectar la wallet desde fuera
-  window.connectMetaMaskWallet = connectWallet;
-})();
+// Función exportada para conectar la wallet desde fuera
+window.connectMetaMaskWallet = connectWallet;

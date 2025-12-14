@@ -1,4 +1,4 @@
-// Test Swap Widget Module for markettest
+// Test Swap Widget Module for market
 // Reuses swap modules to provide simplified swap functionality
 // Uses 'test' prefix for all IDs to avoid conflicts
 

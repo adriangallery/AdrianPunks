@@ -66,7 +66,7 @@ const FloorEngineDashboard = {
         await this.init();
       }
 
-      // El elemento floorEngineDashboard ya no existe en markettest
+      // El elemento floorEngineDashboard ya no existe
       // Los paneles individuales (Holdings, Sales) ya están visibles
       // Continuar con la actualización de los módulos
 
