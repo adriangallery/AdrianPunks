@@ -295,7 +295,7 @@ const QuoteManager = {
             estimatedOutput = (amountInWei * this.cachedRatio) / (10n ** 18n);
             
             // Mark as estimate
-            const estimatedAmountOut = ethers.formatEther(estimatedOutput);
+            const estimatedAmountOut = ethersLib.formatEther(estimatedOutput);
             this.lastQuote = {
               amountIn,
               amountOut: estimatedAmountOut,
@@ -381,7 +381,7 @@ const QuoteManager = {
 
       // Format amountOut with proper precision
       // The contract returns amountOut AFTER tax (10% already applied by hook)
-      const amountOutRaw = ethers.formatEther(estimatedOutput);
+      const amountOutRaw = ethersLib.formatEther(estimatedOutput);
       // Keep full precision - formatEther already returns a string with proper decimals
       // Don't remove trailing zeros yet - let updateQuoteDisplay handle formatting
       const amountOut = amountOutRaw;

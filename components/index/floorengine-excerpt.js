@@ -133,8 +133,10 @@ const FloorENGINEExcerpt = {
           
           if (cheapestListing && cheapestListing.length > 0) {
             cheapestTokenId = cheapestListing[0].token_id;
-            // Get image URL
-            cheapestImage = `./adrianpunksimages/${cheapestTokenId}.png`;
+            // Get image URL - use correct path from index.html root
+            const gifIds = ['1', '13', '221', '369', '420', '555', '69', '690', '777', '807', '911'];
+            const extension = gifIds.includes(String(cheapestTokenId)) ? 'gif' : 'png';
+            cheapestImage = `market/adrianpunksimages/${cheapestTokenId}.${extension}`;
             
             // Format price
             if (window.ethers && cheapestListing[0].price_wei) {
@@ -154,7 +156,10 @@ const FloorENGINEExcerpt = {
             
             if (userCheapest && userCheapest.length > 0) {
               cheapestTokenId = userCheapest[0].token_id;
-              cheapestImage = `./adrianpunksimages/${cheapestTokenId}.png`;
+              // Get image URL - use correct path from index.html root
+              const gifIds = ['1', '13', '221', '369', '420', '555', '69', '690', '777', '807', '911'];
+              const extension = gifIds.includes(String(cheapestTokenId)) ? 'gif' : 'png';
+              cheapestImage = `market/adrianpunksimages/${cheapestTokenId}.${extension}`;
               
               if (window.ethers && userCheapest[0].price_wei) {
                 const priceWei = userCheapest[0].price_wei;

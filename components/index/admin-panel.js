@@ -90,7 +90,8 @@ const AdminPanel = {
             let priceFormatted = '--';
             if (event.price_wei && ethers5) {
               try {
-                const priceEth = parseFloat(ethers5.utils.formatUnits(event.price_wei, 18));
+                const priceWeiStr = String(event.price_wei);
+                const priceEth = parseFloat(ethers5.utils.formatUnits(priceWeiStr, 18));
                 priceFormatted = priceEth >= 1000000 
                   ? (priceEth / 1000000).toFixed(1) + 'M'
                   : priceEth >= 1000 
@@ -174,7 +175,9 @@ const AdminPanel = {
           trades.forEach(trade => {
             if (trade.price_wei) {
               try {
-                totalWei = totalWei.add(ethers5.BigNumber.from(trade.price_wei));
+                // Convert to string to avoid overflow with scientific notation
+                const valueStr = String(trade.price_wei);
+                totalWei = totalWei.add(ethers5.BigNumber.from(valueStr));
               } catch (e) {
                 console.warn('Error processing trade price:', e);
               }
@@ -203,14 +206,18 @@ const AdminPanel = {
           .limit(1);
         
         if (cheapestListing && cheapestListing.length > 0 && ethers5) {
-          const priceWei = cheapestListing[0].price_wei;
-          const priceEth = parseFloat(ethers5.utils.formatUnits(priceWei, 18));
+          try {
+            const priceWei = String(cheapestListing[0].price_wei);
+            const priceEth = parseFloat(ethers5.utils.formatUnits(priceWei, 18));
           stats.floorPrice = priceEth >= 1000000 
             ? (priceEth / 1000000).toFixed(1) + 'M'
             : priceEth >= 1000 
             ? (priceEth / 1000).toFixed(1) + 'K'
             : priceEth.toFixed(1);
           stats.floorPrice += ' $ADRIAN';
+          } catch (e) {
+            console.warn('Error processing floor price:', e);
+          }
         }
 
         // Get total supply from token stats (minted - burned)
@@ -233,7 +240,9 @@ const AdminPanel = {
           mints.forEach(mint => {
             if (mint.value_wei) {
               try {
-                totalMinted = totalMinted.add(ethers5.BigNumber.from(mint.value_wei));
+                // Convert to string to avoid overflow with scientific notation
+                const valueStr = String(mint.value_wei);
+                totalMinted = totalMinted.add(ethers5.BigNumber.from(valueStr));
               } catch (e) {
                 console.warn('Error processing mint:', e);
               }
@@ -243,7 +252,9 @@ const AdminPanel = {
           burns.forEach(burn => {
             if (burn.value_wei) {
               try {
-                totalBurned = totalBurned.add(ethers5.BigNumber.from(burn.value_wei));
+                // Convert to string to avoid overflow with scientific notation
+                const valueStr = String(burn.value_wei);
+                totalBurned = totalBurned.add(ethers5.BigNumber.from(valueStr));
               } catch (e) {
                 console.warn('Error processing burn:', e);
               }

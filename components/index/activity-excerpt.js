@@ -74,7 +74,13 @@ const ActivityExcerpt = {
             let totalWei = ethers.BigNumber.from(0);
             trades.forEach(trade => {
               if (trade.price_wei) {
-                totalWei = totalWei.add(ethers.BigNumber.from(trade.price_wei));
+                try {
+                  // Convert to string to avoid overflow with scientific notation
+                  const valueStr = String(trade.price_wei);
+                  totalWei = totalWei.add(ethers.BigNumber.from(valueStr));
+                } catch (e) {
+                  console.warn('Error processing trade price:', e);
+                }
               }
             });
             const totalEth = parseFloat(ethers.utils.formatUnits(totalWei, 18));
