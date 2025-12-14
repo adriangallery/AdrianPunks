@@ -418,6 +418,19 @@ const TestSwapWidget = {
     this.updateUSDValues(0, 0);
   },
 
+  // Set default amount (0.01 ETH)
+  setDefaultAmount() {
+    const fromAmountInput = document.getElementById('testFromAmount');
+    if (!fromAmountInput) return;
+
+    // Only set default if input is empty
+    if (!fromAmountInput.value || fromAmountInput.value.trim() === '') {
+      fromAmountInput.value = '0.01';
+      // Trigger input handler to calculate quote
+      this.handleAmountInput();
+    }
+  },
+
   // Update swap button state
   updateSwapButton() {
     const swapBtn = document.getElementById('testSwapBtn');
