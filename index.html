@@ -773,6 +773,9 @@
 
   <!-- Load Swap Modules (for Functional Swap Widget) -->
   <script>
+    // Backup ethers v5 before loading v6
+    window.ethers5Backup = window.ethers;
+    
     // Load ethers v6 for swap
     (function loadEthersV6() {
       return new Promise((resolve, reject) => {
@@ -781,6 +784,8 @@
         script.onload = () => {
           window.ethers6 = window.ethers;
           window.swapEthers = window.ethers;
+          // Restore ethers v5 for market code
+          window.ethers = window.ethers5Backup;
           console.log('✅ Ethers v6 loaded for swap widget');
           resolve();
         };
@@ -1011,15 +1016,17 @@
       const themeButton = document.getElementById('themeButton');
       const themeButtonText = document.getElementById('themeButtonText');
       
-      if (savedTheme === 'dark') {
-        html.setAttribute('data-theme', 'dark');
-        themeButtonText.textContent = 'LightMode';
-        themeButton.classList.remove('btn-outline-dark');
-        themeButton.classList.add('btn-dark');
-      } else {
-        themeButtonText.textContent = 'DarkMode';
-        themeButton.classList.remove('btn-dark');
-        themeButton.classList.add('btn-secondary');
+      if (themeButton && themeButtonText) {
+        if (savedTheme === 'dark') {
+          html.setAttribute('data-theme', 'dark');
+          themeButtonText.textContent = 'LightMode';
+          themeButton.classList.remove('btn-outline-dark');
+          themeButton.classList.add('btn-dark');
+        } else {
+          themeButtonText.textContent = 'DarkMode';
+          themeButton.classList.remove('btn-dark');
+          themeButton.classList.add('btn-secondary');
+        }
       }
     });
   </script>
