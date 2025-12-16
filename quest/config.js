@@ -33,8 +33,11 @@ const QUEST_CONFIG = {
   
   QUEST_ABI: [
     "function stake(uint256 tokenId) external",
+    "function batchStake(uint256[] calldata ids) external",
     "function unstake(uint256 tokenId) external",
+    "function batchUnstake(uint256[] calldata ids) external",
     "function claimRewards(uint256 tokenId) external",
+    "function batchClaimRewards(uint256[] calldata ids) public returns (uint256 total)",
     "function getTokenDetailedInfo(uint256 tokenId) view returns (uint256, uint256, uint256, uint256, uint256, int256, uint256)",
     "function getTokenMultiplierBreakdown(uint256 tokenId) view returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256)",
     "function getTokenRewardBreakdown(uint256 tokenId) view returns (uint256, uint256, uint256, int256, uint256)",

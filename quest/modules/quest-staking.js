@@ -9,6 +9,7 @@ const QuestStaking = {
   tokenContract: null,
   userAccount: null,
   nftData: [],
+  selectedTokens: new Set(), // Track selected tokens for batch operations
   
   // Initialize the staking module
   async init() {
@@ -218,7 +219,7 @@ const QuestStaking = {
     }
   },
   
-  // Render NFTs in grid format
+  // Render NFTs in grid format with selection
   renderNFTs(nfts, container) {
     if (nfts.length === 0) {
       container.innerHTML = '<p style="color: var(--text-color); opacity: 0.7; text-align: center; padding: 2rem;">No NFTs found</p>';
@@ -233,7 +234,45 @@ const QuestStaking = {
       return a.tokenId - b.tokenId;
     });
     
+    // Separate staked and unstaked for batch operations
+    const stakedTokens = nfts.filter(n => n.isStaked);
+    const unstakedTokens = nfts.filter(n => !n.isStaked);
+    
     const html = `
+      <div style="margin-bottom: 1rem; padding: 1rem; background: var(--bg-color); border-radius: 8px; border: 1px solid var(--border-color);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+          <div style="font-size: 0.9rem; opacity: 0.7;">
+            <span id="selectedCount">0</span> selected
+          </div>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button 
+              class="btn-quest btn-quest-primary" 
+              id="batchStakeBtn"
+              onclick="QuestStaking.batchStake()"
+              disabled
+              style="font-size: 0.85rem;"
+            >
+              Batch Stake (<span id="batchStakeCount">0</span>)
+            </button>
+            <button 
+              class="btn-quest btn-quest-primary" 
+              id="batchUnstakeBtn"
+              onclick="QuestStaking.batchUnstake()"
+              disabled
+              style="font-size: 0.85rem;"
+            >
+              Batch Unstake (<span id="batchUnstakeCount">0</span>)
+            </button>
+            <button 
+              class="btn-quest" 
+              onclick="QuestStaking.clearSelection()"
+              style="font-size: 0.85rem;"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      </div>
       <div class="quest-nft-grid">
         ${nfts.map(nft => {
           const cardClass = nft.isStaked ? 'quest-nft-card staked' : 'quest-nft-card';
@@ -242,9 +281,12 @@ const QuestStaking = {
           const badgeText = nft.isStaked ? 'Staked' : 'Available';
           const buttonText = nft.isStaked ? 'Unstake' : 'Stake';
           const action = nft.isStaked ? 'unstake' : 'stake';
+          const isSelected = this.selectedTokens.has(nft.tokenId);
+          const selectedClass = isSelected ? 'selected' : '';
           
           return `
-            <div class="${cardClass}" data-token-id="${nft.tokenId}">
+            <div class="${cardClass} ${selectedClass}" data-token-id="${nft.tokenId}" data-is-staked="${nft.isStaked}" onclick="QuestStaking.toggleSelection(${nft.tokenId}, ${nft.isStaked})">
+              ${isSelected ? '<div class="quest-nft-selected-indicator">✓</div>' : ''}
               <img 
                 src="${nft.image}" 
                 alt="NFT #${nft.tokenId}" 
@@ -258,7 +300,7 @@ const QuestStaking = {
                 </div>
                 <button 
                   class="${buttonClass}"
-                  onclick="QuestStaking.${action}(${nft.tokenId})"
+                  onclick="event.stopPropagation(); QuestStaking.${action}(${nft.tokenId})"
                 >
                   ${buttonText}
                 </button>
@@ -270,6 +312,104 @@ const QuestStaking = {
     `;
     
     container.innerHTML = html;
+    this.updateBatchButtons();
+  },
+  
+  // Toggle token selection
+  toggleSelection(tokenId, isStaked) {
+    // Prevent mixing staked and unstaked
+    const selectedStaked = Array.from(this.selectedTokens).some(id => {
+      const card = document.querySelector(`[data-token-id="${id}"]`);
+      return card && card.dataset.isStaked === 'true';
+    });
+    
+    const selectedUnstaked = Array.from(this.selectedTokens).some(id => {
+      const card = document.querySelector(`[data-token-id="${id}"]`);
+      return card && card.dataset.isStaked === 'false';
+    });
+    
+    if (this.selectedTokens.has(tokenId)) {
+      // Deselect
+      this.selectedTokens.delete(tokenId);
+    } else {
+      // Check if we can select this token
+      if (isStaked && selectedUnstaked) {
+        alert('Cannot select staked and unstaked tokens together. Please clear selection first.');
+        return;
+      }
+      if (!isStaked && selectedStaked) {
+        alert('Cannot select staked and unstaked tokens together. Please clear selection first.');
+        return;
+      }
+      // Select
+      this.selectedTokens.add(tokenId);
+    }
+    
+    // Update UI
+    const card = document.querySelector(`[data-token-id="${tokenId}"]`);
+    if (card) {
+      if (this.selectedTokens.has(tokenId)) {
+        card.classList.add('selected');
+        if (!card.querySelector('.quest-nft-selected-indicator')) {
+          const indicator = document.createElement('div');
+          indicator.className = 'quest-nft-selected-indicator';
+          indicator.textContent = '✓';
+          card.insertBefore(indicator, card.firstChild);
+        }
+      } else {
+        card.classList.remove('selected');
+        const indicator = card.querySelector('.quest-nft-selected-indicator');
+        if (indicator) indicator.remove();
+      }
+    }
+    
+    this.updateBatchButtons();
+  },
+  
+  // Clear all selections
+  clearSelection() {
+    this.selectedTokens.clear();
+    document.querySelectorAll('.quest-nft-card.selected').forEach(card => {
+      card.classList.remove('selected');
+      const indicator = card.querySelector('.quest-nft-selected-indicator');
+      if (indicator) indicator.remove();
+    });
+    this.updateBatchButtons();
+  },
+  
+  // Update batch buttons state
+  updateBatchButtons() {
+    const selectedArray = Array.from(this.selectedTokens);
+    const stakedSelected = selectedArray.filter(id => {
+      const card = document.querySelector(`[data-token-id="${id}"]`);
+      return card && card.dataset.isStaked === 'true';
+    });
+    const unstakedSelected = selectedArray.filter(id => {
+      const card = document.querySelector(`[data-token-id="${id}"]`);
+      return card && card.dataset.isStaked === 'false';
+    });
+    
+    const batchStakeBtn = document.getElementById('batchStakeBtn');
+    const batchUnstakeBtn = document.getElementById('batchUnstakeBtn');
+    const batchStakeCount = document.getElementById('batchStakeCount');
+    const batchUnstakeCount = document.getElementById('batchUnstakeCount');
+    const selectedCount = document.getElementById('selectedCount');
+    
+    if (batchStakeBtn) {
+      batchStakeBtn.disabled = unstakedSelected.length === 0;
+    }
+    if (batchUnstakeBtn) {
+      batchUnstakeBtn.disabled = stakedSelected.length === 0;
+    }
+    if (batchStakeCount) {
+      batchStakeCount.textContent = unstakedSelected.length;
+    }
+    if (batchUnstakeCount) {
+      batchUnstakeCount.textContent = stakedSelected.length;
+    }
+    if (selectedCount) {
+      selectedCount.textContent = selectedArray.length;
+    }
   },
   
   // Stake an NFT
@@ -309,6 +449,112 @@ const QuestStaking = {
     } catch (error) {
       console.error('Error staking:', error);
       alert('Error staking NFT: ' + error.message);
+    }
+  },
+  
+  // Batch stake multiple NFTs
+  async batchStake() {
+    try {
+      if (!this.questContract || !this.tokenContract || !this.userAccount) {
+        alert('Please connect your wallet');
+        return;
+      }
+      
+      const selectedArray = Array.from(this.selectedTokens);
+      const unstakedSelected = selectedArray.filter(id => {
+        const card = document.querySelector(`[data-token-id="${id}"]`);
+        return card && card.dataset.isStaked === 'false';
+      });
+      
+      if (unstakedSelected.length === 0) {
+        alert('No unstaked tokens selected');
+        return;
+      }
+      
+      // Get activation fee
+      const activationFee = await this.questContract.activationFee();
+      const totalFee = activationFee.mul(unstakedSelected.length);
+      
+      // Check allowance
+      const allowance = await this.tokenContract.allowance(this.userAccount, window.QUEST_CONFIG.PUNKQUEST_ADDRESS);
+      
+      if (allowance.lt(totalFee)) {
+        // Need to approve
+        const approveTx = await this.tokenContract.approve(
+          window.QUEST_CONFIG.PUNKQUEST_ADDRESS,
+          totalFee
+        );
+        await approveTx.wait();
+      }
+      
+      // Batch stake
+      const batchStakeTx = await this.questContract.batchStake(unstakedSelected);
+      await batchStakeTx.wait();
+      
+      alert(`Successfully staked ${unstakedSelected.length} NFT(s)`);
+      this.clearSelection();
+      this.updateStakingDisplay();
+      
+      // Update stats
+      if (window.QuestStats) {
+        window.QuestStats.updateStats();
+      }
+    } catch (error) {
+      console.error('Error batch staking:', error);
+      alert('Error batch staking NFTs: ' + error.message);
+    }
+  },
+  
+  // Batch unstake multiple NFTs
+  async batchUnstake() {
+    try {
+      if (!this.questContract || !this.tokenContract || !this.userAccount) {
+        alert('Please connect your wallet');
+        return;
+      }
+      
+      const selectedArray = Array.from(this.selectedTokens);
+      const stakedSelected = selectedArray.filter(id => {
+        const card = document.querySelector(`[data-token-id="${id}"]`);
+        return card && card.dataset.isStaked === 'true';
+      });
+      
+      if (stakedSelected.length === 0) {
+        alert('No staked tokens selected');
+        return;
+      }
+      
+      // Get exit fee
+      const exitFee = await this.questContract.exitFee();
+      const totalFee = exitFee.mul(stakedSelected.length);
+      
+      // Check allowance
+      const allowance = await this.tokenContract.allowance(this.userAccount, window.QUEST_CONFIG.PUNKQUEST_ADDRESS);
+      
+      if (allowance.lt(totalFee)) {
+        // Need to approve
+        const approveTx = await this.tokenContract.approve(
+          window.QUEST_CONFIG.PUNKQUEST_ADDRESS,
+          totalFee
+        );
+        await approveTx.wait();
+      }
+      
+      // Batch unstake
+      const batchUnstakeTx = await this.questContract.batchUnstake(stakedSelected);
+      await batchUnstakeTx.wait();
+      
+      alert(`Successfully unstaked ${stakedSelected.length} NFT(s)`);
+      this.clearSelection();
+      this.updateStakingDisplay();
+      
+      // Update stats
+      if (window.QuestStats) {
+        window.QuestStats.updateStats();
+      }
+    } catch (error) {
+      console.error('Error batch unstaking:', error);
+      alert('Error batch unstaking NFTs: ' + error.message);
     }
   },
   
