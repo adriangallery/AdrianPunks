@@ -6,6 +6,7 @@ const QUEST_CONFIG = {
   PUNKQUEST_ADDRESS: "0xb253c1C784bA13ca1C45daB6777210a83cEA4f73",
   TOKEN_ADDRESS: "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea",
   NFT_ADDRESS: "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566",
+  MULTICALL3_ADDRESS: "0xcA11bde05977b3631167028862bE2a173976CA11", // Multicall3 on Base
   
   // Pool configuration
   POOL_MAX_AMOUNT: 10_000_000, // 10M $ADRIAN
@@ -42,7 +43,14 @@ const QUEST_CONFIG = {
     "function claimFee() view returns (uint256)",
     "function totalStaked() view returns (uint256)",
     "function stakes(uint256) view returns (uint256 stakeStart, uint256 lastClaim)"
-  ]
+  ],
+  
+  MULTICALL3_ABI: [
+    "function aggregate3((address target, bool allowFailure, bytes callData)[] calls) external view returns ((bool success, bytes returnData)[] returnData)"
+  ],
+  
+  // RPC URLs (fallback to public if not set)
+  RPC_URL: null // Will use public Base RPC if not set
 };
 
 // Export for use in other modules

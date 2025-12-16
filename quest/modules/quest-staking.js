@@ -79,10 +79,10 @@ const QuestStaking = {
     }
   },
   
-  // Update staking display
+  // Update staking display (optimized with Multicall3)
   async updateStakingDisplay() {
     try {
-      if (!this.questContract || !this.nftContract || !this.userAccount) {
+      if (!this.userAccount) {
         this.showNotConnected();
         return;
       }
@@ -90,44 +90,122 @@ const QuestStaking = {
       const container = document.getElementById('stakingContent');
       if (!container) return;
       
-      // Get user's NFTs
-      const nftBalance = await this.nftContract.balanceOf(this.userAccount);
-      const balance = nftBalance.toNumber();
+      // Show loading state
+      container.innerHTML = '<div style="text-align: center; padding: 2rem;"><div class="spinner-border" role="status" style="color: var(--text-color);"></div><p style="margin-top: 1rem; opacity: 0.7; color: var(--text-color);">Loading NFTs...</p></div>';
       
-      if (balance === 0) {
-        container.innerHTML = '<p style="color: var(--text-color); opacity: 0.7;">You don\'t own any NFTs</p>';
+      // Use read-only provider (faster, no MetaMask rate limits)
+      const ethers5 = window.ethers5Backup || window.ethers;
+      if (!ethers5 || !ethers5.providers) {
+        throw new Error('Ethers v5 not available');
+      }
+      
+      const rpcUrl = window.QUEST_CONFIG.RPC_URL || window.ALCHEMY_RPC_URL || 'https://mainnet.base.org';
+      const readProvider = new ethers5.providers.JsonRpcProvider(rpcUrl, {
+        name: "base",
+        chainId: 8453
+      });
+      
+      const nftReadContract = new ethers5.Contract(
+        window.QUEST_CONFIG.NFT_ADDRESS,
+        window.QUEST_CONFIG.NFT_ABI,
+        readProvider
+      );
+      
+      const questReadContract = new ethers5.Contract(
+        window.QUEST_CONFIG.PUNKQUEST_ADDRESS,
+        window.QUEST_CONFIG.QUEST_ABI,
+        readProvider
+      );
+      
+      const multicallContract = new ethers5.Contract(
+        window.QUEST_CONFIG.MULTICALL3_ADDRESS,
+        window.QUEST_CONFIG.MULTICALL3_ABI,
+        readProvider
+      );
+      
+      // Step 1: Get balance
+      const balance = await nftReadContract.balanceOf(this.userAccount);
+      const totalTokens = balance.toNumber();
+      
+      if (totalTokens === 0) {
+        container.innerHTML = '<p style="color: var(--text-color); opacity: 0.7; text-align: center; padding: 2rem;">You don\'t own any NFTs</p>';
         return;
       }
       
-      // Get staking info for each NFT
+      console.log(`Loading ${totalTokens} tokens using Multicall3...`);
+      
+      // Step 2: Multicall to get all tokenIds in one batch
+      const tokenIdCalls = [];
+      for (let i = 0; i < totalTokens; i++) {
+        tokenIdCalls.push({
+          target: window.QUEST_CONFIG.NFT_ADDRESS,
+          allowFailure: true,
+          callData: nftReadContract.interface.encodeFunctionData('tokenOfOwnerByIndex', [this.userAccount, i])
+        });
+      }
+      
+      const tokenIdResults = await multicallContract.callStatic.aggregate3(tokenIdCalls);
+      const tokenIds = tokenIdResults
+        .filter(result => result.success)
+        .map(result => {
+          const decoded = nftReadContract.interface.decodeFunctionResult('tokenOfOwnerByIndex', result.returnData);
+          return decoded[0].toNumber();
+        });
+      
+      console.log(`Retrieved ${tokenIds.length} token IDs via Multicall3`);
+      
+      // Step 3: Multicall to get all staking info in one batch
+      const stakeCalls = [];
+      for (const tokenId of tokenIds) {
+        stakeCalls.push({
+          target: window.QUEST_CONFIG.PUNKQUEST_ADDRESS,
+          allowFailure: true,
+          callData: questReadContract.interface.encodeFunctionData('stakes', [tokenId])
+        });
+      }
+      
+      const stakeResults = await multicallContract.callStatic.aggregate3(stakeCalls);
+      
+      // Step 4: Process results
       const nfts = [];
-      for (let i = 0; i < balance; i++) {
+      for (let i = 0; i < tokenIds.length; i++) {
         try {
-          const tokenId = await this.nftContract.tokenOfOwnerByIndex(this.userAccount, i);
-          const tokenIdNum = tokenId.toNumber();
-          const stakeInfo = await this.questContract.stakes(tokenIdNum);
-          const isStaked = stakeInfo.stakeStart.gt(0);
+          const tokenId = tokenIds[i];
+          const stakeResult = stakeResults[i];
+          
+          let isStaked = false;
+          let stakeStart = ethers5.BigNumber.from(0);
+          let lastClaim = ethers5.BigNumber.from(0);
+          
+          if (stakeResult.success) {
+            const decoded = questReadContract.interface.decodeFunctionResult('stakes', stakeResult.returnData);
+            stakeStart = decoded.stakeStart;
+            lastClaim = decoded.lastClaim;
+            isStaked = stakeStart.gt(0);
+          }
           
           // Find NFT metadata
           const nftMeta = this.nftData.find(nft => {
             if (nft.name) {
               const parts = nft.name.split('#');
-              return parts.length === 2 && parseInt(parts[1]) === tokenIdNum;
+              return parts.length === 2 && parseInt(parts[1]) === tokenId;
             }
             return false;
           });
           
           nfts.push({
-            tokenId: tokenIdNum,
+            tokenId: tokenId,
             isStaked: isStaked,
-            stakeStart: stakeInfo.stakeStart,
-            lastClaim: stakeInfo.lastClaim,
-            image: nftMeta ? nftMeta.image : `../market/adrianpunksimages/${tokenIdNum}.png`
+            stakeStart: stakeStart,
+            lastClaim: lastClaim,
+            image: nftMeta ? nftMeta.image : `../market/adrianpunksimages/${tokenId}.png`
           });
         } catch (error) {
-          console.warn(`Error getting info for token ${i}:`, error);
+          console.warn(`Error processing token ${tokenIds[i]}:`, error);
         }
       }
+      
+      console.log(`Processed ${nfts.length} NFTs`);
       
       // Render NFTs
       this.renderNFTs(nfts, container);
@@ -135,7 +213,7 @@ const QuestStaking = {
       console.error('Error updating staking display:', error);
       const container = document.getElementById('stakingContent');
       if (container) {
-        container.innerHTML = '<p style="color: var(--text-color); opacity: 0.7;">Error loading NFTs</p>';
+        container.innerHTML = '<p style="color: var(--text-color); opacity: 0.7; text-align: center; padding: 2rem;">Error loading NFTs: ' + (error.message || 'Unknown error') + '</p>';
       }
     }
   },

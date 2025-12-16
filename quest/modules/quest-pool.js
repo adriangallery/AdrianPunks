@@ -52,24 +52,28 @@ const QuestPool = {
   // Update the pool display
   async updatePool() {
     try {
-      if (!this.tokenContract || !this.questContractAddress) {
-        // Try to initialize contracts again
-        if (window.ethereum && window.ethers) {
-          const provider = new window.ethers.providers.Web3Provider(window.ethereum);
-          this.tokenContract = new window.ethers.Contract(
-            window.QUEST_CONFIG.TOKEN_ADDRESS,
-            window.QUEST_CONFIG.TOKEN_ABI,
-            provider
-          );
-        } else {
-          this.updateDisplay(0, 0);
-          return;
-        }
+      const ethers5 = window.ethers5Backup || window.ethers;
+      if (!ethers5 || !ethers5.providers) {
+        this.updateDisplay(0, this.maxAmount);
+        return;
       }
       
-      // Get contract balance
-      const balanceWei = await this.tokenContract.balanceOf(this.questContractAddress);
-      const balance = parseFloat(window.ethers.utils.formatUnits(balanceWei, 18));
+      // Use read-only provider (faster, no MetaMask rate limits)
+      const rpcUrl = window.QUEST_CONFIG.RPC_URL || window.ALCHEMY_RPC_URL || 'https://mainnet.base.org';
+      const readProvider = new ethers5.providers.JsonRpcProvider(rpcUrl, {
+        name: "base",
+        chainId: 8453
+      });
+      
+      const tokenReadContract = new ethers5.Contract(
+        window.QUEST_CONFIG.TOKEN_ADDRESS,
+        window.QUEST_CONFIG.TOKEN_ABI,
+        readProvider
+      );
+      
+      // Get contract balance (simple read)
+      const balanceWei = await tokenReadContract.balanceOf(this.questContractAddress);
+      const balance = parseFloat(ethers5.utils.formatUnits(balanceWei, 18));
       
       this.updateDisplay(balance, this.maxAmount);
     } catch (error) {
