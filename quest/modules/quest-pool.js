@@ -108,6 +108,10 @@ const QuestPool = {
       
       if (!barsContainer) return;
       
+      // Check if we're in compact mode (sidebar version)
+      const isCompact = barsContainer.closest('.quest-pool-visual-compact') !== null;
+      const numBars = isCompact ? 10 : 20; // Fewer bars for compact version
+      
       // Calculate percentage
       const percentage = Math.min(100, (currentBalance / maxAmount) * 100);
       
@@ -132,8 +136,7 @@ const QuestPool = {
         percentageText.textContent = `${percentage.toFixed(1)}%`;
       }
       
-      // Generate pixel bars (20 bars total)
-      const numBars = 20;
+      // Generate pixel bars
       const filledBars = (percentage / 100) * numBars;
       const fullFilledBars = Math.floor(filledBars);
       const partialAmount = filledBars - fullFilledBars;
