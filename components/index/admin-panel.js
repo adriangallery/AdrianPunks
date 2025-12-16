@@ -196,25 +196,68 @@ const AdminPanel = {
           stats.totalTransactions = txCount;
         }
 
-        // Get floor price from cheapest listing (not from engine)
-        const { data: cheapestListing } = await this.supabaseClient
-          .from('listings')
-          .select('price_wei')
-          .neq('seller', this.FLOOR_ENGINE_ADDRESS.toLowerCase())
-          .eq('is_active', true)
-          .order('price_wei', { ascending: true })
-          .limit(1);
+        // Get floor price from cheapest listing (from user OR engine)
+        // Try active_punk_listings first (preferred)
+        let cheapestListing = null;
+        try {
+          const { data: activeListings } = await this.supabaseClient
+            .from('active_punk_listings')
+            .select('price_adrian_wei')
+            .order('price_adrian_wei', { ascending: true })
+            .limit(1);
+          
+          if (activeListings && activeListings.length > 0) {
+            cheapestListing = {
+              price_wei: activeListings[0].price_adrian_wei
+            };
+          }
+        } catch (e) {
+          console.warn('Error fetching from active_punk_listings, trying punk_listings:', e);
+        }
         
-        if (cheapestListing && cheapestListing.length > 0 && ethers5) {
+        // Fallback to punk_listings if active_punk_listings doesn't work
+        if (!cheapestListing) {
           try {
-            const priceWei = scientificToFixed(cheapestListing[0].price_wei);
+            const { data: punkListings } = await this.supabaseClient
+              .from('punk_listings')
+              .select('price_wei')
+              .eq('is_listed', true)
+              .order('price_wei', { ascending: true })
+              .limit(1);
+            
+            if (punkListings && punkListings.length > 0) {
+              cheapestListing = punkListings[0];
+            }
+          } catch (e) {
+            console.warn('Error fetching from punk_listings, trying listings:', e);
+            // Final fallback to listings table
+            try {
+              const { data: listings } = await this.supabaseClient
+                .from('listings')
+                .select('price_wei')
+                .eq('is_active', true)
+                .order('price_wei', { ascending: true })
+                .limit(1);
+              
+              if (listings && listings.length > 0) {
+                cheapestListing = listings[0];
+              }
+            } catch (e2) {
+              console.warn('Error fetching from listings:', e2);
+            }
+          }
+        }
+        
+        if (cheapestListing && cheapestListing.price_wei && ethers5) {
+          try {
+            const priceWei = scientificToFixed(cheapestListing.price_wei);
             const priceEth = parseFloat(ethers5.utils.formatUnits(priceWei, 18));
-          stats.floorPrice = priceEth >= 1000000 
-            ? (priceEth / 1000000).toFixed(1) + 'M'
-            : priceEth >= 1000 
-            ? (priceEth / 1000).toFixed(1) + 'K'
-            : priceEth.toFixed(1);
-          stats.floorPrice += ' $ADRIAN';
+            stats.floorPrice = priceEth >= 1000000 
+              ? (priceEth / 1000000).toFixed(1) + 'M'
+              : priceEth >= 1000 
+              ? (priceEth / 1000).toFixed(1) + 'K'
+              : priceEth.toFixed(1);
+            stats.floorPrice += ' $ADRIAN';
           } catch (e) {
             console.warn('Error processing floor price:', e);
           }
