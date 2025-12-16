@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quest - PunkQuest</title>
+  <link rel="icon" type="image/x-icon" href="../favicon.ico">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+  <!-- Include the menu -->
+  <div id="menu-container"></div>
+  <script>
+    // Load the menu
+    fetch('../market/components/menu.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('menu-container').innerHTML = html;
+        const script = document.createElement('script');
+        script.src = '../market/components/menu.js';
+        document.head.appendChild(script);
+      })
+      .catch(error => console.error('Error loading menu:', error));
+  </script>
+
+  <!-- Main Layout: 3 Columns -->
+  <div class="main-layout">
+    <!-- Sidebar Left: Stats and Info -->
+    <aside class="sidebar">
+      <!-- User Stats Panel -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#userStatsPanel" aria-expanded="true" id="userStatsPanelHeader">
+          <h5 class="mb-0">Your Stats</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="userStatsPanel">
+          <div class="panel-body">
+            <div id="userStatsContent">
+              <div class="stat-item">
+                <span class="stat-label">Connected</span>
+                <span class="stat-value" id="userAddress">Not connected</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Staked NFTs</span>
+                <span class="stat-value" id="stakedCount">0</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Total Rewards</span>
+                <span class="stat-value" id="totalRewards">0 $ADRIAN</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quest Info Panel -->
+      <div class="collapsible-panel">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#questInfoPanel" aria-expanded="true" id="questInfoPanelHeader">
+          <h5 class="mb-0">Quest Info</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="questInfoPanel">
+          <div class="panel-body">
+            <div id="questInfoContent">
+              <div class="stat-item">
+                <span class="stat-label">Total Staked</span>
+                <span class="stat-value" id="totalStaked">0</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Activation Fee</span>
+                <span class="stat-value" id="activationFee">--</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Exit Fee</span>
+                <span class="stat-value" id="exitFee">--</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Claim Fee</span>
+                <span class="stat-value" id="claimFee">--</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content: Quest Pool (Central Element) -->
+    <main class="main-content">
+      <div class="quest-pool-container">
+        <div class="quest-pool-label">Quest Pool</div>
+        <div class="quest-pool-visual">
+          <div class="quest-pool-bars" id="questPoolBars">
+            <!-- Bars will be generated dynamically -->
+          </div>
+        </div>
+        <div class="quest-pool-info">
+          <span class="balance"><span id="questPoolBalance">0</span> / <span id="questPoolMax">10M</span> $ADRIAN</span>
+          <span class="percentage" id="questPoolPercentage">0%</span>
+        </div>
+      </div>
+
+      <!-- Additional content can go here -->
+      <div id="mainContentArea"></div>
+    </main>
+
+    <!-- Sidebar Right: Functionality Modules -->
+    <aside class="sidebar">
+      <!-- Staking Panel -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#stakingPanel" aria-expanded="true" id="stakingPanelHeader">
+          <h5 class="mb-0">Staking</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="stakingPanel">
+          <div class="panel-body">
+            <div id="stakingContent">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rewards Panel -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#rewardsPanel" aria-expanded="true" id="rewardsPanelHeader">
+          <h5 class="mb-0">Rewards</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="rewardsPanel">
+          <div class="panel-body">
+            <div id="rewardsContent">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Armory Panel -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#armoryPanel" aria-expanded="true" id="armoryPanelHeader">
+          <h5 class="mb-0">Armory</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="armoryPanel">
+          <div class="panel-body">
+            <div id="armoryContent">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Store Panel -->
+      <div class="collapsible-panel">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#storePanel" aria-expanded="true" id="storePanelHeader">
+          <h5 class="mb-0">Store</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="storePanel">
+          <div class="panel-body">
+            <div id="storeContent">Loading...</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  
+  <!-- Load Config -->
+  <script src="config.js"></script>
+  
+  <!-- Load Modules -->
+  <script src="modules/quest-pool.js"></script>
+  <script src="modules/quest-stats.js"></script>
+  <script src="modules/quest-staking.js"></script>
+  <script src="modules/quest-rewards.js"></script>
+  <script src="modules/quest-armory.js"></script>
+  <script src="modules/quest-store.js"></script>
+  
+  <!-- Main Script -->
+  <script>
+    let provider, signer, userAccount;
+    let questContract, tokenContract, nftContract;
+    
+    async function initContracts() {
+      if (window.ethereum) {
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+        userAccount = await signer.getAddress();
+        
+        // Initialize contracts
+        tokenContract = new ethers.Contract(
+          window.QUEST_CONFIG.TOKEN_ADDRESS,
+          window.QUEST_CONFIG.TOKEN_ABI,
+          signer
+        );
+        
+        questContract = new ethers.Contract(
+          window.QUEST_CONFIG.PUNKQUEST_ADDRESS,
+          window.QUEST_CONFIG.QUEST_ABI,
+          signer
+        );
+        
+        nftContract = new ethers.Contract(
+          window.QUEST_CONFIG.NFT_ADDRESS,
+          window.QUEST_CONFIG.NFT_ABI,
+          signer
+        );
+        
+        // Update user address
+        const addressEl = document.getElementById('userAddress');
+        if (addressEl) {
+          addressEl.textContent = `${userAccount.substring(0, 6)}...${userAccount.substring(38)}`;
+        }
+        
+        // Make contracts available globally for modules
+        window.questContract = questContract;
+        window.tokenContract = tokenContract;
+        window.nftContract = nftContract;
+        window.userAccount = userAccount;
+        window.ethers = ethers;
+        
+        // Initialize modules
+        if (window.QuestStats) {
+          await window.QuestStats.init();
+        }
+        if (window.QuestStaking) {
+          await window.QuestStaking.init();
+        }
+        if (window.QuestRewards) {
+          await window.QuestRewards.init();
+        }
+        if (window.QuestArmory) {
+          await window.QuestArmory.init();
+        }
+        if (window.QuestStore) {
+          await window.QuestStore.init();
+        }
+      } else {
+        console.error("Ethereum provider not found.");
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Initialize pool (works without wallet)
+      if (window.QuestPool) {
+        await window.QuestPool.init();
+      }
+      
+      // Initialize contracts if wallet is available
+      if (window.ethereum) {
+        await initContracts();
+        
+        // Listen for account changes
+        window.ethereum.on('accountsChanged', async (accounts) => {
+          if (accounts.length > 0) {
+            await initContracts();
+          } else {
+            // Clear global contracts on disconnect
+            window.questContract = null;
+            window.tokenContract = null;
+            window.nftContract = null;
+            window.userAccount = null;
+          }
+        });
+        
+        // Listen for chain changes
+        window.ethereum.on('chainChanged', () => {
+          window.location.reload();
+        });
+      }
+      
+      // Adjust panels for mobile
+      function adjustPanelsForScreenSize() {
+        const isMobile = window.innerWidth <= 1200;
+        const panels = [
+          { panel: document.getElementById('userStatsPanel'), header: document.getElementById('userStatsPanelHeader') },
+          { panel: document.getElementById('questInfoPanel'), header: document.getElementById('questInfoPanelHeader') },
+          { panel: document.getElementById('stakingPanel'), header: document.getElementById('stakingPanelHeader') },
+          { panel: document.getElementById('rewardsPanel'), header: document.getElementById('rewardsPanelHeader') },
+          { panel: document.getElementById('armoryPanel'), header: document.getElementById('armoryPanelHeader') },
+          { panel: document.getElementById('storePanel'), header: document.getElementById('storePanelHeader') }
+        ];
+        
+        panels.forEach(({ panel, header }) => {
+          if (panel && header) {
+            if (isMobile) {
+              panel.classList.remove('show');
+              header.setAttribute('aria-expanded', 'false');
+            } else {
+              panel.classList.add('show');
+              header.setAttribute('aria-expanded', 'true');
+            }
+          }
+        });
+      }
+      
+      adjustPanelsForScreenSize();
+      
+      let resizeTimeout;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(adjustPanelsForScreenSize, 250);
+      });
+    });
+  </script>
+</body>
+</html>
+
