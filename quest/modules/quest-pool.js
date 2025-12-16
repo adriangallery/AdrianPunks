@@ -58,27 +58,43 @@ const QuestPool = {
         return;
       }
       
-      // Use read-only provider (faster, no MetaMask rate limits)
+      // Try to use read-only provider first (faster, no MetaMask rate limits)
       const rpcUrl = window.QUEST_CONFIG.RPC_URL || window.ALCHEMY_RPC_URL || 'https://mainnet.base.org';
-      const readProvider = new ethers5.providers.JsonRpcProvider(rpcUrl, {
-        name: "base",
-        chainId: 8453
-      });
       
-      const tokenReadContract = new ethers5.Contract(
-        window.QUEST_CONFIG.TOKEN_ADDRESS,
-        window.QUEST_CONFIG.TOKEN_ABI,
-        readProvider
-      );
-      
-      // Get contract balance (simple read)
-      const balanceWei = await tokenReadContract.balanceOf(this.questContractAddress);
-      const balance = parseFloat(ethers5.utils.formatUnits(balanceWei, 18));
-      
-      this.updateDisplay(balance, this.maxAmount);
+      try {
+        const readProvider = new ethers5.providers.JsonRpcProvider(rpcUrl, {
+          name: "base",
+          chainId: 8453
+        });
+        
+        const tokenReadContract = new ethers5.Contract(
+          window.QUEST_CONFIG.TOKEN_ADDRESS,
+          window.QUEST_CONFIG.TOKEN_ABI,
+          readProvider
+        );
+        
+        // Get contract balance (simple read) with timeout
+        const balanceWei = await Promise.race([
+          tokenReadContract.balanceOf(this.questContractAddress),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+        ]);
+        
+        const balance = parseFloat(ethers5.utils.formatUnits(balanceWei, 18));
+        this.updateDisplay(balance, this.maxAmount);
+      } catch (rpcError) {
+        // If RPC fails (429 rate limit, etc.), silently fail and keep last known value
+        // Don't spam console with rate limit errors
+        if (rpcError.message && !rpcError.message.includes('429') && !rpcError.message.includes('rate limit')) {
+          console.warn('RPC error updating pool (will retry):', rpcError.message);
+        }
+        // Keep displaying last known value instead of resetting to 0
+      }
     } catch (error) {
-      console.error('Error updating pool:', error);
-      this.updateDisplay(0, this.maxAmount);
+      // Only log unexpected errors
+      if (error.message && !error.message.includes('429') && !error.message.includes('rate limit')) {
+        console.error('Error updating pool:', error);
+      }
+      // Don't reset display on error, keep last known value
     }
   },
   
@@ -143,8 +159,8 @@ const QuestPool = {
         } else if (i === fullFilledBars && hasPartial) {
           // Partially filled bar
           bar.classList.add('active', colorClass, 'partial');
-          const partialHeight = (partialAmount * 100);
-          bar.style.setProperty('--partial-height', `${partialHeight}%`);
+          const partialWidth = (partialAmount * 100);
+          bar.style.setProperty('--partial-width', `${partialWidth}%`);
         } else {
           // Empty bar
           // No additional classes needed
