@@ -299,9 +299,11 @@ const AdminPanel = {
       }
 
       // Format volume
-      const formattedVolume = stats.totalVolume >= 1 
-        ? stats.totalVolume.toFixed(2) + ' ETH'
-        : (stats.totalVolume * 1000).toFixed(2) + ' mETH';
+      const formattedVolume = stats.totalVolume >= 1000000 
+        ? (stats.totalVolume / 1000000).toFixed(1) + 'M $ADRIAN'
+        : stats.totalVolume >= 1000 
+        ? (stats.totalVolume / 1000).toFixed(1) + 'K $ADRIAN'
+        : stats.totalVolume.toFixed(2) + ' $ADRIAN';
 
       // Render stats
       container.innerHTML = `
