@@ -41,6 +41,7 @@ const QUEST_CONFIG = {
     "function getTokenDetailedInfo(uint256 tokenId) view returns (uint256, uint256, uint256, uint256, uint256, int256, uint256)",
     "function getTokenMultiplierBreakdown(uint256 tokenId) view returns (uint256, uint256, uint256, uint256, uint256, uint256, uint256)",
     "function getTokenRewardBreakdown(uint256 tokenId) view returns (uint256, uint256, uint256, int256, uint256)",
+    "function pendingTotalReward(uint256 id) view returns (uint256)",
     "function activationFee() view returns (uint256)",
     "function exitFee() view returns (uint256)",
     "function claimFee() view returns (uint256)",

@@ -114,24 +114,110 @@ const QuestStats = {
         stakedCountEl.textContent = stakedCount;
       }
       
-      // Calculate total rewards
+      // Calculate total rewards using Multicall for optimization
       let totalRewards = 0;
       try {
         const nftBalance = await this.nftContract.balanceOf(this.userAccount);
         const balance = nftBalance.toNumber();
         
+        if (balance === 0) {
+          const totalRewardsEl = document.getElementById('totalRewards');
+          if (totalRewardsEl) {
+            totalRewardsEl.textContent = '0 $ADRIAN';
+          }
+          return;
+        }
+        
+        // Get all token IDs first
+        const tokenIds = [];
         for (let i = 0; i < balance; i++) {
           try {
             const tokenId = await this.nftContract.tokenOfOwnerByIndex(this.userAccount, i);
-            const rewardBreakdown = await this.questContract.getTokenRewardBreakdown(tokenId);
-            const pendingReward = parseFloat(ethers.utils.formatUnits(rewardBreakdown[0], 18));
-            totalRewards += pendingReward;
+            // Check if token is staked
+            const stakeInfo = await this.questContract.stakes(tokenId);
+            if (stakeInfo.stakeStart.gt(0)) {
+              tokenIds.push(tokenId);
+            }
           } catch (e) {
             // Skip this token
           }
         }
+        
+        if (tokenIds.length === 0) {
+          const totalRewardsEl = document.getElementById('totalRewards');
+          if (totalRewardsEl) {
+            totalRewardsEl.textContent = '0 $ADRIAN';
+          }
+          return;
+        }
+        
+        // Use Multicall to get all rewards in one call
+        const ethers5 = window.ethers5Backup || window.ethers;
+        if (!ethers5 || !ethers5.Contract) {
+          // Fallback to individual calls if ethers not available
+          throw new Error('Ethers not available');
+        }
+        
+        const provider = this.questContract.provider || window.ethers.providers.getDefaultProvider();
+        const multicall = new ethers5.Contract(
+          window.QUEST_CONFIG.MULTICALL3_ADDRESS,
+          window.QUEST_CONFIG.MULTICALL3_ABI,
+          provider
+        );
+        
+        // Prepare calls for all staked tokens
+        const calls = tokenIds.map(tokenId => ({
+          target: window.QUEST_CONFIG.PUNKQUEST_ADDRESS,
+          allowFailure: true,
+          callData: this.questContract.interface.encodeFunctionData('pendingTotalReward', [tokenId])
+        }));
+        
+        // Execute all calls in one transaction
+        const results = await multicall.aggregate3(calls);
+        const rewards = results
+          .filter(result => result.success)
+          .map(result => {
+            try {
+              const decoded = this.questContract.interface.decodeFunctionResult('pendingTotalReward', result.returnData);
+              return decoded[0];
+            } catch (e) {
+              return ethers5.BigNumber.from(0);
+            }
+          });
+        
+        // Sum all rewards
+        const total = rewards.reduce((acc, reward) => {
+          try {
+            return acc.add(reward);
+          } catch (e) {
+            return acc;
+          }
+        }, ethers5.BigNumber.from(0));
+        
+        totalRewards = parseFloat(ethers5.utils.formatUnits(total, 18));
       } catch (error) {
-        console.warn('Error calculating total rewards:', error);
+        console.warn('Error calculating total rewards (falling back to individual calls):', error);
+        // Fallback to individual calls if Multicall fails
+        try {
+          const nftBalance = await this.nftContract.balanceOf(this.userAccount);
+          const balance = nftBalance.toNumber();
+          const ethers5 = window.ethers5Backup || window.ethers;
+          
+          for (let i = 0; i < balance; i++) {
+            try {
+              const tokenId = await this.nftContract.tokenOfOwnerByIndex(this.userAccount, i);
+              const stakeInfo = await this.questContract.stakes(tokenId);
+              if (stakeInfo.stakeStart.gt(0)) {
+                const pendingReward = await this.questContract.pendingTotalReward(tokenId);
+                totalRewards += parseFloat(ethers5.utils.formatUnits(pendingReward, 18));
+              }
+            } catch (e) {
+              // Skip this token
+            }
+          }
+        } catch (fallbackError) {
+          console.warn('Error in fallback reward calculation:', fallbackError);
+        }
       }
       
       // Update total rewards
