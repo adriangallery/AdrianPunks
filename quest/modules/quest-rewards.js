@@ -144,18 +144,33 @@ const QuestRewards = {
             });
           }
         } catch (error) {
-          console.warn(`Error getting rewards for token ${i}:`, error);
+          // Suppress RPC rate limiting and MetaMask internal errors
+          const errorMsg = error?.message || error?.toString() || '';
+          if (!errorMsg.includes('429') && 
+              !errorMsg.includes('rate limit') && 
+              !errorMsg.includes('Internal JSON-RPC error') &&
+              !errorMsg.includes('Too Many Requests')) {
+            console.warn(`Error getting rewards for token ${i}:`, error);
+          }
         }
       }
       
       // Render rewards
       this.renderRewards(rewards, totalRewards, container);
     } catch (error) {
-      console.error('Error updating rewards display:', error);
-      const container = document.getElementById('rewardsContent');
-      if (container) {
-        container.innerHTML = '<p style="color: var(--text-color); opacity: 0.7;">Error loading rewards</p>';
+      // Suppress RPC rate limiting and MetaMask internal errors
+      const errorMsg = error?.message || error?.toString() || '';
+      if (!errorMsg.includes('429') && 
+          !errorMsg.includes('rate limit') && 
+          !errorMsg.includes('Internal JSON-RPC error') &&
+          !errorMsg.includes('Too Many Requests')) {
+        console.error('Error updating rewards display:', error);
+        const container = document.getElementById('rewardsContent');
+        if (container) {
+          container.innerHTML = '<p style="color: var(--text-color); opacity: 0.7;">Error loading rewards</p>';
+        }
       }
+      // Silently fail for RPC errors - will retry on next interval
     }
   },
   
