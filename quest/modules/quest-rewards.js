@@ -114,9 +114,16 @@ const QuestRewards = {
             continue; // Skip unstaked NFTs
           }
           
-          // Get reward breakdown
-          const rewardBreakdown = await this.questContract.getTokenRewardBreakdown(tokenIdNum);
-          const pendingReward = parseFloat(ethers.utils.formatUnits(rewardBreakdown[0], 18));
+          // Get reward breakdown (may fail if token is not staked or method doesn't exist)
+          let pendingReward = 0;
+          try {
+            const rewardBreakdown = await this.questContract.getTokenRewardBreakdown(tokenIdNum);
+            pendingReward = parseFloat(ethers.utils.formatUnits(rewardBreakdown[0], 18));
+          } catch (error) {
+            // Token might not be staked or method might not be available
+            // Skip this token
+            continue;
+          }
           
           if (pendingReward > 0) {
             totalRewards += pendingReward;
