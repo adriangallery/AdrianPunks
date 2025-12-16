@@ -61,10 +61,8 @@ const QuestStaking = {
         clearInterval(checkContracts);
         this.updateStakingDisplay();
         
-        // Set up auto-update (every 30 seconds)
-        this.updateInterval = setInterval(() => {
-          this.updateStakingDisplay();
-        }, 30000);
+        // No auto-update to avoid interrupting user selection
+        // Users can manually refresh if needed
       } else if (attempts >= maxAttempts) {
         clearInterval(checkContracts);
         this.showNotConnected();
