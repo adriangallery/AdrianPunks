@@ -120,7 +120,8 @@ const QuestPool = {
       const numBars = 20;
       const filledBars = (percentage / 100) * numBars;
       const fullFilledBars = Math.floor(filledBars);
-      const hasPartial = filledBars % 1 !== 0 && percentage < 100;
+      const partialAmount = filledBars - fullFilledBars;
+      const hasPartial = partialAmount > 0.01 && percentage < 100; // Use small threshold to avoid floating point issues
       
       // Determine color based on percentage
       let colorClass = 'red';
@@ -142,7 +143,7 @@ const QuestPool = {
         } else if (i === fullFilledBars && hasPartial) {
           // Partially filled bar
           bar.classList.add('active', colorClass, 'partial');
-          const partialHeight = ((filledBars - fullFilledBars) * 100);
+          const partialHeight = (partialAmount * 100);
           bar.style.setProperty('--partial-height', `${partialHeight}%`);
         } else {
           // Empty bar
