@@ -140,41 +140,56 @@ const QuestStaking = {
     }
   },
   
-  // Render NFTs list
+  // Render NFTs in grid format
   renderNFTs(nfts, container) {
     if (nfts.length === 0) {
-      container.innerHTML = '<p style="color: var(--text-color); opacity: 0.7;">No NFTs found</p>';
+      container.innerHTML = '<p style="color: var(--text-color); opacity: 0.7; text-align: center; padding: 2rem;">No NFTs found</p>';
       return;
     }
     
-    const html = nfts.map(nft => {
-      const statusBadge = nft.isStaked 
-        ? '<span class="badge bg-success">Staked</span>'
-        : '<span class="badge bg-secondary">Not Staked</span>';
-      
-      return `
-        <div class="card mb-2" style="background: var(--card-bg); border-color: var(--border-color);">
-          <div class="card-body p-2">
-            <div class="d-flex align-items-center gap-2">
-              <img src="${nft.image}" alt="NFT #${nft.tokenId}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
-              <div class="flex-grow-1">
-                <div class="d-flex justify-content-between align-items-center">
-                  <span style="font-weight: 600;">#${nft.tokenId}</span>
-                  ${statusBadge}
+    // Sort: staked first, then by token ID
+    nfts.sort((a, b) => {
+      if (a.isStaked !== b.isStaked) {
+        return a.isStaked ? -1 : 1;
+      }
+      return a.tokenId - b.tokenId;
+    });
+    
+    const html = `
+      <div class="quest-nft-grid">
+        ${nfts.map(nft => {
+          const cardClass = nft.isStaked ? 'quest-nft-card staked' : 'quest-nft-card';
+          const badgeClass = nft.isStaked ? 'quest-nft-badge staked' : 'quest-nft-badge unstaked';
+          const buttonClass = nft.isStaked ? 'quest-nft-button unstake' : 'quest-nft-button stake';
+          const badgeText = nft.isStaked ? 'Staked' : 'Available';
+          const buttonText = nft.isStaked ? 'Unstake' : 'Stake';
+          const action = nft.isStaked ? 'unstake' : 'stake';
+          
+          return `
+            <div class="${cardClass}" data-token-id="${nft.tokenId}">
+              <img 
+                src="${nft.image}" 
+                alt="NFT #${nft.tokenId}" 
+                class="quest-nft-image"
+                onerror="this.src='../market/adrianpunksimages/${nft.tokenId}.png'"
+              >
+              <div class="quest-nft-body">
+                <div class="quest-nft-header">
+                  <span class="quest-nft-id">#${nft.tokenId}</span>
+                  <span class="${badgeClass}">${badgeText}</span>
                 </div>
                 <button 
-                  class="btn-quest ${nft.isStaked ? 'btn-quest-primary' : ''}" 
-                  onclick="QuestStaking.${nft.isStaked ? 'unstake' : 'stake'}(${nft.tokenId})"
-                  style="margin-top: 0.5rem; width: 100%; font-size: 0.85rem;"
+                  class="${buttonClass}"
+                  onclick="QuestStaking.${action}(${nft.tokenId})"
                 >
-                  ${nft.isStaked ? 'Unstake' : 'Stake'}
+                  ${buttonText}
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      `;
-    }).join('');
+          `;
+        }).join('')}
+      </div>
+    `;
     
     container.innerHTML = html;
   },
