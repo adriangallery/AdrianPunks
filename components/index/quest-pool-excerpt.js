@@ -149,8 +149,8 @@ const QuestPoolExcerpt = {
         } else if (i === fullActivePixels && hasPartial) {
           // Partially filled bar (from left, matching Floor Engine style)
           bar.classList.add('partial');
-          const partialHeight = ((exactActivePixels - fullActivePixels) * 100);
-          bar.style.setProperty('--partial-height', `${partialHeight}%`);
+          const partialWidth = ((exactActivePixels - fullActivePixels) * 100);
+          bar.style.setProperty('--partial-width', `${partialWidth}%`);
           // Apply color to the partial fill
           bar.style.setProperty('--partial-bg', 
             colorClass === 'green' ? '#10b981' : 
