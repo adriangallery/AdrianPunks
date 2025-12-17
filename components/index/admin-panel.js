@@ -126,7 +126,7 @@ const AdminPanel = {
           const isNew = this.isNewAnnouncement(event.timestamp);
           // Get token image if it's a trade event
           const tokenImage = event.type === 'Trade' && event.tokenId 
-            ? `<img src="../market/adrianpunksimages/${event.tokenId}.png" alt="Token #${event.tokenId}" style="height: 1em; width: auto; border-radius: 4px; margin-left: 0.5rem; object-fit: cover; vertical-align: middle;">`
+            ? `<img src="../market/adrianpunksimages/${event.tokenId}.png" alt="Token #${event.tokenId}" style="height: 0.85rem; width: auto; border-radius: 4px; margin-left: 0.5rem; object-fit: cover; vertical-align: middle; display: inline-block;">`
             : '';
           return `
             <div class="announcement-item ${isNew ? 'new' : ''}">

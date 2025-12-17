@@ -123,11 +123,12 @@ const QuestPoolExcerpt = {
         percentageText.textContent = `${percentage.toFixed(1)}%`;
       }
       
-      // Generate pixel bars (10 bars for compact version)
+      // Generate pixel bars (10 bars for compact version, horizontal from left)
       const numBars = 10;
       const filledBars = (percentage / 100) * numBars;
       const fullFilledBars = Math.floor(filledBars);
-      const hasPartial = filledBars % 1 !== 0 && percentage < 100;
+      const partialAmount = filledBars - fullFilledBars;
+      const hasPartial = partialAmount > 0.01 && percentage < 100;
       
       // Determine color based on percentage
       let colorClass = 'red';
@@ -147,10 +148,10 @@ const QuestPoolExcerpt = {
           // Fully filled bar
           bar.classList.add('active', colorClass);
         } else if (i === fullFilledBars && hasPartial) {
-          // Partially filled bar
+          // Partially filled bar (from left)
           bar.classList.add('active', colorClass, 'partial');
-          const partialHeight = ((filledBars - fullFilledBars) * 100);
-          bar.style.setProperty('--partial-height', `${partialHeight}%`);
+          const partialWidth = (partialAmount * 100);
+          bar.style.setProperty('--partial-width', `${partialWidth}%`);
         } else {
           // Empty bar
           // No additional classes needed
