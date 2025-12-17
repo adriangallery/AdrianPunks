@@ -393,6 +393,8 @@ const QuestRewards = {
           // Check cache first (unless forced)
           if (!force && this.isCacheValid()) {
             this.renderRewards(this.cache.data.rewards, this.cache.data.totalRewards, container);
+            this.currentTotalRewards = this.cache.data.totalRewards;
+            this.updateTotalRewardsInStats();
             resolve();
             return;
           }
@@ -415,6 +417,8 @@ const QuestRewards = {
               // Use cached data if available, otherwise show error
               if (this.cache.data) {
                 this.renderRewards(this.cache.data.rewards, this.cache.data.totalRewards, container);
+            this.currentTotalRewards = this.cache.data.totalRewards;
+            this.updateTotalRewardsInStats();
                 resolve();
                 return;
               }
@@ -431,6 +435,11 @@ const QuestRewards = {
           
           // Render rewards
           this.renderRewards(rewardsData.rewards, rewardsData.totalRewards, container);
+          
+          // Update exposed total rewards for other modules (like quest-stats)
+          this.currentTotalRewards = rewardsData.totalRewards;
+          this.updateTotalRewardsInStats();
+          
           resolve();
         } catch (error) {
           // Suppress RPC errors
@@ -453,6 +462,8 @@ const QuestRewards = {
             const container = document.getElementById('rewardsContent');
             if (container) {
               this.renderRewards(this.cache.data.rewards, this.cache.data.totalRewards, container);
+            this.currentTotalRewards = this.cache.data.totalRewards;
+            this.updateTotalRewardsInStats();
             }
           }
           resolve();
@@ -546,6 +557,15 @@ const QuestRewards = {
       rewards: rewards.sort((a, b) => a.tokenId - b.tokenId),
       totalRewards: totalRewards
     };
+  },
+  
+  // Update Total Rewards in Your Stats panel
+  updateTotalRewardsInStats() {
+    const totalRewardsEl = document.getElementById('totalRewards');
+    if (totalRewardsEl && this.currentTotalRewards !== undefined) {
+      const formatted = this.formatReward(this.currentTotalRewards);
+      totalRewardsEl.textContent = `${formatted} $ADRIAN`;
+    }
   },
   
   // Format reward amount with proper precision (matching punkquest/game.html formatReward)
