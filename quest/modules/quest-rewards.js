@@ -8,6 +8,7 @@ const QuestRewards = {
   tokenContract: null,
   nftContract: null,
   userAccount: null,
+  currentTotalRewards: 0, // Expose current total rewards for other modules
   nftData: [],
   readProvider: null,
   cache: {
