@@ -288,9 +288,9 @@ const QuestRewards = {
       return { rewards: [], totalRewards: 0 };
     }
     
-    // Step 4: Get rewards using Multicall (in chunks) - use pendingTotalReward for efficiency
+    // Step 4: Get rewards using Multicall (in chunks) - use getTokenDetailedInfo for consistency with punkquest
     const rewards = [];
-    let totalRewards = ethers5.BigNumber.from(0);
+    let totalRewards = 0; // Sum rewards in tokens (not wei)
     
     for (let chunkStart = 0; chunkStart < stakedTokenIds.length; chunkStart += CHUNK_SIZE) {
       const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, stakedTokenIds.length);
@@ -321,14 +321,15 @@ const QuestRewards = {
             try {
               // Decode getTokenDetailedInfo result: (stakeStart, lastClaim, fast, itemsBonus, spec, fix, pending)
               // We need index 6 (pending reward)
+              // IMPORTANT: The reward value is already in ADRIAN tokens (not wei), matching punkquest/index.html
               const decoded = questReadContract.interface.decodeFunctionResult('getTokenDetailedInfo', rewardResults[i].returnData);
               const reward = decoded[6]; // pending reward is at index 6
-              const rewardAmount = parseFloat(ethers5.utils.formatUnits(reward, 18));
+              const rewardAmount = Number(reward); // Value is already in tokens, not wei
             
-            // Always add to total if reward > 0 (even if very small)
-            // The rewards are in wei, so we need to check the raw value, not the formatted one
-            if (reward.gt(0)) {
-              totalRewards = totalRewards.add(reward);
+            // Always add to total if reward > 0
+            // The reward is already in tokens, so we sum directly
+            if (rewardAmount > 0) {
+              totalRewards = totalRewards + rewardAmount;
             }
             
             const nftMeta = this.nftData.find(nft => {
@@ -362,7 +363,7 @@ const QuestRewards = {
     
     return {
       rewards: rewards.sort((a, b) => a.tokenId - b.tokenId),
-      totalRewards: parseFloat(ethers5.utils.formatUnits(totalRewards, 18))
+      totalRewards: totalRewards // Already in tokens, not wei
     };
   },
   
@@ -490,9 +491,10 @@ const QuestRewards = {
           }
           
             // Get reward using getTokenDetailedInfo (matches how punkquest reads rewards)
+            // IMPORTANT: The reward value is already in ADRIAN tokens (not wei), matching punkquest/index.html
             const tokenInfo = await this.questContract.getTokenDetailedInfo(tokenIdNum);
             const pendingReward = tokenInfo[6]; // pending reward is at index 6
-            const rewardAmount = parseFloat(ethers5.utils.formatUnits(pendingReward, 18));
+            const rewardAmount = Number(pendingReward); // Value is already in tokens, not wei
             
             if (rewardAmount > 0) {
               totalRewards += rewardAmount;
