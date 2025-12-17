@@ -123,12 +123,11 @@ const QuestPoolExcerpt = {
         percentageText.textContent = `${percentage.toFixed(1)}%`;
       }
       
-      // Generate pixel bars (10 bars for compact version, horizontal from left)
-      const numBars = 10;
-      const filledBars = (percentage / 100) * numBars;
-      const fullFilledBars = Math.floor(filledBars);
-      const partialAmount = filledBars - fullFilledBars;
-      const hasPartial = partialAmount > 0.01 && percentage < 100;
+      // Generate pixel bars (20 bars for compact version, matching Floor Engine style)
+      const numBars = 20;
+      const exactActivePixels = (percentage / 100) * numBars;
+      const fullActivePixels = Math.floor(exactActivePixels);
+      const hasPartial = exactActivePixels % 1 !== 0 && percentage < 100;
       
       // Determine color based on percentage
       let colorClass = 'red';
@@ -144,14 +143,19 @@ const QuestPoolExcerpt = {
         const bar = document.createElement('div');
         bar.className = 'quest-pool-bar';
         
-        if (i < fullFilledBars) {
+        if (i < fullActivePixels) {
           // Fully filled bar
           bar.classList.add('active', colorClass);
-        } else if (i === fullFilledBars && hasPartial) {
-          // Partially filled bar (from left)
-          bar.classList.add('active', colorClass, 'partial');
-          const partialWidth = (partialAmount * 100);
-          bar.style.setProperty('--partial-width', `${partialWidth}%`);
+        } else if (i === fullActivePixels && hasPartial) {
+          // Partially filled bar (from left, matching Floor Engine style)
+          bar.classList.add('partial');
+          const partialHeight = ((exactActivePixels - fullActivePixels) * 100);
+          bar.style.setProperty('--partial-height', `${partialHeight}%`);
+          // Apply color to the partial fill
+          bar.style.setProperty('--partial-bg', 
+            colorClass === 'green' ? '#10b981' : 
+            colorClass === 'yellow' ? '#f59e0b' : '#ef4444'
+          );
         } else {
           // Empty bar
           // No additional classes needed
