@@ -117,6 +117,7 @@ const ActivityExcerpt = {
 
       let totalTransactions = 0;
       let totalVolume = 0;
+      let totalSupply = '--';
       let adrianPrice = '--';
 
       // Get price from PriceManager if available
@@ -167,6 +168,41 @@ const ActivityExcerpt = {
             const totalTokens = parseFloat(ethers5.utils.formatUnits(totalWei, 18));
             totalVolume = totalTokens;
           }
+
+          // Get total supply directly from ERC20 contract
+          if (ethers5) {
+            try {
+              // Create a read-only provider (Alchemy or public RPC)
+              let readProvider;
+              if (window.ethereum) {
+                readProvider = new ethers5.providers.Web3Provider(window.ethereum);
+              } else {
+                // Fallback to public RPC
+                const rpcUrl = window.ALCHEMY_RPC_URL || 'https://mainnet.base.org';
+                readProvider = new ethers5.providers.JsonRpcProvider(rpcUrl, {
+                  name: "base",
+                  chainId: 8453
+                });
+              }
+              
+              // ERC20 ABI with totalSupply function
+              const tokenABI = [
+                "function totalSupply() view returns (uint256)"
+              ];
+              
+              const tokenContract = new ethers5.Contract(this.ERC20_ADDRESS, tokenABI, readProvider);
+              const totalSupplyWei = await tokenContract.totalSupply();
+              const supplyFormatted = parseFloat(ethers5.utils.formatUnits(totalSupplyWei, 18));
+              
+              totalSupply = supplyFormatted >= 1000000 
+                ? (supplyFormatted / 1000000).toFixed(1) + 'M'
+                : supplyFormatted >= 1000 
+                ? (supplyFormatted / 1000).toFixed(1) + 'K'
+                : supplyFormatted.toFixed(1);
+            } catch (error) {
+              console.warn('Error reading totalSupply from contract:', error);
+            }
+          }
         } catch (error) {
           console.warn('Could not fetch ERC20 activity data from Supabase:', error);
         }
@@ -189,6 +225,10 @@ const ActivityExcerpt = {
           <div class="excerpt-item">
             <span class="excerpt-label">Total Volume</span>
             <span class="excerpt-value">${formattedVolume}</span>
+          </div>
+          <div class="excerpt-item">
+            <span class="excerpt-label">Total Supply</span>
+            <span class="excerpt-value">${totalSupply} $ADRIAN</span>
           </div>
           <div class="excerpt-item">
             <span class="excerpt-label">$ADRIAN Price</span>

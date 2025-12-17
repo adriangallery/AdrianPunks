@@ -157,8 +157,7 @@ const AdminPanel = {
       const stats = {
         totalVolume: 0,
         totalTransactions: 0,
-        floorPrice: '--',
-        totalSupply: 0
+        floorPrice: '--'
       };
 
       if (!this.supabaseClient) {
@@ -267,37 +266,6 @@ const AdminPanel = {
           }
         }
 
-        // Get total supply directly from ERC20 contract
-        if (ethers5) {
-          try {
-            // Create a read-only provider (Alchemy or public RPC)
-            let readProvider;
-            if (window.ethereum) {
-              readProvider = new ethers5.providers.Web3Provider(window.ethereum);
-            } else {
-              // Fallback to public RPC
-              readProvider = new ethers5.providers.JsonRpcProvider('https://mainnet.base.org');
-            }
-            
-            // ERC20 ABI with totalSupply function
-            const tokenABI = [
-              "function totalSupply() view returns (uint256)"
-            ];
-            
-            const tokenContract = new ethers5.Contract(this.TOKEN_ADDRESS, tokenABI, readProvider);
-            const totalSupplyWei = await tokenContract.totalSupply();
-            const supplyFormatted = parseFloat(ethers5.utils.formatUnits(totalSupplyWei, 18));
-            
-            stats.totalSupply = supplyFormatted >= 1000000 
-              ? (supplyFormatted / 1000000).toFixed(1) + 'M'
-              : supplyFormatted >= 1000 
-              ? (supplyFormatted / 1000).toFixed(1) + 'K'
-              : supplyFormatted.toFixed(1);
-          } catch (error) {
-            console.warn('Error reading totalSupply from contract:', error);
-            // Don't set stats.totalSupply if it fails
-          }
-        }
       } catch (error) {
         console.warn('Could not fetch all stats from Supabase:', error);
       }
@@ -323,12 +291,6 @@ const AdminPanel = {
           <span class="stat-label">Floor Price</span>
           <span class="stat-value">${stats.floorPrice}</span>
         </div>
-        ${stats.totalSupply ? `
-        <div class="stat-item">
-          <span class="stat-label">Total Supply</span>
-          <span class="stat-value">${stats.totalSupply} $ADRIAN</span>
-        </div>
-        ` : ''}
       `;
     } catch (error) {
       console.error('Error loading stats:', error);

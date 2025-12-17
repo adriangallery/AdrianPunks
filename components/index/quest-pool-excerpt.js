@@ -59,7 +59,7 @@ const QuestPoolExcerpt = {
     try {
       const ethers5 = window.ethers5Backup || window.ethers;
       if (!ethers5 || !ethers5.providers) {
-        this.updateDisplay(0, this.maxAmount);
+        this.updateDisplay(0, this.maxAmount, 0);
         return;
       }
       
@@ -76,11 +76,26 @@ const QuestPoolExcerpt = {
         readProvider
       );
       
+      const questReadContract = new ethers5.Contract(
+        window.QUEST_CONFIG.PUNKQUEST_ADDRESS,
+        window.QUEST_CONFIG.QUEST_ABI,
+        readProvider
+      );
+      
       // Get contract balance (simple read)
       const balanceWei = await tokenReadContract.balanceOf(this.questContractAddress);
       const balance = parseFloat(ethers5.utils.formatUnits(balanceWei, 18));
       
-      this.updateDisplay(balance, this.maxAmount);
+      // Get total staked count
+      let totalStaked = 0;
+      try {
+        const totalStakedBN = await questReadContract.totalStaked();
+        totalStaked = totalStakedBN.toNumber();
+      } catch (error) {
+        console.warn('Error getting total staked:', error);
+      }
+      
+      this.updateDisplay(balance, this.maxAmount, totalStaked);
     } catch (error) {
       // Silently handle rate limits
       if (error.message && !error.message.includes('429') && !error.message.includes('rate limit')) {
@@ -90,12 +105,13 @@ const QuestPoolExcerpt = {
   },
   
   // Update the visual display
-  updateDisplay(currentBalance, maxAmount) {
+  updateDisplay(currentBalance, maxAmount, totalStaked = 0) {
     try {
       const barsContainer = document.getElementById('questPoolExcerptBars');
       const balanceText = document.getElementById('questPoolExcerptBalance');
       const maxText = document.getElementById('questPoolExcerptMax');
       const percentageText = document.getElementById('questPoolExcerptPercentage');
+      const stakedText = document.getElementById('questPoolExcerptStaked');
       
       if (!barsContainer) return;
       
@@ -160,6 +176,11 @@ const QuestPoolExcerpt = {
         }
         
         barsContainer.appendChild(bar);
+      }
+      
+      // Update staked count
+      if (stakedText) {
+        stakedText.textContent = `${totalStaked}/1000`;
       }
     } catch (error) {
       console.error('Error updating quest pool display:', error);
