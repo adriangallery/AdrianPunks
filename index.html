@@ -150,6 +150,7 @@
     }
 
     .info-content h2 {
+      margin-top: 0;
       margin-bottom: 1.5rem;
     }
 
@@ -601,6 +602,124 @@
     [data-theme="dark"] .token-select-btn-compact {
       background: var(--card-bg);
     }
+
+    /* Quest Pool Compact Styles (for sidebar) */
+    .quest-pool-container-compact {
+      width: 100%;
+    }
+
+    .quest-pool-visual-compact {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 2px;
+      height: 80px;
+      background: #f3f4f6;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 4px;
+      margin-bottom: 0.75rem;
+      box-sizing: border-box;
+    }
+
+    [data-theme="dark"] .quest-pool-visual-compact {
+      background: #1a1a1a;
+      border-color: var(--border-color);
+    }
+
+    .quest-pool-visual-compact .quest-pool-bars {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 2px;
+      width: 100%;
+      height: 100%;
+    }
+
+    .quest-pool-visual-compact .quest-pool-bar {
+      flex: 1;
+      min-width: 6px;
+      max-width: 12px;
+      min-height: 0;
+      height: 100%;
+      background: #e5e7eb;
+      border-radius: 1px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    [data-theme="dark"] .quest-pool-visual-compact .quest-pool-bar {
+      background: #374151;
+    }
+
+    .quest-pool-visual-compact .quest-pool-bar.active {
+      background: #10b981;
+    }
+
+    .quest-pool-visual-compact .quest-pool-bar.active.green {
+      background: #10b981;
+    }
+
+    .quest-pool-visual-compact .quest-pool-bar.active.yellow {
+      background: #f59e0b;
+    }
+
+    .quest-pool-visual-compact .quest-pool-bar.active.red {
+      background: #ef4444;
+    }
+
+    [data-theme="dark"] .quest-pool-visual-compact .quest-pool-bar.active.green {
+      background: #10b981;
+    }
+
+    [data-theme="dark"] .quest-pool-visual-compact .quest-pool-bar.active.yellow {
+      background: #f59e0b;
+    }
+
+    [data-theme="dark"] .quest-pool-visual-compact .quest-pool-bar.active.red {
+      background: #ef4444;
+    }
+
+    .quest-pool-visual-compact .quest-pool-bar.partial {
+      background: #e5e7eb;
+    }
+
+    [data-theme="dark"] .quest-pool-visual-compact .quest-pool-bar.partial {
+      background: #374151;
+    }
+
+    .quest-pool-visual-compact .quest-pool-bar.partial::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: var(--partial-height, 50%);
+      background: inherit;
+    }
+
+    .quest-pool-info-compact {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-color);
+      padding: 0;
+    }
+
+    .quest-pool-info-compact .balance {
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+
+    .quest-pool-info-compact .percentage {
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
   </style>
   <!-- Load ethers.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -775,6 +894,29 @@
         </div>
       </div>
 
+      <!-- Quest Pool Excerpt -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#questPoolExcerpt" aria-expanded="true" id="questPoolExcerptHeader">
+          <h5 class="mb-0">Quest Pool</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="questPoolExcerpt">
+          <div class="panel-body">
+            <div class="quest-pool-container-compact">
+              <div class="quest-pool-visual-compact">
+                <div class="quest-pool-bars" id="questPoolExcerptBars">
+                  <!-- Bars will be generated dynamically -->
+                </div>
+              </div>
+              <div class="quest-pool-info-compact">
+                <span class="balance"><span id="questPoolExcerptBalance">0</span> / <span id="questPoolExcerptMax">10M</span> $ADRIAN</span>
+                <span class="percentage" id="questPoolExcerptPercentage">0%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Activity Excerpt -->
       <div class="collapsible-panel">
         <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#activityExcerpt" aria-expanded="true">
@@ -796,6 +938,7 @@
   <!-- Load Excerpt Modules -->
   <script src="components/index/admin-panel.js"></script>
   <script src="components/index/floorengine-excerpt.js"></script>
+  <script src="components/index/quest-pool-excerpt.js"></script>
   <script src="components/index/activity-excerpt.js"></script>
   
   <!-- Load Section Modules -->
@@ -1101,6 +1244,10 @@
         await window.FloorENGINEExcerpt.init();
       }
       
+      if (window.QuestPoolExcerpt) {
+        await window.QuestPoolExcerpt.init();
+      }
+      
       if (window.ActivityExcerpt) {
         await window.ActivityExcerpt.init();
       }
@@ -1171,9 +1318,11 @@
         const adminPanel = document.getElementById('adminPanel');
         const mintPanel = document.getElementById('mintCompletedPanel');
         const floorenginePanel = document.getElementById('floorengineExcerpt');
+        const questPoolPanel = document.getElementById('questPoolExcerpt');
         const adminHeader = document.getElementById('adminPanelHeader');
         const mintHeader = document.getElementById('mintCompletedPanelHeader');
         const floorengineHeader = document.getElementById('floorengineExcerptHeader');
+        const questPoolHeader = document.getElementById('questPoolExcerptHeader');
         
         if (adminPanel && adminHeader) {
           if (isMobile) {
@@ -1203,6 +1352,12 @@
           // FloorENGINE siempre expandido (móviles y desktop)
           floorenginePanel.classList.add('show');
           floorengineHeader.setAttribute('aria-expanded', 'true');
+        }
+        
+        if (questPoolPanel && questPoolHeader) {
+          // Quest Pool siempre expandido (móviles y desktop)
+          questPoolPanel.classList.add('show');
+          questPoolHeader.setAttribute('aria-expanded', 'true');
         }
       }
 
