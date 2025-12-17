@@ -98,7 +98,7 @@ const QuestPool = {
     }
   },
   
-  // Update the visual display
+  // Update the visual display (using same logic as quest-pool-excerpt.js)
   updateDisplay(currentBalance, maxAmount) {
     try {
       const barsContainer = document.getElementById('questPoolBars');
@@ -107,10 +107,6 @@ const QuestPool = {
       const percentageText = document.getElementById('questPoolPercentage');
       
       if (!barsContainer) return;
-      
-      // Check if we're in compact mode (sidebar version)
-      const isCompact = barsContainer.closest('.quest-pool-visual-compact') !== null;
-      const numBars = isCompact ? 10 : 20; // Fewer bars for compact version
       
       // Calculate percentage
       const percentage = Math.min(100, (currentBalance / maxAmount) * 100);
@@ -136,18 +132,21 @@ const QuestPool = {
         percentageText.textContent = `${percentage.toFixed(1)}%`;
       }
       
-      // Generate pixel bars
-      const filledBars = (percentage / 100) * numBars;
-      const fullFilledBars = Math.floor(filledBars);
-      const partialAmount = filledBars - fullFilledBars;
-      const hasPartial = partialAmount > 0.01 && percentage < 100; // Use small threshold to avoid floating point issues
+      // Generate pixel bars (20 bars total, matching Floor Engine style exactly)
+      const numBars = 20;
+      const exactActivePixels = (percentage / 100) * numBars;
+      const fullActivePixels = Math.floor(exactActivePixels);
+      const hasPartial = exactActivePixels % 1 !== 0 && percentage < 100;
       
       // Determine color based on percentage
       let colorClass = 'red';
+      let colorBg = '#ef4444';
       if (percentage >= window.QUEST_CONFIG.POOL_GREEN_THRESHOLD) {
         colorClass = 'green';
+        colorBg = '#10b981';
       } else if (percentage >= window.QUEST_CONFIG.POOL_YELLOW_THRESHOLD) {
         colorClass = 'yellow';
+        colorBg = '#f59e0b';
       }
       
       barsContainer.innerHTML = '';
@@ -156,17 +155,17 @@ const QuestPool = {
         const bar = document.createElement('div');
         bar.className = 'quest-pool-bar';
         
-        if (i < fullFilledBars) {
-          // Fully filled bar
+        if (i < fullActivePixels) {
+          // Fully filled bar (matching Floor Engine: just add 'active' class)
           bar.classList.add('active', colorClass);
-        } else if (i === fullFilledBars && hasPartial) {
-          // Partially filled bar
-          bar.classList.add('active', colorClass, 'partial');
-          const partialWidth = (partialAmount * 100);
+        } else if (i === fullActivePixels && hasPartial) {
+          // Partially filled bar (matching Floor Engine partial style, but horizontal)
+          bar.classList.add('partial');
+          const partialWidth = ((exactActivePixels - fullActivePixels) * 100);
           bar.style.setProperty('--partial-width', `${partialWidth}%`);
+          bar.style.setProperty('--partial-bg', colorBg);
         } else {
-          // Empty bar
-          // No additional classes needed
+          // Empty bar (no classes, default background)
         }
         
         barsContainer.appendChild(bar);
