@@ -159,10 +159,10 @@ const QuestPool = {
           // Fully filled bar (matching Floor Engine: just add 'active' class)
           bar.classList.add('active', colorClass);
         } else if (i === fullActivePixels && hasPartial) {
-          // Partially filled bar (vertical - fills from bottom)
+          // Partially filled bar (matching Floor Engine partial style, but horizontal)
           bar.classList.add('partial');
-          const partialHeight = ((exactActivePixels - fullActivePixels) * 100);
-          bar.style.setProperty('--partial-height', `${partialHeight}%`);
+          const partialWidth = ((exactActivePixels - fullActivePixels) * 100);
+          bar.style.setProperty('--partial-width', `${partialWidth}%`);
           bar.style.setProperty('--partial-bg', colorBg);
         } else {
           // Empty bar (no classes, default background)
