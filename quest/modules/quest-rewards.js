@@ -198,7 +198,7 @@ const QuestRewards = {
       
       const tokenIdResults = await this.retryWithBackoff(
         () => Promise.race([
-          multicallContract.callStatic.aggregate3(tokenIdCalls),
+          multicallContract.aggregate3(tokenIdCalls),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 15000))
         ]),
         3,
@@ -246,7 +246,7 @@ const QuestRewards = {
       
       const stakeResults = await this.retryWithBackoff(
         () => Promise.race([
-          multicallContract.callStatic.aggregate3(stakeCalls),
+          multicallContract.aggregate3(stakeCalls),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 15000))
         ]),
         3,
@@ -275,8 +275,14 @@ const QuestRewards = {
     // Filter only staked tokens
     const stakedTokenIds = tokenIds.filter(tokenId => {
       const stakeInfo = stakeInfoMap.get(tokenId);
-      return stakeInfo && stakeInfo.stakeStart.gt(0);
+      const isStaked = stakeInfo && stakeInfo.stakeStart.gt(0);
+      if (isStaked) {
+        console.log(`Token #${tokenId} is staked - stakeStart: ${stakeInfo.stakeStart.toString()}, lastClaim: ${stakeInfo.lastClaim.toString()}`);
+      }
+      return isStaked;
     });
+    
+    console.log(`Found ${stakedTokenIds.length} staked tokens out of ${tokenIds.length} total tokens`);
     
     if (stakedTokenIds.length === 0) {
       return { rewards: [], totalRewards: 0 };
@@ -300,7 +306,7 @@ const QuestRewards = {
       
       const rewardResults = await this.retryWithBackoff(
         () => Promise.race([
-          multicallContract.callStatic.aggregate3(rewardCalls),
+          multicallContract.aggregate3(rewardCalls),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 15000))
         ]),
         3,
@@ -308,33 +314,43 @@ const QuestRewards = {
       );
       
       for (let i = 0; i < rewardResults.length; i++) {
+        const tokenId = stakedTokenIds[chunkStart + i];
         if (rewardResults[i].success) {
           try {
             const decoded = questReadContract.interface.decodeFunctionResult('pendingTotalReward', rewardResults[i].returnData);
             const reward = decoded[0];
             const rewardAmount = parseFloat(ethers5.utils.formatUnits(reward, 18));
             
+            // Debug log - always log to see what's happening
+            console.log(`Token #${tokenId}: reward = ${rewardAmount} $ADRIAN (raw: ${reward.toString()}, wei: ${ethers5.utils.formatUnits(reward, 18)})`);
+            
+            // Show all staked tokens, even if reward is 0 (user might want to see them)
+            // But only add to total if > 0
             if (rewardAmount > 0) {
               totalRewards = totalRewards.add(reward);
-              
-              const tokenId = stakedTokenIds[chunkStart + i];
-              const nftMeta = this.nftData.find(nft => {
-                if (nft.name) {
-                  const parts = nft.name.split('#');
-                  return parts.length === 2 && parseInt(parts[1]) === tokenId;
-                }
-                return false;
-              });
-              
-              rewards.push({
-                tokenId: tokenId,
-                reward: rewardAmount,
-                image: nftMeta ? nftMeta.image : `../market/adrianpunksimages/${tokenId}.png`
-              });
+            } else {
+              console.log(`Token #${tokenId} has 0 reward - may have been claimed recently or no time elapsed since lastClaim`);
             }
+            
+            const nftMeta = this.nftData.find(nft => {
+              if (nft.name) {
+                const parts = nft.name.split('#');
+                return parts.length === 2 && parseInt(parts[1]) === tokenId;
+              }
+              return false;
+            });
+            
+            rewards.push({
+              tokenId: tokenId,
+              reward: rewardAmount,
+              image: nftMeta ? nftMeta.image : `../market/adrianpunksimages/${tokenId}.png`
+            });
           } catch (e) {
+            console.warn(`Error decoding reward for token #${tokenId}:`, e);
             // Skip this token
           }
+        } else {
+          console.warn(`Failed to get reward for token #${tokenId} - result not successful`);
         }
       }
       
@@ -358,14 +374,14 @@ const QuestRewards = {
     
     return new Promise((resolve) => {
       this.updateDebounceTimer = setTimeout(async () => {
-        try {
-          if (!this.questContract || !this.nftContract || !this.userAccount) {
-            this.showNotConnected();
+    try {
+      if (!this.questContract || !this.nftContract || !this.userAccount) {
+        this.showNotConnected();
             resolve();
-            return;
-          }
-          
-          const container = document.getElementById('rewardsContent');
+        return;
+      }
+      
+      const container = document.getElementById('rewardsContent');
           if (!container) {
             resolve();
             return;
