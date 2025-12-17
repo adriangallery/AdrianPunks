@@ -335,6 +335,8 @@ const QuestRewards = {
               return false;
             });
             
+            // Show all staked tokens, even with very small rewards
+            // The user should see all their staked NFTs
             rewards.push({
               tokenId: tokenId,
               reward: rewardAmount,
@@ -538,30 +540,17 @@ const QuestRewards = {
     };
   },
   
-  // Format reward amount with proper precision for small numbers
+  // Format reward amount with proper precision (matching punkquest/game.html formatReward)
   formatReward(amount) {
-    if (amount === 0) return '0.00';
+    if (amount === 0) return '0.0000';
     if (amount >= 1000) {
       return (amount / 1000).toFixed(2) + 'K';
     }
-    if (amount >= 1) {
-      return amount.toFixed(2);
-    }
-    if (amount >= 0.01) {
-      return amount.toFixed(4);
-    }
-    if (amount >= 0.0001) {
-      return amount.toFixed(6);
-    }
-    if (amount >= 0.000001) {
-      return amount.toFixed(8);
-    }
-    // For very small numbers, use scientific notation or show more decimals
-    if (amount >= 0.00000001) {
-      return amount.toFixed(10);
-    }
-    // For extremely small numbers, show in scientific notation
-    return amount.toExponential(2);
+    // Use toLocaleString with 4 decimal places like punkquest/game.html
+    return amount.toLocaleString('en-US', { 
+      minimumFractionDigits: 4, 
+      maximumFractionDigits: 4 
+    });
   },
   
   // Render rewards list
