@@ -65,6 +65,7 @@ const ActivityExcerpt = {
   isInitialized: false,
   updateInterval: null,
   supabaseClient: null,
+  ERC20_ADDRESS: '0x7e99075ce287f1cf8cbcaaa6a1c7894e404fd7ea',
 
   // Initialize the activity excerpt
   async init() {
@@ -98,7 +99,17 @@ const ActivityExcerpt = {
     }, 30000);
   },
 
-  // Update the display with current activity data
+  // Helper function to format wei string (handles scientific notation)
+  formatWeiString(value) {
+    if (!value) return '0';
+    const str = String(value);
+    if (str.includes('e+') || str.includes('e-') || str.includes('E+') || str.includes('E-')) {
+      return scientificToFixed(str);
+    }
+    return str;
+  },
+
+  // Update the display with current ERC20 activity data
   async updateDisplay() {
     try {
       const container = document.getElementById('activityExcerptContent');
@@ -119,46 +130,49 @@ const ActivityExcerpt = {
         }
       }
 
-      // Get transaction data from Supabase
+      // Get ERC20 transaction data from Supabase
       if (this.supabaseClient) {
         try {
-          // Get total transactions count
+          const ethers5 = window.ethers5Backup || window.ethers;
+          
+          // Get total transactions count from erc20_transfers
           const { count: txCount } = await this.supabaseClient
-            .from('trade_events')
-            .select('*', { count: 'exact', head: true });
+            .from('erc20_transfers')
+            .select('*', { count: 'exact', head: true })
+            .eq('contract_address', this.ERC20_ADDRESS);
           
           if (txCount !== null) {
             totalTransactions = txCount;
           }
 
-          // Get total volume (sum of all trade amounts)
-          const { data: trades } = await this.supabaseClient
-            .from('trade_events')
-            .select('price_wei');
+          // Get total volume (sum of all transfer amounts)
+          const { data: transfers } = await this.supabaseClient
+            .from('erc20_transfers')
+            .select('value_wei')
+            .eq('contract_address', this.ERC20_ADDRESS);
           
-          if (trades && trades.length > 0 && window.ethers) {
-            let totalWei = ethers.BigNumber.from(0);
-            trades.forEach(trade => {
-              if (trade.price_wei) {
+          if (transfers && transfers.length > 0 && ethers5) {
+            let totalWei = ethers5.BigNumber.from(0);
+            transfers.forEach(transfer => {
+              if (transfer.value_wei) {
                 try {
                   // Convert to string to avoid overflow with scientific notation
-                  const valueStr = scientificToFixed(trade.price_wei);
-                  totalWei = totalWei.add(ethers.BigNumber.from(valueStr));
+                  const valueStr = this.formatWeiString(transfer.value_wei);
+                  totalWei = totalWei.add(ethers5.BigNumber.from(valueStr));
                 } catch (e) {
-                  console.warn('Error processing trade price:', e);
+                  console.warn('Error processing transfer value:', e);
                 }
               }
             });
-            const totalEth = parseFloat(ethers.utils.formatUnits(totalWei, 18));
-            totalVolume = totalEth;
+            const totalTokens = parseFloat(ethers5.utils.formatUnits(totalWei, 18));
+            totalVolume = totalTokens;
           }
         } catch (error) {
-          console.warn('Could not fetch activity data from Supabase:', error);
+          console.warn('Could not fetch ERC20 activity data from Supabase:', error);
         }
       }
 
-      // Format volume (convert from ETH to $ADRIAN)
-      // totalVolume is in ETH, we need to show it in $ADRIAN
+      // Format volume (already in $ADRIAN tokens)
       const formattedVolume = totalVolume >= 1000000 
         ? (totalVolume / 1000000).toFixed(1) + 'M $ADRIAN'
         : totalVolume >= 1000 
