@@ -321,15 +321,10 @@ const QuestRewards = {
             const reward = decoded[0];
             const rewardAmount = parseFloat(ethers5.utils.formatUnits(reward, 18));
             
-            // Debug log - always log to see what's happening
-            console.log(`Token #${tokenId}: reward = ${rewardAmount} $ADRIAN (raw: ${reward.toString()}, wei: ${ethers5.utils.formatUnits(reward, 18)})`);
-            
-            // Show all staked tokens, even if reward is 0 (user might want to see them)
-            // But only add to total if > 0
-            if (rewardAmount > 0) {
+            // Always add to total if reward > 0 (even if very small)
+            // The rewards are in wei, so we need to check the raw value, not the formatted one
+            if (reward.gt(0)) {
               totalRewards = totalRewards.add(reward);
-            } else {
-              console.log(`Token #${tokenId} has 0 reward - may have been claimed recently or no time elapsed since lastClaim`);
             }
             
             const nftMeta = this.nftData.find(nft => {
@@ -543,6 +538,32 @@ const QuestRewards = {
     };
   },
   
+  // Format reward amount with proper precision for small numbers
+  formatReward(amount) {
+    if (amount === 0) return '0.00';
+    if (amount >= 1000) {
+      return (amount / 1000).toFixed(2) + 'K';
+    }
+    if (amount >= 1) {
+      return amount.toFixed(2);
+    }
+    if (amount >= 0.01) {
+      return amount.toFixed(4);
+    }
+    if (amount >= 0.0001) {
+      return amount.toFixed(6);
+    }
+    if (amount >= 0.000001) {
+      return amount.toFixed(8);
+    }
+    // For very small numbers, use scientific notation or show more decimals
+    if (amount >= 0.00000001) {
+      return amount.toFixed(10);
+    }
+    // For extremely small numbers, show in scientific notation
+    return amount.toExponential(2);
+  },
+  
   // Render rewards list
   renderRewards(rewards, totalRewards, container) {
     if (rewards.length === 0) {
@@ -550,9 +571,7 @@ const QuestRewards = {
       return;
     }
     
-    const totalRewardsFormatted = totalRewards >= 1000 
-      ? (totalRewards / 1000).toFixed(2) + 'K'
-      : totalRewards.toFixed(2);
+    const totalRewardsFormatted = this.formatReward(totalRewards);
     
     const html = `
       <div class="mb-3" style="padding: 1rem; background: var(--bg-color); border-radius: 8px; border: 1px solid var(--border-color);">
@@ -567,9 +586,7 @@ const QuestRewards = {
         </button>
       </div>
       ${rewards.map(reward => {
-        const rewardFormatted = reward.reward >= 1000 
-          ? (reward.reward / 1000).toFixed(2) + 'K'
-          : reward.reward.toFixed(2);
+        const rewardFormatted = this.formatReward(reward.reward);
         
         return `
           <div class="card mb-2" style="background: var(--card-bg); border-color: var(--border-color);">
