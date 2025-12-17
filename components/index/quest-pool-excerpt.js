@@ -123,7 +123,7 @@ const QuestPoolExcerpt = {
         percentageText.textContent = `${percentage.toFixed(1)}%`;
       }
       
-      // Generate pixel bars (20 bars for compact version, matching Floor Engine style)
+      // Generate pixel bars (20 bars total, matching Floor Engine style exactly)
       const numBars = 20;
       const exactActivePixels = (percentage / 100) * numBars;
       const fullActivePixels = Math.floor(exactActivePixels);
@@ -131,10 +131,13 @@ const QuestPoolExcerpt = {
       
       // Determine color based on percentage
       let colorClass = 'red';
+      let colorBg = '#ef4444';
       if (percentage >= window.QUEST_CONFIG.POOL_GREEN_THRESHOLD) {
         colorClass = 'green';
+        colorBg = '#10b981';
       } else if (percentage >= window.QUEST_CONFIG.POOL_YELLOW_THRESHOLD) {
         colorClass = 'yellow';
+        colorBg = '#f59e0b';
       }
       
       barsContainer.innerHTML = '';
@@ -144,21 +147,16 @@ const QuestPoolExcerpt = {
         bar.className = 'quest-pool-bar';
         
         if (i < fullActivePixels) {
-          // Fully filled bar
+          // Fully filled bar (matching Floor Engine: just add 'active' class)
           bar.classList.add('active', colorClass);
         } else if (i === fullActivePixels && hasPartial) {
-          // Partially filled bar (from left, matching Floor Engine style)
+          // Partially filled bar (matching Floor Engine partial style, but horizontal)
           bar.classList.add('partial');
           const partialWidth = ((exactActivePixels - fullActivePixels) * 100);
           bar.style.setProperty('--partial-width', `${partialWidth}%`);
-          // Apply color to the partial fill
-          bar.style.setProperty('--partial-bg', 
-            colorClass === 'green' ? '#10b981' : 
-            colorClass === 'yellow' ? '#f59e0b' : '#ef4444'
-          );
+          bar.style.setProperty('--partial-bg', colorBg);
         } else {
-          // Empty bar
-          // No additional classes needed
+          // Empty bar (no classes, default background)
         }
         
         barsContainer.appendChild(bar);
