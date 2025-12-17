@@ -124,13 +124,20 @@ const AdminPanel = {
         // Render announcements
         container.innerHTML = latestEvents.map(event => {
           const isNew = this.isNewAnnouncement(event.timestamp);
+          // Get token image if it's a trade event
+          const tokenImage = event.type === 'Trade' && event.tokenId 
+            ? `<img src="../market/adrianpunksimages/${event.tokenId}.png" alt="Token #${event.tokenId}" style="width: 40px; height: 40px; border-radius: 4px; margin-right: 0.75rem; object-fit: cover; vertical-align: middle;">`
+            : '';
           return `
             <div class="announcement-item ${isNew ? 'new' : ''}">
               ${isNew ? '<span class="badge bg-success">New</span>' : ''}
-              <div class="announcement-content">
-                <h6 class="announcement-title">${event.title}</h6>
-                <p class="announcement-text">${event.content}</p>
-                <small class="announcement-date">${this.formatDate(event.timestamp)}</small>
+              <div class="announcement-content" style="display: flex; align-items: center;">
+                ${tokenImage}
+                <div style="flex: 1;">
+                  <h6 class="announcement-title">${event.title}</h6>
+                  <p class="announcement-text">${event.content}</p>
+                  <small class="announcement-date">${this.formatDate(event.timestamp)}</small>
+                </div>
               </div>
             </div>
           `;

@@ -52,7 +52,13 @@ const SwapExcerpt = {
       let ratio = '--';
       
       if (window.PriceManager && window.PriceManager.prices) {
-        adrianPrice = window.PriceManager.prices.ADRIAN || '--';
+        const adrianPriceRaw = window.PriceManager.prices.ADRIAN;
+        if (adrianPriceRaw && adrianPriceRaw !== '--') {
+          // Format to 8 decimal places
+          adrianPrice = parseFloat(adrianPriceRaw).toFixed(8);
+        } else {
+          adrianPrice = '--';
+        }
         ethPrice = window.PriceManager.prices.ETH || '--';
       }
 
@@ -89,7 +95,7 @@ const SwapExcerpt = {
           </div>
           <div class="excerpt-item">
             <span class="excerpt-label">Ratio</span>
-            <span class="excerpt-value">${ratio} ADRIAN/ETH</span>
+            <span class="excerpt-value">${ratio} $ADRIAN</span>
           </div>
           ${window.WalletManager && window.WalletManager.isConnected ? `
             <div class="excerpt-item">

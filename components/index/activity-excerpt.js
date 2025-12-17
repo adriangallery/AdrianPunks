@@ -110,7 +110,13 @@ const ActivityExcerpt = {
 
       // Get price from PriceManager if available
       if (window.PriceManager && window.PriceManager.prices) {
-        adrianPrice = window.PriceManager.prices.ADRIAN || '--';
+        const adrianPriceRaw = window.PriceManager.prices.ADRIAN;
+        if (adrianPriceRaw && adrianPriceRaw !== '--') {
+          // Format to 8 decimal places
+          adrianPrice = parseFloat(adrianPriceRaw).toFixed(8);
+        } else {
+          adrianPrice = '--';
+        }
       }
 
       // Get transaction data from Supabase
@@ -151,10 +157,13 @@ const ActivityExcerpt = {
         }
       }
 
-      // Format volume
-      const formattedVolume = totalVolume >= 1 
-        ? totalVolume.toFixed(2) + ' ETH'
-        : (totalVolume * 1000).toFixed(2) + ' mETH';
+      // Format volume (convert from ETH to $ADRIAN)
+      // totalVolume is in ETH, we need to show it in $ADRIAN
+      const formattedVolume = totalVolume >= 1000000 
+        ? (totalVolume / 1000000).toFixed(1) + 'M $ADRIAN'
+        : totalVolume >= 1000 
+        ? (totalVolume / 1000).toFixed(1) + 'K $ADRIAN'
+        : totalVolume.toFixed(2) + ' $ADRIAN';
 
       // Render excerpt
       container.innerHTML = `
