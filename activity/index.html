@@ -6,6 +6,8 @@
   <title>$ADRIAN Ecosystem Stats</title>
   <link rel="icon" type="image/x-icon" href="../favicon.ico">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="../market/styles.css">
+  <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -38,7 +40,7 @@
     body {
       background-color: var(--bg-color);
       color: var(--text-color);
-      padding-top: 80px;
+      padding-top: 0;
     }
 
     .container {
@@ -247,56 +249,117 @@
   </style>
 </head>
 <body>
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="/">$ADRIAN Ecosystem</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav ms-auto">
-          <li class="nav-item">
-            <a class="nav-link" href="/market/">Market</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link active" href="/activity/">Stats</a>
-          </li>
-        </ul>
+  <!-- Include the menu -->
+  <div id="menu-container"></div>
+  <script>
+    // Load the menu with proper styling - must run before DOMContentLoaded
+    (function() {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadMenu);
+      } else {
+        loadMenu();
+      }
+      
+      function loadMenu() {
+        fetch('../market/components/menu.html')
+          .then(response => response.text())
+          .then(html => {
+            const container = document.getElementById('menu-container');
+            if (container) {
+              container.innerHTML = html;
+              
+              // Ensure menu has correct Bootstrap classes and styling
+              const menu = container.querySelector('.navbar');
+              if (menu) {
+                menu.classList.add('navbar-dark', 'bg-dark');
+                menu.style.backgroundColor = '#212529';
+              }
+              
+              // Ensure toggler icon is visible
+              const togglerIcon = container.querySelector('.navbar-toggler-icon');
+              if (togglerIcon) {
+                togglerIcon.style.filter = 'invert(100%)';
+              }
+              
+              // Load menu script
+              if (!document.querySelector('script[src*="menu.js"]')) {
+                const script = document.createElement('script');
+                script.src = '../market/components/menu.js';
+                script.onload = function() {
+                  console.log('Menu script loaded');
+                };
+                document.head.appendChild(script);
+              }
+            }
+          })
+          .catch(error => console.error('Error loading menu:', error));
+      }
+    })();
+  </script>
+
+  <!-- Main Layout: 3 Columns -->
+  <div class="main-layout">
+    <!-- Sidebar Left: Quick Stats and Summary -->
+    <aside class="sidebar">
+      <!-- Quick Stats Panel -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#quickStatsPanel" aria-expanded="true" id="quickStatsPanelHeader">
+          <h5 class="mb-0">Quick Stats</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="quickStatsPanel">
+          <div class="panel-body">
+            <div class="quick-stats" id="quickStatsContent">
+              <div class="quick-stat-item">
+                <span class="quick-stat-label">Total Supply</span>
+                <span class="quick-stat-value" id="quickTotalSupply">Loading...</span>
+              </div>
+              <div class="quick-stat-item">
+                <span class="quick-stat-label">Total Transactions</span>
+                <span class="quick-stat-value" id="quickTotalTransactions">Loading...</span>
+              </div>
+              <div class="quick-stat-item">
+                <span class="quick-stat-label">Total Volume</span>
+                <span class="quick-stat-value" id="quickTotalVolume">Loading...</span>
+              </div>
+              <div class="quick-stat-item">
+                <span class="quick-stat-label">Total Holders</span>
+                <span class="quick-stat-value" id="quickTotalHolders">Loading...</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  </nav>
 
-  <div class="container mt-4">
-    <!-- Page Header -->
-    <div class="text-center mb-5">
-      <h1>$ADRIAN Ecosystem Statistics</h1>
-      <p class="text-muted">Comprehensive analytics for the $ADRIAN ecosystem</p>
-    </div>
+      <!-- Ecosystem Overview Panel -->
+      <div class="collapsible-panel">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#ecosystemOverviewPanel" aria-expanded="true" id="ecosystemOverviewPanelHeader">
+          <h5 class="mb-0">Ecosystem Overview</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="ecosystemOverviewPanel">
+          <div class="panel-body">
+            <div id="ecosystemOverviewContent">
+              <p style="font-size: 0.9rem; color: var(--text-color); opacity: 0.8;">
+                Comprehensive analytics for the $ADRIAN ecosystem including FloorEngine, Token, AdrianLABCore, TraitsCore, and Shop statistics.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
 
-    <!-- Tabs Navigation -->
-    <ul class="nav nav-tabs mb-4" id="mainTabs" role="tablist">
-      <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="stats-tab" data-bs-toggle="tab" data-bs-target="#stats" type="button" role="tab">
-          <i class="bi bi-graph-up"></i> Statistics
-        </button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" id="activity-tab" data-bs-toggle="tab" data-bs-target="#activity" type="button" role="tab">
-          <i class="bi bi-list-ul"></i> Raw Activity
-        </button>
-      </li>
-    </ul>
-
-    <!-- Tab Content -->
-    <div class="tab-content" id="mainTabsContent">
-      <!-- Stats Tab -->
-      <div class="tab-pane fade show active" id="stats" role="tabpanel">
-    <!-- FloorEngine Statistics Section -->
-    <div class="section-header">
-      <h2><i class="bi bi-graph-up"></i> FloorEngine Statistics</h2>
-    </div>
-    <div id="floorEngineStats" class="row g-3 mb-4">
+    <!-- Main Content: Statistics Sections -->
+    <main class="main-content">
+      <!-- FloorEngine Statistics Panel -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#floorEnginePanel" aria-expanded="true" id="floorEnginePanelHeader">
+          <h5 class="mb-0"><i class="bi bi-graph-up"></i> FloorEngine Statistics</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="floorEnginePanel">
+          <div class="panel-body">
+            <div id="floorEngineStats" class="row g-3 mb-4">
       <div class="col-md-3">
         <div class="stat-card">
           <div class="stat-label">Total Invested</div>
@@ -347,35 +410,42 @@
       </div>
     </div>
 
-    <!-- FloorEngine Charts -->
-    <div class="row mb-5">
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">FloorEngine Volume Over Time</h5>
-            <div class="chart-container">
-              <canvas id="feVolumeChart"></canvas>
+            <!-- FloorEngine Charts -->
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">FloorEngine Volume Over Time</h5>
+                    <div class="chart-container">
+                      <canvas id="feVolumeChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">FloorEngine Activity Distribution</h5>
+                    <div class="chart-container">
+                      <canvas id="feActivityChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">FloorEngine Activity Distribution</h5>
-            <div class="chart-container">
-              <canvas id="feActivityChart"></canvas>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- $ADRIAN Token Statistics Section -->
-    <div class="section-header">
-      <h2><i class="bi bi-currency-exchange"></i> $ADRIAN Token Statistics</h2>
-    </div>
-    <div id="tokenStats" class="row g-3 mb-4">
+      <!-- $ADRIAN Token Statistics Panel -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#tokenStatsPanel" aria-expanded="true" id="tokenStatsPanelHeader">
+          <h5 class="mb-0"><i class="bi bi-currency-exchange"></i> $ADRIAN Token Statistics</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="tokenStatsPanel">
+          <div class="panel-body">
+            <div id="tokenStats" class="row g-3 mb-4">
       <div class="col-md-3">
         <div class="stat-card">
           <div class="stat-label">Total Supply</div>
@@ -434,69 +504,74 @@
       </div>
     </div>
 
-    <!-- Token Charts -->
-    <div class="row mb-5">
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Token Volume Over Time</h5>
-            <div class="chart-container">
-              <canvas id="tokenVolumeChart"></canvas>
+            <!-- Token Charts -->
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Token Volume Over Time</h5>
+                    <div class="chart-container">
+                      <canvas id="tokenVolumeChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Transaction Count Over Time</h5>
+                    <div class="chart-container">
+                      <canvas id="tokenTransactionsChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Supply Distribution</h5>
+                    <div class="chart-container">
+                      <canvas id="tokenSupplyChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Staking Activity</h5>
+                    <div class="chart-container">
+                      <canvas id="tokenStakingChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Transaction Count Over Time</h5>
-            <div class="chart-container">
-              <canvas id="tokenTransactionsChart"></canvas>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Supply Distribution</h5>
-            <div class="chart-container">
-              <canvas id="tokenSupplyChart"></canvas>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Staking Activity</h5>
-            <div class="chart-container">
-              <canvas id="tokenStakingChart"></canvas>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Top Holders Section -->
-    <div class="section-header">
-      <h2><i class="bi bi-trophy"></i> Top Holders</h2>
-    </div>
-    <div class="card mb-5">
-      <div class="card-body">
-        <div id="topHoldersTable" class="loading-spinner">
-          <div class="spinner-border" role="status">
-            <span class="visually-hidden">Loading...</span>
+            <!-- Top Holders -->
+            <div class="card mb-3">
+              <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-trophy"></i> Top Holders</h5>
+                <div id="topHoldersTable" class="loading-spinner">
+                  <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- AdrianLABCore Statistics Section -->
-    <div class="section-header">
-      <h2><i class="bi bi-palette"></i> AdrianLABCore (AdrianZERO) Statistics</h2>
-    </div>
-    <div id="adrianlabcoreStats" class="row g-3 mb-4">
+      <!-- AdrianLABCore Statistics Panel -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#adrianlabcorePanel" aria-expanded="false" id="adrianlabcorePanelHeader">
+          <h5 class="mb-0"><i class="bi bi-palette"></i> AdrianLABCore Statistics</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse" id="adrianlabcorePanel">
+          <div class="panel-body">
+            <div id="adrianlabcoreStats" class="row g-3 mb-4">
       <div class="col-md-3">
         <div class="stat-card">
           <div class="stat-label">Total Supply</div>
@@ -555,56 +630,62 @@
       </div>
     </div>
 
-    <!-- AdrianLABCore Charts -->
-    <div class="row mb-5">
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Minting Activity Over Time</h5>
-            <div class="chart-container">
-              <canvas id="alcMintingChart"></canvas>
+            <!-- AdrianLABCore Charts -->
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Minting Activity Over Time</h5>
+                    <div class="chart-container">
+                      <canvas id="alcMintingChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Skin Distribution</h5>
+                    <div class="chart-container">
+                      <canvas id="alcSkinChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Mutation Distribution</h5>
+                    <div class="chart-container">
+                      <canvas id="alcMutationChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Transfer Activity</h5>
+                    <div class="chart-container">
+                      <canvas id="alcTransferChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Skin Distribution</h5>
-            <div class="chart-container">
-              <canvas id="alcSkinChart"></canvas>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Mutation Distribution</h5>
-            <div class="chart-container">
-              <canvas id="alcMutationChart"></canvas>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Transfer Activity</h5>
-            <div class="chart-container">
-              <canvas id="alcTransferChart"></canvas>
-            </div>
-          </div>
-        </div>
-      </div>
-      </div>
       </div>
 
-    <!-- TraitsCore Statistics Section -->
-    <div class="section-header">
-      <h2><i class="bi bi-box-seam"></i> TraitsCore (ERC1155) Statistics</h2>
-    </div>
-    <div id="traitsCoreStats" class="row g-3 mb-4">
+      <!-- TraitsCore Statistics Panel -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#traitscorePanel" aria-expanded="false" id="traitscorePanelHeader">
+          <h5 class="mb-0"><i class="bi bi-box-seam"></i> TraitsCore Statistics</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse" id="traitscorePanel">
+          <div class="panel-body">
+            <div id="traitsCoreStats" class="row g-3 mb-4">
       <div class="col-md-3">
         <div class="stat-card">
           <div class="stat-label">Total Assets</div>
@@ -663,35 +744,42 @@
       </div>
     </div>
 
-    <!-- TraitsCore Charts -->
-    <div class="row mb-5">
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Asset Minting Over Time</h5>
-            <div class="chart-container">
-              <canvas id="tcMintingChart"></canvas>
+            <!-- TraitsCore Charts -->
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Asset Minting Over Time</h5>
+                    <div class="chart-container">
+                      <canvas id="tcMintingChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Asset Distribution</h5>
+                    <div class="chart-container">
+                      <canvas id="tcAssetChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Asset Distribution</h5>
-            <div class="chart-container">
-              <canvas id="tcAssetChart"></canvas>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- TraitsExtensions Statistics Section -->
-    <div class="section-header">
-      <h2><i class="bi bi-gear"></i> TraitsExtensions Statistics</h2>
-    </div>
-    <div id="traitsExtensionsStats" class="row g-3 mb-4">
+      <!-- TraitsExtensions Statistics Panel -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#traitsextensionsPanel" aria-expanded="false" id="traitsextensionsPanelHeader">
+          <h5 class="mb-0"><i class="bi bi-gear"></i> TraitsExtensions Statistics</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse" id="traitsextensionsPanel">
+          <div class="panel-body">
+            <div id="traitsExtensionsStats" class="row g-3 mb-4">
       <div class="col-md-3">
         <div class="stat-card">
           <div class="stat-label">Traits Applied</div>
@@ -750,35 +838,42 @@
       </div>
     </div>
 
-    <!-- TraitsExtensions Charts -->
-    <div class="row mb-5">
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Trait Activity Over Time</h5>
-            <div class="chart-container">
-              <canvas id="teActivityChart"></canvas>
+            <!-- TraitsExtensions Charts -->
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Trait Activity Over Time</h5>
+                    <div class="chart-container">
+                      <canvas id="teActivityChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Event Distribution</h5>
+                    <div class="chart-container">
+                      <canvas id="teEventChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Event Distribution</h5>
-            <div class="chart-container">
-              <canvas id="teEventChart"></canvas>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- AdrianShop Statistics Section -->
-    <div class="section-header">
-      <h2><i class="bi bi-shop"></i> AdrianShop Statistics</h2>
-    </div>
-    <div id="shopStats" class="row g-3 mb-4">
+      <!-- AdrianShop Statistics Panel -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#shopPanel" aria-expanded="false" id="shopPanelHeader">
+          <h5 class="mb-0"><i class="bi bi-shop"></i> AdrianShop Statistics</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse" id="shopPanel">
+          <div class="panel-body">
+            <div id="shopStats" class="row g-3 mb-4">
       <div class="col-md-3">
         <div class="stat-card">
           <div class="stat-label">Total Purchases</div>
@@ -837,41 +932,46 @@
       </div>
     </div>
 
-    <!-- AdrianShop Charts -->
-    <div class="row mb-5">
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Revenue Over Time</h5>
-            <div class="chart-container">
-              <canvas id="shopRevenueChart"></canvas>
+            <!-- AdrianShop Charts -->
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Revenue Over Time</h5>
+                    <div class="chart-container">
+                      <canvas id="shopRevenueChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">Purchases by Type</h5>
+                    <div class="chart-container">
+                      <canvas id="shopPurchaseTypeChart"></canvas>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      <div class="col-md-6">
-        <div class="card">
-          <div class="card-body">
-            <h5 class="card-title">Purchases by Type</h5>
-            <div class="chart-container">
-              <canvas id="shopPurchaseTypeChart"></canvas>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-      </div> <!-- End Stats Tab -->
 
-      <!-- Raw Activity Tab -->
-      <div class="tab-pane fade" id="activity" role="tabpanel">
-        <div class="section-header">
-          <h2><i class="bi bi-list-ul"></i> Raw Activity</h2>
+      <!-- Raw Activity Panel -->
+      <div class="collapsible-panel">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#rawActivityPanel" aria-expanded="false" id="rawActivityPanelHeader">
+          <h5 class="mb-0"><i class="bi bi-list-ul"></i> Raw Activity</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
         </div>
+        <div class="collapse" id="rawActivityPanel">
+          <div class="panel-body">
 
-        <!-- Filters -->
-        <div class="card mb-4">
-          <div class="card-body">
-            <h5 class="card-title mb-3">Filters</h5>
+            <!-- Filters -->
+            <div class="card mb-4">
+              <div class="card-body">
+                <h5 class="card-title mb-3">Filters</h5>
             <div class="row g-3">
               <div class="col-md-3">
                 <label for="filterContract" class="form-label">Contract</label>
@@ -964,25 +1064,47 @@
           </div>
         </div>
 
-        <!-- Activity List -->
-        <div class="card">
-          <div class="card-body">
-            <div id="rawActivityList" class="activity-list">
-              <div class="loading-spinner">
-                <div class="spinner-border" role="status">
-                  <span class="visually-hidden">Loading...</span>
+            <!-- Activity List -->
+            <div class="card">
+              <div class="card-body">
+                <div id="rawActivityList" class="activity-list">
+                  <div class="loading-spinner">
+                    <div class="spinner-border" role="status">
+                      <span class="visually-hidden">Loading...</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div id="rawActivityLoading" class="text-center mt-3" style="display: none;">
-              <div class="spinner-border" role="status">
-                <span class="visually-hidden">Loading more...</span>
+                <div id="rawActivityLoading" class="text-center mt-3" style="display: none;">
+                  <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading more...</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div> <!-- End Raw Activity Tab -->
-    </div> <!-- End Tab Content -->
+      </div>
+    </main>
+
+    <!-- Sidebar Right: Charts and Visualizations -->
+    <aside class="sidebar">
+      <!-- Charts Summary Panel -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#chartsSummaryPanel" aria-expanded="true" id="chartsSummaryPanelHeader">
+          <h5 class="mb-0">Charts Summary</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="chartsSummaryPanel">
+          <div class="panel-body">
+            <div id="chartsSummaryContent">
+              <p style="font-size: 0.9rem; color: var(--text-color); opacity: 0.8;">
+                Detailed charts are available in each statistics section. Expand the panels to view them.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -3575,6 +3697,109 @@
       list.addEventListener('scroll', rawActivityScrollHandler);
     }
 
+    // Function to update quick stats in sidebar
+    async function updateQuickStats() {
+      if (!supabaseClient) return;
+      
+      try {
+        // Get total supply from ERC20 contract
+        const ethers5 = window.ethers5Backup || window.ethers;
+        if (ethers5) {
+          try {
+            let readProvider;
+            if (window.ethereum) {
+              readProvider = new ethers5.providers.Web3Provider(window.ethereum);
+            } else {
+              readProvider = new ethers5.providers.JsonRpcProvider('https://mainnet.base.org');
+            }
+            const tokenABI = ["function totalSupply() view returns (uint256)"];
+            const tokenContract = new ethers5.Contract(ERC20_ADDRESS, tokenABI, readProvider);
+            const totalSupplyWei = await tokenContract.totalSupply();
+            const supplyFormatted = parseFloat(ethers5.utils.formatUnits(totalSupplyWei, 18));
+            
+            const totalSupplyEl = document.getElementById('quickTotalSupply');
+            if (totalSupplyEl) {
+              totalSupplyEl.textContent = supplyFormatted >= 1000000 
+                ? (supplyFormatted / 1000000).toFixed(1) + 'M'
+                : supplyFormatted >= 1000 
+                ? (supplyFormatted / 1000).toFixed(1) + 'K'
+                : supplyFormatted.toFixed(1);
+            }
+          } catch (error) {
+            console.warn('Error reading totalSupply:', error);
+          }
+        }
+        
+        // Get total transactions from erc20_transfers
+        const { count: txCount } = await supabaseClient
+          .from('erc20_transfers')
+          .select('*', { count: 'exact', head: true })
+          .eq('contract_address', ERC20_ADDRESS);
+        
+        const totalTransactionsEl = document.getElementById('quickTotalTransactions');
+        if (totalTransactionsEl && txCount !== null) {
+          totalTransactionsEl.textContent = txCount.toLocaleString();
+        }
+        
+        // Get total volume
+        const { data: transfers } = await supabaseClient
+          .from('erc20_transfers')
+          .select('value_wei')
+          .eq('contract_address', ERC20_ADDRESS);
+        
+        if (transfers && transfers.length > 0 && window.ethers) {
+          let totalWei = ethers.BigNumber.from(0);
+          transfers.forEach(transfer => {
+            if (transfer.value_wei) {
+              try {
+                const valueStr = String(transfer.value_wei).includes('e') 
+                  ? parseFloat(transfer.value_wei).toFixed(0)
+                  : transfer.value_wei;
+                totalWei = totalWei.add(ethers.BigNumber.from(valueStr));
+              } catch (e) {
+                console.warn('Error processing transfer value:', e);
+              }
+            }
+          });
+          const totalVolume = parseFloat(ethers.utils.formatUnits(totalWei, 18));
+          
+          const totalVolumeEl = document.getElementById('quickTotalVolume');
+          if (totalVolumeEl) {
+            totalVolumeEl.textContent = totalVolume >= 1000000 
+              ? (totalVolume / 1000000).toFixed(1) + 'M $ADRIAN'
+              : totalVolume >= 1000 
+              ? (totalVolume / 1000).toFixed(1) + 'K $ADRIAN'
+              : totalVolume.toFixed(2) + ' $ADRIAN';
+          }
+        }
+        
+        // Get total holders (unique addresses from erc20_transfers)
+        const { data: holdersData } = await supabaseClient
+          .from('erc20_transfers')
+          .select('from_address, to_address')
+          .eq('contract_address', ERC20_ADDRESS);
+        
+        if (holdersData) {
+          const uniqueHolders = new Set();
+          holdersData.forEach(transfer => {
+            if (transfer.from_address && transfer.from_address !== BURN_ADDRESS) {
+              uniqueHolders.add(transfer.from_address.toLowerCase());
+            }
+            if (transfer.to_address && transfer.to_address !== BURN_ADDRESS) {
+              uniqueHolders.add(transfer.to_address.toLowerCase());
+            }
+          });
+          
+          const totalHoldersEl = document.getElementById('quickTotalHolders');
+          if (totalHoldersEl) {
+            totalHoldersEl.textContent = uniqueHolders.size.toLocaleString();
+          }
+        }
+      } catch (error) {
+        console.error('Error updating quick stats:', error);
+      }
+    }
+
     // Initialize on page load
     document.addEventListener('DOMContentLoaded', async () => {
       initSupabase();
@@ -3583,48 +3808,83 @@
       await loadRules();
       
       if (supabaseClient) {
-        // Only load stats if we're on the stats tab (don't reload when switching tabs)
-        const statsTab = document.getElementById('stats-tab');
-        const isStatsTabActive = statsTab && statsTab.classList.contains('active');
+        // Load quick stats in sidebar
+        updateQuickStats();
         
-        if (isStatsTabActive) {
+        // Load stats for expanded panels
         await Promise.all([
           loadFloorEngineStats(),
-          loadTokenStats(),
-          loadAdrianLABCoreStats(),
-          loadTraitsCoreStats(),
-          loadTraitsExtensionsStats(),
-          loadAdrianShopStats()
+          loadTokenStats()
         ]);
+        
+        // Load raw activity when panel is shown
+        const rawActivityPanel = document.getElementById('rawActivityPanel');
+        if (rawActivityPanel) {
+          rawActivityPanel.addEventListener('shown.bs.collapse', () => {
+            if (document.getElementById('rawActivityList').children.length === 0 || 
+                document.getElementById('rawActivityList').querySelector('.loading-spinner')) {
+              loadRawActivity(true);
+              setupRawActivityScroll();
+            }
+          });
         }
         
-        // Load raw activity when tab is shown (only once, don't reload stats)
-        const activityTab = document.getElementById('activity-tab');
-        if (activityTab) {
-        activityTab.addEventListener('shown.bs.tab', () => {
-          if (document.getElementById('rawActivityList').children.length === 0 || 
-              document.getElementById('rawActivityList').querySelector('.loading-spinner')) {
-            loadRawActivity(true);
-            setupRawActivityScroll();
+        // Load stats when panels are expanded (lazy loading)
+        const panels = {
+          'adrianlabcorePanel': loadAdrianLABCoreStats,
+          'traitscorePanel': loadTraitsCoreStats,
+          'traitsextensionsPanel': loadTraitsExtensionsStats,
+          'shopPanel': loadAdrianShopStats
+        };
+        
+        Object.keys(panels).forEach(panelId => {
+          const panel = document.getElementById(panelId);
+          if (panel) {
+            panel.addEventListener('shown.bs.collapse', () => {
+              if (!window[panelId + 'Loaded']) {
+                panels[panelId]();
+                window[panelId + 'Loaded'] = true;
+              }
+              // Update charts when panel is shown (Chart.js needs visible canvas)
+              setTimeout(() => {
+                const charts = {
+                  'adrianlabcorePanel': [alcMintingChart, alcSkinChart, alcMutationChart, alcTransferChart],
+                  'traitscorePanel': [tcMintingChart, tcAssetChart],
+                  'traitsextensionsPanel': [teActivityChart, teEventChart],
+                  'shopPanel': [shopRevenueChart, shopPurchaseTypeChart]
+                };
+                if (charts[panelId]) {
+                  charts[panelId].forEach(chart => {
+                    if (chart) {
+                      chart.resize();
+                    }
+                  });
+                }
+              }, 100);
+            });
           }
         });
+        
+        // Update charts when FloorEngine and Token panels are shown
+        const floorEnginePanel = document.getElementById('floorEnginePanel');
+        if (floorEnginePanel) {
+          floorEnginePanel.addEventListener('shown.bs.collapse', () => {
+            setTimeout(() => {
+              if (feVolumeChart) feVolumeChart.resize();
+              if (feActivityChart) feActivityChart.resize();
+            }, 100);
+          });
         }
         
-        // Prevent stats from reloading when switching tabs
-        const statsTabEl = document.getElementById('stats-tab');
-        if (statsTabEl) {
-          statsTabEl.addEventListener('shown.bs.tab', () => {
-            // Only load stats if charts don't exist yet
-            if (!feVolumeChart && !tokenVolumeChart) {
-              Promise.all([
-                loadFloorEngineStats(),
-                loadTokenStats(),
-                loadAdrianLABCoreStats(),
-                loadTraitsCoreStats(),
-                loadTraitsExtensionsStats(),
-                loadAdrianShopStats()
-              ]);
-            }
+        const tokenStatsPanel = document.getElementById('tokenStatsPanel');
+        if (tokenStatsPanel) {
+          tokenStatsPanel.addEventListener('shown.bs.collapse', () => {
+            setTimeout(() => {
+              if (tokenVolumeChart) tokenVolumeChart.resize();
+              if (tokenTransactionsChart) tokenTransactionsChart.resize();
+              if (tokenSupplyChart) tokenSupplyChart.resize();
+              if (tokenStakingChart) tokenStakingChart.resize();
+            }, 100);
           });
         }
       } else {
