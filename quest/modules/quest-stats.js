@@ -158,11 +158,16 @@ const QuestStats = {
           throw new Error('Ethers not available');
         }
         
-        const provider = this.questContract.provider || window.ethers.providers.getDefaultProvider();
+        // Use read-only provider (Alchemy) instead of MetaMask to avoid rate limits
+        const rpcUrl = window.QUEST_CONFIG.RPC_URL || window.ALCHEMY_RPC_URL || 'https://mainnet.base.org';
+        const readProvider = new ethers5.providers.JsonRpcProvider(rpcUrl, {
+          name: "base",
+          chainId: 8453
+        });
         const multicall = new ethers5.Contract(
           window.QUEST_CONFIG.MULTICALL3_ADDRESS,
           window.QUEST_CONFIG.MULTICALL3_ABI,
-          provider
+          readProvider
         );
         
         // Prepare calls for all staked tokens

@@ -54,11 +54,26 @@ const QUEST_CONFIG = {
   ],
   
   // RPC URLs (fallback to public if not set)
-  RPC_URL: null // Will use public Base RPC if not set
+  RPC_URL: null // Will use Alchemy or public Base RPC if not set
 };
 
-// Export for use in other modules
+// Build Alchemy RPC URL if API key is available
 if (typeof window !== 'undefined') {
+  // Check if Alchemy API key is available (from supabase-config.js)
+  if (window.ALCHEMY_API_KEY && window.ALCHEMY_API_KEY !== 'YOUR_ALCHEMY_API_KEY') {
+    window.ALCHEMY_RPC_URL = `https://base-mainnet.g.alchemy.com/v2/${window.ALCHEMY_API_KEY}`;
+    // Set as default RPC URL in QUEST_CONFIG
+    QUEST_CONFIG.RPC_URL = window.ALCHEMY_RPC_URL;
+    console.log('✅ Alchemy RPC configured for QUEST');
+  } else {
+    // Fallback to Infura or public RPC
+    const INFURA_URL = "https://base-mainnet.infura.io/v3/cc0c8013b1e044dcba79d4f7ec3b2ba1";
+    window.ALCHEMY_RPC_URL = INFURA_URL; // Use Infura as fallback
+    QUEST_CONFIG.RPC_URL = INFURA_URL;
+    console.warn('⚠️ Alchemy API key not found, using Infura fallback');
+  }
+  
+  // Export for use in other modules
   window.QUEST_CONFIG = QUEST_CONFIG;
 }
 
