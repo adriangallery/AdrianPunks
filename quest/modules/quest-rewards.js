@@ -297,10 +297,12 @@ const QuestRewards = {
       const rewardCalls = [];
       
       for (let i = chunkStart; i < chunkEnd; i++) {
+        // Use getTokenDetailedInfo instead of pendingTotalReward directly
+        // This matches how punkquest/index.html reads rewards (index 6 = pending)
         rewardCalls.push({
           target: window.QUEST_CONFIG.PUNKQUEST_ADDRESS,
           allowFailure: true,
-          callData: questReadContract.interface.encodeFunctionData('pendingTotalReward', [stakedTokenIds[i]])
+          callData: questReadContract.interface.encodeFunctionData('getTokenDetailedInfo', [stakedTokenIds[i]])
         });
       }
       
@@ -313,13 +315,15 @@ const QuestRewards = {
         1000
       );
       
-      for (let i = 0; i < rewardResults.length; i++) {
-        const tokenId = stakedTokenIds[chunkStart + i];
-        if (rewardResults[i].success) {
-          try {
-            const decoded = questReadContract.interface.decodeFunctionResult('pendingTotalReward', rewardResults[i].returnData);
-            const reward = decoded[0];
-            const rewardAmount = parseFloat(ethers5.utils.formatUnits(reward, 18));
+        for (let i = 0; i < rewardResults.length; i++) {
+          const tokenId = stakedTokenIds[chunkStart + i];
+          if (rewardResults[i].success) {
+            try {
+              // Decode getTokenDetailedInfo result: (stakeStart, lastClaim, fast, itemsBonus, spec, fix, pending)
+              // We need index 6 (pending reward)
+              const decoded = questReadContract.interface.decodeFunctionResult('getTokenDetailedInfo', rewardResults[i].returnData);
+              const reward = decoded[6]; // pending reward is at index 6
+              const rewardAmount = parseFloat(ethers5.utils.formatUnits(reward, 18));
             
             // Always add to total if reward > 0 (even if very small)
             // The rewards are in wei, so we need to check the raw value, not the formatted one
@@ -485,8 +489,9 @@ const QuestRewards = {
             continue;
           }
           
-            // Get reward
-            const pendingReward = await this.questContract.pendingTotalReward(tokenIdNum);
+            // Get reward using getTokenDetailedInfo (matches how punkquest reads rewards)
+            const tokenInfo = await this.questContract.getTokenDetailedInfo(tokenIdNum);
+            const pendingReward = tokenInfo[6]; // pending reward is at index 6
             const rewardAmount = parseFloat(ethers5.utils.formatUnits(pendingReward, 18));
             
             if (rewardAmount > 0) {
