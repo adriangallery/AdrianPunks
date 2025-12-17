@@ -676,7 +676,7 @@ const QuestRewards = {
     }
   },
   
-  // Claim all rewards (optimized with Multicall3)
+  // Claim all rewards (using batchClaimRewards for efficiency)
   async claimAll() {
     try {
       if (!this.questContract || !this.nftContract || !this.userAccount) {
@@ -709,34 +709,30 @@ const QuestRewards = {
       const allowance = await this.tokenContract.allowance(this.userAccount, window.QUEST_CONFIG.PUNKQUEST_ADDRESS);
       
       if (allowance.lt(totalFee)) {
+        // Approve with some margin (multiply by 2) to avoid needing to approve again soon
         const approveTx = await this.tokenContract.approve(
           window.QUEST_CONFIG.PUNKQUEST_ADDRESS,
-          totalFee
+          totalFee.mul(2)
         );
         await approveTx.wait();
-      }
-      
-      // Claim all (one by one - transactions must be signed)
-      let successCount = 0;
-      for (const tokenId of tokensToClaim) {
-        try {
-          const claimTx = await this.questContract.claimRewards(tokenId);
-          await claimTx.wait();
-          successCount++;
-        } catch (error) {
-          console.error(`Error claiming token ${tokenId}:`, error);
+        
+        // Verify approval completed
+        const newAllowance = await this.tokenContract.allowance(this.userAccount, window.QUEST_CONFIG.PUNKQUEST_ADDRESS);
+        if (newAllowance.lt(totalFee)) {
+          throw new Error('Approval failed or insufficient');
         }
       }
       
-      if (successCount > 0) {
-        alert(`Successfully claimed rewards for ${successCount} NFT(s)`);
-        // Clear cache and force refresh
-        this.cache.data = null;
-        this.cache.timestamp = 0;
-        this.updateRewardsDisplay(true);
-      } else {
-        alert('Failed to claim any rewards');
-      }
+      // Use batchClaimRewards for efficiency (single transaction)
+      const claimTx = await this.questContract.batchClaimRewards(tokensToClaim);
+      await claimTx.wait();
+      
+      alert(`Successfully claimed rewards for ${tokensToClaim.length} NFT(s)`);
+      
+      // Clear cache and force refresh
+      this.cache.data = null;
+      this.cache.timestamp = 0;
+      this.updateRewardsDisplay(true);
       
       // Update stats
       if (window.QuestStats) {
