@@ -3247,15 +3247,27 @@
           return;
         }
         const ethers5 = window.ethers5Backup || window.ethers;
-        const price = ethers5.BigNumber.from(priceStr);
+        
+        // Obtener el precio directamente del contrato para evitar problemas de precisión
+        // Esto asegura que usamos el valor exacto que está en el contrato, especialmente
+        // importante para precios con muchos decimales pequeños (ej: 55436965127366806366725)
+        if (!floorEngineReadContract) {
+          throw new Error("FloorEngine read contract not initialized");
+        }
+        const listing = await retryWithBackoff(() => floorEngineReadContract.listings(tokenId));
+        const price = listing.price; // Precio exacto del contrato como BigNumber
         
         // Step 1: Check allowance and approve if needed
+        // Agregar un pequeño margen de seguridad (1 wei) para evitar problemas de precisión
+        // cuando hay muchos decimales pequeños
+        const priceWithMargin = price.add(1); // Agregar 1 wei de margen
         const currentAllowance = await tokenContract.allowance(userAccount, FLOOR_ENGINE_ADDRESS);
         if (currentAllowance.lt(price)) {
           alert("Approving $ADRIAN for purchase...");
-          const txApprove = await tokenContract.approve(FLOOR_ENGINE_ADDRESS, price);
+          // Aprobar con margen de seguridad para asegurar que siempre sea suficiente
+          const txApprove = await tokenContract.approve(FLOOR_ENGINE_ADDRESS, priceWithMargin);
           await txApprove.wait();
-          console.log("$ADRIAN approved");
+          console.log("$ADRIAN approved. Price:", price.toString(), "Approved:", priceWithMargin.toString());
         }
         
         // Step 2: Buy from FloorEngine
