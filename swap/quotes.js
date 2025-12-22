@@ -237,6 +237,9 @@ const QuoteManager = {
       // Asegurar que amountIn es un string (ethers v6 requiere string)
       let amountInStr = typeof amountIn === 'string' ? amountIn : String(amountIn);
       
+      // Convertir comas a puntos para compatibilidad con teclados internacionales (especialmente móviles)
+      amountInStr = amountInStr.replace(/,/g, '.');
+      
       // Clean invalid input patterns (e.g., "0.010.", "0.010.0", trailing dots)
       amountInStr = amountInStr.replace(/\.+$/, ''); // Remove trailing dots
       amountInStr = amountInStr.replace(/\.{2,}/g, '.'); // Replace multiple dots with single dot
