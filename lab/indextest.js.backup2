@@ -4,8 +4,11 @@ const BASE_RPC_URL = 'https://mainnet.base.org';
 const BASE_EXPLORER = 'https://basescan.org';
 
 // Alchemy configuration for inventory
-const ALCHEMY_API_KEY = "pqRmKgTaLqm2eak9iML1f";
-const ALCHEMY_RPC_URL = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`;
+// Use window.ALCHEMY_API_KEY from GitHub Secrets if available, otherwise fallback
+const ALCHEMY_API_KEY = (typeof window !== 'undefined' && window.ALCHEMY_API_KEY) || 'YOUR_ALCHEMY_API_KEY';
+const ALCHEMY_RPC_URL = ALCHEMY_API_KEY !== 'YOUR_ALCHEMY_API_KEY' 
+  ? `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+  : null;
 
 // Contract addresses
 const CONTRACTS = {
