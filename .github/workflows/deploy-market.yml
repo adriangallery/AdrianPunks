@@ -144,28 +144,33 @@ jobs:
           echo "✅ Final verification passed - file ready for deploy"
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./market
-          destination_dir: market
-          keep_files: false
-          force_orphan: true
-          exclude_assets: ''
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-      
-      - name: Force include supabase-config.js in gh-pages
         run: |
-          git clone --depth=1 --branch=gh-pages https://github.com/${{ github.repository }}.git gh-pages-temp
-          cd gh-pages-temp
+          # Clone gh-pages branch
+          git clone --depth=1 --branch=gh-pages https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git gh-pages-deploy || git init gh-pages-deploy && cd gh-pages-deploy && git checkout -b gh-pages && cd ..
+          cd gh-pages-deploy
+          
+          # Remove all existing files
+          git rm -rf . 2>/dev/null || true
+          
+          # Copy all files from market directory
+          cp -r ../market/* .
+          
+          # Ensure supabase-config.js is included (force add even if in .gitignore)
+          git add -f supabase-config.js
+          git add .
+          
+          # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Copy the generated file
-          cp ../market/supabase-config.js market/supabase-config.js
-          git add -f market/supabase-config.js
-          git diff --staged --quiet || git commit -m "Force include supabase-config.js with secrets"
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git gh-pages
+          
+          # Create .nojekyll to prevent Jekyll processing
+          touch .nojekyll
+          git add .nojekyll
+          
+          # Commit and push
+          git commit -m "Deploy market with secrets - $(date -u +"%Y-%m-%d %H:%M:%S UTC")" || echo "No changes to commit"
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          git push origin gh-pages --force
           cd ..
-          rm -rf gh-pages-temp
+          rm -rf gh-pages-deploy
 
