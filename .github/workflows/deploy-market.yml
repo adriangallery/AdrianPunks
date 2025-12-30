@@ -145,8 +145,22 @@ jobs:
 
       - name: Deploy to GitHub Pages
         run: |
-          # Clone gh-pages branch
-          git clone --depth=1 --branch=gh-pages https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git gh-pages-deploy || git init gh-pages-deploy && cd gh-pages-deploy && git checkout -b gh-pages && cd ..
+          # Remove existing deploy directory if it exists
+          rm -rf gh-pages-deploy
+          
+          # Clone gh-pages branch or initialize if it doesn't exist
+          if git clone --depth=1 --branch=gh-pages https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git gh-pages-deploy 2>/dev/null; then
+            echo "✅ Cloned existing gh-pages branch"
+          else
+            echo "⚠️  gh-pages branch doesn't exist, initializing..."
+            mkdir -p gh-pages-deploy
+            cd gh-pages-deploy
+            git init
+            git checkout -b gh-pages
+            git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+            cd ..
+          fi
+          
           cd gh-pages-deploy
           
           # Remove all existing files
