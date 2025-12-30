@@ -151,6 +151,21 @@ jobs:
           destination_dir: market
           keep_files: false
           force_orphan: true
+          exclude_assets: ''
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
+      
+      - name: Force include supabase-config.js in gh-pages
+        run: |
+          git clone --depth=1 --branch=gh-pages https://github.com/${{ github.repository }}.git gh-pages-temp
+          cd gh-pages-temp
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Copy the generated file
+          cp ../market/supabase-config.js market/supabase-config.js
+          git add -f market/supabase-config.js
+          git diff --staged --quiet || git commit -m "Force include supabase-config.js with secrets"
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git gh-pages
+          cd ..
+          rm -rf gh-pages-temp
 
