@@ -144,47 +144,14 @@ jobs:
           echo "✅ Final verification passed - file ready for deploy"
 
       - name: Deploy to GitHub Pages
-        run: |
-          # Remove existing deploy directory if it exists
-          rm -rf gh-pages-deploy
-          
-          # Clone gh-pages branch or initialize if it doesn't exist
-          if git clone --depth=1 --branch=gh-pages https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git gh-pages-deploy 2>/dev/null; then
-            echo "✅ Cloned existing gh-pages branch"
-          else
-            echo "⚠️  gh-pages branch doesn't exist, initializing..."
-            mkdir -p gh-pages-deploy
-            cd gh-pages-deploy
-            git init
-            git checkout -b gh-pages
-            git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-            cd ..
-          fi
-          
-          cd gh-pages-deploy
-          
-          # Remove all existing files
-          git rm -rf . 2>/dev/null || true
-          
-          # Copy all files from market directory
-          cp -r ../market/* .
-          
-          # Ensure supabase-config.js is included (force add even if in .gitignore)
-          git add -f supabase-config.js
-          git add .
-          
-          # Configure git
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Create .nojekyll to prevent Jekyll processing
-          touch .nojekyll
-          git add .nojekyll
-          
-          # Commit and push
-          git commit -m "Deploy market with secrets - $(date -u +"%Y-%m-%d %H:%M:%S UTC")" || echo "No changes to commit"
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git push origin gh-pages --force
-          cd ..
-          rm -rf gh-pages-deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./market
+          destination_dir: market
+          keep_files: false
+          force_orphan: true
+          exclude_assets: ''
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
 
