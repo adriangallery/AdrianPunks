@@ -104,6 +104,20 @@ jobs:
         run: |
           echo "Files in market/ directory:"
           ls -la market/ | grep -E "supabase|\.js$" | head -20
+          echo ""
+          echo "Content of supabase-config.js before deploy:"
+          cat market/supabase-config.js
+          echo ""
+          echo "Verifying file has real values (not empty):"
+          if grep -q "window.SUPABASE_URL = ''" market/supabase-config.js; then
+            echo "❌ ERROR: File has empty values!"
+            exit 1
+          fi
+          if ! grep -q "https://" market/supabase-config.js; then
+            echo "❌ ERROR: SUPABASE_URL is not a valid URL!"
+            exit 1
+          fi
+          echo "✅ File verified - contains real values"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
@@ -114,4 +128,5 @@ jobs:
           force_orphan: false
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
+          exclude_assets: ''
 
