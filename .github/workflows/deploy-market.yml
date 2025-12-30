@@ -17,6 +17,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy-pages.outputs.page_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,7 +34,7 @@ jobs:
           rm -f market/supabase-config.js
           echo "✅ Existing file removed"
 
-      - name: Create Supabase config file from GitHub Secrets
+      - name: Create Supabase config files from GitHub Secrets
         run: |
           if [ -z "${{ secrets.SUPABASE_URL }}" ] || [ -z "${{ secrets.SUPABASE_ANON_KEY }}" ]; then
             echo "Error: SUPABASE_URL or SUPABASE_ANON_KEY secrets are not set"
@@ -39,7 +44,7 @@ jobs:
             echo "Error: ALCHEMY_API_KEY secret is not set"
             exit 1
           fi
-          echo "Creating Supabase config file from GitHub Secrets..."
+          echo "Creating Supabase config files from GitHub Secrets..."
           mkdir -p market
           # Generate file using printf to properly escape and include secrets
           {
@@ -50,11 +55,12 @@ jobs:
             printf "window.SUPABASE_URL = '%s';\n" "${{ secrets.SUPABASE_URL }}"
             printf "window.SUPABASE_ANON_KEY = '%s';\n" "${{ secrets.SUPABASE_ANON_KEY }}"
             printf "window.ALCHEMY_API_KEY = '%s';\n" "${{ secrets.ALCHEMY_API_KEY }}"
-          } > market/supabase-config.js
-          echo "✅ Config file created successfully from GitHub Secrets"
-          echo "File size: $(wc -c < market/supabase-config.js) bytes"
-          echo "File content (first 300 chars):"
-          head -c 300 market/supabase-config.js
+          } | tee market/supabase-config.js > market/runtime-config.js
+          echo "✅ Config files created successfully from GitHub Secrets"
+          echo "supabase-config.js size: $(wc -c < market/supabase-config.js) bytes"
+          echo "runtime-config.js size: $(wc -c < market/runtime-config.js) bytes"
+          echo "File content (first 300 chars of runtime-config.js):"
+          head -c 300 market/runtime-config.js
           echo ""
 
       - name: Verify config file
@@ -143,15 +149,16 @@ jobs:
           fi
           echo "✅ Final verification passed - file ready for deploy"
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Add CNAME for custom domain
+        run: |
+          echo "adrianpunks.com" > market/CNAME
+
+      - name: Upload artifact for Pages
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./market
-          destination_dir: market
-          keep_files: false
-          force_orphan: true
-          exclude_assets: ''
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
+          path: ./market
+
+      - name: Deploy to GitHub Pages
+        id: deploy-pages
+        uses: actions/deploy-pages@v4
 
