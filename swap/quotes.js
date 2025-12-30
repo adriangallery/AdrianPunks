@@ -1,6 +1,21 @@
 // Price and Quote Calculation Module
 // Handles price estimation and quote fetching
 
+// Helper: obtain parseEther/formatEther supporting ethers v6 (preferred) and v5 fallback
+function getParseEtherFn(ethersLib) {
+  const fn = ethersLib?.parseEther || ethersLib?.utils?.parseEther;
+  if (!fn) throw new Error('parseEther not available');
+  return (value) => {
+    const parsed = fn(value);
+    // Normalize to BigInt when ethers v5 returns BigNumber
+    return typeof parsed === 'bigint' ? parsed : BigInt(parsed.toString());
+  };
+}
+
+function getFormatEtherFn(ethersLib) {
+  return ethersLib?.formatEther || ethersLib?.utils?.formatEther;
+}
+
 const QuoteManager = {
   lastQuote: null,
   isLoadingQuote: false,
@@ -30,7 +45,8 @@ const QuoteManager = {
       // Verificar que CONFIG existe y tiene BASE_MAINNET
       if (!CONFIG || (!CONFIG.NETWORK && !CONFIG.BASE_MAINNET)) {
         console.warn('⚠️ Network configuration not available, using fallback');
-        this.cachedRatio = ethersLib.parseEther('117000000');
+        const parseEther = getParseEtherFn(ethersLib);
+        this.cachedRatio = parseEther('117000000');
         this.ratioTimestamp = Date.now();
         return this.cachedRatio;
       }
@@ -69,7 +85,8 @@ const QuoteManager = {
       
       for (const amountStr of testAmounts) {
         try {
-          const referenceAmount = ethersLib.parseEther(amountStr);
+          const parseEther = getParseEtherFn(ethersLib);
+          const referenceAmount = parseEther(amountStr);
           const referenceOutput = await swapperContract.buyAdrian.staticCall(
             referenceAmount,
             { value: referenceAmount }
@@ -102,7 +119,8 @@ const QuoteManager = {
       // This is calculated from: 0.0001 ETH → ~11,700 ADRIAN (observed)
       // Ratio = 11,700 / 0.0001 = 117,000,000 ADRIAN per ETH (after tax)
       console.log('⚠️ Could not get ratio from contract, using calculated fallback');
-      this.cachedRatio = ethersLib.parseEther('117000000'); // 117M ADRIAN per ETH
+      const parseEther = getParseEtherFn(ethersLib);
+      this.cachedRatio = parseEther('117000000'); // 117M ADRIAN per ETH
       this.ratioTimestamp = Date.now();
       
       return this.cachedRatio;
@@ -114,12 +132,13 @@ const QuoteManager = {
       // Fallback ratio: 117M ADRIAN per ETH (after tax)
       // Based on observed: 0.0001 ETH → ~11,700 ADRIAN
       try {
-        const ethersLib = window.swapEthers || window.ethers;
+        const ethersLib = window.swapEthers || window.ethers6 || window.ethers;
         if (!ethersLib) {
           console.warn('⚠️ Ethers not available for fallback ratio');
           return null;
         }
-        this.cachedRatio = ethersLib.parseEther('117000000');
+        const parseEther = getParseEtherFn(ethersLib);
+        this.cachedRatio = parseEther('117000000');
       } catch (e) {
         // If ethers not available, use BigInt directly
         this.cachedRatio = BigInt('117000000000000000000000000'); // 117M * 10^18
@@ -254,8 +273,11 @@ const QuoteManager = {
       if (!ethersLib) {
         throw new Error('Ethers library not available');
       }
+      const parseEther = getParseEtherFn(ethersLib);
+      const formatEther = getFormatEtherFn(ethersLib);
+      if (!formatEther) throw new Error('formatEther not available');
       
-      const amountInWei = ethersLib.parseEther(amountInStr);
+      const amountInWei = parseEther(amountInStr);
 
       // Use Alchemy read provider for quotes (faster and more reliable)
       const readProvider = WalletManager.getReadProvider();
@@ -309,7 +331,7 @@ const QuoteManager = {
             estimatedOutput = (amountInWei * this.cachedRatio) / (10n ** 18n);
             
             // Mark as estimate
-            const estimatedAmountOut = ethersLib.formatEther(estimatedOutput);
+            const estimatedAmountOut = formatEther(estimatedOutput);
             this.lastQuote = {
               amountIn,
               amountOut: estimatedAmountOut,
@@ -338,9 +360,12 @@ const QuoteManager = {
         if (!ethersLib) {
           throw new Error('Ethers library not available');
         }
+        const parseEther = getParseEtherFn(ethersLib);
+        const formatEther = getFormatEtherFn(ethersLib);
+        if (!formatEther) throw new Error('formatEther not available');
         
         const allowance = await WalletManager.checkAllowance();
-        const allowanceWei = ethersLib.parseEther(allowance);
+        const allowanceWei = parseEther(allowance);
         
         if (allowanceWei < amountInWei) {
           // No hay allowance suficiente - mostrar mensaje pero calcular estimado
@@ -350,7 +375,8 @@ const QuoteManager = {
           // Aproximadamente 1 ETH = 130,000 ADRIAN (ajustar según pool real)
           // Con 10% tax: output = (amountIn / 130000) * 0.9
           const ratio = 130000n; // Ratio aproximado ETH:ADRIAN
-          estimatedOutput = (amountInWei * ethersLib.parseEther('1')) / (ratio * ethersLib.parseEther('1')) * 9n / 10n;
+          const one = parseEther('1');
+          estimatedOutput = (amountInWei * one) / (ratio * one) * 9n / 10n;
           
           // Mostrar que necesita aprobación
           this.showApprovalNeeded();
@@ -395,7 +421,7 @@ const QuoteManager = {
 
       // Format amountOut with proper precision
       // The contract returns amountOut AFTER tax (10% already applied by hook)
-      const amountOutRaw = ethersLib.formatEther(estimatedOutput);
+      const amountOutRaw = formatEther(estimatedOutput);
       // Keep full precision - formatEther already returns a string with proper decimals
       // Don't remove trailing zeros yet - let updateQuoteDisplay handle formatting
       const amountOut = amountOutRaw;
@@ -451,12 +477,16 @@ const QuoteManager = {
           if (!ethersLib) {
             throw new Error('Ethers library not available');
           }
+          const parseEther = getParseEtherFn(ethersLib);
+          const formatEther = getFormatEtherFn(ethersLib);
+          if (!formatEther) throw new Error('formatEther not available');
           // Asegurar que amountIn es un string (ethers v6 requiere string)
           const amountInStr = typeof amountIn === 'string' ? amountIn : String(amountIn);
-          const amountInWei = ethersLib.parseEther(amountInStr);
+          const amountInWei = parseEther(amountInStr);
           const ratio = 130000n;
-          const estimatedOutput = (amountInWei * ethersLib.parseEther('1')) / (ratio * ethersLib.parseEther('1')) * 9n / 10n;
-          const amountOut = ethersLib.formatEther(estimatedOutput);
+          const one = parseEther('1');
+          const estimatedOutput = (amountInWei * one) / (ratio * one) * 9n / 10n;
+          const amountOut = formatEther(estimatedOutput);
           
           this.lastQuote = {
             amountIn,
