@@ -88,11 +88,20 @@ jobs:
               exit 1
             fi
             echo "✅ File verified - contains real values"
-            cat market/supabase-config.js
+            echo "File size: $(wc -c < market/supabase-config.js) bytes"
+            echo "File location: $(pwd)/market/supabase-config.js"
+            ls -la market/supabase-config.js
+            echo "First few lines:"
+            head -5 market/supabase-config.js
           else
             echo "❌ ERROR: File does not exist!"
             exit 1
           fi
+
+      - name: List files in market directory before deploy
+        run: |
+          echo "Files in market/ directory:"
+          ls -la market/ | grep -E "supabase|\.js$" | head -20
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
@@ -101,4 +110,6 @@ jobs:
           publish_dir: ./market
           keep_files: false
           force_orphan: false
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
 
