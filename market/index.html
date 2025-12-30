@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./supabase-config.js"></script>
+  <script src="./runtime-config.js"></script>
   <script>
     // #region agent log
     // Instrumentación debug: verifica carga de supabase-config.js y variables globales
@@ -3315,37 +3315,78 @@
         }
         const ethers5 = window.ethers5Backup || window.ethers;
         
-        // Obtener el precio directamente del contrato para evitar problemas de precisión
-        // Esto asegura que usamos el valor exacto que está en el contrato, especialmente
-        // importante para precios con muchos decimales pequeños (ej: 55436965127366806366725)
         if (!floorEngineReadContract) {
           throw new Error("FloorEngine read contract not initialized");
         }
+
+        // Verificar que el token siga listado on-chain
+        const isListed = await retryWithBackoff(() => floorEngineReadContract.isListed(tokenId));
+        if (!isListed) {
+          alert("This listing is no longer active on-chain. Refreshing listings.");
+          loadNFTs();
+          return;
+        }
+
         const listing = await retryWithBackoff(() => floorEngineReadContract.listings(tokenId));
         const price = listing.price; // Precio exacto del contrato como BigNumber
-        
-        // Step 1: Check allowance and approve if needed
-        // Agregar un pequeño margen de seguridad (1 wei) para evitar problemas de precisión
-        // cuando hay muchos decimales pequeños
-        const priceWithMargin = price.add(1); // Agregar 1 wei de margen
+        if (!price || price.isZero()) {
+          alert("Listing price unavailable. Please refresh listings.");
+          loadNFTs();
+          return;
+        }
+
+        // Validar balance antes de aprobar/enviar
+        let userBalance = null;
+        if (tokenReadContract) {
+          userBalance = await retryWithBackoff(() => tokenReadContract.balanceOf(userAccount));
+        } else {
+          userBalance = await tokenContract.balanceOf(userAccount);
+        }
+        if (userBalance.lt(price)) {
+          alert("Insufficient $ADRIAN balance for this purchase.");
+          return;
+        }
+
+        // Step 1: Check allowance and approve if needed (con margen de 1 wei)
+        const priceWithMargin = price.add(1);
         const currentAllowance = await tokenContract.allowance(userAccount, FLOOR_ENGINE_ADDRESS);
         if (currentAllowance.lt(price)) {
           alert("Approving $ADRIAN for purchase...");
-          // Aprobar con margen de seguridad para asegurar que siempre sea suficiente
           const txApprove = await tokenContract.approve(FLOOR_ENGINE_ADDRESS, priceWithMargin);
           await txApprove.wait();
           console.log("$ADRIAN approved. Price:", price.toString(), "Approved:", priceWithMargin.toString());
         }
+
+        // Simulación estática para detectar reverts antes de enviar
+        try {
+          await floorEngineContract.callStatic.buy(tokenId);
+        } catch (simError) {
+          console.error("Static buy simulation failed:", simError);
+          const simMsg = (simError && (simError.reason || simError.message)) ? simError.reason || simError.message : "Unknown simulation error";
+          alert("La compra fallaría: " + simMsg);
+          return;
+        }
+
+        // Estimar gas con buffer
+        let gasOptions = { gasLimit: 300000 };
+        try {
+          const gasEstimate = await floorEngineContract.estimateGas.buy(tokenId);
+          const buffered = gasEstimate.mul(120).div(100); // +20% buffer
+          gasOptions = { gasLimit: buffered };
+        } catch (gasErr) {
+          console.warn("Gas estimation failed, using default 300000", gasErr);
+        }
         
         // Step 2: Buy from FloorEngine
         alert("Purchasing token...");
-        const txPurchase = await floorEngineContract.buy(tokenId, { gasLimit: 300000 });
+        const txPurchase = await floorEngineContract.buy(tokenId, gasOptions);
         await txPurchase.wait();
         alert("Purchase successful!");
         
         loadNFTs();
-        const modal = bootstrap.Modal.getInstance(document.getElementById('nftModal'));
-        modal.hide();
+        const modalEl = document.getElementById('nftModal');
+        const modal = modalEl ? bootstrap.Modal.getInstance(modalEl) : null;
+        if (modal) modal.hide();
       } catch (error) {
         console.error("Error purchasing token:", error);
         alert("Error purchasing token: " + error.message);
