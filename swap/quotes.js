@@ -36,19 +36,12 @@ const QuoteManager = {
       // Get ethers library (v6 for swap)
       const ethersLib = window.swapEthers || window.ethers6 || window.ethers;
       if (!ethersLib) {
-        console.warn('⚠️ Ethers not available, using fallback');
-        this.cachedRatio = BigInt('117000000000000000000000000'); // 117M * 10^18
-        this.ratioTimestamp = Date.now();
-        return this.cachedRatio;
+        throw new Error('Ethers not available for ratio');
       }
       
       // Verificar que CONFIG existe y tiene BASE_MAINNET
       if (!CONFIG || (!CONFIG.NETWORK && !CONFIG.BASE_MAINNET)) {
-        console.warn('⚠️ Network configuration not available, using fallback');
-        const parseEther = getParseEtherFn(ethersLib);
-        this.cachedRatio = parseEther('117000000');
-        this.ratioTimestamp = Date.now();
-        return this.cachedRatio;
+        throw new Error('Network configuration not available');
       }
       
       const { SWAPPER_ADDRESS, SWAPPER_ABI } = CONFIG;
@@ -118,34 +111,15 @@ const QuoteManager = {
       // If all tests fail, use fallback based on observed pool behavior
       // This is calculated from: 0.0001 ETH → ~11,700 ADRIAN (observed)
       // Ratio = 11,700 / 0.0001 = 117,000,000 ADRIAN per ETH (after tax)
-      console.log('⚠️ Could not get ratio from contract, using calculated fallback');
-      const parseEther = getParseEtherFn(ethersLib);
-      this.cachedRatio = parseEther('117000000'); // 117M ADRIAN per ETH
-      this.ratioTimestamp = Date.now();
-      
-      return this.cachedRatio;
+      throw new Error('Could not get ratio from contract');
     } catch (error) {
       const errorMessage = error && typeof error === 'object' 
         ? (error.message || error.toString() || 'Unknown error')
         : String(error || 'Unknown error');
       console.warn('⚠️ Error in fetchRatioFromContract:', errorMessage);
-      // Fallback ratio: 117M ADRIAN per ETH (after tax)
-      // Based on observed: 0.0001 ETH → ~11,700 ADRIAN
-      try {
-        const ethersLib = window.swapEthers || window.ethers6 || window.ethers;
-        if (!ethersLib) {
-          console.warn('⚠️ Ethers not available for fallback ratio');
-          return null;
-        }
-        const parseEther = getParseEtherFn(ethersLib);
-        this.cachedRatio = parseEther('117000000');
-      } catch (e) {
-        // If ethers not available, use BigInt directly
-        this.cachedRatio = BigInt('117000000000000000000000000'); // 117M * 10^18
-      }
-      this.ratioTimestamp = Date.now();
-      console.log('📊 Using fallback ratio: 117,000,000 ADRIAN per ETH');
-      return this.cachedRatio;
+      this.cachedRatio = null;
+      this.ratioTimestamp = null;
+      return null;
     }
   },
 
@@ -322,6 +296,9 @@ const QuoteManager = {
             if (!this.cachedRatio) {
               await this.fetchRatioFromContract();
             }
+            if (!this.cachedRatio) {
+              throw new Error('Pool ratio unavailable for estimate');
+            }
             
             // Format ratio for display (avoid overflow)
             const ratioNumber = Number(this.cachedRatio) / Number(10n ** 18n);
@@ -368,15 +345,19 @@ const QuoteManager = {
         const allowanceWei = parseEther(allowance);
         
         if (allowanceWei < amountInWei) {
-          // No hay allowance suficiente - mostrar mensaje pero calcular estimado
-          console.log('⚠️ Allowance insufficient for exact quote, using estimation');
+          // No hay allowance suficiente - mostrar mensaje pero calcular estimado con ratio real cacheado
+          console.log('⚠️ Allowance insufficient for exact quote, using cached ratio estimation');
           
-          // Usar una estimación aproximada basada en el ratio del pool
-          // Aproximadamente 1 ETH = 130,000 ADRIAN (ajustar según pool real)
-          // Con 10% tax: output = (amountIn / 130000) * 0.9
-          const ratio = 130000n; // Ratio aproximado ETH:ADRIAN
-          const one = parseEther('1');
-          estimatedOutput = (amountInWei * one) / (ratio * one) * 9n / 10n;
+          if (!this.cachedRatio) {
+            await this.fetchRatioFromContract();
+          }
+          if (!this.cachedRatio) {
+            throw new Error('Pool ratio unavailable; approve required to proceed');
+          }
+          
+          // Convert ADRIAN -> ETH con ratio on-chain y aplicar tax 10%
+          const ethOutBeforeTax = (amountInWei * 10n ** 18n) / this.cachedRatio;
+          estimatedOutput = (ethOutBeforeTax * 9n) / 10n;
           
           // Mostrar que necesita aprobación
           this.showApprovalNeeded();
@@ -401,6 +382,9 @@ const QuoteManager = {
               // Use cached ratio for estimation
               if (!this.cachedRatio) {
                 await this.fetchRatioFromContract();
+              }
+              if (!this.cachedRatio) {
+                throw new Error('Pool ratio unavailable for estimation');
               }
               
               const ratioNumber = Number(this.cachedRatio) / Number(10n ** 18n);
@@ -466,12 +450,25 @@ const QuoteManager = {
       console.error('Error getting quote:', error);
       this.isLoadingQuote = false;
       
+      // Si es error de ratio o provider, informar y bloquear
+      if (error.message && error.message.toLowerCase().includes('ratio unavailable')) {
+        this.clearQuote();
+        if (window.NetworkManager && window.NetworkManager.showToast) {
+          NetworkManager.showToast(
+            'Sin precio disponible',
+            'No pudimos obtener el ratio on-chain. Reintenta o revisa tu conexión.',
+            'error'
+          );
+        }
+        return;
+      }
+      
       // Si es error de allowance y estamos vendiendo ADRIAN, mostrar mensaje especial
       if (error.message && error.message.includes('allowance') && fromSymbol === 'ADRIAN' && toSymbol === 'ETH') {
         console.log('💡 You need to approve ADRIAN first to sell');
         this.showApprovalNeeded();
         
-        // Intentar dar una estimación aproximada
+        // Intentar dar una estimación aproximada sólo si hay ratio on-chain cacheado
         try {
           const ethersLib = window.swapEthers || window.ethers6 || window.ethers;
           if (!ethersLib) {
@@ -480,12 +477,20 @@ const QuoteManager = {
           const parseEther = getParseEtherFn(ethersLib);
           const formatEther = getFormatEtherFn(ethersLib);
           if (!formatEther) throw new Error('formatEther not available');
+          
+          if (!this.cachedRatio) {
+            await this.fetchRatioFromContract();
+          }
+          if (!this.cachedRatio) {
+            throw new Error('Pool ratio unavailable; cannot estimate without approval');
+          }
+          
           // Asegurar que amountIn es un string (ethers v6 requiere string)
           const amountInStr = typeof amountIn === 'string' ? amountIn : String(amountIn);
           const amountInWei = parseEther(amountInStr);
-          const ratio = 130000n;
-          const one = parseEther('1');
-          const estimatedOutput = (amountInWei * one) / (ratio * one) * 9n / 10n;
+          
+          const ethOutBeforeTax = (amountInWei * 10n ** 18n) / this.cachedRatio;
+          const estimatedOutput = (ethOutBeforeTax * 9n) / 10n;
           const amountOut = formatEther(estimatedOutput);
           
           this.lastQuote = {
@@ -503,7 +508,7 @@ const QuoteManager = {
           
           NetworkManager.showToast(
             'Approval Required',
-            'You must approve ADRIAN first. Approximate quote shown.',
+            'You must approve ADRIAN first. Quote based on latest pool ratio.',
             'warning'
           );
           
