@@ -77,6 +77,24 @@ const App = {
     }
 
     console.log('📦 All modules initialized');
+    
+    // Set default example value in ETH input to show calculations
+    this.setDefaultExampleAmount();
+  },
+
+  // Set default example amount (0.01 ETH) to show calculations
+  setDefaultExampleAmount() {
+    // Wait a bit for DOM to be ready
+    setTimeout(() => {
+      const fromAmount = document.getElementById('fromAmount');
+      if (fromAmount && (!fromAmount.value || fromAmount.value.trim() === '')) {
+        fromAmount.value = '0.01';
+        // Trigger quote calculation
+        if (QuoteManager && typeof QuoteManager.handleAmountInput === 'function') {
+          QuoteManager.handleAmountInput('0.01');
+        }
+      }
+    }, 1000);
   },
 
   // Setup settings modal
