@@ -16,6 +16,20 @@ function getFormatEtherFn(ethersLib) {
   return ethersLib?.formatEther || ethersLib?.utils?.formatEther;
 }
 
+// Helper: ensure ethers is ready before using parse/format
+async function ensureEthersReady(maxRetries = 5, delayMs = 150) {
+  for (let i = 0; i < maxRetries; i++) {
+    const ethersLib = window.swapEthers || window.ethers6 || window.ethers;
+    const parseEther = ethersLib && getParseEtherFn(ethersLib);
+    const formatEther = ethersLib && getFormatEtherFn(ethersLib);
+    if (ethersLib && parseEther && formatEther) {
+      return { ethersLib, parseEther, formatEther };
+    }
+    await new Promise(r => setTimeout(r, delayMs));
+  }
+  throw new Error('ethers not ready (parse/format unavailable)');
+}
+
 const QuoteManager = {
   lastQuote: null,
   isLoadingQuote: false,
@@ -26,22 +40,15 @@ const QuoteManager = {
   // Initialize quote manager
   async init() {
     this.setupInputListeners();
-    // Fetch real ratio from contract on init
+    // Fetch real ratio from contract on init (guard against missing ethers)
     await this.fetchRatioFromContract();
   },
 
   // Fetch the real pool ratio from contract
   async fetchRatioFromContract() {
     try {
-      // Get ethers library (v6 for swap)
-      const ethersLib = window.swapEthers || window.ethers6 || window.ethers;
-      if (!ethersLib) {
-        throw new Error('Ethers not available for ratio');
-      }
-      const formatEther = getFormatEtherFn(ethersLib);
-      if (!formatEther) {
-        throw new Error('formatEther not available');
-      }
+      // Ensure ethers is ready
+      const { ethersLib, parseEther, formatEther } = await ensureEthersReady();
       
       // Verificar que CONFIG existe y tiene BASE_MAINNET
       if (!CONFIG || (!CONFIG.NETWORK && !CONFIG.BASE_MAINNET)) {
@@ -123,7 +130,8 @@ const QuoteManager = {
       console.warn('⚠️ Error in fetchRatioFromContract:', errorMessage);
       this.cachedRatio = null;
       this.ratioTimestamp = null;
-      return null;
+      // Propagar error para que el caller muestre aviso claro
+      throw error;
     }
   },
 
@@ -247,13 +255,7 @@ const QuoteManager = {
       }
       
       // Get ethers library (v6 for swap)
-      const ethersLib = window.swapEthers || window.ethers6 || window.ethers;
-      if (!ethersLib) {
-        throw new Error('Ethers library not available');
-      }
-      const parseEther = getParseEtherFn(ethersLib);
-      const formatEther = getFormatEtherFn(ethersLib);
-      if (!formatEther) throw new Error('formatEther not available');
+        const { ethersLib, parseEther, formatEther } = await ensureEthersReady();
       
       const amountInWei = parseEther(amountInStr);
 
@@ -337,13 +339,7 @@ const QuoteManager = {
       } else if (fromSymbol === 'ADRIAN' && toSymbol === 'ETH') {
         // Sell ADRIAN for ETH
         // Para vender necesitamos primero verificar allowance
-        const ethersLib = window.swapEthers || window.ethers6 || window.ethers;
-        if (!ethersLib) {
-          throw new Error('Ethers library not available');
-        }
-        const parseEther = getParseEtherFn(ethersLib);
-        const formatEther = getFormatEtherFn(ethersLib);
-        if (!formatEther) throw new Error('formatEther not available');
+        const { ethersLib, parseEther, formatEther } = await ensureEthersReady();
         
         const allowance = await WalletManager.checkAllowance();
         const allowanceWei = parseEther(allowance);
@@ -474,13 +470,7 @@ const QuoteManager = {
         
         // Intentar dar una estimación aproximada sólo si hay ratio on-chain cacheado
         try {
-          const ethersLib = window.swapEthers || window.ethers6 || window.ethers;
-          if (!ethersLib) {
-            throw new Error('Ethers library not available');
-          }
-          const parseEther = getParseEtherFn(ethersLib);
-          const formatEther = getFormatEtherFn(ethersLib);
-          if (!formatEther) throw new Error('formatEther not available');
+            const { ethersLib, parseEther, formatEther } = await ensureEthersReady();
           
           if (!this.cachedRatio) {
             await this.fetchRatioFromContract();
