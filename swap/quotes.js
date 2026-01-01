@@ -38,6 +38,10 @@ const QuoteManager = {
       if (!ethersLib) {
         throw new Error('Ethers not available for ratio');
       }
+      const formatEther = getFormatEtherFn(ethersLib);
+      if (!formatEther) {
+        throw new Error('formatEther not available');
+      }
       
       // Verificar que CONFIG existe y tiene BASE_MAINNET
       if (!CONFIG || (!CONFIG.NETWORK && !CONFIG.BASE_MAINNET)) {
