@@ -12,6 +12,9 @@ const PriceManager = {
 
   // Initialize price manager
   async init() {
+    // Show initial prices (0.00) immediately
+    this.updatePriceDisplay();
+    
     await this.updatePrices();
     
     // Update prices every minute
@@ -121,6 +124,9 @@ const PriceManager = {
         ADRIAN: `$${adrianPrice.toFixed(8)}`
       });
       
+      // Update price display cards
+      this.updatePriceDisplay();
+      
       // Update UI if amounts are present
       this.updateValueDisplays();
       
@@ -141,6 +147,20 @@ const PriceManager = {
     const price = this.getPrice(symbol);
     const value = parseFloat(amount) * price;
     return isNaN(value) ? 0 : value;
+  },
+
+  // Update price display cards
+  updatePriceDisplay() {
+    const ethDisplay = document.getElementById('priceDisplayETH');
+    const adrianDisplay = document.getElementById('priceDisplayADRIAN');
+    
+    if (ethDisplay) {
+      ethDisplay.textContent = `$${this.prices.ETH.toFixed(2)}`;
+    }
+    
+    if (adrianDisplay) {
+      adrianDisplay.textContent = `$${this.prices.ADRIAN.toFixed(8)}`;
+    }
   },
 
   // Update value displays in UI
