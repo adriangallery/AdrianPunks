@@ -70,10 +70,13 @@ const QuoteManager = {
       }
       const rpcUrl = networkConfig.rpcUrls[0] || 'https://mainnet.base.org';
       
-      // Get read provider - ensure it's initialized
-      let readProvider = WalletManager.getReadProvider ? WalletManager.getReadProvider() : WalletManager.readProvider;
-      
-      // If no read provider available, create one
+      // Get read provider - avoid using MetaMask provider (use RPC)
+      let readProvider = null;
+      const candidate = WalletManager.getReadProvider ? WalletManager.getReadProvider() : WalletManager.readProvider;
+      const isMetaMaskProvider = candidate && candidate.provider && candidate.provider.isMetaMask;
+      if (candidate && !isMetaMaskProvider) {
+        readProvider = candidate;
+      }
       if (!readProvider) {
         if (ethersLib && ethersLib.JsonRpcProvider) {
           readProvider = new ethersLib.JsonRpcProvider(rpcUrl);
