@@ -99,7 +99,7 @@ const TestSwapWidget = {
       // Check market wallet connection periodically
       this.checkMarketWalletConnection();
 
-      // Set default value of 0.01 ETH (always set, even if input has value)
+      // Set default value of 0.001 ETH (always set, even if input has value)
       this.setDefaultAmount();
 
       this.isInitialized = true;
@@ -473,7 +473,7 @@ const TestSwapWidget = {
     this.updateUSDValues(0, 0);
   },
 
-  // Set default amount (0.01 ETH) - always set to show example calculations
+  // Set default amount (0.001 ETH) - always set to show example calculations
   async setDefaultAmount() {
     const fromAmountInput = document.getElementById('testFromAmount');
     if (!fromAmountInput) return;
@@ -484,12 +484,12 @@ const TestSwapWidget = {
       // Check if wallet is connected and has enough balance
       if (WalletManager.isConnected) {
         const ethBalance = parseFloat(WalletManager.getBalance('ETH') || '0');
-        // Only set default if user has at least 0.02 ETH (0.01 for swap + 0.01 for gas)
-        if (ethBalance >= 0.02) {
-          fromAmountInput.value = '0.01';
+        // Only set default if user has at least 0.002 ETH (0.001 for swap + 0.001 for gas)
+        if (ethBalance >= 0.002) {
+          fromAmountInput.value = '0.001';
           // Trigger input handler to calculate quote
           this.handleAmountInput();
-        } else if (ethBalance > 0.001) {
+        } else if (ethBalance > 0.0001) {
           // Set a smaller default based on available balance (leave 50% for gas)
           const maxAmount = Math.max(0, (ethBalance * 0.5).toFixed(6));
           if (maxAmount > 0.0001) {
@@ -497,13 +497,13 @@ const TestSwapWidget = {
             this.handleAmountInput();
           }
         } else {
-          // Very low balance, still show example with 0.01 (user can adjust)
-          fromAmountInput.value = '0.01';
+          // Very low balance, still show example with 0.001 (user can adjust)
+          fromAmountInput.value = '0.001';
           this.handleAmountInput();
         }
       } else {
         // Wallet not connected, set default anyway to show example
-        fromAmountInput.value = '0.01';
+        fromAmountInput.value = '0.001';
         this.handleAmountInput();
       }
     }
