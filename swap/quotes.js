@@ -40,8 +40,39 @@ const QuoteManager = {
   // Initialize quote manager
   async init() {
     this.setupInputListeners();
-    // Fetch real ratio from contract on init (guard against missing ethers)
-    await this.fetchRatioFromContract();
+    // Try to fetch ratio from contract, but don't fail if it doesn't work
+    // We can calculate from prices if needed
+    try {
+      await this.fetchRatioFromContract();
+    } catch (error) {
+      console.log('⚠️ Could not fetch ratio from contract, will use price-based calculation');
+      // Try to calculate from prices if available
+      this.calculateRatioFromPrices();
+    }
+  },
+
+  // Calculate ratio from prices (fallback method)
+  calculateRatioFromPrices() {
+    try {
+      if (!window.PriceManager || !window.PriceManager.prices) {
+        return null;
+      }
+      const ethPrice = window.PriceManager.prices.ETH;
+      const adrianPrice = window.PriceManager.prices.ADRIAN;
+      
+      if (ethPrice > 0 && adrianPrice > 0) {
+        // Ratio = ETH_PRICE / ADRIAN_PRICE (ADRIAN per ETH)
+        const ratio = ethPrice / adrianPrice;
+        const ratioWei = BigInt(Math.floor(ratio * 1e18));
+        this.cachedRatio = ratioWei;
+        this.ratioTimestamp = Date.now();
+        console.log(`📊 Ratio calculated from prices: ${ratio.toLocaleString()} ADRIAN per ETH`);
+        return this.cachedRatio;
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not calculate ratio from prices:', error);
+    }
+    return null;
   },
 
   // Fetch the real pool ratio from contract
@@ -51,7 +82,8 @@ const QuoteManager = {
       const { ethersLib, parseEther, formatEther } = await ensureEthersReady();
       const swapperAbi = window.SWAPPER_ABI;
       if (!Array.isArray(swapperAbi) || swapperAbi.length === 0) {
-        throw new Error('SWAPPER_ABI unavailable');
+        // Try price-based calculation instead of failing
+        return this.calculateRatioFromPrices();
       }
       
       // Verificar que CONFIG existe y tiene BASE_MAINNET
@@ -126,19 +158,31 @@ const QuoteManager = {
         }
       }
       
-      // If all tests fail, use fallback based on observed pool behavior
-      // This is calculated from: 0.0001 ETH → ~11,700 ADRIAN (observed)
-      // Ratio = 11,700 / 0.0001 = 117,000,000 ADRIAN per ETH (after tax)
-      throw new Error('Could not get ratio from contract');
+      // If all tests fail, try to calculate from prices
+      console.log('⚠️ Could not get ratio from contract staticCall, trying price-based calculation...');
+      const priceBasedRatio = this.calculateRatioFromPrices();
+      if (priceBasedRatio) {
+        return priceBasedRatio;
+      }
+      // If price calculation also fails, throw error
+      throw new Error('Could not get ratio from contract or prices');
     } catch (error) {
       const errorMessage = error && typeof error === 'object' 
         ? (error.message || error.toString() || 'Unknown error')
         : String(error || 'Unknown error');
       console.warn('⚠️ Error in fetchRatioFromContract:', errorMessage);
+      
+      // Last resort: try price-based calculation
+      const priceBasedRatio = this.calculateRatioFromPrices();
+      if (priceBasedRatio) {
+        console.log('✅ Using price-based ratio as fallback');
+        return priceBasedRatio;
+      }
+      
       this.cachedRatio = null;
       this.ratioTimestamp = null;
-      // Propagar error para que el caller muestre aviso claro
-      throw error;
+      // Don't throw - let caller handle gracefully
+      return null;
     }
   },
 

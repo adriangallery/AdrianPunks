@@ -336,7 +336,41 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   
   <!-- Supabase & Alchemy Config (from GitHub Secrets) -->
-  <script src="../market/supabase-config.js"></script>
+  <!-- Try multiple locations for config -->
+  <script>
+    (function() {
+      const configPaths = [
+        './supabase-config.js',
+        '../market/supabase-config.js',
+        './market/supabase-config.js'
+      ];
+      let loaded = false;
+      let scriptIndex = 0;
+      
+      function tryLoadConfig() {
+        if (loaded || scriptIndex >= configPaths.length) {
+          if (!loaded) {
+            console.warn('⚠️ Could not load supabase-config.js from any location');
+          }
+          return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = configPaths[scriptIndex];
+        script.onload = () => {
+          loaded = true;
+          console.log('✅ Loaded config from:', configPaths[scriptIndex]);
+        };
+        script.onerror = () => {
+          scriptIndex++;
+          tryLoadConfig();
+        };
+        document.head.appendChild(script);
+      }
+      
+      tryLoadConfig();
+    })();
+  </script>
   
   <!-- App Modules -->
   <script src="config.js"></script>
