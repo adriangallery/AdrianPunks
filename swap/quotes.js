@@ -30,6 +30,60 @@ async function ensureEthersReady(maxRetries = 5, delayMs = 150) {
   throw new Error('ethers not ready (parse/format unavailable)');
 }
 
+// Helper: normalize comma to dot for decimal separator (mobile keyboard compatibility)
+// Converts comma to dot while preserving the input value for display
+function normalizeDecimalSeparator(value) {
+  if (typeof value !== 'string') return value;
+  // Replace comma with dot for processing, but allow user to see comma
+  return value.replace(/,/g, '.');
+}
+
+// Helper: setup input with comma-to-dot normalization
+// Attaches event listener to convert comma to dot in real-time
+function setupDecimalInputNormalization(inputElement) {
+  if (!inputElement) return;
+  
+  // Convert comma to dot on input (real-time)
+  inputElement.addEventListener('input', (e) => {
+    const value = e.target.value;
+    // If user typed a comma, convert it to dot
+    if (value.includes(',')) {
+      const cursorPos = e.target.selectionStart;
+      const newValue = value.replace(/,/g, '.');
+      // Only update if value changed (avoid cursor jumping)
+      if (newValue !== value) {
+        e.target.value = newValue;
+        // Restore cursor position (adjust for comma->dot conversion)
+        const commaCount = (value.substring(0, cursorPos).match(/,/g) || []).length;
+        const newCursorPos = cursorPos - commaCount;
+        e.target.setSelectionRange(newCursorPos, newCursorPos);
+      }
+    }
+  });
+  
+  // Also normalize on blur to ensure consistency
+  inputElement.addEventListener('blur', (e) => {
+    const value = e.target.value;
+    if (value.includes(',')) {
+      e.target.value = value.replace(/,/g, '.');
+    }
+  });
+}
+
+// Quote Manager Module
+// Handles price estimation and quote fetching for swaps
+//
+// ANTI-SANDWICH BOT PROTECTION:
+// - NO hardcoded ratios or fallback values (removed 117000000 hardcoded ratio)
+// - Fetches real-time ratio from contract via staticCall (priority 1)
+// - Calculates ratio from prices (ETH_PRICE / ADRIAN_PRICE) if contract unavailable (priority 2)
+// - Returns null/error if no valid ratio available (never uses stale data)
+// This prevents sandwich bots from exploiting outdated hardcoded ratios.
+//
+// MOBILE KEYBOARD SUPPORT:
+// - Automatically converts comma (,) to dot (.) for decimal separator
+// - Works in real-time as user types
+// - Compatible with keyboards that only have comma as decimal separator
 const QuoteManager = {
   lastQuote: null,
   isLoadingQuote: false,
@@ -193,11 +247,15 @@ const QuoteManager = {
     const maxBtn = document.getElementById('maxBtn');
 
     if (fromAmount) {
+      // Setup comma-to-dot normalization for mobile keyboards
+      setupDecimalInputNormalization(fromAmount);
+      
       // Debounce input to avoid too many requests
       let debounceTimer;
       fromAmount.addEventListener('input', (e) => {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
+          // Value is already normalized by setupDecimalInputNormalization
           this.handleAmountInput(e.target.value);
         }, 500);
       });
@@ -218,14 +276,17 @@ const QuoteManager = {
 
   // Handle amount input change
   async handleAmountInput(value) {
+    // Normalize comma to dot (mobile keyboard compatibility)
+    const normalizedValue = normalizeDecimalSeparator(value);
+    
     // Validate input
-    if (!value || value === '0' || value === '0.' || value === '.') {
+    if (!normalizedValue || normalizedValue === '0' || normalizedValue === '0.' || normalizedValue === '.') {
       this.clearQuote();
       return;
     }
 
-    // Update USD value for from amount
-    this.updateFromValueUSD(value);
+    // Update USD value for from amount (use normalized value)
+    this.updateFromValueUSD(normalizedValue);
 
     // Check if wallet is ready
     if (!WalletManager.isReady()) {
@@ -236,7 +297,7 @@ const QuoteManager = {
     const fromTokenSymbolEl = document.getElementById('fromTokenSymbol') || document.getElementById('testFromTokenSymbol');
     if (!fromTokenSymbolEl) return;
     const fromSymbol = fromTokenSymbolEl.textContent;
-    const amount = parseFloat(value);
+    const amount = parseFloat(normalizedValue);
     
     // Check if amount is valid number
     if (isNaN(amount) || amount <= 0) {

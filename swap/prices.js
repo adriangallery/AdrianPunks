@@ -1,5 +1,11 @@
 // Price Feed Module
-// Fetches token prices from CoinGecko API
+// Fetches token prices from GeckoTerminal API
+//
+// ANTI-SANDWICH BOT PROTECTION:
+// - NO hardcoded fallback ratios
+// - Uses real-time contract ratio (via QuoteManager) for ADRIAN price calculation
+// - Falls back to GeckoTerminal direct price if ratio unavailable
+// - Returns 0 if no valid data (never uses stale/hardcoded values)
 
 const PriceManager = {
   prices: {

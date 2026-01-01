@@ -1,6 +1,13 @@
 // Test Swap Widget Module for market
 // Reuses swap modules to provide simplified swap functionality
 // Uses 'test' prefix for all IDs to avoid conflicts
+//
+// IMPORTANT: This module uses QuoteManager and PriceManager from swap/ directory.
+// All ratio calculations and price fetching are handled by those modules, which:
+// - Fetch ratios dynamically from the contract (no hardcoded values)
+// - Use price-based calculation as fallback (ETH_PRICE / ADRIAN_PRICE)
+// - Never use hardcoded ratios to prevent sandwich bot attacks
+// See swap/quotes.js and swap/prices.js for implementation details.
 
 const TestSwapWidget = {
   isInitialized: false,
@@ -108,8 +115,31 @@ const TestSwapWidget = {
     // From amount input
     const fromAmountInput = document.getElementById('testFromAmount');
     if (fromAmountInput) {
-      fromAmountInput.addEventListener('input', () => this.handleAmountInput());
-      fromAmountInput.addEventListener('blur', () => this.handleAmountInput());
+      // Setup comma-to-dot normalization for mobile keyboards (real-time conversion)
+      fromAmountInput.addEventListener('input', (e) => {
+        const value = e.target.value;
+        // If user typed a comma, convert it to dot immediately
+        if (value.includes(',')) {
+          const cursorPos = e.target.selectionStart;
+          const newValue = value.replace(/,/g, '.');
+          if (newValue !== value) {
+            e.target.value = newValue;
+            // Restore cursor position (adjust for comma->dot conversion)
+            const commaCount = (value.substring(0, cursorPos).match(/,/g) || []).length;
+            const newCursorPos = cursorPos - commaCount;
+            e.target.setSelectionRange(newCursorPos, newCursorPos);
+          }
+        }
+        // Then handle the input
+        this.handleAmountInput();
+      });
+      fromAmountInput.addEventListener('blur', () => {
+        // Ensure final normalization on blur
+        if (fromAmountInput.value.includes(',')) {
+          fromAmountInput.value = fromAmountInput.value.replace(/,/g, '.');
+        }
+        this.handleAmountInput();
+      });
     }
 
     // MAX button
@@ -223,6 +253,20 @@ const TestSwapWidget = {
 
     let amount = fromAmountInput.value.trim();
     
+    // Normalize comma to dot (mobile keyboard compatibility)
+    // Convert comma to dot for processing
+    if (amount.includes(',')) {
+      amount = amount.replace(/,/g, '.');
+      // Update input value if it changed
+      if (fromAmountInput.value !== amount) {
+        const cursorPos = fromAmountInput.selectionStart;
+        fromAmountInput.value = amount;
+        // Restore cursor position (adjust for comma->dot conversion)
+        const commaCount = (fromAmountInput.value.substring(0, cursorPos).match(/,/g) || []).length;
+        fromAmountInput.setSelectionRange(cursorPos - commaCount, cursorPos - commaCount);
+      }
+    }
+    
     // Allow user to type "." while writing, but clean invalid patterns
     // Only clean on blur or when processing, not while typing
     // For now, just prevent multiple dots
@@ -248,6 +292,7 @@ const TestSwapWidget = {
     // Validate that amount is a valid number format (allow "." while typing)
     // Must match: optional digits, optional dot, optional digits
     // Allow "." alone or at start (user might be typing "0.5")
+    // Note: amount is already normalized (comma->dot) at this point
     if (!/^\d*\.?\d*$/.test(amount)) {
       // Invalid format, don't process but allow typing
       return;
