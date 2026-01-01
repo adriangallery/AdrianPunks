@@ -49,6 +49,9 @@ const QuoteManager = {
     try {
       // Ensure ethers is ready
       const { ethersLib, parseEther, formatEther } = await ensureEthersReady();
+      if (!Array.isArray(SWAPPER_ABI) || SWAPPER_ABI.length === 0) {
+        throw new Error('SWAPPER_ABI unavailable');
+      }
       
       // Verificar que CONFIG existe y tiene BASE_MAINNET
       if (!CONFIG || (!CONFIG.NETWORK && !CONFIG.BASE_MAINNET)) {

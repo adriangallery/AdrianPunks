@@ -20,16 +20,19 @@ const PriceManager = {
     }, this.updateInterval);
   },
 
-  // Get ETH price from CoinGecko
+  // Get ETH price (GeckoTerminal) fallback 0
   async getETHPrice() {
     try {
-      const response = await fetch(
-        'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd'
-      );
-      const data = await response.json();
-      return data.ethereum?.usd || 0;
+      // WETH on Base
+      const wethAddress = '0x4200000000000000000000000000000000000006';
+      const url = `https://api.geckoterminal.com/api/v2/networks/base/tokens/${wethAddress}`;
+      const res = await fetch(url, { headers: { 'accept': 'application/json' } });
+      const data = await res.json();
+      const price = Number(data?.data?.attributes?.price_usd || 0);
+      if (!isFinite(price) || price <= 0) throw new Error('Invalid price');
+      return price;
     } catch (error) {
-      console.error('Error fetching ETH price:', error);
+      console.error('Error fetching ETH price (GeckoTerminal):', error);
       return 0;
     }
   },
@@ -37,7 +40,7 @@ const PriceManager = {
   // Calculate ADRIAN price based on real pool ratio from contract
   async getADRIANPrice() {
     try {
-      // ADRIAN price is derived from ETH price and pool ratio
+      // ADRIAN price is derived from ETH price and pool ratio; fallback GeckoTerminal
       const ethPrice = this.prices.ETH || await this.getETHPrice();
       
       // Try to get real-time ratio - no hardcoded fallbacks!
@@ -70,10 +73,20 @@ const PriceManager = {
         }
       }
       
-      // If no ratio available, return 0 (will update when first quote is made)
+      // If no ratio available, try GeckoTerminal direct
       if (!adrianPerEth || adrianPerEth === 0) {
-        console.log('⏳ No pool ratio available yet - waiting for first quote');
-        return 0;
+        try {
+          const adrianAddress = '0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea';
+          const url = `https://api.geckoterminal.com/api/v2/networks/base/tokens/${adrianAddress}`;
+          const res = await fetch(url, { headers: { 'accept': 'application/json' } });
+          const data = await res.json();
+          const price = Number(data?.data?.attributes?.price_usd || 0);
+          if (!isFinite(price) || price <= 0) throw new Error('Invalid price');
+          return price;
+        } catch (e) {
+          console.log('⏳ No pool ratio available yet - waiting for first quote');
+          return 0;
+        }
       }
       
       // Calculate price: 1 ADRIAN = ETH_PRICE / adrianPerEth
