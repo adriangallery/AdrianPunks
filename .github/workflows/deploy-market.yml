@@ -34,11 +34,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Remove existing supabase-config.js from repository
+      - name: Remove existing config files from repository
         run: |
-          echo "Removing existing supabase-config.js from repository to ensure clean generation..."
+          echo "Removing existing config files from repository to ensure clean generation..."
           rm -f market/supabase-config.js
-          echo "✅ Existing file removed"
+          rm -f market/runtime-config.js
+          echo "✅ Existing files removed"
 
       - name: Create Supabase config files from GitHub Secrets
         run: |
@@ -87,6 +88,13 @@ jobs:
             echo "Error: ALCHEMY_API_KEY not found in config file"
             exit 1
           fi
+          if [ ! -f "market/runtime-config.js" ]; then
+            echo "Error: runtime-config.js file not created"
+            exit 1
+          fi
+          if ! diff -q market/supabase-config.js market/runtime-config.js >/dev/null; then
+            echo "Warning: runtime-config.js differs from supabase-config.js"
+          fi
           echo "Config file verified successfully"
           echo "First 20 chars of SUPABASE_URL: $(grep -o "window.SUPABASE_URL = '[^']*'" market/supabase-config.js | sed "s/.*'\(.\{20\}\).*/\1/")"
           echo "First 20 chars of SUPABASE_ANON_KEY: $(grep -o "window.SUPABASE_ANON_KEY = '[^']*'" market/supabase-config.js | sed "s/.*'\(.\{20\}\).*/\1/")"
@@ -115,6 +123,18 @@ jobs:
             echo "❌ ERROR: File does not exist!"
             exit 1
           fi
+          echo "Verifying runtime-config.js mirrors supabase-config.js..."
+          if [ -f "market/runtime-config.js" ]; then
+            ls -la market/runtime-config.js
+            head -5 market/runtime-config.js
+            if ! diff -q market/supabase-config.js market/runtime-config.js >/dev/null; then
+              echo "❌ ERROR: runtime-config.js differs from supabase-config.js!"
+              exit 1
+            fi
+          else
+            echo "❌ ERROR: runtime-config.js does not exist!"
+            exit 1
+          fi
 
       - name: List files in market directory before deploy
         run: |
@@ -123,6 +143,9 @@ jobs:
           echo ""
           echo "Content of supabase-config.js before deploy:"
           cat market/supabase-config.js
+          echo ""
+          echo "Content of runtime-config.js before deploy:"
+          cat market/runtime-config.js
           echo ""
           echo "Verifying file has real values (not empty):"
           if grep -q "window.SUPABASE_URL = ''" market/supabase-config.js; then
@@ -154,6 +177,24 @@ jobs:
             exit 1
           fi
           echo "✅ Final verification passed - file ready for deploy"
+          echo "Final verification of runtime-config.js:"
+          if [ ! -f "market/runtime-config.js" ]; then
+            echo "❌ ERROR: runtime-config.js does not exist!"
+            exit 1
+          fi
+          if grep -q "window.SUPABASE_URL = ''" market/runtime-config.js; then
+            echo "❌ ERROR: runtime-config.js has empty values!"
+            exit 1
+          fi
+          if ! grep -q "https://" market/runtime-config.js; then
+            echo "❌ ERROR: runtime-config.js SUPABASE_URL is not a valid URL!"
+            exit 1
+          fi
+          if ! diff -q market/supabase-config.js market/runtime-config.js >/dev/null; then
+            echo "❌ ERROR: runtime-config.js differs from supabase-config.js!"
+            exit 1
+          fi
+          echo "✅ runtime-config.js verified"
 
       - name: Prepare deploy folder with subpath /market
         run: |

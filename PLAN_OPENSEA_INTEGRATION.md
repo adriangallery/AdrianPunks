@@ -139,3 +139,4 @@ Integrar listings de OpenSea en el market, mostrándolos junto con los listings 
 2. `OPENSEA_MCP_TOKEN`
 3. `OPENSEA_API_KEY`
 
+
