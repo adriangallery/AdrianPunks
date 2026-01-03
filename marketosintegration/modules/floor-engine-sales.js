@@ -107,7 +107,7 @@ const FloorEngineSales = {
       // Match each sale with its corresponding sweep event
       const salesWithImages = salesData.map(sale => {
         const tokenId = sale.token_id;
-        const imageUrl = `./adrianpunksimages/${tokenId}.png`;
+        const imageUrl = `/market/adrianpunksimages/${tokenId}.png`;
         const saleTimestamp = new Date(sale.created_at);
         
         // Find the most recent sweep_event for this token_id that occurred BEFORE the sale
@@ -235,7 +235,7 @@ const FloorEngineSales = {
           return `
             <div class="sales-list-row">
               <div class="sales-list-col-image">
-                <img src="${sale.imageUrl}" alt="AdrianPunk #${sale.tokenId}" class="sales-list-image" onerror="this.src='./adrianpunksimages/1.png'">
+                <img src="${sale.imageUrl}" alt="AdrianPunk #${sale.tokenId}" class="sales-list-image" onerror="this.src='/market/adrianpunksimages/1.png'">
               </div>
               <div class="sales-list-col-token">#${sale.tokenId}</div>
               <div class="sales-list-col-paid">${paidFormatted} ${tokenLabel}</div>
@@ -270,7 +270,7 @@ const FloorEngineSales = {
         return `
           <div class="sales-card">
             <div class="sales-card-image-wrapper">
-              <img src="${sale.imageUrl}" alt="AdrianPunk #${sale.tokenId}" class="sales-card-image" onerror="this.src='./adrianpunksimages/1.png'">
+              <img src="${sale.imageUrl}" alt="AdrianPunk #${sale.tokenId}" class="sales-card-image" onerror="this.src='/market/adrianpunksimages/1.png'">
               <div class="sales-card-token-badge">#${sale.tokenId}</div>
             </div>
             <div class="sales-card-info">

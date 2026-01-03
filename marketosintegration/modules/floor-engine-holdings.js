@@ -218,7 +218,7 @@ const FloorEngineHoldings = {
       // Update image
       const imageEl = document.getElementById('cheapestListingImage');
       if (imageEl) {
-        let imgUrl = `./adrianpunksimages/${tokenId}.png`;
+        let imgUrl = `/market/adrianpunksimages/${tokenId}.png`;
         if (nftData && nftData.length > 0) {
           const nft = nftData.find(n => {
             const nftId = parseInt(n.name.split('#')[1]);
