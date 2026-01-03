@@ -22,11 +22,15 @@ const OpenSeaIntegration = (() => {
       '';
 
     if (!state.collectionSlug) {
-      console.warn('⚠️ OpenSeaIntegration: collection slug no configurado');
+      console.warn('⚠️ OpenSeaIntegration: collection slug no configurado (OPENSEA_COLLECTION_SLUG vacío)');
       return false;
     }
 
     state.initialized = true;
+    console.log('🔌 OpenSeaIntegration: init OK', {
+      slug: state.collectionSlug,
+      apiKey: state.apiKey ? 'present' : 'missing'
+    });
     return true;
   }
 
@@ -96,6 +100,7 @@ const OpenSeaIntegration = (() => {
 
     const now = Date.now();
     if (state.cache && now - state.cacheAt < state.cacheTtlMs) {
+      console.log('🟢 OpenSeaIntegration: cache hit', state.cache.length);
       return state.cache;
     }
 
@@ -104,9 +109,11 @@ const OpenSeaIntegration = (() => {
     if (state.apiKey) headers['X-API-KEY'] = state.apiKey;
 
     try {
+      console.log('🌐 OpenSeaIntegration: fetching', url);
       const res = await fetch(url, { headers });
       if (!res.ok) {
-        console.warn('⚠️ OpenSeaIntegration: respuesta no OK', res.status, await res.text());
+        const text = await res.text();
+        console.warn('⚠️ OpenSeaIntegration: respuesta no OK', res.status, text.slice(0, 200));
         return [];
       }
       const data = await res.json();
