@@ -144,3 +144,8 @@ const OpenSeaIntegration = (() => {
   };
 })();
 
+// Exponer en el global para que index.html pueda llamarlo
+if (typeof window !== 'undefined') {
+  window.OpenSeaIntegration = OpenSeaIntegration;
+}
+
