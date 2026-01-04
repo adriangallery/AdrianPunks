@@ -76,6 +76,39 @@ jobs:
           } > marketosintegration/opensea-config.js
           echo "✅ OpenSea config generated"
 
+      - name: Fetch OpenSea listings to static cache (avoid CORS)
+        env:
+          OPENSEA_API_KEY: ${{ secrets.OPENSEA_API_KEY }}
+          OPENSEA_MCP_TOKEN: ${{ secrets.OPENSEA_MCP_TOKEN }}
+          OPENSEA_API_KEY_FALLBACK: ${{ secrets.OPENSEA_API_KEY_FALLBACK }}
+          OPENSEA_COLLECTION_SLUG: ${{ secrets.OPENSEA_COLLECTION_SLUG }}
+        run: |
+          set -euo pipefail
+          cd marketosintegration
+
+          KEY="${OPENSEA_API_KEY:-}"
+          if [ -z "$KEY" ]; then KEY="${OPENSEA_MCP_TOKEN:-}"; fi
+          if [ -z "$KEY" ]; then KEY="${OPENSEA_API_KEY_FALLBACK:-}"; fi
+
+          if [ -z "${OPENSEA_COLLECTION_SLUG:-}" ]; then
+            echo '{"listings":[],"fetchedAt":null,"error":"missing slug"}' > opensea-cache.json
+            exit 0
+          fi
+
+          if [ -z "$KEY" ]; then
+            echo '{"listings":[],"fetchedAt":null,"error":"missing api key"}' > opensea-cache.json
+            exit 0
+          fi
+
+          URL="https://api.opensea.io/api/v2/listings/collection/${OPENSEA_COLLECTION_SLUG}/all?limit=50&order_by=eth_price&order_direction=asc"
+          echo "Fetching OpenSea listings server-side..."
+          if curl -sS -H "X-API-KEY: ${KEY}" "$URL" -o opensea-cache.json; then
+            echo "✅ OpenSea cache generado (server-side)"
+          else
+            echo '{"listings":[],"fetchedAt":null,"error":"fetch failed"}' > opensea-cache.json
+            echo "⚠️ OpenSea cache vacío (fetch falló)"
+          fi
+
       - name: Verify generated configs
         run: |
           for f in supabase-config.js runtime-config.js opensea-config.js; do
@@ -98,6 +131,10 @@ jobs:
           fi
           if ! grep -q "window.OPENSEA_COLLECTION_SLUG" marketosintegration/opensea-config.js; then
             echo "❌ ERROR: OPENSEA_COLLECTION_SLUG missing in opensea-config.js"
+            exit 1
+          fi
+          if [ ! -f marketosintegration/opensea-cache.json ]; then
+            echo "❌ ERROR: opensea-cache.json missing"
             exit 1
           fi
           echo "✅ Configs verified"

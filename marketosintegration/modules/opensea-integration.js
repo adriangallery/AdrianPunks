@@ -9,7 +9,8 @@ const OpenSeaIntegration = (() => {
     cache: null,
     cacheAt: 0,
     cacheTtlMs: 5 * 60 * 1000, // 5 minutos
-    baseUrl: 'https://api.opensea.io/api/v2'
+    baseUrl: 'https://api.opensea.io/api/v2',
+    fallbackCachePath: '/marketosintegration/opensea-cache.json'
   };
 
   function init() {
@@ -46,6 +47,25 @@ const OpenSeaIntegration = (() => {
     const numeric = itemId.toString().split(':').pop();
     const parsed = parseInt(numeric, 10);
     return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  async function fetchFallbackCache() {
+    try {
+      console.warn('⚠️ OpenSeaIntegration: intentando fallback local opensea-cache.json');
+      const res = await fetch(state.fallbackCachePath, { cache: 'no-store' });
+      if (!res.ok) {
+        console.warn('⚠️ OpenSeaIntegration: fallback no disponible', res.status);
+        return [];
+      }
+      const data = await res.json();
+      const listings = data.listings || data.orders || data.data || data || [];
+      const normalized = listings.map(normalizeListing).filter(Boolean);
+      console.log(`🟢 OpenSeaIntegration: fallback cargado (${normalized.length} listings)`);
+      return normalized;
+    } catch (err) {
+      console.error('❌ OpenSeaIntegration: fallback falló', err);
+      return [];
+    }
   }
 
   function extractPriceWei(listing) {
@@ -114,7 +134,11 @@ const OpenSeaIntegration = (() => {
       if (!res.ok) {
         const text = await res.text();
         console.warn('⚠️ OpenSeaIntegration: respuesta no OK', res.status, text.slice(0, 200));
-        return [];
+        // Intentar fallback local
+        const fallback = await fetchFallbackCache();
+        state.cache = fallback;
+        state.cacheAt = now;
+        return fallback;
       }
       const data = await res.json();
       const rawListings = data?.listings || data?.orders || data?.data || [];
@@ -128,7 +152,10 @@ const OpenSeaIntegration = (() => {
       return normalized;
     } catch (error) {
       console.error('❌ OpenSeaIntegration: error al obtener listings', error);
-      return [];
+      const fallback = await fetchFallbackCache();
+      state.cache = fallback;
+      state.cacheAt = now;
+      return fallback;
     }
   }
 
