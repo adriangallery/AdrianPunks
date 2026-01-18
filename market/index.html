@@ -2877,6 +2877,15 @@
         const response = await fetch('./adrianpunks.json');
         if (!response.ok) throw new Error('Error loading NFTs');
         const data = await response.json();
+        
+        // Crear mapa de ranks: tokenId -> rank
+        window.rankMap = {};
+        if (data.rankedTokens && Array.isArray(data.rankedTokens)) {
+          data.rankedTokens.forEach(token => {
+            window.rankMap[token.tokenId] = token.rank;
+          });
+        }
+        
         // Filtrar para mostrar solo los tokens cuyo ID <= mintedCount
         nftData = (data.collection || []).filter(nft => {
           const tokenIdStr = nft.name.split('#')[1];
@@ -2968,8 +2977,16 @@
         const dataAttrs = (currentImageCollection === 'vectoradrians' || currentImageCollection === 'adrianvectors') ?
           `` : '';
 
+        // Obtener el rank y crear el tag HTML
+        const rank = window.rankMap && window.rankMap[tokenId];
+        const rankTagHtml = rank ? 
+          `<div class="rank-tag" style="background-color: ${getRankColor(rank)}">#${rank}</div>` : '';
+
         card.innerHTML = `
-          <img src="${imgUrl}" class="card-img-top" alt="${displayName}" ${dataAttrs}>
+          <div class="nft-image-container">
+            <img src="${imgUrl}" class="card-img-top" alt="${displayName}" ${dataAttrs}>
+            ${rankTagHtml}
+          </div>
           <div class="card-body">
             <h5 class="card-title">${displayName}</h5>
             <p class="card-text">Rarity: ${typeof nft.rarity === 'number' ? nft.rarity.toFixed(2) : 'N/A'}</p>
@@ -4492,6 +4509,14 @@
       
       // Recargar la visualización con las nuevas imágenes
       filterAndDisplayNFTs();
+    }
+
+    function getRankColor(rank) {
+      if (rank <= 10) return '#FFD700';      // Legendary
+      if (rank <= 50) return '#9B59B6';      // Epic
+      if (rank <= 100) return '#3498DB';      // Rare
+      if (rank <= 500) return '#2ECC71';     // Uncommon
+      return '#95A5A6';                       // Common
     }
 
     function getImageUrl(nft) {
