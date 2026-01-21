@@ -1080,37 +1080,21 @@
       try {
         const response = await fetch('/market/adrianpunks.json');
         const data = await response.json();
-        const collection = data.collection || [];
         
-        // Filtrar tokens válidos: deben tener formato "AdrianPunks #número" y estar entre 1-1000
-        // Excluir tokens con nombres problemáticos como "token1", "Token #1", etc.
-        const validTokens = collection.filter(nft => {
-          // Verificar que el nombre tenga el formato correcto con #
-          if (!nft.name || !nft.name.includes('#')) {
-            return false;
-          }
-          
+        // El JSON ahora tiene rankedTokens en lugar de collection como array
+        const rankedTokens = data.rankedTokens || [];
+        
+        // IDs de tokens que son GIF en lugar de PNG
+        const gifIds = ['1', '13', '221', '369', '420', '555', '69', '690', '777', '807', '911'];
+        
+        // Filtrar tokens válidos: tokenId debe estar entre 1-1000
+        const validTokens = rankedTokens.filter(token => {
           try {
-            const tokenId = parseInt(nft.name.split('#')[1]);
+            const tokenId = parseInt(token.tokenId);
             // Verificar que el tokenId sea válido (1-1000) y que sea un número
             if (isNaN(tokenId) || tokenId < 1 || tokenId > 1000) {
               return false;
             }
-            
-            // Excluir nombres problemáticos (case insensitive)
-            const nameLower = nft.name.toLowerCase();
-            if (nameLower.includes('token1') || 
-                nameLower.includes('token 1') ||
-                nameLower === 'adrianpunks token #1' ||
-                nameLower === 'adrianpunks token1') {
-              return false;
-            }
-            
-            // Verificar que tenga una imagen válida
-            if (!nft.image || !nft.image.trim()) {
-              return false;
-            }
-            
             return true;
           } catch (e) {
             return false;
@@ -1125,6 +1109,12 @@
         // Seleccionar un token aleatorio de todos los tokens válidos (1-1000)
         const randomIndex = Math.floor(Math.random() * validTokens.length);
         const randomToken = validTokens[randomIndex];
+        const tokenId = randomToken.tokenId;
+        
+        // Construir la URL de la imagen basándome en el tokenId
+        const extension = gifIds.includes(tokenId) ? 'gif' : 'png';
+        const imageUrl = `/market/adrianpunksimages/${tokenId}.${extension}`;
+        const tokenName = `AdrianPunks #${tokenId}`;
         
         const featuredImageEl = document.getElementById('featuredImage');
         if (featuredImageEl) {
@@ -1138,21 +1128,25 @@
           
           // Configurar el handler onerror para manejar errores de carga
           featuredImageEl.onerror = function() {
-            console.warn('Failed to load featured image:', randomToken.image);
+            console.warn('Failed to load featured image:', imageUrl);
             // Intentar cargar otro token si este falla
             if (validTokens.length > 1) {
               const fallbackIndex = (randomIndex + 1) % validTokens.length;
               const fallbackToken = validTokens[fallbackIndex];
-              this.src = fallbackToken.image;
-              this.alt = fallbackToken.name;
+              const fallbackTokenId = fallbackToken.tokenId;
+              const fallbackExtension = gifIds.includes(fallbackTokenId) ? 'gif' : 'png';
+              const fallbackImageUrl = `/market/adrianpunksimages/${fallbackTokenId}.${fallbackExtension}`;
+              const fallbackTokenName = `AdrianPunks #${fallbackTokenId}`;
+              this.src = fallbackImageUrl;
+              this.alt = fallbackTokenName;
             } else {
               this.style.display = 'none';
             }
           };
           
           // Asignar la imagen (esto disparará onload cuando se cargue)
-          featuredImageEl.src = randomToken.image;
-          featuredImageEl.alt = randomToken.name;
+          featuredImageEl.src = imageUrl;
+          featuredImageEl.alt = tokenName;
         }
       } catch (error) {
         console.error('Error loading featured image:', error);
