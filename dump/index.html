@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="../swap/wallet.js"></script>
+  <script src="../market/runtime-config.js"></script>
   <script src="../market/supabase-config.js"></script>
 </head>
 <body>
@@ -180,26 +180,26 @@
     const FLOOR_ENGINE_ADDRESS = "0x0351F7cBA83277E891D4a85Da498A7eACD764D58"; // FloorEngine
     const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11"; // Multicall3 on Base
 
-    // Alchemy API Configuration
+    // Alchemy API Configuration (from runtime-config.js)
     const ALCHEMY_API_KEY = window.ALCHEMY_API_KEY || 'YOUR_ALCHEMY_API_KEY';
-    const ALCHEMY_RPC_URL = ALCHEMY_API_KEY !== 'YOUR_ALCHEMY_API_KEY' 
+    const ALCHEMY_RPC_URL = ALCHEMY_API_KEY && ALCHEMY_API_KEY !== 'YOUR_ALCHEMY_API_KEY' 
       ? `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
       : null;
     
     // Debug: Verificar que el API key se cargó correctamente
-    if (ALCHEMY_API_KEY === 'YOUR_ALCHEMY_API_KEY' || !ALCHEMY_API_KEY) {
-      console.warn('⚠️ Alchemy API key not configured. Using fallback to Infura.');
-    } else {
+    if (ALCHEMY_API_KEY && ALCHEMY_API_KEY !== 'YOUR_ALCHEMY_API_KEY' && ALCHEMY_API_KEY !== '') {
       console.log('✅ Alchemy API key loaded successfully');
+    } else {
+      console.warn('⚠️ Alchemy API key not configured. Using fallback to public RPC.');
     }
 
-    // Supabase configuration
+    // Supabase configuration (from runtime-config.js)
     const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
     const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
     let supabaseClient = null;
 
     function initSupabase() {
-      if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+      if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_URL !== '') {
         supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         console.log('✅ Supabase initialized');
       } else {
@@ -266,12 +266,21 @@
           return;
         }
 
-        // Use Alchemy RPC if available, otherwise use public RPC
+        // Use Alchemy RPC if available, otherwise use public RPC (with retry logic)
         const rpcUrl = ALCHEMY_RPC_URL || 'https://mainnet.base.org';
         readProvider = new ethers5.providers.JsonRpcProvider(rpcUrl, {
           name: "base",
           chainId: 8453
         });
+        
+        // Set timeout for RPC calls to avoid hanging
+        if (readProvider._getConnection) {
+          readProvider._getConnection = function() {
+            const connection = ethers5.providers.JsonRpcProvider.prototype._getConnection.call(this);
+            connection.timeout = 10000; // 10 second timeout
+            return connection;
+          };
+        }
 
         // Initialize read contracts
         nftReadContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
@@ -823,6 +832,25 @@
         listBtn.addEventListener('click', listPunkInstantly);
       }
 
+      // Listen for wallet connection from menu
+      window.addEventListener('walletConnected', async (event) => {
+        const address = event.detail?.address || window.userAccount;
+        if (address) {
+          userAccount = address;
+          window.userAccount = address;
+          const ethers5 = window.ethers5Backup || window.ethers;
+          if (ethers5 && window.ethereum) {
+            const provider = new ethers5.providers.Web3Provider(window.ethereum);
+            const signer = provider.getSigner();
+            window.provider = provider;
+            window.signer = signer;
+            nftContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, signer);
+            floorEngineContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, signer);
+            await loadUserPunks();
+          }
+        }
+      });
+
       // Listen for wallet account changes
       if (window.ethereum) {
         window.ethereum.on('accountsChanged', async (accounts) => {
@@ -830,10 +858,13 @@
             userAccount = accounts[0];
             window.userAccount = userAccount;
             const ethers5 = window.ethers5Backup || window.ethers;
-            if (ethers5 && window.provider) {
-              window.signer = window.provider.getSigner();
-              nftContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, window.signer);
-              floorEngineContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, window.signer);
+            if (ethers5 && window.ethereum) {
+              const provider = new ethers5.providers.Web3Provider(window.ethereum);
+              const signer = provider.getSigner();
+              window.provider = provider;
+              window.signer = signer;
+              nftContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, signer);
+              floorEngineContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, signer);
               await loadUserPunks();
             }
           } else {
@@ -844,6 +875,12 @@
             updateUI();
           }
         });
+      }
+      
+      // Check if wallet is already connected (from menu)
+      if (window.userAccount) {
+        userAccount = window.userAccount;
+        await initWallet();
       }
 
       // Initialize
