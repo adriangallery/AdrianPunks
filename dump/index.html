@@ -6,6 +6,7 @@
   <title>Instant Liquidity - AdrianPunks</title>
   <link rel="icon" type="image/x-icon" href="../favicon.ico">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="../market/styles.css">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -26,7 +27,7 @@
       }
       
       function loadMenu() {
-        fetch('../components/menu.html')
+        fetch('../market/components/menu.html')
           .then(response => response.text())
           .then(html => {
             const container = document.getElementById('menu-container');
@@ -46,7 +47,10 @@
               
               if (!document.querySelector('script[src*="menu.js"]')) {
                 const script = document.createElement('script');
-                script.src = '../components/menu.js';
+                script.src = '../market/components/menu.js';
+                script.onload = function() {
+                  console.log('Menu script loaded');
+                };
                 document.head.appendChild(script);
               }
             }
@@ -180,7 +184,14 @@
     const ALCHEMY_API_KEY = window.ALCHEMY_API_KEY || 'YOUR_ALCHEMY_API_KEY';
     const ALCHEMY_RPC_URL = ALCHEMY_API_KEY !== 'YOUR_ALCHEMY_API_KEY' 
       ? `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
-      : 'https://mainnet.base.org';
+      : null;
+    
+    // Debug: Verificar que el API key se cargó correctamente
+    if (ALCHEMY_API_KEY === 'YOUR_ALCHEMY_API_KEY' || !ALCHEMY_API_KEY) {
+      console.warn('⚠️ Alchemy API key not configured. Using fallback to Infura.');
+    } else {
+      console.log('✅ Alchemy API key loaded successfully');
+    }
 
     // Supabase configuration
     const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
@@ -255,7 +266,9 @@
           return;
         }
 
-        readProvider = new ethers5.providers.JsonRpcProvider(ALCHEMY_RPC_URL, {
+        // Use Alchemy RPC if available, otherwise use public RPC
+        const rpcUrl = ALCHEMY_RPC_URL || 'https://mainnet.base.org';
+        readProvider = new ethers5.providers.JsonRpcProvider(rpcUrl, {
           name: "base",
           chainId: 8453
         });
@@ -267,18 +280,8 @@
 
         console.log('✅ Contracts initialized');
 
-        // Wait for wallet to be ready
-        if (window.WalletManager) {
-          await waitForWallet();
-        } else {
-          // Listen for wallet initialization
-          const checkWallet = setInterval(() => {
-            if (window.WalletManager) {
-              clearInterval(checkWallet);
-              waitForWallet();
-            }
-          }, 100);
-        }
+        // Initialize wallet connection (same pattern as market)
+        await initWallet();
 
         // Load initial data
         await updateFloorEngineBalance();
@@ -295,51 +298,34 @@
       }
     }
 
-    async function waitForWallet() {
+    async function initWallet() {
       try {
-        // Wait a bit for wallet to initialize
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        if (window.WalletManager && window.WalletManager.isConnected) {
-          userAccount = window.WalletManager.address;
-          await initializeWalletContracts();
-          await loadUserPunks();
-        }
-
-        // Listen for wallet connection changes
-        if (window.WalletManager) {
-          window.addEventListener('walletConnected', async () => {
-            userAccount = window.WalletManager.address;
-            await initializeWalletContracts();
-            await loadUserPunks();
-          });
-
-          window.addEventListener('walletDisconnected', () => {
+        if (window.ethereum) {
+          const ethers5 = window.ethers5Backup || window.ethers;
+          window.provider = new ethers5.providers.Web3Provider(window.ethereum);
+          window.signer = window.provider.getSigner();
+          
+          try {
+            window.userAccount = await window.signer.getAddress();
+            userAccount = window.userAccount;
+          } catch (e) {
+            console.log("No user connected yet");
             userAccount = null;
-            userPunks = [];
-            selectedTokenId = null;
-            updateUI();
-          });
+          }
+        }
+        
+        // Update local references
+        if (userAccount) {
+          const ethers5 = window.ethers5Backup || window.ethers;
+          if (ethers5 && ethers5.Contract) {
+            nftContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, window.signer);
+            floorEngineContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, window.signer);
+            console.log('✅ Wallet contracts initialized');
+            await loadUserPunks();
+          }
         }
       } catch (error) {
-        console.error('Error waiting for wallet:', error);
-      }
-    }
-
-    async function initializeWalletContracts() {
-      try {
-        if (!window.ethereum || !userAccount) return;
-
-        const ethers5 = window.ethers5Backup || window.ethers;
-        const provider = new ethers5.providers.Web3Provider(window.ethereum);
-        const signer = provider.getSigner();
-
-        nftContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, signer);
-        floorEngineContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, signer);
-
-        console.log('✅ Wallet contracts initialized');
-      } catch (error) {
-        console.error('Error initializing wallet contracts:', error);
+        console.error('Error initializing wallet:', error);
       }
     }
 
@@ -835,6 +821,29 @@
       const listBtn = document.getElementById('listInstantlyBtn');
       if (listBtn) {
         listBtn.addEventListener('click', listPunkInstantly);
+      }
+
+      // Listen for wallet account changes
+      if (window.ethereum) {
+        window.ethereum.on('accountsChanged', async (accounts) => {
+          if (accounts.length > 0) {
+            userAccount = accounts[0];
+            window.userAccount = userAccount;
+            const ethers5 = window.ethers5Backup || window.ethers;
+            if (ethers5 && window.provider) {
+              window.signer = window.provider.getSigner();
+              nftContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, window.signer);
+              floorEngineContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, window.signer);
+              await loadUserPunks();
+            }
+          } else {
+            userAccount = null;
+            window.userAccount = null;
+            userPunks = [];
+            selectedTokenId = null;
+            updateUI();
+          }
+        });
       }
 
       // Initialize
