@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Instant Liquidity - AdrianPunks</title>
+  <link rel="icon" type="image/x-icon" href="../favicon.ico">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="../swap/wallet.js"></script>
+  <script src="../market/supabase-config.js"></script>
+</head>
+<body>
+  <!-- Include the menu -->
+  <div id="menu-container"></div>
+  <script>
+    // Load the menu with proper styling
+    (function() {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadMenu);
+      } else {
+        loadMenu();
+      }
+      
+      function loadMenu() {
+        fetch('../components/menu.html')
+          .then(response => response.text())
+          .then(html => {
+            const container = document.getElementById('menu-container');
+            if (container) {
+              container.innerHTML = html;
+              
+              const menu = container.querySelector('.navbar');
+              if (menu) {
+                menu.classList.add('navbar-dark', 'bg-dark');
+                menu.style.backgroundColor = '#212529';
+              }
+              
+              const togglerIcon = container.querySelector('.navbar-toggler-icon');
+              if (togglerIcon) {
+                togglerIcon.style.filter = 'invert(100%)';
+              }
+              
+              if (!document.querySelector('script[src*="menu.js"]')) {
+                const script = document.createElement('script');
+                script.src = '../components/menu.js';
+                document.head.appendChild(script);
+              }
+            }
+          })
+          .catch(error => console.error('Error loading menu:', error));
+      }
+    })();
+  </script>
+
+  <!-- Main Layout -->
+  <div class="main-layout">
+    <!-- Sidebar Left: Info -->
+    <aside class="sidebar">
+      <!-- FloorEngine Balance Panel -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#floorEnginePanel" aria-expanded="true">
+          <h5 class="mb-0">FloorEngine Balance</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="floorEnginePanel">
+          <div class="panel-body">
+            <div id="floorEngineBalance">
+              <div class="spinner-border spinner-border-sm" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <span class="ms-2">Loading...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current Floor Price Panel -->
+      <div class="collapsible-panel">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#floorPricePanel" aria-expanded="true">
+          <h5 class="mb-0">Current Floor Price</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="floorPricePanel">
+          <div class="panel-body">
+            <div id="currentFloorPrice">
+              <div class="spinner-border spinner-border-sm" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <span class="ms-2">Loading...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Featured Punk Panel -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#featuredPunkPanel" aria-expanded="true">
+          <h5 class="mb-0">Your Punk</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="featuredPunkPanel">
+          <div class="panel-body">
+            <div id="featuredPunkContent">
+              <div class="text-center">
+                <p class="text-muted">Connect your wallet to see your punks</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Token Selector -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#tokenSelectorPanel" aria-expanded="true">
+          <h5 class="mb-0">Select Token to List</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="tokenSelectorPanel">
+          <div class="panel-body">
+            <select id="tokenSelector" class="form-select" disabled>
+              <option value="">No tokens available</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <div class="collapsible-panel">
+        <div class="panel-body text-center">
+          <button id="listInstantlyBtn" class="btn btn-primary btn-lg" disabled>
+            <span id="listBtnText">Connect wallet to list</span>
+          </button>
+          <div id="listStatus" class="mt-3"></div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Sidebar Right: Instructions -->
+    <aside class="sidebar">
+      <div class="collapsible-panel">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#instructionsPanel" aria-expanded="true">
+          <h5 class="mb-0">How It Works</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="instructionsPanel">
+          <div class="panel-body">
+            <ol class="small">
+              <li>Connect your wallet</li>
+              <li>Select a punk from your collection</li>
+              <li>Click "Get instantly X $ADRIAN for your #X Punk"</li>
+              <li>Approve the NFT (if needed)</li>
+              <li>Confirm the listing transaction</li>
+              <li>Wait a few minutes for FloorEngine to buy it</li>
+              <li>Receive $ADRIAN in your wallet</li>
+            </ol>
+            <p class="small text-muted mt-3">
+              Your punk will be listed at the current floor price. FloorEngine will automatically purchase it when it has enough liquidity.
+            </p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    // Contract addresses
+    const TOKEN_ADDRESS = "0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea"; // $ADRIAN
+    const NFT_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566"; // AdrianPunks
+    const FLOOR_ENGINE_ADDRESS = "0x0351F7cBA83277E891D4a85Da498A7eACD764D58"; // FloorEngine
+    const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11"; // Multicall3 on Base
+
+    // Alchemy API Configuration
+    const ALCHEMY_API_KEY = window.ALCHEMY_API_KEY || 'YOUR_ALCHEMY_API_KEY';
+    const ALCHEMY_RPC_URL = ALCHEMY_API_KEY !== 'YOUR_ALCHEMY_API_KEY' 
+      ? `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+      : 'https://mainnet.base.org';
+
+    // Supabase configuration
+    const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
+    const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
+    let supabaseClient = null;
+
+    function initSupabase() {
+      if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
+        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        console.log('✅ Supabase initialized');
+      } else {
+        console.warn('⚠️ Supabase credentials not configured');
+      }
+    }
+
+    // ABIs
+    const FLOOR_ENGINE_ABI = [
+      "event Listed(uint256 indexed tokenId, address indexed seller, uint256 price, bool isContractOwned)",
+      "event Cancelled(uint256 indexed tokenId, address indexed seller)",
+      "event Bought(uint256 indexed tokenId, address indexed buyer, address indexed seller, uint256 price, bool isContractOwned)",
+      "function list(uint256 tokenId, uint256 price) external",
+      "function cancel(uint256 tokenId) external",
+      "function buy(uint256 tokenId) external",
+      "function listings(uint256 tokenId) external view returns (address seller, uint256 price, bool isContractOwned)",
+      "function isListed(uint256 tokenId) external view returns (bool)",
+      "function getListedTokenIds() external view returns (uint256[])"
+    ];
+
+    const TOKEN_ABI = [
+      "function balanceOf(address account) view returns (uint256)",
+      "function approve(address spender, uint256 amount) external returns (bool)",
+      "function allowance(address owner, address spender) view returns (uint256)"
+    ];
+
+    const NFT_ABI = [
+      "function tokenURI(uint256 tokenId) view returns (string)",
+      "function ownerOf(uint256 tokenId) view returns (address)",
+      "function getApproved(uint256 tokenId) view returns (address)",
+      "function approve(address to, uint256 tokenId) external",
+      "function isApprovedForAll(address owner, address operator) view returns (bool)",
+      "function setApprovalForAll(address operator, bool approved) external",
+      "function balanceOf(address owner) view returns (uint256)",
+      "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+      "function totalMinted() view returns (uint256)"
+    ];
+
+    // Global variables
+    let readProvider = null;
+    let nftReadContract = null;
+    let tokenReadContract = null;
+    let floorEngineReadContract = null;
+    let nftContract = null;
+    let floorEngineContract = null;
+    let userAccount = null;
+    let userPunks = [];
+    let selectedTokenId = null;
+    let currentFloorPrice = null;
+    let activeListingsData = [];
+
+    // GIF token IDs
+    const gifIds = ['1', '13', '221', '369', '420', '555', '69', '690', '777', '807', '911'];
+
+    // Initialize
+    async function init() {
+      try {
+        initSupabase();
+        
+        // Initialize read provider
+        const ethers5 = window.ethers5Backup || window.ethers;
+        if (!ethers5) {
+          console.error('Ethers v5 not loaded');
+          return;
+        }
+
+        readProvider = new ethers5.providers.JsonRpcProvider(ALCHEMY_RPC_URL, {
+          name: "base",
+          chainId: 8453
+        });
+
+        // Initialize read contracts
+        nftReadContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+        tokenReadContract = new ethers5.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
+        floorEngineReadContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
+
+        console.log('✅ Contracts initialized');
+
+        // Wait for wallet to be ready
+        if (window.WalletManager) {
+          await waitForWallet();
+        } else {
+          // Listen for wallet initialization
+          const checkWallet = setInterval(() => {
+            if (window.WalletManager) {
+              clearInterval(checkWallet);
+              waitForWallet();
+            }
+          }, 100);
+        }
+
+        // Load initial data
+        await updateFloorEngineBalance();
+        await loadActiveListings();
+        await updateCurrentFloorPrice();
+
+        // Set up intervals
+        setInterval(updateFloorEngineBalance, 30000); // Every 30 seconds
+        setInterval(loadActiveListings, 60000); // Every minute
+        setInterval(updateCurrentFloorPrice, 30000); // Every 30 seconds
+
+      } catch (error) {
+        console.error('Error initializing:', error);
+      }
+    }
+
+    async function waitForWallet() {
+      try {
+        // Wait a bit for wallet to initialize
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        if (window.WalletManager && window.WalletManager.isConnected) {
+          userAccount = window.WalletManager.address;
+          await initializeWalletContracts();
+          await loadUserPunks();
+        }
+
+        // Listen for wallet connection changes
+        if (window.WalletManager) {
+          window.addEventListener('walletConnected', async () => {
+            userAccount = window.WalletManager.address;
+            await initializeWalletContracts();
+            await loadUserPunks();
+          });
+
+          window.addEventListener('walletDisconnected', () => {
+            userAccount = null;
+            userPunks = [];
+            selectedTokenId = null;
+            updateUI();
+          });
+        }
+      } catch (error) {
+        console.error('Error waiting for wallet:', error);
+      }
+    }
+
+    async function initializeWalletContracts() {
+      try {
+        if (!window.ethereum || !userAccount) return;
+
+        const ethers5 = window.ethers5Backup || window.ethers;
+        const provider = new ethers5.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+
+        nftContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, signer);
+        floorEngineContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, signer);
+
+        console.log('✅ Wallet contracts initialized');
+      } catch (error) {
+        console.error('Error initializing wallet contracts:', error);
+      }
+    }
+
+    // Load user's punks
+    async function loadUserPunks() {
+      try {
+        if (!userAccount || !nftReadContract) {
+          userPunks = [];
+          updateUI();
+          return;
+        }
+
+        const balance = await nftReadContract.balanceOf(userAccount);
+        const totalTokens = balance.toNumber();
+
+        if (totalTokens === 0) {
+          userPunks = [];
+          updateUI();
+          return;
+        }
+
+        const tokenIds = [];
+        for (let i = 0; i < totalTokens; i++) {
+          try {
+            const tokenId = await nftReadContract.tokenOfOwnerByIndex(userAccount, i);
+            const tokenIdNum = tokenId.toNumber();
+            
+            // Validate tokenId is between 1-1000
+            if (tokenIdNum >= 1 && tokenIdNum <= 1000) {
+              tokenIds.push(tokenIdNum);
+            }
+          } catch (error) {
+            console.warn(`Error getting token ${i}:`, error);
+          }
+        }
+
+        userPunks = tokenIds.sort((a, b) => a - b);
+        console.log(`✅ Loaded ${userPunks.length} punks for user`);
+
+        // Select random punk as default
+        if (userPunks.length > 0) {
+          const randomIndex = Math.floor(Math.random() * userPunks.length);
+          selectedTokenId = userPunks[randomIndex];
+        }
+
+        updateUI();
+        loadFeaturedPunk();
+        updateTokenSelector();
+      } catch (error) {
+        console.error('Error loading user punks:', error);
+        userPunks = [];
+        updateUI();
+      }
+    }
+
+    // Load featured punk display
+    function loadFeaturedPunk() {
+      if (!selectedTokenId) {
+        const content = document.getElementById('featuredPunkContent');
+        if (content) {
+          content.innerHTML = '<div class="text-center"><p class="text-muted">No punk selected</p></div>';
+        }
+        return;
+      }
+
+      const extension = gifIds.includes(selectedTokenId.toString()) ? 'gif' : 'png';
+      const imageUrl = `/market/adrianpunksimages/${selectedTokenId}.${extension}`;
+      const tokenName = `AdrianPunks #${selectedTokenId}`;
+
+      const content = document.getElementById('featuredPunkContent');
+      if (content) {
+        content.innerHTML = `
+          <div class="text-center">
+            <img id="featuredPunkImage" src="${imageUrl}" alt="${tokenName}" 
+                 class="featured-punk-image" style="max-width: 100%; border-radius: 10px; margin-bottom: 1rem; display: none;">
+            <h5>${tokenName}</h5>
+          </div>
+        `;
+
+        const img = document.getElementById('featuredPunkImage');
+        if (img) {
+          img.onload = function() {
+            this.style.display = 'block';
+          };
+          img.onerror = function() {
+            console.warn('Failed to load image:', imageUrl);
+            this.style.display = 'none';
+          };
+        }
+      }
+    }
+
+    // Update token selector dropdown
+    function updateTokenSelector() {
+      const selector = document.getElementById('tokenSelector');
+      if (!selector) return;
+
+      selector.innerHTML = '';
+
+      if (userPunks.length === 0) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'No tokens available';
+        selector.appendChild(option);
+        selector.disabled = true;
+        return;
+      }
+
+      userPunks.forEach(tokenId => {
+        const option = document.createElement('option');
+        option.value = tokenId;
+        option.textContent = `AdrianPunks #${tokenId}`;
+        if (tokenId === selectedTokenId) {
+          option.selected = true;
+        }
+        selector.appendChild(option);
+      });
+
+      selector.disabled = false;
+    }
+
+    // Change selected token
+    function changeSelectedToken() {
+      const selector = document.getElementById('tokenSelector');
+      if (!selector) return;
+
+      const newTokenId = parseInt(selector.value);
+      if (newTokenId && userPunks.includes(newTokenId)) {
+        selectedTokenId = newTokenId;
+        loadFeaturedPunk();
+        updateListButton();
+      }
+    }
+
+    // Update FloorEngine balance
+    async function updateFloorEngineBalance() {
+      try {
+        const balanceEl = document.getElementById('floorEngineBalance');
+        if (!balanceEl || !tokenReadContract) return;
+
+        const contractBalance = await tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS);
+        const ethers5 = window.ethers5Backup || window.ethers;
+        const balance = parseFloat(ethers5.utils.formatUnits(contractBalance, 18));
+        
+        let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
+                              balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
+                              balance.toFixed(1);
+
+        balanceEl.innerHTML = `<span>💰 FloorEngine: ${formattedBalance} $ADRIAN</span>`;
+      } catch (error) {
+        console.error('Error fetching FloorEngine balance:', error);
+        const balanceEl = document.getElementById('floorEngineBalance');
+        if (balanceEl) {
+          balanceEl.innerHTML = '<span class="text-danger">Error loading balance</span>';
+        }
+      }
+    }
+
+    // Load active listings from Supabase
+    async function loadActiveListings() {
+      try {
+        if (!supabaseClient) {
+          // Try to get listings from contract if Supabase not available
+          await loadListingsFromContract();
+          return;
+        }
+
+        const { data: listings, error } = await supabaseClient
+          .from('active_punk_listings')
+          .select('token_id, price_adrian_wei, is_engine_owned, seller')
+          .order('price_adrian_wei', { ascending: true });
+
+        if (error) throw error;
+
+        if (!listings || listings.length === 0) {
+          activeListingsData = [];
+          return;
+        }
+
+        const ethers5 = window.ethers5Backup || window.ethers;
+        activeListingsData = listings.map(l => {
+          const priceWeiStr = l.price_adrian_wei.toString();
+          return {
+            tokenId: l.token_id,
+            seller: l.is_engine_owned ? FLOOR_ENGINE_ADDRESS : (l.seller || ''),
+            price: ethers5.BigNumber.from(priceWeiStr),
+            isContractOwned: l.is_engine_owned
+          };
+        });
+
+        console.log(`✅ Loaded ${activeListingsData.length} active listings`);
+      } catch (error) {
+        console.error('Error loading active listings:', error);
+        await loadListingsFromContract();
+      }
+    }
+
+    // Fallback: Load listings from contract
+    async function loadListingsFromContract() {
+      try {
+        if (!floorEngineReadContract) return;
+
+        const listedTokenIds = await floorEngineReadContract.getListedTokenIds();
+        if (!listedTokenIds || listedTokenIds.length === 0) {
+          activeListingsData = [];
+          return;
+        }
+
+        const ethers5 = window.ethers5Backup || window.ethers;
+        activeListingsData = [];
+
+        for (const tokenId of listedTokenIds) {
+          try {
+            const listing = await floorEngineReadContract.listings(tokenId);
+            activeListingsData.push({
+              tokenId: tokenId.toNumber(),
+              seller: listing.seller,
+              price: listing.price,
+              isContractOwned: listing.isContractOwned
+            });
+          } catch (error) {
+            console.warn(`Error getting listing for token ${tokenId}:`, error);
+          }
+        }
+
+        console.log(`✅ Loaded ${activeListingsData.length} listings from contract`);
+      } catch (error) {
+        console.error('Error loading listings from contract:', error);
+      }
+    }
+
+    // Get current floor price (cheapest user listing, not from engine)
+    async function getCurrentFloorPrice() {
+      try {
+        // First try to use activeListingsData
+        if (activeListingsData && activeListingsData.length > 0) {
+          let cheapestListing = null;
+          for (const listing of activeListingsData) {
+            if (!listing.isContractOwned) {
+              if (!cheapestListing || listing.price.lt(cheapestListing.price)) {
+                cheapestListing = listing;
+              }
+            }
+          }
+
+          if (cheapestListing) {
+            const ethers5 = window.ethers5Backup || window.ethers;
+            const price = parseFloat(ethers5.utils.formatUnits(cheapestListing.price, 18));
+            return { price: cheapestListing.price, priceFormatted: price };
+          }
+        }
+
+        // Fallback: query contract directly
+        if (floorEngineReadContract) {
+          const listedTokenIds = await floorEngineReadContract.getListedTokenIds();
+          if (!listedTokenIds || listedTokenIds.length === 0) {
+            return null;
+          }
+
+          const ethers5 = window.ethers5Backup || window.ethers;
+          let cheapestPrice = null;
+
+          for (const tokenId of listedTokenIds) {
+            try {
+              const listing = await floorEngineReadContract.listings(tokenId);
+              if (!listing.isContractOwned) {
+                if (!cheapestPrice || listing.price.lt(cheapestPrice)) {
+                  cheapestPrice = listing.price;
+                }
+              }
+            } catch (error) {
+              console.warn(`Error getting listing for token ${tokenId}:`, error);
+            }
+          }
+
+          if (cheapestPrice) {
+            const price = parseFloat(ethers5.utils.formatUnits(cheapestPrice, 18));
+            return { price: cheapestPrice, priceFormatted: price };
+          }
+        }
+
+        return null;
+      } catch (error) {
+        console.error('Error getting current floor price:', error);
+        return null;
+      }
+    }
+
+    // Update current floor price display
+    async function updateCurrentFloorPrice() {
+      try {
+        const priceEl = document.getElementById('currentFloorPrice');
+        if (!priceEl) return;
+
+        const floorData = await getCurrentFloorPrice();
+        currentFloorPrice = floorData;
+
+        if (floorData) {
+          const formatted = floorData.priceFormatted >= 1000000 
+            ? (floorData.priceFormatted / 1000000).toFixed(1) + 'M'
+            : floorData.priceFormatted >= 1000
+            ? (floorData.priceFormatted / 1000).toFixed(1) + 'K'
+            : floorData.priceFormatted.toFixed(1);
+
+          priceEl.innerHTML = `<span>💰 Floor: ${formatted} $ADRIAN</span>`;
+        } else {
+          priceEl.innerHTML = '<span class="text-muted">No floor price available</span>';
+        }
+
+        updateListButton();
+      } catch (error) {
+        console.error('Error updating current floor price:', error);
+        const priceEl = document.getElementById('currentFloorPrice');
+        if (priceEl) {
+          priceEl.innerHTML = '<span class="text-danger">Error loading price</span>';
+        }
+      }
+    }
+
+    // Update list button
+    function updateListButton() {
+      const btn = document.getElementById('listInstantlyBtn');
+      const btnText = document.getElementById('listBtnText');
+      
+      if (!btn || !btnText) return;
+
+      if (!userAccount) {
+        btn.disabled = true;
+        btnText.textContent = 'Connect wallet to list';
+        return;
+      }
+
+      if (!selectedTokenId) {
+        btn.disabled = true;
+        btnText.textContent = 'Select a punk to list';
+        return;
+      }
+
+      if (!currentFloorPrice) {
+        btn.disabled = true;
+        btnText.textContent = 'Floor price not available';
+        return;
+      }
+
+      const formatted = currentFloorPrice.priceFormatted >= 1000000
+        ? (currentFloorPrice.priceFormatted / 1000000).toFixed(1) + 'M'
+        : currentFloorPrice.priceFormatted >= 1000
+        ? (currentFloorPrice.priceFormatted / 1000).toFixed(1) + 'K'
+        : currentFloorPrice.priceFormatted.toFixed(1);
+
+      btn.disabled = false;
+      btnText.textContent = `Get instantly ${formatted} $ADRIAN for your #${selectedTokenId} Punk`;
+    }
+
+    // List punk instantly
+    async function listPunkInstantly() {
+      try {
+        if (!userAccount || !selectedTokenId) {
+          alert('Please connect your wallet and select a punk');
+          return;
+        }
+
+        if (!nftContract || !floorEngineContract) {
+          alert('Please connect your wallet');
+          return;
+        }
+
+        if (!currentFloorPrice) {
+          alert('Floor price not available. Please try again in a moment.');
+          return;
+        }
+
+        const statusEl = document.getElementById('listStatus');
+        const btn = document.getElementById('listInstantlyBtn');
+        const btnText = document.getElementById('listBtnText');
+
+        // Disable button and show loading
+        btn.disabled = true;
+        btnText.textContent = 'Processing...';
+        statusEl.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Starting transaction...';
+
+        // Step 1: Check approval
+        try {
+          const approvedAddress = await nftContract.getApproved(selectedTokenId);
+          const needsApproval = approvedAddress.toLowerCase() !== FLOOR_ENGINE_ADDRESS.toLowerCase();
+
+          if (needsApproval) {
+            statusEl.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Approving NFT...';
+            btnText.textContent = 'Approving...';
+
+            const txApprove = await nftContract.approve(FLOOR_ENGINE_ADDRESS, selectedTokenId);
+            statusEl.innerHTML = `<div class="spinner-border spinner-border-sm me-2"></div>Waiting for approval confirmation... (tx: ${txApprove.hash.substring(0, 10)}...)`;
+            
+            await txApprove.wait();
+            console.log('✅ NFT approved for FloorEngine');
+            statusEl.innerHTML = '<div class="text-success">✅ Approval confirmed!</div>';
+          }
+        } catch (error) {
+          console.error('Error during approval:', error);
+          statusEl.innerHTML = `<div class="text-danger">❌ Approval failed: ${error.message}</div>`;
+          btn.disabled = false;
+          updateListButton();
+          return;
+        }
+
+        // Step 2: Get fresh floor price
+        const freshFloorData = await getCurrentFloorPrice();
+        if (!freshFloorData) {
+          statusEl.innerHTML = '<div class="text-danger">❌ Could not get current floor price. Please try again.</div>';
+          btn.disabled = false;
+          updateListButton();
+          return;
+        }
+
+        // Step 3: List the punk
+        statusEl.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Creating listing...';
+        btnText.textContent = 'Listing...';
+
+        const tx = await floorEngineContract.list(selectedTokenId, freshFloorData.price, { gasLimit: 300000 });
+        statusEl.innerHTML = `<div class="spinner-border spinner-border-sm me-2"></div>Waiting for confirmation... (tx: ${tx.hash.substring(0, 10)}...)`;
+        
+        await tx.wait();
+        console.log('✅ Listing created successfully');
+
+        // Success message
+        const formatted = freshFloorData.priceFormatted >= 1000000
+          ? (freshFloorData.priceFormatted / 1000000).toFixed(1) + 'M'
+          : freshFloorData.priceFormatted >= 1000
+          ? (freshFloorData.priceFormatted / 1000).toFixed(1) + 'K'
+          : freshFloorData.priceFormatted.toFixed(1);
+
+        statusEl.innerHTML = `
+          <div class="alert alert-success">
+            <strong>✅ Success!</strong><br>
+            Your punk #${selectedTokenId} has been listed at ${formatted} $ADRIAN!<br>
+            <small>You'll receive $ADRIAN in a few minutes when FloorEngine buys it.</small>
+          </div>
+        `;
+
+        // Reload user punks (the listed one might still be there, but we refresh)
+        setTimeout(() => {
+          loadUserPunks();
+          loadActiveListings();
+          updateCurrentFloorPrice();
+        }, 2000);
+
+        // Re-enable button after a delay
+        setTimeout(() => {
+          btn.disabled = false;
+          updateListButton();
+          statusEl.innerHTML = '';
+        }, 5000);
+
+      } catch (error) {
+        console.error('Error listing punk:', error);
+        const statusEl = document.getElementById('listStatus');
+        const btn = document.getElementById('listInstantlyBtn');
+        
+        let errorMsg = 'Unknown error';
+        if (error.message) {
+          errorMsg = error.message;
+          if (errorMsg.includes('user rejected')) {
+            errorMsg = 'Transaction rejected by user';
+          } else if (errorMsg.includes('insufficient funds')) {
+            errorMsg = 'Insufficient funds for gas';
+          }
+        }
+
+        if (statusEl) {
+          statusEl.innerHTML = `<div class="alert alert-danger"><strong>❌ Error:</strong> ${errorMsg}</div>`;
+        }
+
+        if (btn) {
+          btn.disabled = false;
+          updateListButton();
+        }
+      }
+    }
+
+    // Update UI based on state
+    function updateUI() {
+      updateListButton();
+      updateTokenSelector();
+    }
+
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', () => {
+      const selector = document.getElementById('tokenSelector');
+      if (selector) {
+        selector.addEventListener('change', changeSelectedToken);
+      }
+
+      const listBtn = document.getElementById('listInstantlyBtn');
+      if (listBtn) {
+        listBtn.addEventListener('click', listPunkInstantly);
+      }
+
+      // Initialize
+      init();
+    });
+  </script>
+</body>
+</html>
