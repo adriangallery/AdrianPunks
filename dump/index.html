@@ -138,7 +138,7 @@
 
       <!-- Action Button -->
       <div class="collapsible-panel">
-        <div class="panel-body text-center">
+        <div id="actionButtonContainer" class="panel-body text-center">
           <button id="listInstantlyBtn" class="btn btn-primary btn-lg" disabled>
             <span id="listBtnText">Connect wallet to list</span>
           </button>
@@ -592,7 +592,26 @@
 
         const ethers5 = window.ethers5Backup || window.ethers;
         activeListingsData = listings.map(l => {
-          const priceWeiStr = l.price_adrian_wei.toString();
+          // Convertir el precio a string, manejando notación científica
+          let priceWeiStr = l.price_adrian_wei;
+          
+          // Convertir a string si es necesario
+          if (typeof priceWeiStr === 'number') {
+            priceWeiStr = priceWeiStr.toString();
+          } else {
+            priceWeiStr = String(priceWeiStr);
+          }
+          
+          // Si contiene notación científica (e o E), convertirla
+          if (priceWeiStr.includes('e') || priceWeiStr.includes('E')) {
+            // Usar parseFloat y luego toFixed para evitar notación científica
+            const num = parseFloat(priceWeiStr);
+            priceWeiStr = num.toFixed(0);
+          }
+          
+          // Asegurar que no tenga decimales (debe ser un entero en wei)
+          priceWeiStr = priceWeiStr.split('.')[0];
+          
           return {
             tokenId: l.token_id,
             seller: l.is_engine_owned ? FLOOR_ENGINE_ADDRESS : (l.seller || ''),
@@ -735,7 +754,7 @@
       const btn = document.getElementById('listInstantlyBtn');
       const btnText = document.getElementById('listBtnText');
       const noLiquidityContainer = document.getElementById('noLiquidityButtonContainer');
-      const actionButtonPanel = btn ? btn.closest('.collapsible-panel') : null;
+      const originalContainer = document.getElementById('actionButtonContainer');
       
       if (!btn || !btnText) return;
 
@@ -743,11 +762,8 @@
         btn.disabled = true;
         btnText.textContent = 'Connect wallet to list';
         // Asegurar que el botón esté en su ubicación original
-        if (actionButtonPanel && btn.parentElement !== actionButtonPanel.querySelector('.panel-body')) {
-          const originalContainer = actionButtonPanel.querySelector('.panel-body');
-          if (originalContainer) {
-            originalContainer.appendChild(btn);
-          }
+        if (originalContainer && btn.parentElement !== originalContainer) {
+          originalContainer.appendChild(btn);
         }
         if (noLiquidityContainer) {
           noLiquidityContainer.style.display = 'none';
@@ -760,11 +776,8 @@
         btn.disabled = true;
         btnText.textContent = 'Select a punk to list';
         // Asegurar que el botón esté en su ubicación original
-        if (actionButtonPanel && btn.parentElement !== actionButtonPanel.querySelector('.panel-body')) {
-          const originalContainer = actionButtonPanel.querySelector('.panel-body');
-          if (originalContainer) {
-            originalContainer.appendChild(btn);
-          }
+        if (originalContainer && btn.parentElement !== originalContainer) {
+          originalContainer.appendChild(btn);
         }
         if (noLiquidityContainer) {
           noLiquidityContainer.style.display = 'none';
@@ -794,11 +807,8 @@
         btn.disabled = true;
         btnText.textContent = 'Floor price not available';
         // Asegurar que el botón esté en su ubicación original
-        if (actionButtonPanel && btn.parentElement !== actionButtonPanel.querySelector('.panel-body')) {
-          const originalContainer = actionButtonPanel.querySelector('.panel-body');
-          if (originalContainer) {
-            originalContainer.appendChild(btn);
-          }
+        if (originalContainer && btn.parentElement !== originalContainer) {
+          originalContainer.appendChild(btn);
         }
         if (noLiquidityContainer) {
           noLiquidityContainer.style.display = 'none';
@@ -822,11 +832,8 @@
       btnText.textContent = `Get instantly ${formatted} $ADRIAN for your #${selectedTokenId} Punk`;
       
       // Cuando hay liquidez, asegurar que el botón esté en su ubicación original
-      if (actionButtonPanel && btn.parentElement !== actionButtonPanel.querySelector('.panel-body')) {
-        const originalContainer = actionButtonPanel.querySelector('.panel-body');
-        if (originalContainer) {
-          originalContainer.appendChild(btn);
-        }
+      if (originalContainer && btn.parentElement !== originalContainer) {
+        originalContainer.appendChild(btn);
       }
       if (noLiquidityContainer) {
         noLiquidityContainer.style.display = 'none';
