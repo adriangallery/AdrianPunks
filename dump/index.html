@@ -379,12 +379,14 @@
         console.log(`📦 User has ${totalTokens} tokens, loading with Multicall3...`);
         
         // Use Multicall3 to get all tokenIds in one batch
+        const ethers5 = window.ethers5Backup || window.ethers;
+        const nftInterface = new ethers5.utils.Interface(NFT_ABI);
         const tokenIdCalls = [];
         for (let i = 0; i < totalTokens; i++) {
           tokenIdCalls.push({
             target: NFT_ADDRESS,
             allowFailure: true,
-            callData: nftReadContract.interface.encodeFunctionData('tokenOfOwnerByIndex', [userAccount, i])
+            callData: nftInterface.encodeFunctionData('tokenOfOwnerByIndex', [userAccount, i])
           });
         }
 
@@ -424,7 +426,7 @@
           .filter(result => result.success)
           .map(result => {
             try {
-              const decoded = nftReadContract.interface.decodeFunctionResult('tokenOfOwnerByIndex', result.returnData);
+              const decoded = nftInterface.decodeFunctionResult('tokenOfOwnerByIndex', result.returnData);
               return decoded[0].toNumber();
             } catch (e) {
               return null;
