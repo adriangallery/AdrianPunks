@@ -38,11 +38,32 @@
               if (menu) {
                 menu.classList.add('navbar-dark', 'bg-dark');
                 menu.style.backgroundColor = '#212529';
+                // Asegurar que el menú no bloquee los clics
+                menu.style.pointerEvents = 'auto';
               }
+              
+              // Asegurar que los enlaces del menú sean clickeables
+              const navLinks = container.querySelectorAll('.nav-link');
+              navLinks.forEach(link => {
+                link.style.pointerEvents = 'auto';
+                link.style.cursor = 'pointer';
+                // Prevenir que eventos se bloqueen
+                link.addEventListener('click', function(e) {
+                  // Permitir que el clic funcione normalmente
+                  e.stopPropagation();
+                }, true);
+              });
               
               const togglerIcon = container.querySelector('.navbar-toggler-icon');
               if (togglerIcon) {
                 togglerIcon.style.filter = 'invert(100%)';
+              }
+              
+              // Asegurar que el navbar-toggler funcione
+              const navbarToggler = container.querySelector('.navbar-toggler');
+              if (navbarToggler) {
+                navbarToggler.style.pointerEvents = 'auto';
+                navbarToggler.style.cursor = 'pointer';
               }
               
               if (!document.querySelector('script[src*="menu.js"]')) {
@@ -537,7 +558,7 @@
       const startTime = performance.now();
       try {
         const balanceEl = document.getElementById('floorEngineBalance');
-        if (!balanceEl || !tokenReadContract) return;
+        if (!balanceEl || !tokenReadContract) return floorEngineBalance || 0;
 
         console.log('🔄 Fetching FloorEngine balance...');
         const contractBalance = await tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS);
@@ -553,12 +574,14 @@
         
         // Update button when balance changes
         updateListButton();
+        return floorEngineBalance;
       } catch (error) {
         console.error('Error fetching FloorEngine balance:', error);
         const balanceEl = document.getElementById('floorEngineBalance');
         if (balanceEl) {
           balanceEl.innerHTML = '<span class="text-danger">Error loading balance</span>';
         }
+        return floorEngineBalance || 0;
       }
     }
 
@@ -883,37 +906,43 @@
           return;
         }
 
-        // Step 2: Get fresh floor price
-        const freshFloorData = await getCurrentFloorPrice();
-        if (!freshFloorData) {
-          statusEl.innerHTML = '<div class="text-danger">❌ Could not get current floor price. Please try again.</div>';
+        // Step 2: Get fresh FloorEngine balance and use it as the listing price
+        await updateFloorEngineBalance();
+        const availableBalance = floorEngineBalance || 0;
+        
+        if (availableBalance <= 0) {
+          statusEl.innerHTML = '<div class="text-danger">❌ FloorEngine has no liquidity. Please try again later.</div>';
           btn.disabled = false;
           updateListButton();
           return;
         }
 
-        // Step 3: List the punk
+        // Convert available balance to wei for the listing price
+        const ethers5 = window.ethers5Backup || window.ethers;
+        const listingPriceWei = ethers5.utils.parseUnits(availableBalance.toFixed(18), 18);
+
+        // Step 3: List the punk at the FloorEngine available balance price
         statusEl.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Creating listing...';
         btnText.textContent = 'Listing...';
 
-        const tx = await floorEngineContract.list(selectedTokenId, freshFloorData.price, { gasLimit: 300000 });
+        const tx = await floorEngineContract.list(selectedTokenId, listingPriceWei, { gasLimit: 300000 });
         statusEl.innerHTML = `<div class="spinner-border spinner-border-sm me-2"></div>Waiting for confirmation... (tx: ${tx.hash.substring(0, 10)}...)`;
         
         await tx.wait();
         console.log('✅ Listing created successfully');
 
-        // Success message
-        const formatted = freshFloorData.priceFormatted >= 1000000
-          ? (freshFloorData.priceFormatted / 1000000).toFixed(1) + 'M'
-          : freshFloorData.priceFormatted >= 1000
-          ? (freshFloorData.priceFormatted / 1000).toFixed(1) + 'K'
-          : freshFloorData.priceFormatted.toFixed(1);
+        // Success message using the available balance
+        const formatted = availableBalance >= 1000000
+          ? (availableBalance / 1000000).toFixed(1) + 'M'
+          : availableBalance >= 1000
+          ? (availableBalance / 1000).toFixed(1) + 'K'
+          : availableBalance.toFixed(1);
 
         statusEl.innerHTML = `
           <div class="alert alert-success">
             <strong>✅ Success!</strong><br>
             Your punk #${selectedTokenId} has been listed at ${formatted} $ADRIAN!<br>
-            <small>You'll receive $ADRIAN in a few minutes when FloorEngine buys it.</small>
+            <small>You'll receive ${formatted} $ADRIAN in a few minutes when FloorEngine buys it.</small>
           </div>
         `;
 
