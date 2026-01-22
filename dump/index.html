@@ -679,10 +679,10 @@
       }
     }
 
-    // Fallback: Load listings from contract
+    // Fallback: Load listings from contract (optimized with Multicall3)
     async function loadListingsFromContract() {
       try {
-        if (!floorEngineReadContract) return;
+        if (!floorEngineReadContract || !multicallContract) return;
 
         const listedTokenIds = await floorEngineReadContract.getListedTokenIds();
         if (!listedTokenIds || listedTokenIds.length === 0) {
@@ -691,23 +691,62 @@
         }
 
         const ethers5 = window.ethers5Backup || window.ethers;
-        activeListingsData = [];
+        const floorEngineInterface = new ethers5.utils.Interface(FLOOR_ENGINE_ABI);
+        
+        // Use Multicall3 to get all listings in one batch
+        const listingCalls = listedTokenIds.map(tokenId => ({
+          target: FLOOR_ENGINE_ADDRESS,
+          allowFailure: true,
+          callData: floorEngineInterface.encodeFunctionData('listings', [tokenId])
+        }));
 
-        for (const tokenId of listedTokenIds) {
-          try {
-            const listing = await floorEngineReadContract.listings(tokenId);
-            activeListingsData.push({
-              tokenId: tokenId.toNumber(),
-              seller: listing.seller,
-              price: listing.price,
-              isContractOwned: listing.isContractOwned
-            });
-          } catch (error) {
-            console.warn(`Error getting listing for token ${tokenId}:`, error);
+        console.log(`🔄 Loading ${listedTokenIds.length} listings with Multicall3...`);
+        const multicallStart = performance.now();
+        
+        let listingResults;
+        try {
+          listingResults = await multicallContract.callStatic.aggregate3(listingCalls);
+          console.log(`⏱️ Multicall3 for listings took ${(performance.now() - multicallStart).toFixed(2)}ms`);
+        } catch (error) {
+          console.warn('Multicall3 failed, falling back to individual calls:', error);
+          // Fallback to individual calls
+          activeListingsData = [];
+          for (const tokenId of listedTokenIds) {
+            try {
+              const listing = await floorEngineReadContract.listings(tokenId);
+              activeListingsData.push({
+                tokenId: tokenId.toNumber(),
+                seller: listing.seller,
+                price: listing.price,
+                isContractOwned: listing.isContractOwned
+              });
+            } catch (err) {
+              console.warn(`Error getting listing for token ${tokenId}:`, err);
+            }
+          }
+          console.log(`✅ Loaded ${activeListingsData.length} listings from contract (fallback method)`);
+          return;
+        }
+
+        // Decode results
+        activeListingsData = [];
+        for (let i = 0; i < listingResults.length; i++) {
+          if (listingResults[i].success) {
+            try {
+              const decoded = floorEngineInterface.decodeFunctionResult('listings', listingResults[i].returnData);
+              activeListingsData.push({
+                tokenId: listedTokenIds[i].toNumber(),
+                seller: decoded.seller,
+                price: decoded.price,
+                isContractOwned: decoded.isContractOwned
+              });
+            } catch (e) {
+              console.warn(`Error decoding listing for token ${listedTokenIds[i]}:`, e);
+            }
           }
         }
 
-        console.log(`✅ Loaded ${activeListingsData.length} listings from contract`);
+        console.log(`✅ Loaded ${activeListingsData.length} listings from contract (Multicall3)`);
       } catch (error) {
         console.error('Error loading listings from contract:', error);
       }
@@ -734,26 +773,63 @@
           }
         }
 
-        // Fallback: query contract directly
-        if (floorEngineReadContract) {
+        // Fallback: query contract directly (optimized with Multicall3)
+        if (floorEngineReadContract && multicallContract) {
           const listedTokenIds = await floorEngineReadContract.getListedTokenIds();
           if (!listedTokenIds || listedTokenIds.length === 0) {
             return null;
           }
 
           const ethers5 = window.ethers5Backup || window.ethers;
-          let cheapestPrice = null;
+          const floorEngineInterface = new ethers5.utils.Interface(FLOOR_ENGINE_ABI);
+          
+          // Use Multicall3 to get all listings in one batch
+          const listingCalls = listedTokenIds.map(tokenId => ({
+            target: FLOOR_ENGINE_ADDRESS,
+            allowFailure: true,
+            callData: floorEngineInterface.encodeFunctionData('listings', [tokenId])
+          }));
 
-          for (const tokenId of listedTokenIds) {
-            try {
-              const listing = await floorEngineReadContract.listings(tokenId);
-              if (!listing.isContractOwned) {
-                if (!cheapestPrice || listing.price.lt(cheapestPrice)) {
-                  cheapestPrice = listing.price;
+          let listingResults;
+          try {
+            listingResults = await multicallContract.callStatic.aggregate3(listingCalls);
+          } catch (error) {
+            console.warn('Multicall3 failed in getCurrentFloorPrice, falling back to individual calls:', error);
+            // Fallback to individual calls
+            let cheapestPrice = null;
+            for (const tokenId of listedTokenIds) {
+              try {
+                const listing = await floorEngineReadContract.listings(tokenId);
+                if (!listing.isContractOwned) {
+                  if (!cheapestPrice || listing.price.lt(cheapestPrice)) {
+                    cheapestPrice = listing.price;
+                  }
                 }
+              } catch (err) {
+                console.warn(`Error getting listing for token ${tokenId}:`, err);
               }
-            } catch (error) {
-              console.warn(`Error getting listing for token ${tokenId}:`, error);
+            }
+            if (cheapestPrice) {
+              const price = parseFloat(ethers5.utils.formatUnits(cheapestPrice, 18));
+              return { price: cheapestPrice, priceFormatted: price };
+            }
+            return null;
+          }
+
+          // Decode results and find cheapest user listing
+          let cheapestPrice = null;
+          for (let i = 0; i < listingResults.length; i++) {
+            if (listingResults[i].success) {
+              try {
+                const decoded = floorEngineInterface.decodeFunctionResult('listings', listingResults[i].returnData);
+                if (!decoded.isContractOwned) {
+                  if (!cheapestPrice || decoded.price.lt(cheapestPrice)) {
+                    cheapestPrice = decoded.price;
+                  }
+                }
+              } catch (e) {
+                console.warn(`Error decoding listing for token ${listedTokenIds[i]}:`, e);
+              }
             }
           }
 
@@ -821,7 +897,7 @@
         return;
       }
 
-      // Use FloorEngine balance instead of floor price
+      // Use FloorEngine balance - no need to wait for floor price
       // If FloorEngine has no balance, show 0
       const availableBalance = floorEngineBalance || 0;
       
@@ -831,28 +907,18 @@
         return;
       }
 
-      if (!currentFloorPrice) {
-        btn.disabled = true;
-        btnText.textContent = 'Floor price not available';
-        return;
-      }
-
-      // The amount the user will receive is the minimum of:
-      // 1. FloorEngine balance (what's available)
-      // 2. Floor price (what the listing would be)
-      const amountToReceive = Math.min(availableBalance, currentFloorPrice.priceFormatted);
-      
-      const formatted = amountToReceive >= 1000000
-        ? (amountToReceive / 1000000).toFixed(1) + 'M'
-        : amountToReceive >= 1000
-        ? (amountToReceive / 1000).toFixed(1) + 'K'
-        : amountToReceive.toFixed(1);
+      // The amount the user will receive is the FloorEngine balance available
+      const formatted = availableBalance >= 1000000
+        ? (availableBalance / 1000000).toFixed(1) + 'M'
+        : availableBalance >= 1000
+        ? (availableBalance / 1000).toFixed(1) + 'K'
+        : availableBalance.toFixed(1);
 
       btn.disabled = false;
       btnText.textContent = `Get instantly ${formatted} $ADRIAN for your #${selectedTokenId} Punk`;
       
       // Log for debugging
-      console.log(`💰 Button updated: FloorEngine=${floorEngineBalance.toFixed(1)}, Floor=${currentFloorPrice.priceFormatted.toFixed(1)}, Amount=${amountToReceive.toFixed(1)}`);
+      console.log(`💰 Button updated: FloorEngine=${availableBalance.toFixed(1)} $ADRIAN`);
     }
 
     // List punk instantly
