@@ -238,17 +238,23 @@
       "function totalMinted() view returns (uint256)"
     ];
 
+    const MULTICALL3_ABI = [
+      "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) external view returns (tuple(bool success, bytes returnData)[] returnData)"
+    ];
+
     // Global variables
     let readProvider = null;
     let nftReadContract = null;
     let tokenReadContract = null;
     let floorEngineReadContract = null;
+    let multicallContract = null;
     let nftContract = null;
     let floorEngineContract = null;
     let userAccount = null;
     let userPunks = [];
     let selectedTokenId = null;
     let currentFloorPrice = null;
+    let floorEngineBalance = 0; // Balance disponible en FloorEngine
     let activeListingsData = [];
 
     // GIF token IDs
@@ -286,16 +292,25 @@
         nftReadContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
         tokenReadContract = new ethers5.Contract(TOKEN_ADDRESS, TOKEN_ABI, readProvider);
         floorEngineReadContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, readProvider);
+        multicallContract = new ethers5.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
 
         console.log('✅ Contracts initialized');
+        console.log('📊 Using RPC:', ALCHEMY_RPC_URL ? 'Alchemy' : 'Public RPC');
 
         // Initialize wallet connection (same pattern as market)
         await initWallet();
 
-        // Load initial data
-        await updateFloorEngineBalance();
-        await loadActiveListings();
-        await updateCurrentFloorPrice();
+        // Load initial data (with timing logs)
+        console.log('🔄 Loading initial data...');
+        const initStart = performance.now();
+        
+        await Promise.all([
+          updateFloorEngineBalance(),
+          loadActiveListings(),
+          updateCurrentFloorPrice()
+        ]);
+        
+        console.log(`✅ Initial data loaded in ${(performance.now() - initStart).toFixed(2)}ms`);
 
         // Set up intervals
         setInterval(updateFloorEngineBalance, 30000); // Every 30 seconds
@@ -338,8 +353,9 @@
       }
     }
 
-    // Load user's punks
+    // Load user's punks (optimized with Multicall3)
     async function loadUserPunks() {
+      const startTime = performance.now();
       try {
         if (!userAccount || !nftReadContract) {
           userPunks = [];
@@ -347,32 +363,77 @@
           return;
         }
 
+        console.log('🔄 Loading user punks...');
+        const balanceStart = performance.now();
         const balance = await nftReadContract.balanceOf(userAccount);
         const totalTokens = balance.toNumber();
+        console.log(`⏱️ Balance call took ${(performance.now() - balanceStart).toFixed(2)}ms`);
 
         if (totalTokens === 0) {
           userPunks = [];
           updateUI();
+          console.log('✅ No punks found for user');
           return;
         }
 
-        const tokenIds = [];
+        console.log(`📦 User has ${totalTokens} tokens, loading with Multicall3...`);
+        
+        // Use Multicall3 to get all tokenIds in one batch
+        const tokenIdCalls = [];
         for (let i = 0; i < totalTokens; i++) {
-          try {
-            const tokenId = await nftReadContract.tokenOfOwnerByIndex(userAccount, i);
-            const tokenIdNum = tokenId.toNumber();
-            
-            // Validate tokenId is between 1-1000
-            if (tokenIdNum >= 1 && tokenIdNum <= 1000) {
-              tokenIds.push(tokenIdNum);
-            }
-          } catch (error) {
-            console.warn(`Error getting token ${i}:`, error);
-          }
+          tokenIdCalls.push({
+            target: NFT_ADDRESS,
+            allowFailure: true,
+            callData: nftReadContract.interface.encodeFunctionData('tokenOfOwnerByIndex', [userAccount, i])
+          });
         }
 
+        const multicallStart = performance.now();
+        let tokenIdResults;
+        try {
+          tokenIdResults = await multicallContract.callStatic.aggregate3(tokenIdCalls);
+          console.log(`⏱️ Multicall3 took ${(performance.now() - multicallStart).toFixed(2)}ms`);
+        } catch (error) {
+          console.warn('Multicall3 failed, falling back to individual calls:', error);
+          // Fallback to individual calls
+          const tokenIds = [];
+          for (let i = 0; i < totalTokens; i++) {
+            try {
+              const tokenId = await nftReadContract.tokenOfOwnerByIndex(userAccount, i);
+              const tokenIdNum = tokenId.toNumber();
+              if (tokenIdNum >= 1 && tokenIdNum <= 1000) {
+                tokenIds.push(tokenIdNum);
+              }
+            } catch (err) {
+              console.warn(`Error getting token ${i}:`, err);
+            }
+          }
+          userPunks = tokenIds.sort((a, b) => a - b);
+          console.log(`✅ Loaded ${userPunks.length} punks (fallback method) in ${(performance.now() - startTime).toFixed(2)}ms`);
+          if (userPunks.length > 0) {
+            const randomIndex = Math.floor(Math.random() * userPunks.length);
+            selectedTokenId = userPunks[randomIndex];
+          }
+          updateUI();
+          loadFeaturedPunk();
+          updateTokenSelector();
+          return;
+        }
+
+        const tokenIds = tokenIdResults
+          .filter(result => result.success)
+          .map(result => {
+            try {
+              const decoded = nftReadContract.interface.decodeFunctionResult('tokenOfOwnerByIndex', result.returnData);
+              return decoded[0].toNumber();
+            } catch (e) {
+              return null;
+            }
+          })
+          .filter(id => id !== null && id >= 1 && id <= 1000);
+
         userPunks = tokenIds.sort((a, b) => a - b);
-        console.log(`✅ Loaded ${userPunks.length} punks for user`);
+        console.log(`✅ Loaded ${userPunks.length} punks in ${(performance.now() - startTime).toFixed(2)}ms`);
 
         // Select random punk as default
         if (userPunks.length > 0) {
@@ -471,19 +532,25 @@
 
     // Update FloorEngine balance
     async function updateFloorEngineBalance() {
+      const startTime = performance.now();
       try {
         const balanceEl = document.getElementById('floorEngineBalance');
         if (!balanceEl || !tokenReadContract) return;
 
+        console.log('🔄 Fetching FloorEngine balance...');
         const contractBalance = await tokenReadContract.balanceOf(FLOOR_ENGINE_ADDRESS);
         const ethers5 = window.ethers5Backup || window.ethers;
-        const balance = parseFloat(ethers5.utils.formatUnits(contractBalance, 18));
+        floorEngineBalance = parseFloat(ethers5.utils.formatUnits(contractBalance, 18));
         
-        let formattedBalance = balance >= 1000000 ? (balance / 1000000).toFixed(1) + 'M' :
-                              balance >= 1000 ? (balance / 1000).toFixed(1) + 'K' :
-                              balance.toFixed(1);
+        let formattedBalance = floorEngineBalance >= 1000000 ? (floorEngineBalance / 1000000).toFixed(1) + 'M' :
+                              floorEngineBalance >= 1000 ? (floorEngineBalance / 1000).toFixed(1) + 'K' :
+                              floorEngineBalance.toFixed(1);
 
         balanceEl.innerHTML = `<span>💰 FloorEngine: ${formattedBalance} $ADRIAN</span>`;
+        console.log(`✅ FloorEngine balance: ${formattedBalance} $ADRIAN (took ${(performance.now() - startTime).toFixed(2)}ms)`);
+        
+        // Update button when balance changes
+        updateListButton();
       } catch (error) {
         console.error('Error fetching FloorEngine balance:', error);
         const balanceEl = document.getElementById('floorEngineBalance');
@@ -654,7 +721,7 @@
       }
     }
 
-    // Update list button
+    // Update list button (uses FloorEngine balance, not floor price)
     function updateListButton() {
       const btn = document.getElementById('listInstantlyBtn');
       const btnText = document.getElementById('listBtnText');
@@ -673,20 +740,38 @@
         return;
       }
 
+      // Use FloorEngine balance instead of floor price
+      // If FloorEngine has no balance, show 0
+      const availableBalance = floorEngineBalance || 0;
+      
+      if (availableBalance <= 0) {
+        btn.disabled = true;
+        btnText.textContent = 'FloorEngine has no liquidity (0 $ADRIAN)';
+        return;
+      }
+
       if (!currentFloorPrice) {
         btn.disabled = true;
         btnText.textContent = 'Floor price not available';
         return;
       }
 
-      const formatted = currentFloorPrice.priceFormatted >= 1000000
-        ? (currentFloorPrice.priceFormatted / 1000000).toFixed(1) + 'M'
-        : currentFloorPrice.priceFormatted >= 1000
-        ? (currentFloorPrice.priceFormatted / 1000).toFixed(1) + 'K'
-        : currentFloorPrice.priceFormatted.toFixed(1);
+      // The amount the user will receive is the minimum of:
+      // 1. FloorEngine balance (what's available)
+      // 2. Floor price (what the listing would be)
+      const amountToReceive = Math.min(availableBalance, currentFloorPrice.priceFormatted);
+      
+      const formatted = amountToReceive >= 1000000
+        ? (amountToReceive / 1000000).toFixed(1) + 'M'
+        : amountToReceive >= 1000
+        ? (amountToReceive / 1000).toFixed(1) + 'K'
+        : amountToReceive.toFixed(1);
 
       btn.disabled = false;
       btnText.textContent = `Get instantly ${formatted} $ADRIAN for your #${selectedTokenId} Punk`;
+      
+      // Log for debugging
+      console.log(`💰 Button updated: FloorEngine=${floorEngineBalance.toFixed(1)}, Floor=${currentFloorPrice.priceFormatted.toFixed(1)}, Amount=${amountToReceive.toFixed(1)}`);
     }
 
     // List punk instantly
