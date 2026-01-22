@@ -352,6 +352,75 @@
       }
     }
 
+    // Connect wallet function
+    async function connectWallet() {
+      try {
+        if (!window.ethereum) {
+          alert('Please install MetaMask!');
+          return;
+        }
+
+        const ethers5 = window.ethers5Backup || window.ethers;
+        if (!ethers5) {
+          alert('Ethers library not loaded. Please refresh the page.');
+          return;
+        }
+
+        const btn = document.getElementById('listInstantlyBtn');
+        const btnText = document.getElementById('listBtnText');
+        
+        if (btn) {
+          btn.disabled = true;
+        }
+        if (btnText) {
+          btnText.textContent = 'Connecting...';
+        }
+
+        // Request account access
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        
+        // Initialize provider and signer
+        window.provider = new ethers5.providers.Web3Provider(window.ethereum);
+        window.signer = window.provider.getSigner();
+        window.userAccount = await window.signer.getAddress();
+        userAccount = window.userAccount;
+
+        // Initialize contracts
+        nftContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, window.signer);
+        floorEngineContract = new ethers5.Contract(FLOOR_ENGINE_ADDRESS, FLOOR_ENGINE_ABI, window.signer);
+        
+        console.log('✅ Wallet connected:', userAccount);
+        
+        // Load user punks
+        await loadUserPunks();
+        
+        // Update button
+        updateListButton();
+        
+        // Disparar evento para notificar que la wallet está conectada
+        const event = new CustomEvent('walletConnected', { detail: { address: userAccount } });
+        window.dispatchEvent(event);
+        
+      } catch (error) {
+        console.error('Error connecting wallet:', error);
+        const btn = document.getElementById('listInstantlyBtn');
+        const btnText = document.getElementById('listBtnText');
+        
+        if (btn) {
+          btn.disabled = false;
+        }
+        if (btnText) {
+          btnText.textContent = 'Connect wallet to list';
+        }
+        
+        if (error.code === 4001) {
+          alert('Connection rejected by user');
+        } else {
+          alert('Error connecting wallet: ' + error.message);
+        }
+      }
+    }
+
     // Load user's punks (optimized with Multicall3)
     async function loadUserPunks() {
       const startTime = performance.now();
@@ -868,7 +937,7 @@
       if (!btn || !btnText || !buttonContainer) return;
 
       if (!userAccount) {
-        btn.disabled = true;
+        btn.disabled = false; // Habilitar para permitir conectar wallet
         btnText.textContent = 'Connect wallet to list';
         return;
       }
@@ -1049,7 +1118,17 @@
 
       const listBtn = document.getElementById('listInstantlyBtn');
       if (listBtn) {
-        listBtn.addEventListener('click', listPunkInstantly);
+        listBtn.addEventListener('click', async function(e) {
+          const btnText = document.getElementById('listBtnText');
+          // Si el botón dice "Connect wallet to list", conectar wallet
+          if (btnText && btnText.textContent === 'Connect wallet to list') {
+            e.preventDefault();
+            await connectWallet();
+          } else {
+            // Si no, ejecutar la función normal de listar
+            listPunkInstantly();
+          }
+        });
       }
 
       // Listen for wallet connection from menu
