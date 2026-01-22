@@ -114,8 +114,13 @@
             <div id="featuredPunkContent">
               <div class="text-center">
                 <p class="text-muted">Connect your wallet to see your punks</p>
-                <div id="noLiquidityButtonContainer" style="margin-top: 1rem; display: none;"></div>
               </div>
+            </div>
+            <div id="buttonContainer" class="text-center" style="margin-top: 1rem;">
+              <button id="listInstantlyBtn" class="btn btn-primary btn-lg" disabled>
+                <span id="listBtnText">Connect wallet to list</span>
+              </button>
+              <div id="listStatus" class="mt-3"></div>
             </div>
           </div>
         </div>
@@ -133,16 +138,6 @@
               <option value="">No tokens available</option>
             </select>
           </div>
-        </div>
-      </div>
-
-      <!-- Action Button -->
-      <div class="collapsible-panel">
-        <div id="actionButtonContainer" class="panel-body text-center">
-          <button id="listInstantlyBtn" class="btn btn-primary btn-lg" disabled>
-            <span id="listBtnText">Connect wallet to list</span>
-          </button>
-          <div id="listStatus" class="mt-3"></div>
         </div>
       </div>
     </main>
@@ -462,7 +457,6 @@
           content.innerHTML = `
             <div class="text-center">
               <p class="text-muted">No punk selected</p>
-              <div id="noLiquidityButtonContainer" style="margin-top: 1rem; display: none;"></div>
             </div>
           `;
         }
@@ -480,7 +474,6 @@
             <img id="featuredPunkImage" src="${imageUrl}" alt="${tokenName}" 
                  class="featured-punk-image" style="max-width: 100%; border-radius: 10px; margin-bottom: 1rem; display: none;">
             <h5>${tokenName}</h5>
-            <div id="noLiquidityButtonContainer" style="margin-top: 1rem; display: none;"></div>
           </div>
         `;
 
@@ -604,9 +597,45 @@
           
           // Si contiene notación científica (e o E), convertirla
           if (priceWeiStr.includes('e') || priceWeiStr.includes('E')) {
-            // Usar parseFloat y luego toFixed para evitar notación científica
-            const num = parseFloat(priceWeiStr);
-            priceWeiStr = num.toFixed(0);
+            // Convertir notación científica a string completo
+            // Normalizar a minúsculas y manejar signo +
+            priceWeiStr = priceWeiStr.toLowerCase().replace('e+', 'e');
+            const parts = priceWeiStr.split('e');
+            
+            if (parts.length === 2) {
+              const base = parts[0];
+              const exponent = parseInt(parts[1]);
+              
+              // Separar la parte decimal de la base
+              const baseParts = base.split('.');
+              const integerPart = baseParts[0] || '0';
+              const decimalPart = baseParts[1] || '';
+              
+              // Calcular el número total de dígitos después del punto decimal
+              const decimalDigits = decimalPart.length;
+              
+              // Si el exponente es positivo
+              if (exponent > 0) {
+                if (exponent <= decimalDigits) {
+                  // El punto decimal permanece dentro del número
+                  const newInteger = integerPart + decimalPart.substring(0, exponent);
+                  const newDecimal = decimalPart.substring(exponent);
+                  priceWeiStr = newInteger + (newDecimal ? '.' + newDecimal : '');
+                } else {
+                  // El punto decimal se mueve más allá del número, agregar ceros
+                  priceWeiStr = integerPart + decimalPart + '0'.repeat(exponent - decimalDigits);
+                }
+              } else if (exponent < 0) {
+                // Exponente negativo (mover punto decimal a la izquierda)
+                priceWeiStr = '0.' + '0'.repeat(-exponent - 1) + integerPart + decimalPart;
+              } else {
+                // Exponente 0, solo quitar el punto decimal si existe
+                priceWeiStr = integerPart + decimalPart;
+              }
+              
+              // Eliminar cualquier punto decimal restante (debe ser entero en wei)
+              priceWeiStr = priceWeiStr.split('.')[0];
+            }
           }
           
           // Asegurar que no tenga decimales (debe ser un entero en wei)
@@ -753,36 +782,19 @@
     function updateListButton() {
       const btn = document.getElementById('listInstantlyBtn');
       const btnText = document.getElementById('listBtnText');
-      const noLiquidityContainer = document.getElementById('noLiquidityButtonContainer');
-      const originalContainer = document.getElementById('actionButtonContainer');
+      const buttonContainer = document.getElementById('buttonContainer');
       
-      if (!btn || !btnText) return;
+      if (!btn || !btnText || !buttonContainer) return;
 
       if (!userAccount) {
         btn.disabled = true;
         btnText.textContent = 'Connect wallet to list';
-        // Asegurar que el botón esté en su ubicación original
-        if (originalContainer && btn.parentElement !== originalContainer) {
-          originalContainer.appendChild(btn);
-        }
-        if (noLiquidityContainer) {
-          noLiquidityContainer.style.display = 'none';
-          noLiquidityContainer.innerHTML = '';
-        }
         return;
       }
 
       if (!selectedTokenId) {
         btn.disabled = true;
         btnText.textContent = 'Select a punk to list';
-        // Asegurar que el botón esté en su ubicación original
-        if (originalContainer && btn.parentElement !== originalContainer) {
-          originalContainer.appendChild(btn);
-        }
-        if (noLiquidityContainer) {
-          noLiquidityContainer.style.display = 'none';
-          noLiquidityContainer.innerHTML = '';
-        }
         return;
       }
 
@@ -793,27 +805,12 @@
       if (availableBalance <= 0) {
         btn.disabled = true;
         btnText.textContent = 'FloorEngine has no liquidity (0 $ADRIAN)';
-        
-        // Mover el botón al módulo de "Dump your punk"
-        if (noLiquidityContainer) {
-          noLiquidityContainer.style.display = 'block';
-          noLiquidityContainer.innerHTML = '';
-          noLiquidityContainer.appendChild(btn);
-        }
         return;
       }
 
       if (!currentFloorPrice) {
         btn.disabled = true;
         btnText.textContent = 'Floor price not available';
-        // Asegurar que el botón esté en su ubicación original
-        if (originalContainer && btn.parentElement !== originalContainer) {
-          originalContainer.appendChild(btn);
-        }
-        if (noLiquidityContainer) {
-          noLiquidityContainer.style.display = 'none';
-          noLiquidityContainer.innerHTML = '';
-        }
         return;
       }
 
@@ -830,15 +827,6 @@
 
       btn.disabled = false;
       btnText.textContent = `Get instantly ${formatted} $ADRIAN for your #${selectedTokenId} Punk`;
-      
-      // Cuando hay liquidez, asegurar que el botón esté en su ubicación original
-      if (originalContainer && btn.parentElement !== originalContainer) {
-        originalContainer.appendChild(btn);
-      }
-      if (noLiquidityContainer) {
-        noLiquidityContainer.style.display = 'none';
-        noLiquidityContainer.innerHTML = '';
-      }
       
       // Log for debugging
       console.log(`💰 Button updated: FloorEngine=${floorEngineBalance.toFixed(1)}, Floor=${currentFloorPrice.priceFormatted.toFixed(1)}, Amount=${amountToReceive.toFixed(1)}`);
