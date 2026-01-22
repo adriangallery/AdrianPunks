@@ -106,7 +106,7 @@
       <!-- Featured Punk Panel -->
       <div class="collapsible-panel mb-3">
         <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#featuredPunkPanel" aria-expanded="true">
-          <h5 class="mb-0">Your Punk</h5>
+          <h5 class="mb-0">Dump your punk</h5>
           <i class="bi bi-chevron-down collapse-icon"></i>
         </div>
         <div class="collapse show" id="featuredPunkPanel">
@@ -114,6 +114,7 @@
             <div id="featuredPunkContent">
               <div class="text-center">
                 <p class="text-muted">Connect your wallet to see your punks</p>
+                <div id="noLiquidityButtonContainer" style="margin-top: 1rem; display: none;"></div>
               </div>
             </div>
           </div>
@@ -458,7 +459,12 @@
       if (!selectedTokenId) {
         const content = document.getElementById('featuredPunkContent');
         if (content) {
-          content.innerHTML = '<div class="text-center"><p class="text-muted">No punk selected</p></div>';
+          content.innerHTML = `
+            <div class="text-center">
+              <p class="text-muted">No punk selected</p>
+              <div id="noLiquidityButtonContainer" style="margin-top: 1rem; display: none;"></div>
+            </div>
+          `;
         }
         return;
       }
@@ -474,6 +480,7 @@
             <img id="featuredPunkImage" src="${imageUrl}" alt="${tokenName}" 
                  class="featured-punk-image" style="max-width: 100%; border-radius: 10px; margin-bottom: 1rem; display: none;">
             <h5>${tokenName}</h5>
+            <div id="noLiquidityButtonContainer" style="margin-top: 1rem; display: none;"></div>
           </div>
         `;
 
@@ -727,18 +734,42 @@
     function updateListButton() {
       const btn = document.getElementById('listInstantlyBtn');
       const btnText = document.getElementById('listBtnText');
+      const noLiquidityContainer = document.getElementById('noLiquidityButtonContainer');
+      const actionButtonPanel = btn ? btn.closest('.collapsible-panel') : null;
       
       if (!btn || !btnText) return;
 
       if (!userAccount) {
         btn.disabled = true;
         btnText.textContent = 'Connect wallet to list';
+        // Asegurar que el botón esté en su ubicación original
+        if (actionButtonPanel && btn.parentElement !== actionButtonPanel.querySelector('.panel-body')) {
+          const originalContainer = actionButtonPanel.querySelector('.panel-body');
+          if (originalContainer) {
+            originalContainer.appendChild(btn);
+          }
+        }
+        if (noLiquidityContainer) {
+          noLiquidityContainer.style.display = 'none';
+          noLiquidityContainer.innerHTML = '';
+        }
         return;
       }
 
       if (!selectedTokenId) {
         btn.disabled = true;
         btnText.textContent = 'Select a punk to list';
+        // Asegurar que el botón esté en su ubicación original
+        if (actionButtonPanel && btn.parentElement !== actionButtonPanel.querySelector('.panel-body')) {
+          const originalContainer = actionButtonPanel.querySelector('.panel-body');
+          if (originalContainer) {
+            originalContainer.appendChild(btn);
+          }
+        }
+        if (noLiquidityContainer) {
+          noLiquidityContainer.style.display = 'none';
+          noLiquidityContainer.innerHTML = '';
+        }
         return;
       }
 
@@ -749,12 +780,30 @@
       if (availableBalance <= 0) {
         btn.disabled = true;
         btnText.textContent = 'FloorEngine has no liquidity (0 $ADRIAN)';
+        
+        // Mover el botón al módulo de "Dump your punk"
+        if (noLiquidityContainer) {
+          noLiquidityContainer.style.display = 'block';
+          noLiquidityContainer.innerHTML = '';
+          noLiquidityContainer.appendChild(btn);
+        }
         return;
       }
 
       if (!currentFloorPrice) {
         btn.disabled = true;
         btnText.textContent = 'Floor price not available';
+        // Asegurar que el botón esté en su ubicación original
+        if (actionButtonPanel && btn.parentElement !== actionButtonPanel.querySelector('.panel-body')) {
+          const originalContainer = actionButtonPanel.querySelector('.panel-body');
+          if (originalContainer) {
+            originalContainer.appendChild(btn);
+          }
+        }
+        if (noLiquidityContainer) {
+          noLiquidityContainer.style.display = 'none';
+          noLiquidityContainer.innerHTML = '';
+        }
         return;
       }
 
@@ -771,6 +820,18 @@
 
       btn.disabled = false;
       btnText.textContent = `Get instantly ${formatted} $ADRIAN for your #${selectedTokenId} Punk`;
+      
+      // Cuando hay liquidez, asegurar que el botón esté en su ubicación original
+      if (actionButtonPanel && btn.parentElement !== actionButtonPanel.querySelector('.panel-body')) {
+        const originalContainer = actionButtonPanel.querySelector('.panel-body');
+        if (originalContainer) {
+          originalContainer.appendChild(btn);
+        }
+      }
+      if (noLiquidityContainer) {
+        noLiquidityContainer.style.display = 'none';
+        noLiquidityContainer.innerHTML = '';
+      }
       
       // Log for debugging
       console.log(`💰 Button updated: FloorEngine=${floorEngineBalance.toFixed(1)}, Floor=${currentFloorPrice.priceFormatted.toFixed(1)}, Amount=${amountToReceive.toFixed(1)}`);
