@@ -47,14 +47,21 @@
                 togglerIcon.style.filter = 'invert(100%)';
               }
               
-              // Load menu script
-              if (!document.querySelector('script[src*="menu.js"]')) {
-                const script = document.createElement('script');
+              // Fix script paths in the loaded HTML (menu.js needs relative path from dump/)
+              const scripts = container.querySelectorAll('script[src="menu.js"]');
+              scripts.forEach(script => {
                 script.src = '../components/menu.js';
-                script.onload = function() {
-                  console.log('Menu script loaded');
-                };
-                document.head.appendChild(script);
+              });
+              
+              // Ensure Bootstrap is available and reinitialize if needed
+              if (typeof bootstrap !== 'undefined') {
+                // Bootstrap is already loaded, ensure nav links work
+                const navLinks = container.querySelectorAll('.nav-link');
+                navLinks.forEach(link => {
+                  // Remove any existing listeners that might interfere
+                  const newLink = link.cloneNode(true);
+                  link.parentNode.replaceChild(newLink, link);
+                });
               }
             }
           })

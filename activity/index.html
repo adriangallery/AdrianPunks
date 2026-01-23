@@ -281,14 +281,25 @@
                 togglerIcon.style.filter = 'invert(100%)';
               }
               
-              // Load menu script
-              if (!document.querySelector('script[src*="menu.js"]')) {
-                const script = document.createElement('script');
+              // Fix script paths in the loaded HTML (menu.js needs relative path from activity/)
+              const scripts = container.querySelectorAll('script[src="menu.js"]');
+              scripts.forEach(script => {
                 script.src = '../components/menu.js';
-                script.onload = function() {
-                  console.log('Menu script loaded');
-                };
-                document.head.appendChild(script);
+                // Execute the script after fixing the path
+                const newScript = document.createElement('script');
+                newScript.src = script.src;
+                newScript.async = false;
+                document.head.appendChild(newScript);
+                script.remove();
+              });
+              
+              // Ensure Bootstrap is available and nav links work
+              if (typeof bootstrap !== 'undefined') {
+                const navLinks = container.querySelectorAll('.nav-link');
+                navLinks.forEach(link => {
+                  const newLink = link.cloneNode(true);
+                  link.parentNode.replaceChild(newLink, link);
+                });
               }
             }
           })

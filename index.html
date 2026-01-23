@@ -732,10 +732,29 @@
     fetch('components/menu.html')
       .then(response => response.text())
       .then(html => {
-        document.getElementById('menu-container').innerHTML = html;
-        const script = document.createElement('script');
-        script.src = 'components/menu.js';
-        document.head.appendChild(script);
+        const container = document.getElementById('menu-container');
+        container.innerHTML = html;
+        
+        // Fix script paths in the loaded HTML
+        const scripts = container.querySelectorAll('script[src="menu.js"]');
+        scripts.forEach(script => {
+          script.src = 'components/menu.js';
+          // Execute the script after fixing the path
+          const newScript = document.createElement('script');
+          newScript.src = script.src;
+          newScript.async = false;
+          document.head.appendChild(newScript);
+          script.remove();
+        });
+        
+        // Ensure Bootstrap is available and nav links work
+        if (typeof bootstrap !== 'undefined') {
+          const navLinks = container.querySelectorAll('.nav-link');
+          navLinks.forEach(link => {
+            const newLink = link.cloneNode(true);
+            link.parentNode.replaceChild(newLink, link);
+          });
+        }
       })
       .catch(error => console.error('Error loading menu:', error));
   </script>
