@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Print NFT Cards - AdrianPunks</title>
+  <link rel="icon" type="image/x-icon" href="../favicon.ico">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="../market/styles.css">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="../market/runtime-config.js"></script>
+</head>
+<body>
+  <!-- Include the menu -->
+  <div id="menu-container"></div>
+  <script>
+    // Load the menu with proper styling
+    (function() {
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadMenu);
+      } else {
+        loadMenu();
+      }
+      
+      function loadMenu() {
+        fetch('../components/menu.html')
+          .then(response => response.text())
+          .then(html => {
+            const container = document.getElementById('menu-container');
+            if (container) {
+              container.innerHTML = html;
+              
+              // Ensure menu has correct Bootstrap classes and styling
+              const menu = container.querySelector('.navbar');
+              if (menu) {
+                menu.classList.add('navbar-dark', 'bg-dark');
+                menu.style.backgroundColor = '#212529';
+              }
+              
+              // Ensure toggler icon is visible
+              const togglerIcon = container.querySelector('.navbar-toggler-icon');
+              if (togglerIcon) {
+                togglerIcon.style.filter = 'invert(100%)';
+              }
+              
+              // Fix script paths in the loaded HTML (menu.js needs relative path from print/)
+              const scripts = container.querySelectorAll('script[src="menu.js"]');
+              scripts.forEach(script => {
+                script.src = '../components/menu.js';
+              });
+              
+              // Ensure Bootstrap is available and reinitialize if needed
+              if (typeof bootstrap !== 'undefined') {
+                const navLinks = container.querySelectorAll('.nav-link');
+                navLinks.forEach(link => {
+                  const newLink = link.cloneNode(true);
+                  link.parentNode.replaceChild(newLink, link);
+                });
+              }
+            }
+          })
+          .catch(error => console.error('Error loading menu:', error));
+      }
+    })();
+  </script>
+
+  <!-- Main Layout -->
+  <div class="main-layout">
+    <!-- Sidebar Left: Info -->
+    <aside class="sidebar">
+      <!-- Instructions Panel -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#instructionsPanel" aria-expanded="true">
+          <h5 class="mb-0">How It Works</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="instructionsPanel">
+          <div class="panel-body">
+            <ol class="small">
+              <li>Connect your wallet</li>
+              <li>Select a punk from your collection</li>
+              <li>Preview your NFT card</li>
+              <li>Click "Download PDF" to get your printable card</li>
+              <li>Print and enjoy your physical NFT card!</li>
+            </ol>
+            <p class="small text-muted mt-3">
+              Each AdrianPunk has a unique printable card ready for download. Perfect for collecting and displaying your NFTs in the real world!
+            </p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Select Punk Panel -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#selectPunkPanel" aria-expanded="true">
+          <h5 class="mb-0">Select your Punk</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="selectPunkPanel">
+          <div class="panel-body">
+            <div id="punkSelectorContent">
+              <div class="text-center">
+                <p class="text-muted">Connect your wallet to see your punks</p>
+              </div>
+            </div>
+            <div class="mt-3">
+              <select id="tokenSelector" class="form-select" disabled>
+                <option value="">No tokens available</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preview Panel -->
+      <div class="collapsible-panel mb-3">
+        <div class="panel-header" data-bs-toggle="collapse" data-bs-target="#previewPanel" aria-expanded="true">
+          <h5 class="mb-0">Card Preview</h5>
+          <i class="bi bi-chevron-down collapse-icon"></i>
+        </div>
+        <div class="collapse show" id="previewPanel">
+          <div class="panel-body">
+            <div id="previewContent">
+              <div class="text-center">
+                <p class="text-muted">Select a punk to preview</p>
+              </div>
+            </div>
+            <div id="downloadButtonContainer" class="text-center mt-3" style="display: none;">
+              <button id="downloadPdfBtn" class="btn btn-primary btn-lg" disabled>
+                <i class="bi bi-download me-2"></i>
+                Download PDF
+              </button>
+              <div id="downloadStatus" class="mt-3"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Contract addresses
+    const NFT_ADDRESS = "0x79BE8AcdD339C7b92918fcC3fd3875b5Aaad7566"; // AdrianPunks
+    const MULTICALL3_ADDRESS = "0xcA11bde05977b3631167028862bE2a173976CA11"; // Multicall3 on Base
+
+    // Alchemy API Configuration (from runtime-config.js)
+    const ALCHEMY_API_KEY = window.ALCHEMY_API_KEY || 'YOUR_ALCHEMY_API_KEY';
+    const ALCHEMY_RPC_URL = ALCHEMY_API_KEY && ALCHEMY_API_KEY !== 'YOUR_ALCHEMY_API_KEY' 
+      ? `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+      : null;
+    
+    if (ALCHEMY_API_KEY && ALCHEMY_API_KEY !== 'YOUR_ALCHEMY_API_KEY' && ALCHEMY_API_KEY !== '') {
+      console.log('✅ Alchemy API key loaded successfully');
+    } else {
+      console.warn('⚠️ Alchemy API key not configured. Using fallback to public RPC.');
+    }
+
+    // ABIs
+    const NFT_ABI = [
+      "function tokenURI(uint256 tokenId) view returns (string)",
+      "function ownerOf(uint256 tokenId) view returns (address)",
+      "function balanceOf(address owner) view returns (uint256)",
+      "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
+      "function totalMinted() view returns (uint256)"
+    ];
+
+    const MULTICALL3_ABI = [
+      "function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) external view returns (tuple(bool success, bytes returnData)[] returnData)"
+    ];
+
+    // Global variables
+    let readProvider = null;
+    let nftReadContract = null;
+    let multicallContract = null;
+    let userAccount = null;
+    let userPunks = [];
+    let selectedTokenId = null;
+
+    // GIF token IDs
+    const gifIds = ['1', '13', '221', '369', '420', '555', '69', '690', '777', '807', '911'];
+
+    // Initialize
+    async function init() {
+      try {
+        // Initialize read provider
+        const ethers5 = window.ethers5Backup || window.ethers;
+        if (!ethers5) {
+          console.error('Ethers v5 not loaded');
+          return;
+        }
+
+        // Use Alchemy RPC if available, otherwise use public RPC
+        const rpcUrl = ALCHEMY_RPC_URL || 'https://mainnet.base.org';
+        readProvider = new ethers5.providers.JsonRpcProvider(rpcUrl, {
+          name: "base",
+          chainId: 8453
+        });
+
+        // Initialize read contracts
+        nftReadContract = new ethers5.Contract(NFT_ADDRESS, NFT_ABI, readProvider);
+        multicallContract = new ethers5.Contract(MULTICALL3_ADDRESS, MULTICALL3_ABI, readProvider);
+
+        console.log('✅ Contracts initialized');
+        console.log('📊 Using RPC:', ALCHEMY_RPC_URL ? 'Alchemy' : 'Public RPC');
+
+        // Initialize wallet connection
+        await initWallet();
+
+      } catch (error) {
+        console.error('Error initializing:', error);
+      }
+    }
+
+    async function initWallet() {
+      try {
+        if (window.ethereum) {
+          const ethers5 = window.ethers5Backup || window.ethers;
+          window.provider = new ethers5.providers.Web3Provider(window.ethereum);
+          window.signer = window.provider.getSigner();
+          
+          try {
+            window.userAccount = await window.signer.getAddress();
+            userAccount = window.userAccount;
+          } catch (e) {
+            console.log("No user connected yet");
+            userAccount = null;
+          }
+        }
+        
+        updateUI();
+        
+        if (userAccount) {
+          await loadUserPunks();
+        }
+      } catch (error) {
+        console.error('Error initializing wallet:', error);
+      }
+    }
+
+    // Connect wallet function
+    async function connectWallet() {
+      try {
+        if (!window.ethereum) {
+          alert('Please install MetaMask!');
+          return;
+        }
+        
+        const ethers5 = window.ethers5Backup || window.ethers;
+        if (!ethers5) {
+          alert('Ethers library not loaded. Please refresh the page.');
+          return;
+        }
+
+        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        window.provider = new ethers5.providers.Web3Provider(window.ethereum);
+        window.signer = window.provider.getSigner();
+        window.userAccount = await window.signer.getAddress();
+        userAccount = window.userAccount;
+        
+        console.log('✅ Wallet connected:', userAccount);
+        await loadUserPunks();
+        updateUI();
+      } catch (error) {
+        console.error('Error connecting wallet:', error);
+        if (error.code === 4001) {
+          alert('Connection rejected by user');
+        } else {
+          alert('Error connecting wallet: ' + error.message);
+        }
+      }
+    }
+
+    // Load user's punks (optimized with Multicall3)
+    async function loadUserPunks() {
+      const startTime = performance.now();
+      try {
+        if (!userAccount || !nftReadContract) {
+          userPunks = [];
+          updateUI();
+          return;
+        }
+
+        console.log('🔄 Loading user punks...');
+        const balance = await nftReadContract.balanceOf(userAccount);
+        const totalTokens = balance.toNumber();
+
+        if (totalTokens === 0) {
+          userPunks = [];
+          updateUI();
+          console.log('✅ No punks found for user');
+          return;
+        }
+
+        console.log(`📦 User has ${totalTokens} tokens, loading with Multicall3...`);
+        
+        // Use Multicall3 to get all tokenIds in one batch
+        const ethers5 = window.ethers5Backup || window.ethers;
+        const nftInterface = new ethers5.utils.Interface(NFT_ABI);
+        const tokenIdCalls = [];
+        for (let i = 0; i < totalTokens; i++) {
+          tokenIdCalls.push({
+            target: NFT_ADDRESS,
+            allowFailure: true,
+            callData: nftInterface.encodeFunctionData('tokenOfOwnerByIndex', [userAccount, i])
+          });
+        }
+
+        let tokenIdResults;
+        try {
+          tokenIdResults = await multicallContract.callStatic.aggregate3(tokenIdCalls);
+        } catch (error) {
+          console.warn('Multicall3 failed, falling back to individual calls:', error);
+          // Fallback to individual calls
+          const tokenIds = [];
+          for (let i = 0; i < totalTokens; i++) {
+            try {
+              const tokenId = await nftReadContract.tokenOfOwnerByIndex(userAccount, i);
+              const tokenIdNum = tokenId.toNumber();
+              if (tokenIdNum >= 1 && tokenIdNum <= 1000) {
+                tokenIds.push(tokenIdNum);
+              }
+            } catch (err) {
+              console.warn(`Error getting token ${i}:`, err);
+            }
+          }
+          userPunks = tokenIds.sort((a, b) => a - b);
+          console.log(`✅ Loaded ${userPunks.length} punks (fallback method)`);
+          if (userPunks.length > 0) {
+            selectedTokenId = userPunks[0];
+          }
+          updateUI();
+          loadPreview();
+          updateTokenSelector();
+          return;
+        }
+
+        const tokenIds = tokenIdResults
+          .filter(result => result.success)
+          .map(result => {
+            try {
+              const decoded = nftInterface.decodeFunctionResult('tokenOfOwnerByIndex', result.returnData);
+              return decoded[0].toNumber();
+            } catch (e) {
+              return null;
+            }
+          })
+          .filter(id => id !== null && id >= 1 && id <= 1000);
+
+        userPunks = tokenIds.sort((a, b) => a - b);
+        console.log(`✅ Loaded ${userPunks.length} punks in ${(performance.now() - startTime).toFixed(2)}ms`);
+
+        // Select first punk as default
+        if (userPunks.length > 0) {
+          selectedTokenId = userPunks[0];
+        }
+
+        updateUI();
+        loadPreview();
+        updateTokenSelector();
+      } catch (error) {
+        console.error('Error loading user punks:', error);
+        userPunks = [];
+        updateUI();
+      }
+    }
+
+    // Load preview of selected punk
+    function loadPreview() {
+      if (!selectedTokenId) {
+        const content = document.getElementById('previewContent');
+        if (content) {
+          content.innerHTML = `
+            <div class="text-center">
+              <p class="text-muted">Select a punk to preview</p>
+            </div>
+          `;
+        }
+        const downloadContainer = document.getElementById('downloadButtonContainer');
+        if (downloadContainer) {
+          downloadContainer.style.display = 'none';
+        }
+        return;
+      }
+
+      const extension = gifIds.includes(selectedTokenId.toString()) ? 'gif' : 'png';
+      const imageUrl = `/market/adrianpunksimages/${selectedTokenId}.${extension}`;
+      const tokenName = `AdrianPunks #${selectedTokenId}`;
+
+      const content = document.getElementById('previewContent');
+      if (content) {
+        content.innerHTML = `
+          <div class="text-center">
+            <img id="previewPunkImage" src="${imageUrl}" alt="${tokenName}" 
+                 class="preview-punk-image" style="max-width: 100%; max-height: 400px; border-radius: 10px; margin-bottom: 1rem; display: none;">
+            <h4>${tokenName}</h4>
+          </div>
+        `;
+
+        const img = document.getElementById('previewPunkImage');
+        if (img) {
+          img.onload = function() {
+            this.style.display = 'block';
+          };
+          img.onerror = function() {
+            console.warn('Failed to load image:', imageUrl);
+            this.style.display = 'none';
+          };
+        }
+      }
+
+      // Show download button
+      const downloadContainer = document.getElementById('downloadButtonContainer');
+      const downloadBtn = document.getElementById('downloadPdfBtn');
+      if (downloadContainer) {
+        downloadContainer.style.display = 'block';
+      }
+      if (downloadBtn) {
+        downloadBtn.disabled = false;
+      }
+    }
+
+    // Update token selector dropdown
+    function updateTokenSelector() {
+      const selector = document.getElementById('tokenSelector');
+      if (!selector) return;
+
+      selector.innerHTML = '';
+
+      if (userPunks.length === 0) {
+        selector.innerHTML = '<option value="">No tokens available</option>';
+        selector.disabled = true;
+        return;
+      }
+
+      selector.disabled = false;
+      userPunks.forEach(tokenId => {
+        const option = document.createElement('option');
+        option.value = tokenId;
+        option.textContent = `AdrianPunks #${tokenId}`;
+        if (tokenId === selectedTokenId) {
+          option.selected = true;
+        }
+        selector.appendChild(option);
+      });
+    }
+
+    // Update UI based on wallet connection
+    function updateUI() {
+      const selectorContent = document.getElementById('punkSelectorContent');
+      if (selectorContent) {
+        if (!userAccount) {
+          selectorContent.innerHTML = `
+            <div class="text-center">
+              <p class="text-muted">Connect your wallet to see your punks</p>
+              <button class="btn btn-primary mt-2" onclick="connectWallet()">
+                <i class="bi bi-wallet2 me-2"></i>
+                Connect Wallet
+              </button>
+            </div>
+          `;
+        } else {
+          selectorContent.innerHTML = `
+            <div class="text-center">
+              <p class="text-muted">Connected: ${userAccount.slice(0, 6)}...${userAccount.slice(-4)}</p>
+              <p class="small text-muted">Select a punk from the dropdown below</p>
+            </div>
+          `;
+        }
+      }
+    }
+
+    // Download PDF function
+    function downloadPDF(tokenId) {
+      if (!tokenId) {
+        alert('Please select a punk first');
+        return;
+      }
+
+      // Format tokenId to 3 digits with leading zeros
+      const formattedId = String(tokenId).padStart(3, '0');
+      const pdfPath = `pdfs/adrianpunks-${formattedId}.pdf`;
+      const fileName = `adrianpunks-${formattedId}.pdf`;
+
+      // Show loading state
+      const downloadBtn = document.getElementById('downloadPdfBtn');
+      const downloadStatus = document.getElementById('downloadStatus');
+      if (downloadBtn) {
+        downloadBtn.disabled = true;
+        downloadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Downloading...';
+      }
+
+      // Create download link
+      const link = document.createElement('a');
+      link.href = pdfPath;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Reset button after a short delay
+      setTimeout(() => {
+        if (downloadBtn) {
+          downloadBtn.disabled = false;
+          downloadBtn.innerHTML = '<i class="bi bi-download me-2"></i>Download PDF';
+        }
+        if (downloadStatus) {
+          downloadStatus.innerHTML = `
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+              <i class="bi bi-check-circle me-2"></i>
+              PDF download started for AdrianPunks #${tokenId}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          `;
+          setTimeout(() => {
+            if (downloadStatus) {
+              downloadStatus.innerHTML = '';
+            }
+          }, 5000);
+        }
+      }, 1000);
+    }
+
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+      init();
+
+      // Token selector change
+      const tokenSelector = document.getElementById('tokenSelector');
+      if (tokenSelector) {
+        tokenSelector.addEventListener('change', function(e) {
+          const tokenId = parseInt(e.target.value);
+          if (tokenId && !isNaN(tokenId)) {
+            selectedTokenId = tokenId;
+            loadPreview();
+          }
+        });
+      }
+
+      // Download button click
+      const downloadBtn = document.getElementById('downloadPdfBtn');
+      if (downloadBtn) {
+        downloadBtn.addEventListener('click', function() {
+          if (selectedTokenId) {
+            downloadPDF(selectedTokenId);
+          }
+        });
+      }
+
+      // Listen for wallet connection events
+      window.addEventListener('walletConnected', function(event) {
+        userAccount = event.detail.address;
+        loadUserPunks();
+        updateUI();
+      });
+    });
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
