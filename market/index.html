@@ -8,8 +8,8 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./runtime-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.2/dist/sql-wasm.js"></script>
+  <script src="../lib/database.js"></script>
   <!-- Instrumentación temporal retirada -->
   <style>
     /* Estilos base */
@@ -2169,18 +2169,13 @@
       console.log('API Key (masked):', maskedKey);
     }
 
-    // Supabase configuration (from GitHub Secrets via environment)
-    const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
-    const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
-
-    let supabaseClient = null;
-
-    function initSupabase() {
-      if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
-        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        console.log('Supabase initialized');
-      } else {
-        console.error('Supabase credentials not configured');
+    // Database initialization
+    async function initDatabase() {
+      try {
+        await window.Database.init();
+        console.log('Database initialized');
+      } catch (error) {
+        console.error('Database initialization failed:', error);
       }
     }
 
@@ -2244,58 +2239,54 @@
       return String(value);
     }
 
-    // Supabase Data Layer para NFTs - Usar vista simplificada
-    async function loadListingsFromSupabase() {
-      if (!supabaseClient || typeof supabaseClient.from !== 'function') {
-        console.warn('⚠️ Supabase client not available');
+    // Database Data Layer para NFTs
+    async function loadListingsFromDatabase() {
+      if (!window.Database || !window.Database.isInitialized) {
+        console.warn('⚠️ Database not available');
         return null;
       }
-      
+
       try {
-        console.log('📦 Cargando listings activos desde Supabase...');
-        
-        // Cargar desde la vista simplificada active_punk_listings
-        if (!supabaseClient || !supabaseClient.from) {
-          console.warn('⚠️ Supabase client not properly initialized');
-          return null;
-        }
-        const { data: listings, error } = await supabaseClient
-          .from('active_punk_listings')
-          .select('token_id, price_adrian_wei, is_engine_owned, seller, last_block_number')
-          .order('last_block_number', { ascending: false });
-        
-        if (error) throw error;
-        
+        console.log('📦 Cargando listings activos desde Database...');
+
+        // Cargar desde punk_listings
+        const listings = await window.Database.query(
+          `SELECT token_id, price_wei, is_contract_owned, seller, last_block_number
+           FROM punk_listings
+           WHERE is_listed = 1
+           ORDER BY last_block_number DESC`
+        );
+
         if (!listings || listings.length === 0) {
-          console.log('⚠️ No hay listings activos en Supabase');
+          console.log('⚠️ No hay listings activos en Database');
           return { listings: [], lastBlock: 0 };
         }
-        
+
         // Convertir a formato compatible con activeListingsData
         const activeListings = listings.map(l => {
-          // Convertir price_adrian_wei a string decimal completo (sin notación científica)
-          const priceWeiStr = convertToDecimalString(l.price_adrian_wei);
-          
-          // Si is_engine_owned es true, el seller es el FloorEngine
-          const seller = l.is_engine_owned ? FLOOR_ENGINE_ADDRESS : (l.seller || '');
-          
+          // Convertir price_wei a string decimal completo (sin notación científica)
+          const priceWeiStr = convertToDecimalString(l.price_wei);
+
+          // Si is_contract_owned es true, el seller es el FloorEngine
+          const seller = l.is_contract_owned ? FLOOR_ENGINE_ADDRESS : (l.seller || '');
+
           return {
             tokenId: l.token_id,
             seller: seller,
             price: (window.ethers5Backup || window.ethers).BigNumber.from(priceWeiStr),
-            isContractOwned: l.is_engine_owned
+            isContractOwned: l.is_contract_owned
           };
         });
-        
+
         const maxBlock = listings[0]?.last_block_number || 0;
-        console.log(`✅ Cargados ${activeListings.length} listings activos desde Supabase (último bloque: ${maxBlock})`);
-        
+        console.log(`✅ Cargados ${activeListings.length} listings activos desde Database (último bloque: ${maxBlock})`);
+
         return {
           listings: activeListings,
           lastBlock: maxBlock
         };
       } catch (error) {
-        console.error('Error loading from Supabase:', error);
+        console.error('Error loading from Database:', error);
         return null;
       }
     }
@@ -2310,15 +2301,15 @@
       }
     }
 
-    async function checkNeedSync(supabaseLastBlock) {
+    async function checkNeedSync(databaseLastBlock) {
       const chainBlock = await getLatestBlockFromChain();
       if (!chainBlock) return true; // Si falla, forzar sync
-      
-      const blockDiff = chainBlock - supabaseLastBlock;
+
+      const blockDiff = chainBlock - databaseLastBlock;
       const needSync = blockDiff > 10; // Sync si hay más de 10 bloques de diferencia
-      
-      console.log(`📊 Supabase block: ${supabaseLastBlock}, Chain block: ${chainBlock}, Diff: ${blockDiff}, Need sync: ${needSync}`);
-      
+
+      console.log(`📊 Database block: ${databaseLastBlock}, Chain block: ${chainBlock}, Diff: ${blockDiff}, Need sync: ${needSync}`);
+
       return needSync;
     }
 
@@ -2704,16 +2695,16 @@
           return;
         }
         
-        // PASO 1: Intentar cargar desde Supabase primero
-        console.log('📦 Cargando listings desde Supabase...');
-        const supabaseData = await loadListingsFromSupabase();
-        
-        if (supabaseData && supabaseData.listings.length > 0) {
-          activeListingsData = supabaseData.listings;
-          console.log(`✅ Cargados ${activeListingsData.length} listings desde Supabase`);
-          
+        // PASO 1: Intentar cargar desde Database primero
+        console.log('📦 Cargando listings desde Database...');
+        const databaseData = await loadListingsFromDatabase();
+
+        if (databaseData && databaseData.listings.length > 0) {
+          activeListingsData = databaseData.listings;
+          console.log(`✅ Cargados ${activeListingsData.length} listings desde Database`);
+
           // PASO 2: Verificar si necesita sincronización en background
-          const needSync = await checkNeedSync(supabaseData.lastBlock);
+          const needSync = await checkNeedSync(databaseData.lastBlock);
           
           if (needSync) {
             console.log('🔄 Sincronizando con blockchain en background...');
@@ -2772,7 +2763,7 @@
                   // Actualizar dashboard después de actualizar listings
                   updateFloorEngineDashboard();
                 } else {
-                  console.log('✅ Datos de Supabase están sincronizados');
+                  console.log('✅ Datos de Database están sincronizados');
                 }
               }
             });
@@ -2786,7 +2777,7 @@
         }
         
         // PASO 3: Fallback - cargar directamente desde blockchain
-        console.log('⚠️ Supabase no disponible, cargando desde blockchain...');
+        console.log('⚠️ Database no disponible, cargando desde blockchain...');
         const chainListings = await syncListingsFromChain();
         if (chainListings) {
           activeListingsData = chainListings;
@@ -2801,27 +2792,24 @@
       }
     }
     
-    // Función auxiliar para obtener el seller original desde Supabase (respaldo)
-    async function getOriginalSellerFromSupabase(tokenId) {
+    // Función auxiliar para obtener el seller original desde Database (respaldo)
+    async function getOriginalSellerFromDatabase(tokenId) {
       try {
-        if (!supabaseClient) {
-          console.log('Supabase client not available for seller lookup');
+        if (!window.Database || !window.Database.isInitialized) {
+          console.log('Database not available for seller lookup');
           return null;
         }
 
         // Consultar listing_events para obtener el último evento "Listed" de este token
-        const { data: listingEvents, error } = await supabaseClient
-          .from('listing_events')
-          .select('seller')
-          .eq('token_id', tokenId)
-          .eq('event_type', 'Listed')
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (error) {
-          console.error('Error fetching original seller from Supabase:', error);
-          return null;
-        }
+        const listingEvents = await window.Database.query(
+          `SELECT seller
+           FROM listing_events
+           WHERE token_id = ?
+           AND event_type = 'Listed'
+           ORDER BY created_at DESC
+           LIMIT 1`,
+          [tokenId]
+        );
 
         if (listingEvents && listingEvents.length > 0) {
           return listingEvents[0].seller;
@@ -2829,7 +2817,7 @@
 
         return null;
       } catch (error) {
-        console.error('Error in getOriginalSellerFromSupabase:', error);
+        console.error('Error in getOriginalSellerFromDatabase:', error);
         return null;
       }
     }
@@ -3094,15 +3082,15 @@
             if (userAccount && !tokenListing.isContractOwned) {
               // Verificar directamente desde el contrato
               isSeller = tokenListing.seller.toLowerCase() === userAccount.toLowerCase();
-              
-              // Si no coincide, intentar obtener desde Supabase como respaldo
-              if (!isSeller && supabaseClient) {
-                const originalSeller = await getOriginalSellerFromSupabase(tokenId);
+
+              // Si no coincide, intentar obtener desde Database como respaldo
+              if (!isSeller && window.Database && window.Database.isInitialized) {
+                const originalSeller = await getOriginalSellerFromDatabase(tokenId);
                 if (originalSeller) {
                   isSeller = originalSeller.toLowerCase() === userAccount.toLowerCase();
-                  // Si encontramos el seller en Supabase y es diferente, actualizar tokenListing
+                  // Si encontramos el seller en Database y es diferente, actualizar tokenListing
                   if (isSeller && tokenListing.seller.toLowerCase() !== originalSeller.toLowerCase()) {
-                    console.log(`Seller mismatch detected. Contract: ${tokenListing.seller}, Supabase: ${originalSeller}. Using Supabase value.`);
+                    console.log(`Seller mismatch detected. Contract: ${tokenListing.seller}, Database: ${originalSeller}. Using Database value.`);
                     tokenListing.seller = originalSeller;
                   }
                 }
@@ -3526,25 +3514,21 @@
     // Función para obtener el contador de punks vendidos por el FloorENGINE
     async function getFloorEngineSoldCount() {
       try {
-        if (!supabaseClient) {
-          console.warn('Supabase client not initialized');
+        if (!window.Database || !window.Database.isInitialized) {
+          console.warn('Database not initialized');
           return 0;
         }
 
         // Consultar trade_events donde el seller es el FloorENGINE y is_contract_owned = true
-        const { data, error, count } = await supabaseClient
-          .from('trade_events')
-          .select('*', { count: 'exact', head: false })
-          .eq('seller', FLOOR_ENGINE_ADDRESS.toLowerCase())
-          .eq('is_contract_owned', true);
+        const count = await window.Database.queryCount(
+          `SELECT COUNT(*) as count
+           FROM trade_events
+           WHERE LOWER(seller) = LOWER(?)
+           AND is_contract_owned = 1`,
+          [FLOOR_ENGINE_ADDRESS]
+        );
 
-        if (error) {
-          console.error('Error fetching sold count from Supabase:', error);
-          return 0;
-        }
-
-        // Retornar el count si está disponible, si no, la longitud del array
-        return count !== null ? count : (data?.length || 0);
+        return count || 0;
       } catch (error) {
         console.error('Error getting FloorENGINE sold count:', error);
         return 0;
@@ -3590,37 +3574,31 @@
     // Función para obtener los datos de ventas del FloorENGINE
     async function getFloorEngineSales() {
       try {
-        if (!supabaseClient) {
-          console.error('Supabase not initialized');
+        if (!window.Database || !window.Database.isInitialized) {
+          console.error('Database not initialized');
           return [];
         }
 
         // Obtener todas las ventas del FloorENGINE desde trade_events
-        const { data: salesData, error: salesError } = await supabaseClient
-          .from('trade_events')
-          .select('*')
-          .eq('seller', FLOOR_ENGINE_ADDRESS.toLowerCase())
-          .eq('is_contract_owned', true)
-          .order('created_at', { ascending: false });
-
-        if (salesError) {
-          console.error('Error fetching sales from Supabase:', salesError);
-          return [];
-        }
+        const salesData = await window.Database.query(
+          `SELECT *
+           FROM trade_events
+           WHERE LOWER(seller) = LOWER(?)
+           AND is_contract_owned = 1
+           ORDER BY created_at DESC`,
+          [FLOOR_ENGINE_ADDRESS]
+        );
 
         if (!salesData || salesData.length === 0) {
           return [];
         }
 
         // Obtener todos los sweep_events con timestamp para emparejar correctamente
-        const { data: sweepData, error: sweepError } = await supabaseClient
-          .from('sweep_events')
-          .select('token_id, buy_price_wei, created_at')
-          .order('created_at', { ascending: true });
-
-        if (sweepError) {
-          console.error('Error fetching sweep events from Supabase:', sweepError);
-        }
+        const sweepData = await window.Database.query(
+          `SELECT token_id, buy_price_wei, created_at
+           FROM sweep_events
+           ORDER BY created_at ASC`
+        );
 
         // Para cada venta, encontrar el sweep_event más reciente ANTES de esa venta
         const salesWithImages = salesData.map(sale => {
@@ -3683,7 +3661,7 @@
     async function updateSalesSection() {
       try {
         if (typeof FloorEngineSales !== 'undefined' && FloorEngineSales.isInitialized) {
-          await FloorEngineSales.update(supabaseClient);
+          await FloorEngineSales.update();
         } else {
           // Fallback to old implementation
           const sales = await getFloorEngineSales();
@@ -4287,7 +4265,7 @@
       console.log('✅ Cache: 30 segundos TTL');
       console.log('✅ Multicall3: Batch requests optimizadas');
       
-      initSupabase();
+      initDatabase();
       await initContracts();
       loadNFTs();
       
@@ -4825,9 +4803,9 @@
       document.getElementById('marketplaceView').style.display = 'none';
       document.getElementById('activityView').style.display = 'block';
       
-      // Inicializar Supabase si no está inicializado
+      // Inicializar Database si no está inicializado
       if (!supabaseClient) {
-        initSupabase();
+        initDatabase();
       }
       
       // Resetear paginación

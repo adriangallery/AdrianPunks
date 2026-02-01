@@ -9,7 +9,7 @@ function scientificToFixed(num) {
       const exp = parseInt(exponent);
       const [intPart, decPart = ''] = base.split('.');
       const fullDec = intPart + decPart;
-      
+
       if (exp > 0) {
         const totalLength = fullDec.length;
         const newDecPos = exp;
@@ -54,35 +54,27 @@ function scientificToFixed(num) {
 const FloorENGINEExcerpt = {
   isInitialized: false,
   updateInterval: null,
-  supabaseClient: null,
   FLOOR_ENGINE_ADDRESS: '0x0351F7cBA83277E891D4a85Da498A7eACD764D58',
 
   // Initialize the FloorENGINE excerpt
   async init() {
     if (this.isInitialized) return;
-    
+
     console.log('🔄 Initializing FloorENGINE Excerpt...');
-    
-    // Get Supabase client
-    if (window.supabaseClient) {
-      this.supabaseClient = window.supabaseClient;
-    } else {
-      try {
-        if (window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
-          const { createClient } = supabase;
-          this.supabaseClient = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-        }
-      } catch (error) {
-        console.warn('Supabase not available for FloorENGINE excerpt:', error);
-      }
+
+    // Initialize database
+    try {
+      await window.Database.init();
+    } catch (error) {
+      console.warn('Database not available for FloorENGINE excerpt:', error);
     }
-    
+
     this.isInitialized = true;
     console.log('✅ FloorENGINE Excerpt initialized');
-    
+
     // Load initial data
     await this.updateDisplay();
-    
+
     // Set up auto-update (every 30 seconds)
     this.updateInterval = setInterval(() => {
       this.updateDisplay();
@@ -117,49 +109,38 @@ const FloorENGINEExcerpt = {
         }
       }
 
-      // Get holdings and sold count from Supabase
-      if (this.supabaseClient) {
+      // Get holdings and sold count from Database
+      if (window.Database && window.Database.isInitialized) {
         try {
-          // Get holdings count from active_punk_listings where is_engine_owned = true
-          // This counts all NFTs currently owned by FloorENGINE (listed or not)
-          const { data: engineListings, error: listingsError } = await this.supabaseClient
-            .from('active_punk_listings')
-            .select('token_id')
-            .eq('is_engine_owned', true);
-          
-          if (!listingsError && engineListings) {
+          // Get holdings count from punk_listings where is_contract_owned = true
+          const engineListings = await window.Database.query(
+            `SELECT token_id
+             FROM punk_listings
+             WHERE is_contract_owned = 1`
+          );
+
+          if (engineListings) {
             holdingCount = engineListings.length;
-          } else {
-            // Fallback: try punk_listings table
-            const { data: punkListings, error: punkError } = await this.supabaseClient
-              .from('punk_listings')
-              .select('token_id')
-              .eq('is_contract_owned', true);
-            
-            if (!punkError && punkListings) {
-              holdingCount = punkListings.length;
-            }
           }
 
           // Get sold count
-          const { count: soldCountData } = await this.supabaseClient
-            .from('trade_events')
-            .select('*', { count: 'exact', head: true })
-            .eq('seller', this.FLOOR_ENGINE_ADDRESS.toLowerCase())
-            .eq('is_contract_owned', true);
-          
-          if (soldCountData !== null) {
-            soldCount = soldCountData;
-          }
+          soldCount = await window.Database.queryCount(
+            `SELECT COUNT(*) as count
+             FROM trade_events
+             WHERE LOWER(seller) = LOWER(?)
+             AND is_contract_owned = 1`,
+            [this.FLOOR_ENGINE_ADDRESS]
+          );
+
         } catch (error) {
-          console.warn('Could not fetch FloorENGINE data from Supabase:', error);
+          console.warn('Could not fetch FloorENGINE data from Database:', error);
         }
       }
 
       // Format balance
-      const formattedBalance = balance >= 1000000 
+      const formattedBalance = balance >= 1000000
         ? (balance / 1000000).toFixed(1) + 'M'
-        : balance >= 1000 
+        : balance >= 1000
         ? (balance / 1000).toFixed(1) + 'K'
         : balance.toFixed(1);
 
@@ -167,63 +148,39 @@ const FloorENGINEExcerpt = {
       let cheapestImage = '';
       let cheapestTokenId = null;
       let cheapestPriceFormatted = '--';
-      
-      if (this.supabaseClient) {
+
+      if (window.Database && window.Database.isInitialized) {
         try {
           const ethers5 = window.ethers5Backup || window.ethers;
-          
+
           // Get cheapest user listing (not from engine) - this is what FloorENGINE can sweep
-          // Try active_punk_listings first (preferred)
-          let userCheapest = null;
-          try {
-            const { data: activeListings } = await this.supabaseClient
-              .from('active_punk_listings')
-              .select('token_id, price_adrian_wei')
-              .eq('is_engine_owned', false)
-              .order('price_adrian_wei', { ascending: true })
-              .limit(1);
-            
-            if (activeListings && activeListings.length > 0) {
-              userCheapest = {
-                token_id: activeListings[0].token_id,
-                price_wei: activeListings[0].price_adrian_wei
-              };
-            }
-          } catch (e) {
-            console.warn('Error fetching from active_punk_listings, trying punk_listings:', e);
-          }
-          
-          // Fallback to punk_listings if active_punk_listings doesn't work
-          if (!userCheapest) {
-            const { data: punkListings } = await this.supabaseClient
-              .from('punk_listings')
-              .select('token_id, price_wei')
-              .eq('is_contract_owned', false)
-              .eq('is_listed', true)
-              .order('price_wei', { ascending: true })
-              .limit(1);
-            
-            if (punkListings && punkListings.length > 0) {
-              userCheapest = punkListings[0];
-            }
-          }
-          
-          if (userCheapest && userCheapest.token_id) {
+          const punkListings = await window.Database.query(
+            `SELECT token_id, price_wei
+             FROM punk_listings
+             WHERE is_contract_owned = 0
+             AND is_listed = 1
+             ORDER BY price_wei ASC
+             LIMIT 1`
+          );
+
+          if (punkListings && punkListings.length > 0) {
+            const userCheapest = punkListings[0];
             cheapestTokenId = userCheapest.token_id;
+
             // Get image URL - use correct path from index.html root
             const gifIds = ['1', '13', '221', '369', '420', '555', '69', '690', '777', '807', '911'];
             const tokenIdStr = String(cheapestTokenId);
             const extension = gifIds.includes(tokenIdStr) ? 'gif' : 'png';
             cheapestImage = `./market/adrianpunksimages/${tokenIdStr}.${extension}`;
-            
+
             // Format price
             if (ethers5 && ethers5.utils && userCheapest.price_wei) {
               try {
                 const priceWeiStr = scientificToFixed(userCheapest.price_wei);
                 const priceEth = parseFloat(ethers5.utils.formatUnits(priceWeiStr, 18));
-                cheapestPriceFormatted = priceEth >= 1000000 
+                cheapestPriceFormatted = priceEth >= 1000000
                   ? (priceEth / 1000000).toFixed(1) + 'M'
-                  : priceEth >= 1000 
+                  : priceEth >= 1000
                   ? (priceEth / 1000).toFixed(1) + 'K'
                   : priceEth.toFixed(2);
                 cheapestPriceFormatted += ' $ADRIAN';
@@ -242,7 +199,7 @@ const FloorENGINEExcerpt = {
         <div class="excerpt-section">
           ${cheapestImage && cheapestTokenId ? `
             <div class="excerpt-image mb-3" style="text-align: center;">
-              <img src="${cheapestImage}" alt="Cheapest NFT #${cheapestTokenId}" 
+              <img src="${cheapestImage}" alt="Cheapest NFT #${cheapestTokenId}"
                    style="max-width: 100%; max-height: 200px; border-radius: 8px; border: 1px solid var(--border-color);"
                    onerror="this.onerror=null; this.src='market/adrianpunksimages/${cheapestTokenId}.png'; this.onerror=function(){this.style.display='none';}">
               <div style="font-size: 0.75rem; color: var(--text-color); opacity: 0.7; margin-top: 0.5rem;">
@@ -289,4 +246,3 @@ const FloorENGINEExcerpt = {
 if (typeof window !== 'undefined') {
   window.FloorENGINEExcerpt = FloorENGINEExcerpt;
 }
-

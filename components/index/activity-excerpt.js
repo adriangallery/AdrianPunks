@@ -64,35 +64,20 @@ function scientificToFixed(num) {
 const ActivityExcerpt = {
   isInitialized: false,
   updateInterval: null,
-  supabaseClient: null,
   ERC20_ADDRESS: '0x7e99075ce287f1cf8cbcaaa6a1c7894e404fd7ea',
 
   // Initialize the activity excerpt
   async init() {
     if (this.isInitialized) return;
-    
+
     console.log('🔄 Initializing Activity Excerpt...');
-    
-    // Get Supabase client
-    if (window.supabaseClient) {
-      this.supabaseClient = window.supabaseClient;
-    } else {
-      try {
-        if (window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
-          const { createClient } = supabase;
-          this.supabaseClient = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-        }
-      } catch (error) {
-        console.warn('Supabase not available for activity excerpt:', error);
-      }
-    }
-    
+
     this.isInitialized = true;
     console.log('✅ Activity Excerpt initialized');
-    
+
     // Load initial data
     await this.updateDisplay();
-    
+
     // Set up auto-update (every 30 seconds)
     this.updateInterval = setInterval(() => {
       this.updateDisplay();
@@ -131,27 +116,27 @@ const ActivityExcerpt = {
         }
       }
 
-      // Get ERC20 transaction data from Supabase
-      if (this.supabaseClient) {
+      // Get ERC20 transaction data from SQLite
+      if (window.DatabaseManager) {
         try {
           const ethers5 = window.ethers5Backup || window.ethers;
-          
+
           // Get total transactions count from erc20_transfers
-          const { count: txCount } = await this.supabaseClient
-            .from('erc20_transfers')
-            .select('*', { count: 'exact', head: true })
-            .eq('contract_address', this.ERC20_ADDRESS);
-          
+          const txCount = await window.DatabaseManager.queryCount(
+            `SELECT COUNT(*) as count FROM erc20_transfers WHERE contract_address = ?`,
+            [this.ERC20_ADDRESS]
+          );
+
           if (txCount !== null) {
             totalTransactions = txCount;
           }
 
           // Get total volume (sum of all transfer amounts)
-          const { data: transfers } = await this.supabaseClient
-            .from('erc20_transfers')
-            .select('value_wei')
-            .eq('contract_address', this.ERC20_ADDRESS);
-          
+          const transfers = await window.DatabaseManager.query(
+            `SELECT value_wei FROM erc20_transfers WHERE contract_address = ?`,
+            [this.ERC20_ADDRESS]
+          );
+
           if (transfers && transfers.length > 0 && ethers5) {
             let totalWei = ethers5.BigNumber.from(0);
             transfers.forEach(transfer => {
@@ -204,7 +189,7 @@ const ActivityExcerpt = {
             }
           }
         } catch (error) {
-          console.warn('Could not fetch ERC20 activity data from Supabase:', error);
+          console.warn('Could not fetch ERC20 activity data from SQLite:', error);
         }
       }
 

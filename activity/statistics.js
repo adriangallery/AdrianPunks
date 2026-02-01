@@ -6,8 +6,7 @@
  */
 
 class StatisticsManager {
-  constructor(supabaseClient, config = {}) {
-    this.supabaseClient = supabaseClient;
+  constructor(config = {}) {
     this.config = {
       // Direcciones de contratos
       contracts: {
@@ -42,13 +41,13 @@ class StatisticsManager {
    * Inicializar el módulo de estadísticas
    */
   async init() {
-    if (!this.supabaseClient) {
-      console.error('StatisticsManager: supabaseClient no proporcionado');
+    if (!window.DatabaseManager) {
+      console.error('StatisticsManager: DatabaseManager no inicializado');
       return;
     }
 
     console.log('📊 StatisticsManager: Inicializando...');
-    
+
     // Cargar configuración de gráficos si es necesario
     if (this.config.charts.enabled) {
       await this.loadChartLibrary();
@@ -168,19 +167,21 @@ class StatisticsManager {
     }
 
     try {
-      let transfersQuery = this.supabaseClient
-        .from('erc20_transfers')
-        .select('*')
-        .eq('contract_address', this.config.contracts.ERC20.toLowerCase());
+      // Build query dynamically based on date filters
+      let sql = `SELECT * FROM erc20_transfers WHERE contract_address = ?`;
+      const params = [this.config.contracts.ERC20.toLowerCase()];
 
       if (dateFrom) {
-        transfersQuery = transfersQuery.gte('created_at', dateFrom + 'T00:00:00Z');
+        sql += ` AND created_at >= ?`;
+        params.push(dateFrom + 'T00:00:00Z');
       }
       if (dateTo) {
-        transfersQuery = transfersQuery.lte('created_at', dateTo + 'T23:59:59Z');
+        sql += ` AND created_at <= ?`;
+        params.push(dateTo + 'T23:59:59Z');
       }
 
-      const { data: transfers, count: totalTransfers } = await transfersQuery;
+      const transfers = await window.DatabaseManager.query(sql, params);
+      const totalTransfers = transfers?.length || 0;
 
       // Calcular volumen total
       const totalVolume = transfers?.reduce((sum, t) => {
@@ -200,20 +201,19 @@ class StatisticsManager {
       const uniqueHolders = new Set([...uniqueReceivers, ...uniqueSenders]);
 
       // Obtener staking data
-      let stakingQuery = this.supabaseClient
-        .from('erc20_custom_events')
-        .select('*')
-        .eq('contract_address', this.config.contracts.ERC20.toLowerCase())
-        .eq('event_name', 'Staked');
+      let stakingSql = `SELECT * FROM erc20_custom_events WHERE contract_address = ? AND event_name = ?`;
+      const stakingParams = [this.config.contracts.ERC20.toLowerCase(), 'Staked'];
 
       if (dateFrom) {
-        stakingQuery = stakingQuery.gte('created_at', dateFrom + 'T00:00:00Z');
+        stakingSql += ` AND created_at >= ?`;
+        stakingParams.push(dateFrom + 'T00:00:00Z');
       }
       if (dateTo) {
-        stakingQuery = stakingQuery.lte('created_at', dateTo + 'T23:59:59Z');
+        stakingSql += ` AND created_at <= ?`;
+        stakingParams.push(dateTo + 'T23:59:59Z');
       }
 
-      const { data: stakingEvents } = await stakingQuery;
+      const stakingEvents = await window.DatabaseManager.query(stakingSql, stakingParams);
       const totalStaked = stakingEvents?.reduce((sum, e) => {
         try {
           const amount = e.event_data?.amount || e.value_wei || '0';
@@ -252,22 +252,22 @@ class StatisticsManager {
 
     try {
       // Total transfers
-      const { count: totalTransfers } = await this.supabaseClient
-        .from('erc20_transfers')
-        .select('*', { count: 'exact', head: true })
-        .eq('contract_address', this.config.contracts.ERC20.toLowerCase());
+      const totalTransfers = await window.DatabaseManager.queryCount(
+        `SELECT COUNT(*) as count FROM erc20_transfers WHERE contract_address = ?`,
+        [this.config.contracts.ERC20.toLowerCase()]
+      );
 
       // Total approvals
-      const { count: totalApprovals } = await this.supabaseClient
-        .from('erc20_approvals')
-        .select('*', { count: 'exact', head: true })
-        .eq('contract_address', this.config.contracts.ERC20.toLowerCase());
+      const totalApprovals = await window.DatabaseManager.queryCount(
+        `SELECT COUNT(*) as count FROM erc20_approvals WHERE contract_address = ?`,
+        [this.config.contracts.ERC20.toLowerCase()]
+      );
 
       // Volume (suma de value_wei)
-      const { data: transfers } = await this.supabaseClient
-        .from('erc20_transfers')
-        .select('value_wei')
-        .eq('contract_address', this.config.contracts.ERC20.toLowerCase());
+      const transfers = await window.DatabaseManager.query(
+        `SELECT value_wei FROM erc20_transfers WHERE contract_address = ?`,
+        [this.config.contracts.ERC20.toLowerCase()]
+      );
 
       const totalVolume = transfers?.reduce((sum, t) => {
         try {
@@ -304,10 +304,10 @@ class StatisticsManager {
 
     try {
       // Active listings (sin filtro de fecha, son estado actual)
-      const { count: activeListings, data: listings } = await this.supabaseClient
-        .from('punk_listings')
-        .select('*')
-        .eq('is_listed', true);
+      const listings = await window.DatabaseManager.query(
+        `SELECT * FROM punk_listings WHERE is_listed = 1`
+      );
+      const activeListings = listings?.length || 0;
 
       // Calcular floor price (precio más bajo)
       let floorPrice = null;
@@ -324,18 +324,20 @@ class StatisticsManager {
       }
 
       // Trades con filtro de fecha
-      let tradesQuery = this.supabaseClient
-        .from('trade_events')
-        .select('*');
+      let tradesSql = `SELECT * FROM trade_events WHERE 1=1`;
+      const tradesParams = [];
 
       if (dateFrom) {
-        tradesQuery = tradesQuery.gte('created_at', dateFrom + 'T00:00:00Z');
+        tradesSql += ` AND created_at >= ?`;
+        tradesParams.push(dateFrom + 'T00:00:00Z');
       }
       if (dateTo) {
-        tradesQuery = tradesQuery.lte('created_at', dateTo + 'T23:59:59Z');
+        tradesSql += ` AND created_at <= ?`;
+        tradesParams.push(dateTo + 'T23:59:59Z');
       }
 
-      const { data: trades, count: totalTrades } = await tradesQuery;
+      const trades = await window.DatabaseManager.query(tradesSql, tradesParams);
+      const totalTrades = trades?.length || 0;
 
       // Calcular volumen total y precio promedio
       const totalVolume = trades?.reduce((sum, t) => {
@@ -349,18 +351,19 @@ class StatisticsManager {
       const avgTradePrice = totalTrades > 0 ? totalVolume / BigInt(totalTrades) : 0n;
 
       // Sweeps con filtro de fecha
-      let sweepsQuery = this.supabaseClient
-        .from('sweep_events')
-        .select('*', { count: 'exact', head: true });
+      let sweepsSql = `SELECT COUNT(*) as count FROM sweep_events WHERE 1=1`;
+      const sweepsParams = [];
 
       if (dateFrom) {
-        sweepsQuery = sweepsQuery.gte('created_at', dateFrom + 'T00:00:00Z');
+        sweepsSql += ` AND created_at >= ?`;
+        sweepsParams.push(dateFrom + 'T00:00:00Z');
       }
       if (dateTo) {
-        sweepsQuery = sweepsQuery.lte('created_at', dateTo + 'T23:59:59Z');
+        sweepsSql += ` AND created_at <= ?`;
+        sweepsParams.push(dateTo + 'T23:59:59Z');
       }
 
-      const { count: totalSweeps } = await sweepsQuery;
+      const totalSweeps = await window.DatabaseManager.queryCount(sweepsSql, sweepsParams);
 
       const stats = {
         activeListings: activeListings || 0,
@@ -392,20 +395,19 @@ class StatisticsManager {
 
     try {
       // Active listings
-      const { count: activeListings } = await this.supabaseClient
-        .from('punk_listings')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_listed', true);
+      const activeListings = await window.DatabaseManager.queryCount(
+        `SELECT COUNT(*) as count FROM punk_listings WHERE is_listed = 1`
+      );
 
       // Total trades
-      const { count: totalTrades } = await this.supabaseClient
-        .from('trade_events')
-        .select('*', { count: 'exact', head: true });
+      const totalTrades = await window.DatabaseManager.queryCount(
+        `SELECT COUNT(*) as count FROM trade_events`
+      );
 
       // Total sweeps
-      const { count: totalSweeps } = await this.supabaseClient
-        .from('sweep_events')
-        .select('*', { count: 'exact', head: true });
+      const totalSweeps = await window.DatabaseManager.queryCount(
+        `SELECT COUNT(*) as count FROM sweep_events`
+      );
 
       const stats = {
         activeListings: activeListings || 0,
@@ -434,19 +436,20 @@ class StatisticsManager {
 
     try {
       // ERC721 transfers
-      let transfersQuery = this.supabaseClient
-        .from('erc721_transfers')
-        .select('*')
-        .eq('contract_address', this.config.contracts.ADRIANLABCORE);
+      let transfersSql = `SELECT * FROM erc721_transfers WHERE contract_address = ?`;
+      const transfersParams = [this.config.contracts.ADRIANLABCORE];
 
       if (dateFrom) {
-        transfersQuery = transfersQuery.gte('created_at', dateFrom + 'T00:00:00Z');
+        transfersSql += ` AND created_at >= ?`;
+        transfersParams.push(dateFrom + 'T00:00:00Z');
       }
       if (dateTo) {
-        transfersQuery = transfersQuery.lte('created_at', dateTo + 'T23:59:59Z');
+        transfersSql += ` AND created_at <= ?`;
+        transfersParams.push(dateTo + 'T23:59:59Z');
       }
 
-      const { data: transfers, count: totalTransfers } = await transfersQuery;
+      const transfers = await window.DatabaseManager.query(transfersSql, transfersParams);
+      const totalTransfers = transfers?.length || 0;
 
       // Unique holders
       const uniqueHolders = new Set(transfers?.map(t => t.to_address?.toLowerCase()).filter(Boolean) || []);
@@ -460,19 +463,19 @@ class StatisticsManager {
       const totalBurned = burns.length;
 
       // Custom events
-      let customQuery = this.supabaseClient
-        .from('erc721_custom_events')
-        .select('*')
-        .eq('contract_address', this.config.contracts.ADRIANLABCORE);
+      let customSql = `SELECT * FROM erc721_custom_events WHERE contract_address = ?`;
+      const customParams = [this.config.contracts.ADRIANLABCORE];
 
       if (dateFrom) {
-        customQuery = customQuery.gte('created_at', dateFrom + 'T00:00:00Z');
+        customSql += ` AND created_at >= ?`;
+        customParams.push(dateFrom + 'T00:00:00Z');
       }
       if (dateTo) {
-        customQuery = customQuery.lte('created_at', dateTo + 'T23:59:59Z');
+        customSql += ` AND created_at <= ?`;
+        customParams.push(dateTo + 'T23:59:59Z');
       }
 
-      const { data: customEvents } = await customQuery;
+      const customEvents = await window.DatabaseManager.query(customSql, customParams);
       const skinsAssigned = customEvents?.filter(e => e.event_name === 'SkinAssigned').length || 0;
       const serumsApplied = customEvents?.filter(e => e.event_name === 'SerumApplied').length || 0;
 
@@ -506,34 +509,36 @@ class StatisticsManager {
 
     try {
       // Single transfers
-      let singleQuery = this.supabaseClient
-        .from('erc1155_transfers_single')
-        .select('*')
-        .eq('contract_address', this.config.contracts.ERC1155);
+      let singleSql = `SELECT * FROM erc1155_transfers_single WHERE contract_address = ?`;
+      const singleParams = [this.config.contracts.ERC1155];
 
       if (dateFrom) {
-        singleQuery = singleQuery.gte('created_at', dateFrom + 'T00:00:00Z');
+        singleSql += ` AND created_at >= ?`;
+        singleParams.push(dateFrom + 'T00:00:00Z');
       }
       if (dateTo) {
-        singleQuery = singleQuery.lte('created_at', dateTo + 'T23:59:59Z');
+        singleSql += ` AND created_at <= ?`;
+        singleParams.push(dateTo + 'T23:59:59Z');
       }
 
-      const { data: singleTransfers, count: singleCount } = await singleQuery;
+      const singleTransfers = await window.DatabaseManager.query(singleSql, singleParams);
+      const singleCount = singleTransfers?.length || 0;
 
       // Batch transfers
-      let batchQuery = this.supabaseClient
-        .from('erc1155_transfers_batch')
-        .select('*')
-        .eq('contract_address', this.config.contracts.ERC1155);
+      let batchSql = `SELECT * FROM erc1155_transfers_batch WHERE contract_address = ?`;
+      const batchParams = [this.config.contracts.ERC1155];
 
       if (dateFrom) {
-        batchQuery = batchQuery.gte('created_at', dateFrom + 'T00:00:00Z');
+        batchSql += ` AND created_at >= ?`;
+        batchParams.push(dateFrom + 'T00:00:00Z');
       }
       if (dateTo) {
-        batchQuery = batchQuery.lte('created_at', dateTo + 'T23:59:59Z');
+        batchSql += ` AND created_at <= ?`;
+        batchParams.push(dateTo + 'T23:59:59Z');
       }
 
-      const { data: batchTransfers, count: batchCount } = await batchQuery;
+      const batchTransfers = await window.DatabaseManager.query(batchSql, batchParams);
+      const batchCount = batchTransfers?.length || 0;
 
       const totalTransfers = (singleCount || 0) + (batchCount || 0);
 
@@ -562,19 +567,19 @@ class StatisticsManager {
       const burns = singleTransfers?.filter(t => t.to_address?.toLowerCase() === '0x0000000000000000000000000000000000000000') || [];
 
       // Custom events
-      let customQuery = this.supabaseClient
-        .from('erc1155_custom_events')
-        .select('*')
-        .eq('contract_address', this.config.contracts.ERC1155);
+      let customSql = `SELECT * FROM erc1155_custom_events WHERE contract_address = ?`;
+      const customParams = [this.config.contracts.ERC1155];
 
       if (dateFrom) {
-        customQuery = customQuery.gte('created_at', dateFrom + 'T00:00:00Z');
+        customSql += ` AND created_at >= ?`;
+        customParams.push(dateFrom + 'T00:00:00Z');
       }
       if (dateTo) {
-        customQuery = customQuery.lte('created_at', dateTo + 'T23:59:59Z');
+        customSql += ` AND created_at <= ?`;
+        customParams.push(dateTo + 'T23:59:59Z');
       }
 
-      const { data: customEvents } = await customQuery;
+      const customEvents = await window.DatabaseManager.query(customSql, customParams);
       const packsOpened = customEvents?.filter(e => e.event_name === 'PackOpened').length || 0;
 
       const stats = {
@@ -606,19 +611,19 @@ class StatisticsManager {
     }
 
     try {
-      let query = this.supabaseClient
-        .from('traits_extensions_events')
-        .select('*')
-        .eq('contract_address', this.config.contracts.TRAITS_EXTENSIONS.toLowerCase());
+      let sql = `SELECT * FROM traits_extensions_events WHERE contract_address = ?`;
+      const params = [this.config.contracts.TRAITS_EXTENSIONS.toLowerCase()];
 
       if (dateFrom) {
-        query = query.gte('created_at', dateFrom + 'T00:00:00Z');
+        sql += ` AND created_at >= ?`;
+        params.push(dateFrom + 'T00:00:00Z');
       }
       if (dateTo) {
-        query = query.lte('created_at', dateTo + 'T23:59:59Z');
+        sql += ` AND created_at <= ?`;
+        params.push(dateTo + 'T23:59:59Z');
       }
 
-      const { data: events } = await query;
+      const events = await window.DatabaseManager.query(sql, params);
 
       const totalApplied = events?.length || 0;
       const traitApplied = events?.filter(e => e.event_name === 'TraitApplied').length || 0;
@@ -674,22 +679,22 @@ class StatisticsManager {
 
     try {
       // ERC721 transfers
-      const { count: erc721Transfers } = await this.supabaseClient
-        .from('erc721_transfers')
-        .select('*', { count: 'exact', head: true })
-        .eq('contract_address', this.config.contracts.ADRIANLABCORE);
+      const erc721Transfers = await window.DatabaseManager.queryCount(
+        `SELECT COUNT(*) as count FROM erc721_transfers WHERE contract_address = ?`,
+        [this.config.contracts.ADRIANLABCORE]
+      );
 
       // ERC1155 transfers
-      const { count: erc1155Transfers } = await this.supabaseClient
-        .from('erc1155_transfers_single')
-        .select('*', { count: 'exact', head: true })
-        .eq('contract_address', this.config.contracts.ERC1155);
+      const erc1155Transfers = await window.DatabaseManager.queryCount(
+        `SELECT COUNT(*) as count FROM erc1155_transfers_single WHERE contract_address = ?`,
+        [this.config.contracts.ERC1155]
+      );
 
       // TraitsExtensions events
-      const { count: traitsEvents } = await this.supabaseClient
-        .from('traits_extensions_events')
-        .select('*', { count: 'exact', head: true })
-        .eq('contract_address', this.config.contracts.TRAITS_EXTENSIONS.toLowerCase());
+      const traitsEvents = await window.DatabaseManager.queryCount(
+        `SELECT COUNT(*) as count FROM traits_extensions_events WHERE contract_address = ?`,
+        [this.config.contracts.TRAITS_EXTENSIONS.toLowerCase()]
+      );
 
       const stats = {
         erc721Transfers: erc721Transfers || 0,
@@ -718,19 +723,19 @@ class StatisticsManager {
 
     try {
       // Staking events
-      let stakingQuery = this.supabaseClient
-        .from('punk_quest_staking_events')
-        .select('*')
-        .eq('contract_address', this.config.contracts.PUNK_QUEST.toLowerCase());
+      let stakingSql = `SELECT * FROM punk_quest_staking_events WHERE contract_address = ?`;
+      const stakingParams = [this.config.contracts.PUNK_QUEST.toLowerCase()];
 
       if (dateFrom) {
-        stakingQuery = stakingQuery.gte('created_at', dateFrom + 'T00:00:00Z');
+        stakingSql += ` AND created_at >= ?`;
+        stakingParams.push(dateFrom + 'T00:00:00Z');
       }
       if (dateTo) {
-        stakingQuery = stakingQuery.lte('created_at', dateTo + 'T23:59:59Z');
+        stakingSql += ` AND created_at <= ?`;
+        stakingParams.push(dateTo + 'T23:59:59Z');
       }
 
-      const { data: stakingEvents } = await stakingQuery;
+      const stakingEvents = await window.DatabaseManager.query(stakingSql, stakingParams);
       const staked = stakingEvents?.filter(e => e.event_type === 'Staked').length || 0;
       const unstaked = stakingEvents?.filter(e => e.event_type === 'Unstaked').length || 0;
       const rewardsClaimed = stakingEvents?.filter(e => e.event_type === 'RewardClaimed').length || 0;
@@ -748,35 +753,35 @@ class StatisticsManager {
       }, 0n) || 0n;
 
       // Item events
-      let itemQuery = this.supabaseClient
-        .from('punk_quest_item_events')
-        .select('*')
-        .eq('contract_address', this.config.contracts.PUNK_QUEST.toLowerCase());
+      let itemSql = `SELECT * FROM punk_quest_item_events WHERE contract_address = ?`;
+      const itemParams = [this.config.contracts.PUNK_QUEST.toLowerCase()];
 
       if (dateFrom) {
-        itemQuery = itemQuery.gte('created_at', dateFrom + 'T00:00:00Z');
+        itemSql += ` AND created_at >= ?`;
+        itemParams.push(dateFrom + 'T00:00:00Z');
       }
       if (dateTo) {
-        itemQuery = itemQuery.lte('created_at', dateTo + 'T23:59:59Z');
+        itemSql += ` AND created_at <= ?`;
+        itemParams.push(dateTo + 'T23:59:59Z');
       }
 
-      const { data: itemEvents } = await itemQuery;
+      const itemEvents = await window.DatabaseManager.query(itemSql, itemParams);
       const itemsPurchased = itemEvents?.filter(e => e.event_type === 'ItemPurchased').length || 0;
 
       // Event events
-      let eventQuery = this.supabaseClient
-        .from('punk_quest_event_events')
-        .select('*')
-        .eq('contract_address', this.config.contracts.PUNK_QUEST.toLowerCase());
+      let eventSql = `SELECT * FROM punk_quest_event_events WHERE contract_address = ?`;
+      const eventParams = [this.config.contracts.PUNK_QUEST.toLowerCase()];
 
       if (dateFrom) {
-        eventQuery = eventQuery.gte('created_at', dateFrom + 'T00:00:00Z');
+        eventSql += ` AND created_at >= ?`;
+        eventParams.push(dateFrom + 'T00:00:00Z');
       }
       if (dateTo) {
-        eventQuery = eventQuery.lte('created_at', dateTo + 'T23:59:59Z');
+        eventSql += ` AND created_at <= ?`;
+        eventParams.push(dateTo + 'T23:59:59Z');
       }
 
-      const { data: questEvents } = await eventQuery;
+      const questEvents = await window.DatabaseManager.query(eventSql, eventParams);
       const eventsTriggered = questEvents?.length || 0;
 
       const stats = {

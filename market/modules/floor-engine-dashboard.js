@@ -50,18 +50,17 @@ const FloorEngineDashboard = {
     activeListingsData = [],
     nftData = [],
     getImageUrl = null,
-    supabaseClient = null,
     tokenReadContract = null
   }) {
     try {
-      console.log('🔄 FloorEngineDashboard.update called with:', { 
-        balance, 
-        engineListingsCount: engineListings.length, 
+      console.log('🔄 FloorEngineDashboard.update called with:', {
+        balance,
+        engineListingsCount: engineListings.length,
         cheapestUserListing: !!cheapestUserListing,
         nftDataCount: nftData?.length || 0,
         hasGetImageUrl: !!getImageUrl
       });
-      
+
       if (!this.isInitialized) {
         await this.init();
       }
@@ -71,7 +70,7 @@ const FloorEngineDashboard = {
       // Continuar con la actualización de los módulos
 
       // Get sold count
-      const soldCount = await this.getSoldCount(supabaseClient);
+      const soldCount = await this.getSoldCount();
       console.log('📊 Sold count:', soldCount);
 
       // Update header
@@ -87,37 +86,32 @@ const FloorEngineDashboard = {
       );
 
       // Update sales
-      if (supabaseClient) {
-        // Get formatAdrianAmountNoDecimals from global scope or use the one from FloorEngineSales
-        const formatAdrianAmountNoDecimals = window.formatAdrianAmountNoDecimals || 
-          ((value) => FloorEngineSales.formatAdrianAmountNoDecimals(value));
-        await FloorEngineSales.update(supabaseClient, formatAdrianAmountNoDecimals);
-      }
+      // Get formatAdrianAmountNoDecimals from global scope or use the one from FloorEngineSales
+      const formatAdrianAmountNoDecimals = window.formatAdrianAmountNoDecimals ||
+        ((value) => FloorEngineSales.formatAdrianAmountNoDecimals(value));
+      await FloorEngineSales.update(formatAdrianAmountNoDecimals);
     } catch (error) {
       console.error('Error updating FloorENGINE dashboard:', error);
     }
   },
 
-  // Get sold count from Supabase
-  async getSoldCount(supabaseClient) {
+  // Get sold count from SQLite
+  async getSoldCount() {
     try {
-      if (!supabaseClient) {
-        console.warn('Supabase client not initialized');
+      if (!window.DatabaseManager) {
+        console.warn('DatabaseManager not initialized');
         return 0;
       }
 
-      const { data, error, count } = await supabaseClient
-        .from('trade_events')
-        .select('*', { count: 'exact', head: false })
-        .eq('seller', this.FLOOR_ENGINE_ADDRESS.toLowerCase())
-        .eq('is_contract_owned', true);
+      const count = await window.DatabaseManager.queryCount(
+        `SELECT COUNT(*) as count
+         FROM trade_events
+         WHERE seller = ?
+           AND is_contract_owned = 1`,
+        [this.FLOOR_ENGINE_ADDRESS.toLowerCase()]
+      );
 
-      if (error) {
-        console.error('Error fetching sold count from Supabase:', error);
-        return 0;
-      }
-
-      return count !== null ? count : (data?.length || 0);
+      return count;
     } catch (error) {
       console.error('Error getting FloorENGINE sold count:', error);
       return 0;

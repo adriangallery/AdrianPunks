@@ -8,9 +8,8 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="./runtime-config.js"></script>
-  <script src="./opensea-config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.2/dist/sql-wasm.js"></script>
+  <script src="../lib/database.js"></script>
   <!-- Instrumentación temporal retirada -->
   <style>
     /* Estilos base */
@@ -1174,9 +1173,9 @@
 
     .panel-body {
       padding: 1.25rem;
-      max-height: 80vh;
-      overflow-y: auto;
-      overscroll-behavior-y: contain;
+      max-height: none;
+      overflow-y: visible;
+      overscroll-behavior-y: auto;
     }
 
     .project-avatar {
@@ -1587,48 +1586,38 @@
   <div id="menu-container"></div>
   <script>
     // Load the menu with relative path
-    fetch('components/menu.html')
+    fetch('../components/menu.html')
       .then(response => response.text())
       .then(html => {
-        document.getElementById('menu-container').innerHTML = html;
+        const container = document.getElementById('menu-container');
+        container.innerHTML = html;
         
         // Asegurar que el menú tenga el estilo correcto
-        const menu = document.querySelector('.navbar');
+        const menu = container.querySelector('.navbar');
         if (menu) {
           menu.classList.add('navbar-dark', 'bg-dark');
         }
         
-        // Verificar si el script ya ha sido cargado para evitar duplicación
-        if (!document.querySelector('script[src="components/menu.js"]')) {
-          const script = document.createElement('script');
-          script.src = 'components/menu.js';
-          script.onload = function() {
-            // Esperar un momento para que el script se inicialice completamente
-            setTimeout(() => {
-              // Intentar configurar los event listeners manualmente
-              if (typeof window.connectMetaMaskWallet === 'function') {
-                const mobileButton = document.getElementById('connectWalletButtonMobile');
-                const desktopButton = document.getElementById('connectWalletButton');
-                
-                if (mobileButton) {
-                  mobileButton.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    console.log("Mobile button clicked from index.html");
-                    window.connectMetaMaskWallet();
-                  });
-                }
-                
-                if (desktopButton) {
-                  desktopButton.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    console.log("Desktop button clicked from index.html");
-                    window.connectMetaMaskWallet();
-                  });
-                }
-              }
-            }, 500);
-          };
-          document.head.appendChild(script);
+        // Fix script paths in the loaded HTML (menu.js needs relative path from market/)
+        const scripts = container.querySelectorAll('script[src="menu.js"]');
+        scripts.forEach(script => {
+          script.src = '../components/menu.js';
+          // Execute the script after fixing the path
+          const newScript = document.createElement('script');
+          newScript.src = script.src;
+          newScript.async = false;
+          document.head.appendChild(newScript);
+          script.remove();
+        });
+        
+        // Ensure Bootstrap is available and nav links work
+        if (typeof bootstrap !== 'undefined') {
+          // Remove any existing listeners that might interfere with nav links
+          const navLinks = container.querySelectorAll('.nav-link');
+          navLinks.forEach(link => {
+            const newLink = link.cloneNode(true);
+            link.parentNode.replaceChild(newLink, link);
+          });
         }
       })
       .catch(error => console.error('Error loading menu:', error));
@@ -2180,18 +2169,13 @@
       console.log('API Key (masked):', maskedKey);
     }
 
-    // Supabase configuration (from GitHub Secrets via environment)
-    const SUPABASE_URL = window.SUPABASE_URL || 'YOUR_SUPABASE_URL';
-    const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
-
-    let supabaseClient = null;
-
-    function initSupabase() {
-      if (SUPABASE_URL && SUPABASE_ANON_KEY && SUPABASE_URL !== 'YOUR_SUPABASE_URL') {
-        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        console.log('Supabase initialized');
-      } else {
-        console.error('Supabase credentials not configured');
+    // Database initialization
+    async function initDatabase() {
+      try {
+        await window.Database.init();
+        console.log('Database initialized');
+      } catch (error) {
+        console.error('Database initialization failed:', error);
       }
     }
 
@@ -2255,58 +2239,54 @@
       return String(value);
     }
 
-    // Supabase Data Layer para NFTs - Usar vista simplificada
-    async function loadListingsFromSupabase() {
-      if (!supabaseClient || typeof supabaseClient.from !== 'function') {
-        console.warn('⚠️ Supabase client not available');
+    // Database Data Layer para NFTs
+    async function loadListingsFromDatabase() {
+      if (!window.Database || !window.Database.isInitialized) {
+        console.warn('⚠️ Database not available');
         return null;
       }
-      
+
       try {
-        console.log('📦 Cargando listings activos desde Supabase...');
-        
-        // Cargar desde la vista simplificada active_punk_listings
-        if (!supabaseClient || !supabaseClient.from) {
-          console.warn('⚠️ Supabase client not properly initialized');
-          return null;
-        }
-        const { data: listings, error } = await supabaseClient
-          .from('active_punk_listings')
-          .select('token_id, price_adrian_wei, is_engine_owned, seller, last_block_number')
-          .order('last_block_number', { ascending: false });
-        
-        if (error) throw error;
-        
+        console.log('📦 Cargando listings activos desde Database...');
+
+        // Cargar desde punk_listings
+        const listings = await window.Database.query(
+          `SELECT token_id, price_wei, is_contract_owned, seller, last_block_number
+           FROM punk_listings
+           WHERE is_listed = 1
+           ORDER BY last_block_number DESC`
+        );
+
         if (!listings || listings.length === 0) {
-          console.log('⚠️ No hay listings activos en Supabase');
+          console.log('⚠️ No hay listings activos en Database');
           return { listings: [], lastBlock: 0 };
         }
-        
+
         // Convertir a formato compatible con activeListingsData
         const activeListings = listings.map(l => {
-          // Convertir price_adrian_wei a string decimal completo (sin notación científica)
-          const priceWeiStr = convertToDecimalString(l.price_adrian_wei);
-          
-          // Si is_engine_owned es true, el seller es el FloorEngine
-          const seller = l.is_engine_owned ? FLOOR_ENGINE_ADDRESS : (l.seller || '');
-          
+          // Convertir price_wei a string decimal completo (sin notación científica)
+          const priceWeiStr = convertToDecimalString(l.price_wei);
+
+          // Si is_contract_owned es true, el seller es el FloorEngine
+          const seller = l.is_contract_owned ? FLOOR_ENGINE_ADDRESS : (l.seller || '');
+
           return {
             tokenId: l.token_id,
             seller: seller,
             price: (window.ethers5Backup || window.ethers).BigNumber.from(priceWeiStr),
-            isContractOwned: l.is_engine_owned
+            isContractOwned: l.is_contract_owned
           };
         });
-        
+
         const maxBlock = listings[0]?.last_block_number || 0;
-        console.log(`✅ Cargados ${activeListings.length} listings activos desde Supabase (último bloque: ${maxBlock})`);
-        
+        console.log(`✅ Cargados ${activeListings.length} listings activos desde Database (último bloque: ${maxBlock})`);
+
         return {
           listings: activeListings,
           lastBlock: maxBlock
         };
       } catch (error) {
-        console.error('Error loading from Supabase:', error);
+        console.error('Error loading from Database:', error);
         return null;
       }
     }
@@ -2321,15 +2301,15 @@
       }
     }
 
-    async function checkNeedSync(supabaseLastBlock) {
+    async function checkNeedSync(databaseLastBlock) {
       const chainBlock = await getLatestBlockFromChain();
       if (!chainBlock) return true; // Si falla, forzar sync
-      
-      const blockDiff = chainBlock - supabaseLastBlock;
+
+      const blockDiff = chainBlock - databaseLastBlock;
       const needSync = blockDiff > 10; // Sync si hay más de 10 bloques de diferencia
-      
-      console.log(`📊 Supabase block: ${supabaseLastBlock}, Chain block: ${chainBlock}, Diff: ${blockDiff}, Need sync: ${needSync}`);
-      
+
+      console.log(`📊 Database block: ${databaseLastBlock}, Chain block: ${chainBlock}, Diff: ${blockDiff}, Need sync: ${needSync}`);
+
       return needSync;
     }
 
@@ -2673,71 +2653,6 @@
     let activeListingsData = [];
     let currentSortOrder = 'asc';
     
-    async function waitForSwapData(timeoutMs = 6000) {
-      if (window.swapModulesReady && (window.PriceManager || window.QuoteManager)) return;
-      await new Promise(resolve => {
-        const timer = setTimeout(resolve, timeoutMs);
-        window.addEventListener('swapModulesReady', () => {
-          clearTimeout(timer);
-          resolve();
-        }, { once: true });
-      });
-    }
-
-    function getAdrianPerEthRatio() {
-      // ADRIAN per 1 ETH
-      if (window.QuoteManager && window.QuoteManager.cachedRatio) {
-        const ratio = Number(window.QuoteManager.cachedRatio) / Number(10n ** 18n);
-        if (isFinite(ratio) && ratio > 0) return ratio;
-      }
-      if (window.PriceManager && window.PriceManager.prices?.ETH && window.PriceManager.prices?.ADRIAN) {
-        const ethUsd = window.PriceManager.prices.ETH;
-        const adrianUsd = window.PriceManager.prices.ADRIAN;
-        if (adrianUsd > 0) {
-          const ratio = ethUsd / adrianUsd;
-          if (isFinite(ratio) && ratio > 0) return ratio;
-        }
-      }
-      return null;
-    }
-
-    function toPriceEthFromAdrianWei(priceWei) {
-      const ethers5 = window.ethers5Backup || window.ethers;
-      const adrianPerEth = getAdrianPerEthRatio();
-      if (!adrianPerEth) return null;
-      const adrianAmount = parseFloat(ethers5.utils.formatUnits(priceWei, 18));
-      return adrianAmount / adrianPerEth;
-    }
-
-    function mergeListingsByBestPrice(floorListings, openseaListings) {
-      const all = [...(floorListings || []), ...(openseaListings || [])];
-      const byToken = new Map();
-      all.forEach(listing => {
-        const key = listing.tokenId?.toString();
-        if (!key) return;
-        const price = typeof listing.priceETH === 'number' ? listing.priceETH : Number.MAX_VALUE;
-        const current = byToken.get(key);
-        if (!current || price < (typeof current.priceETH === 'number' ? current.priceETH : Number.MAX_VALUE)) {
-          byToken.set(key, listing);
-        }
-      });
-      return Array.from(byToken.values());
-    }
-
-    async function mergeWithOpenSea(listings) {
-      if (!window.OpenSeaIntegration) return listings;
-      try {
-        console.log('🔎 OpenSeaIntegration: merging with OpenSea listings...');
-        const openseaListings = await window.OpenSeaIntegration.getListings();
-        console.log('🔎 OpenSeaIntegration: received', openseaListings.length, 'listings');
-        if (!openseaListings || openseaListings.length === 0) return listings;
-        return mergeListingsByBestPrice(listings, openseaListings);
-      } catch (error) {
-        console.warn('⚠️ OpenSea merge skipped:', error);
-        return listings;
-      }
-    }
-
     // Función auxiliar para sincronizar con blockchain
     async function syncListingsFromChain() {
       try {
@@ -2769,37 +2684,27 @@
 
     async function loadActiveListings() {
       try {
-        await waitForSwapData();
-        
         // Verificar caché primero
         const cacheKey = 'activeListings';
         const cached = contractCache.get(cacheKey);
         if (cached) {
           console.log('✅ Usando listings cacheados');
-          activeListingsData = cached.map(l => ({
-            ...l,
-            source: l.source || 'floorengine',
-            priceETH: typeof l.priceETH === 'number' ? l.priceETH : (l.price ? toPriceEthFromAdrianWei(l.price) : null)
-          }));
+          activeListingsData = cached;
           // Actualizar dashboard después de cargar desde caché
           updateFloorEngineDashboard();
           return;
         }
         
-        // PASO 1: Intentar cargar desde Supabase primero
-        console.log('📦 Cargando listings desde Supabase...');
-        const supabaseData = await loadListingsFromSupabase();
-        
-        if (supabaseData && supabaseData.listings.length > 0) {
-          activeListingsData = supabaseData.listings.map(l => ({
-            ...l,
-            source: 'floorengine',
-            priceETH: toPriceEthFromAdrianWei(l.price)
-          }));
-          console.log(`✅ Cargados ${activeListingsData.length} listings desde Supabase`);
-          
+        // PASO 1: Intentar cargar desde Database primero
+        console.log('📦 Cargando listings desde Database...');
+        const databaseData = await loadListingsFromDatabase();
+
+        if (databaseData && databaseData.listings.length > 0) {
+          activeListingsData = databaseData.listings;
+          console.log(`✅ Cargados ${activeListingsData.length} listings desde Database`);
+
           // PASO 2: Verificar si necesita sincronización en background
-          const needSync = await checkNeedSync(supabaseData.lastBlock);
+          const needSync = await checkNeedSync(databaseData.lastBlock);
           
           if (needSync) {
             console.log('🔄 Sincronizando con blockchain en background...');
@@ -2808,7 +2713,7 @@
             if (syncStatus) syncStatus.style.display = 'inline';
             
             // Sincronizar en background sin bloquear UI
-            syncListingsFromChain().then(async chainListings => {
+            syncListingsFromChain().then(chainListings => {
               if (syncStatus) syncStatus.style.display = 'none';
               
               if (chainListings) {
@@ -2824,13 +2729,8 @@
                 
                 if (hasChanges) {
                   console.log('🔄 Actualizando con datos frescos del blockchain');
-                  activeListingsData = chainListings.map(l => ({
-                    ...l,
-                    source: 'floorengine',
-                    priceETH: toPriceEthFromAdrianWei(l.price)
-                  }));
-                  activeListingsData = await mergeWithOpenSea(activeListingsData);
-                  contractCache.set(cacheKey, activeListingsData);
+                  activeListingsData = chainListings;
+                  contractCache.set(cacheKey, chainListings);
                   
                   // Preservar estado del sort si estaba activo
                   const sortButton = document.querySelector('button[onclick="sortByFloorPrice()"]');
@@ -2863,30 +2763,26 @@
                   // Actualizar dashboard después de actualizar listings
                   updateFloorEngineDashboard();
                 } else {
-                  console.log('✅ Datos de Supabase están sincronizados');
+                  console.log('✅ Datos de Database están sincronizados');
                 }
               }
             });
           }
           
-          // Merge con OpenSea y cachear
-          activeListingsData = await mergeWithOpenSea(activeListingsData);
+          // Guardar en caché
           contractCache.set(cacheKey, activeListingsData);
+          // Actualizar dashboard después de cargar listings
           updateFloorEngineDashboard();
           return;
         }
         
         // PASO 3: Fallback - cargar directamente desde blockchain
-        console.log('⚠️ Supabase no disponible, cargando desde blockchain...');
+        console.log('⚠️ Database no disponible, cargando desde blockchain...');
         const chainListings = await syncListingsFromChain();
         if (chainListings) {
-          activeListingsData = chainListings.map(l => ({
-            ...l,
-            source: 'floorengine',
-            priceETH: toPriceEthFromAdrianWei(l.price)
-          }));
-          activeListingsData = await mergeWithOpenSea(activeListingsData);
-          contractCache.set(cacheKey, activeListingsData);
+          activeListingsData = chainListings;
+          contractCache.set(cacheKey, chainListings);
+          // Actualizar dashboard después de cargar listings
           updateFloorEngineDashboard();
         }
         
@@ -2896,27 +2792,24 @@
       }
     }
     
-    // Función auxiliar para obtener el seller original desde Supabase (respaldo)
-    async function getOriginalSellerFromSupabase(tokenId) {
+    // Función auxiliar para obtener el seller original desde Database (respaldo)
+    async function getOriginalSellerFromDatabase(tokenId) {
       try {
-        if (!supabaseClient) {
-          console.log('Supabase client not available for seller lookup');
+        if (!window.Database || !window.Database.isInitialized) {
+          console.log('Database not available for seller lookup');
           return null;
         }
 
         // Consultar listing_events para obtener el último evento "Listed" de este token
-        const { data: listingEvents, error } = await supabaseClient
-          .from('listing_events')
-          .select('seller')
-          .eq('token_id', tokenId)
-          .eq('event_type', 'Listed')
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (error) {
-          console.error('Error fetching original seller from Supabase:', error);
-          return null;
-        }
+        const listingEvents = await window.Database.query(
+          `SELECT seller
+           FROM listing_events
+           WHERE token_id = ?
+           AND event_type = 'Listed'
+           ORDER BY created_at DESC
+           LIMIT 1`,
+          [tokenId]
+        );
 
         if (listingEvents && listingEvents.length > 0) {
           return listingEvents[0].seller;
@@ -2924,7 +2817,7 @@
 
         return null;
       } catch (error) {
-        console.error('Error in getOriginalSellerFromSupabase:', error);
+        console.error('Error in getOriginalSellerFromDatabase:', error);
         return null;
       }
     }
@@ -2962,12 +2855,36 @@
         const response = await fetch('./adrianpunks.json');
         if (!response.ok) throw new Error('Error loading NFTs');
         const data = await response.json();
-        // Filtrar para mostrar solo los tokens cuyo ID <= mintedCount
-        nftData = (data.collection || []).filter(nft => {
-          const tokenIdStr = nft.name.split('#')[1];
-          const tokenId = parseInt(tokenIdStr);
-          return tokenId <= mintedCount;
-        });
+        
+        // Crear mapa de ranks: tokenId -> rank
+        window.rankMap = {};
+        if (data.rankedTokens && Array.isArray(data.rankedTokens)) {
+          data.rankedTokens.forEach(token => {
+            window.rankMap[token.tokenId] = token.rank;
+          });
+        }
+        
+        // Mapear rankedTokens a formato compatible con el código existente
+        // rankedTokens tiene: tokenId, rank, rarityScore, attributes
+        // Necesitamos: name, rarity
+        if (!data.rankedTokens || !Array.isArray(data.rankedTokens)) {
+          throw new Error('rankedTokens no encontrado o no es un array');
+        }
+        
+        nftData = data.rankedTokens
+          .map(token => {
+            const tokenId = parseInt(token.tokenId);
+            // Filtrar solo tokens cuyo ID <= mintedCount
+            if (tokenId > mintedCount) return null;
+            // Construir objeto compatible con el código existente
+            return {
+              name: `AdrianPunk#${token.tokenId}`,
+              rarity: token.rarity || token.rarityScore || 0,
+              tokenId: token.tokenId,
+              attributes: token.attributes || []
+            };
+          })
+          .filter(nft => nft !== null);
         
         // Cargar listings (con caché y multicall optimizado)
         await loadActiveListings();
@@ -3026,7 +2943,6 @@
         }
         
         const listing = activeListingsData.find(l => l.tokenId.toString() === tokenId);
-        const isOpenSeaListing = listing && listing.source === 'opensea';
         const card = document.createElement('div');
         card.className = 'card nft-card';
         card.style.cursor = 'pointer';
@@ -3034,32 +2950,18 @@
         
         // Formatear el precio para mostrar K o M si es necesario
         const ethers5 = window.ethers5Backup || window.ethers;
-        const priceValue = listing ? (
-          isOpenSeaListing
-            ? (typeof listing.priceETH === 'number' ? listing.priceETH : parseFloat(ethers5.utils.formatUnits(listing.price, 18)))
-            : parseFloat(ethers5.utils.formatUnits(listing.price, 18))
-        ) : 0;
-        const formattedPrice = listing ? (
-          isOpenSeaListing
-            ? priceValue.toFixed(4)
-            : (priceValue >= 1000000 ? 
-                (priceValue / 1000000).toFixed(1) + 'M' :
-                priceValue >= 1000 ? 
-                (priceValue / 1000).toFixed(1) + 'K' :
-                priceValue.toFixed(1))
-        ) : '';
+        const priceValue = listing ? parseFloat(ethers5.utils.formatUnits(listing.price, 18)) : 0;
+        const formattedPrice = listing ? 
+          (priceValue >= 1000000 ? 
+            (priceValue / 1000000).toFixed(1) + 'M' :
+            priceValue >= 1000 ? 
+            (priceValue / 1000).toFixed(1) + 'K' :
+            priceValue.toFixed(1)) : '';
         
         // Determinar el badge según si es del contrato o de usuario
-        const badgeHtml = listing ? (
-          isOpenSeaListing
-            ? '<span class="badge opensea-badge">OPENSEA</span>'
-            : (listing.isContractOwned ? 
-              '<span class="badge bg-primary">ENGINE</span>' : 
-              '<span class="badge bg-secondary">USER</span>')
-        ) : '';
-        const extraEthInfo = !isOpenSeaListing && listing && typeof listing.priceETH === 'number'
-          ? ` (~${listing.priceETH.toFixed(4)} ETH)`
-          : '';
+        const badgeHtml = listing ? (listing.isContractOwned ? 
+          '<span class="badge bg-primary">ENGINE</span>' : 
+          '<span class="badge bg-secondary">USER</span>') : '';
 
         // Obtener URL de la imagen
         const imgUrl = getImageUrl(nft);
@@ -3068,29 +2970,27 @@
         const dataAttrs = (currentImageCollection === 'vectoradrians' || currentImageCollection === 'adrianvectors') ?
           `` : '';
 
+        // Obtener el rank y crear el tag HTML
+        const rank = window.rankMap && window.rankMap[tokenId];
+        const rankTagHtml = rank ? 
+          `<div class="rank-tag" style="background-color: ${getRankColor(rank)}">#${rank}</div>` : '';
+
         card.innerHTML = `
-          <img src="${imgUrl}" class="card-img-top" alt="${displayName}" ${dataAttrs}>
+          <div class="nft-image-container">
+            <img src="${imgUrl}" class="card-img-top" alt="${displayName}" ${dataAttrs}>
+            ${rankTagHtml}
+          </div>
           <div class="card-body">
             <h5 class="card-title">${displayName}</h5>
-            <p class="card-text">Rarity: ${typeof nft.rarity === 'number' ? nft.rarity.toFixed(2) : 'N/A'}</p>
             ${listing ? `
               <div class="price-tag alert alert-info py-1 px-2 mb-2">
-                <small>Listed: ${formattedPrice} ${isOpenSeaListing ? 'ETH' : '$A'} ${badgeHtml}${extraEthInfo}</small>
+                <small>Listed: ${formattedPrice} $A ${badgeHtml}</small>
               </div>
-              ${isOpenSeaListing ? `
-                <a class="btn btn-primary btn-sm w-100" 
-                  href="${listing.permalink || '#'}" target="_blank" rel="noopener"
-                  onclick="event.stopPropagation();"
-                  style="font-size: 0.8rem;">
-                  Buy on OpenSea
-                </a>
-              ` : `
-                <button class="btn btn-primary btn-sm w-100" 
-                  onclick="event.stopPropagation(); buyToken(${tokenId}, '${listing.price}')"
-                  style="font-size: 0.8rem;">
-                  Buy Now
-                </button>
-              `}
+              <button class="btn btn-primary btn-sm w-100" 
+                onclick="event.stopPropagation(); buyToken(${tokenId}, '${listing.price}')"
+                style="font-size: 0.8rem;">
+                Buy Now
+              </button>
             ` : ''}
           </div>
         `;
@@ -3107,8 +3007,22 @@
         // Obtener el ID del token del nombre
         const tokenId = parseInt(nftName.split('#')[1]);
         
-        // Buscar el NFT por su ID en lugar de por su nombre, ya que el nombre puede variar entre colecciones
-        const nft = data.collection.find(n => parseInt(n.name.split('#')[1]) === tokenId);
+        // Buscar el NFT por su ID - usar rankedTokens para adrianpunks, collection para otras colecciones
+        let nft;
+        if (currentImageCollection === 'adrianpunks' && data.rankedTokens) {
+          const rankedToken = data.rankedTokens.find(t => parseInt(t.tokenId) === tokenId);
+          if (rankedToken) {
+            nft = {
+              name: `AdrianPunk#${rankedToken.tokenId}`,
+              rarity: rankedToken.rarity || rankedToken.rarityScore || 0,
+              tokenId: rankedToken.tokenId,
+              attributes: rankedToken.attributes || []
+            };
+          }
+        } else {
+          // Para otras colecciones (halfxadrian, etc.) usar collection si existe
+          nft = (data.collection || []).find(n => parseInt(n.name.split('#')[1]) === tokenId);
+        }
         
         if (!nft) throw new Error("NFT not found");
         
@@ -3151,49 +3065,40 @@
           ownershipStatus = `<div class="alert alert-warning">Could not verify token ownership</div>`;
         }
         
-        // Check if token is listed (FloorEngine or OpenSea)
-        const cachedListing = activeListingsData.find(l => l.tokenId.toString() === tokenId.toString());
-        const isOpenSeaListing = cachedListing && cachedListing.source === 'opensea';
+        // Check if token is listed on FloorEngine
         let tokenListing = null;
         let isSeller = false; // Verificar si el usuario es el seller del listing
+        try {
+          const isListed = await retryWithBackoff(() => floorEngineReadContract.isListed(tokenId));
+          if (isListed) {
+            const listing = await retryWithBackoff(() => floorEngineReadContract.listings(tokenId));
+            tokenListing = {
+              price: listing.price,
+              seller: listing.seller,
+              isContractOwned: listing.isContractOwned
+            };
+            
+            // Verificar si el usuario conectado es el seller del listing
+            if (userAccount && !tokenListing.isContractOwned) {
+              // Verificar directamente desde el contrato
+              isSeller = tokenListing.seller.toLowerCase() === userAccount.toLowerCase();
 
-        if (isOpenSeaListing) {
-          tokenListing = cachedListing;
-        } else {
-          try {
-            const isListed = await retryWithBackoff(() => floorEngineReadContract.isListed(tokenId));
-            if (isListed) {
-              const listing = await retryWithBackoff(() => floorEngineReadContract.listings(tokenId));
-              tokenListing = {
-                price: listing.price,
-                seller: listing.seller,
-                isContractOwned: listing.isContractOwned,
-                priceETH: cachedListing ? cachedListing.priceETH : toPriceEthFromAdrianWei(listing.price),
-                source: 'floorengine'
-              };
-              
-              // Verificar si el usuario conectado es el seller del listing
-              if (userAccount && !tokenListing.isContractOwned) {
-                // Verificar directamente desde el contrato
-                isSeller = tokenListing.seller.toLowerCase() === userAccount.toLowerCase();
-                
-                // Si no coincide, intentar obtener desde Supabase como respaldo
-                if (!isSeller && supabaseClient) {
-                  const originalSeller = await getOriginalSellerFromSupabase(tokenId);
-                  if (originalSeller) {
-                    isSeller = originalSeller.toLowerCase() === userAccount.toLowerCase();
-                    // Si encontramos el seller en Supabase y es diferente, actualizar tokenListing
-                    if (isSeller && tokenListing.seller.toLowerCase() !== originalSeller.toLowerCase()) {
-                      console.log(`Seller mismatch detected. Contract: ${tokenListing.seller}, Supabase: ${originalSeller}. Using Supabase value.`);
-                      tokenListing.seller = originalSeller;
-                    }
+              // Si no coincide, intentar obtener desde Database como respaldo
+              if (!isSeller && window.Database && window.Database.isInitialized) {
+                const originalSeller = await getOriginalSellerFromDatabase(tokenId);
+                if (originalSeller) {
+                  isSeller = originalSeller.toLowerCase() === userAccount.toLowerCase();
+                  // Si encontramos el seller en Database y es diferente, actualizar tokenListing
+                  if (isSeller && tokenListing.seller.toLowerCase() !== originalSeller.toLowerCase()) {
+                    console.log(`Seller mismatch detected. Contract: ${tokenListing.seller}, Database: ${originalSeller}. Using Database value.`);
+                    tokenListing.seller = originalSeller;
                   }
                 }
               }
             }
-          } catch (error) {
-            console.error("Error checking listing status:", error);
           }
+        } catch (error) {
+          console.error("Error checking listing status:", error);
         }
         const modalContent = document.getElementById('nftModalContent');
         modalContent.innerHTML = `
@@ -3205,43 +3110,31 @@
             <img src="${getImageUrl(nft)}" class="img-fluid rounded mb-3" alt="${displayName}">
             <div class="nft-details text-start">
               ${ownershipStatus}
-              <p><strong>Description:</strong> ${nft.description || 'N/A'}</p>
-              <p><strong>Compiler:</strong> ${nft.compiler || 'N/A'}</p>
-              <p><strong>Masterminds:</strong> ${nft.masterminds && Array.isArray(nft.masterminds) ? nft.masterminds.join(', ') : 'N/A'}</p>
-              <p><strong>Rarity:</strong> ${typeof nft.rarity === 'number' ? nft.rarity.toFixed(2) : 'N/A'}</p>
+              <p><strong>Description:</strong> BE REAL | BE ADRIAN</p>
+              <p><strong>Masterminds:</strong> HalfxTiger + $ADRIAN</p>
               ${isOwner && !tokenListing ? `
                 <button class="btn btn-primary w-100 mb-2" onclick="openListingForm('${nft.name}', 'FloorEngine')">
                   List for Sale on FloorEngine
                   </button>
               ` : ''}
               ${tokenListing ? `
-                  ${tokenListing.source === 'opensea' ? `
-                    <div class="listing-info alert alert-info">
-                      <h6>OpenSea Listing <span class="badge opensea-badge">OPENSEA</span></h6>
-                      <p>Price: ${(tokenListing.priceETH || parseFloat((window.ethers5Backup || window.ethers).utils.formatUnits(tokenListing.price, 18))).toFixed(4)} ETH</p>
-                      ${tokenListing.permalink ? `
-                        <a class="btn btn-primary btn-sm w-100" href="${tokenListing.permalink}" target="_blank" rel="noopener">Buy on OpenSea</a>
-                      ` : ''}
-                    </div>
-                  ` : `
-                    <div class="listing-info alert alert-info">
-                      <h6>Active Listing ${tokenListing.isContractOwned ? '<span class="badge bg-primary">ENGINE</span>' : '<span class="badge bg-secondary">USER</span>'}</h6>
-                      <p>Price: ${parseFloat((window.ethers5Backup || window.ethers).utils.formatUnits(tokenListing.price, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1})} $ADRIAN ${tokenListing.priceETH ? `(~${tokenListing.priceETH.toFixed(4)} ETH)` : ''}</p>
-                      <p>Seller: ${tokenListing.seller.substring(0, 6)}...${tokenListing.seller.substring(38)}</p>
-                      ${!tokenListing.isContractOwned ? `
+                  <div class="listing-info alert alert-info">
+                  <h6>Active Listing ${tokenListing.isContractOwned ? '<span class="badge bg-primary">ENGINE</span>' : '<span class="badge bg-secondary">USER</span>'}</h6>
+                    <p>Price: ${parseFloat((window.ethers5Backup || window.ethers).utils.formatUnits(tokenListing.price, 18)).toLocaleString('en-US', {minimumFractionDigits: 1, maximumFractionDigits: 1})} $ADRIAN</p>
+                    <p>Seller: ${tokenListing.seller.substring(0, 6)}...${tokenListing.seller.substring(38)}</p>
+                  ${!tokenListing.isContractOwned ? `
                         ${isSeller ? `
-                          <button class="btn btn-danger btn-sm" onclick="cancelListing(${tokenId})">Cancel Listing</button>
-                          <p class="text-muted mb-0 mt-2"><small>Only the seller can cancel this listing</small></p>
-                        ` : `
-                          <button class="btn btn-primary btn-sm w-100" onclick="buyToken(${tokenId}, '${tokenListing.price}')">Buy Now</button>
-                        `}
-                      ` : `
-                        ${!isOwner ? `
-                          <button class="btn btn-primary btn-sm w-100" onclick="buyToken(${tokenId}, '${tokenListing.price}')">Buy Now</button>
-                        ` : '<p class="text-muted mb-0"><small>This listing is managed by the FloorEngine</small></p>'}
-                      `}
-                    </div>
+                      <button class="btn btn-danger btn-sm" onclick="cancelListing(${tokenId})">Cancel Listing</button>
+                      <p class="text-muted mb-0 mt-2"><small>Only the seller can cancel this listing</small></p>
+                    ` : `
+                      <button class="btn btn-primary btn-sm w-100" onclick="buyToken(${tokenId}, '${tokenListing.price}')">Buy Now</button>
+                    `}
+                  ` : `
+                    ${!isOwner ? `
+                      <button class="btn btn-primary btn-sm w-100" onclick="buyToken(${tokenId}, '${tokenListing.price}')">Buy Now</button>
+                    ` : '<p class="text-muted mb-0"><small>This listing is managed by the FloorEngine</small></p>'}
                   `}
+                  </div>
                 ` : ''}
             </div>
           </div>
@@ -3350,9 +3243,10 @@
         }
         const response = await fetch('adrianpunks.json');
         const data = await response.json();
-        const nft = data.collection.find(n => n.name === nftName);
-        if (!nft) { alert("NFT not found."); return; }
-        const tokenId = parseInt(nft.name.split("#")[1]);
+        // Buscar en rankedTokens para adrianpunks
+        const tokenId = parseInt(nftName.split("#")[1]);
+        const rankedToken = data.rankedTokens ? data.rankedTokens.find(t => parseInt(t.tokenId) === tokenId) : null;
+        if (!rankedToken) { alert("NFT not found."); return; }
         const price = await marketplaceContract.buyListing(tokenId, 1);
         console.log("NFT Price:", price.toString());
         const currentAllowance = await tokenContract.allowance(userAccount, MARKET_ADDRESS);
@@ -3620,25 +3514,21 @@
     // Función para obtener el contador de punks vendidos por el FloorENGINE
     async function getFloorEngineSoldCount() {
       try {
-        if (!supabaseClient) {
-          console.warn('Supabase client not initialized');
+        if (!window.Database || !window.Database.isInitialized) {
+          console.warn('Database not initialized');
           return 0;
         }
 
         // Consultar trade_events donde el seller es el FloorENGINE y is_contract_owned = true
-        const { data, error, count } = await supabaseClient
-          .from('trade_events')
-          .select('*', { count: 'exact', head: false })
-          .eq('seller', FLOOR_ENGINE_ADDRESS.toLowerCase())
-          .eq('is_contract_owned', true);
+        const count = await window.Database.queryCount(
+          `SELECT COUNT(*) as count
+           FROM trade_events
+           WHERE LOWER(seller) = LOWER(?)
+           AND is_contract_owned = 1`,
+          [FLOOR_ENGINE_ADDRESS]
+        );
 
-        if (error) {
-          console.error('Error fetching sold count from Supabase:', error);
-          return 0;
-        }
-
-        // Retornar el count si está disponible, si no, la longitud del array
-        return count !== null ? count : (data?.length || 0);
+        return count || 0;
       } catch (error) {
         console.error('Error getting FloorENGINE sold count:', error);
         return 0;
@@ -3684,42 +3574,36 @@
     // Función para obtener los datos de ventas del FloorENGINE
     async function getFloorEngineSales() {
       try {
-        if (!supabaseClient) {
-          console.error('Supabase not initialized');
+        if (!window.Database || !window.Database.isInitialized) {
+          console.error('Database not initialized');
           return [];
         }
 
         // Obtener todas las ventas del FloorENGINE desde trade_events
-        const { data: salesData, error: salesError } = await supabaseClient
-          .from('trade_events')
-          .select('*')
-          .eq('seller', FLOOR_ENGINE_ADDRESS.toLowerCase())
-          .eq('is_contract_owned', true)
-          .order('created_at', { ascending: false });
-
-        if (salesError) {
-          console.error('Error fetching sales from Supabase:', salesError);
-          return [];
-        }
+        const salesData = await window.Database.query(
+          `SELECT *
+           FROM trade_events
+           WHERE LOWER(seller) = LOWER(?)
+           AND is_contract_owned = 1
+           ORDER BY created_at DESC`,
+          [FLOOR_ENGINE_ADDRESS]
+        );
 
         if (!salesData || salesData.length === 0) {
           return [];
         }
 
         // Obtener todos los sweep_events con timestamp para emparejar correctamente
-        const { data: sweepData, error: sweepError } = await supabaseClient
-          .from('sweep_events')
-          .select('token_id, buy_price_wei, created_at')
-          .order('created_at', { ascending: true });
-
-        if (sweepError) {
-          console.error('Error fetching sweep events from Supabase:', sweepError);
-        }
+        const sweepData = await window.Database.query(
+          `SELECT token_id, buy_price_wei, created_at
+           FROM sweep_events
+           ORDER BY created_at ASC`
+        );
 
         // Para cada venta, encontrar el sweep_event más reciente ANTES de esa venta
         const salesWithImages = salesData.map(sale => {
           const tokenId = sale.token_id;
-          const imageUrl = `/market/adrianpunksimages/${tokenId}.png`;
+          const imageUrl = `./adrianpunksimages/${tokenId}.png`;
           const saleTimestamp = new Date(sale.created_at);
           
           // Buscar el sweep_event más reciente para este token_id que ocurrió ANTES de la venta
@@ -3777,7 +3661,7 @@
     async function updateSalesSection() {
       try {
         if (typeof FloorEngineSales !== 'undefined' && FloorEngineSales.isInitialized) {
-          await FloorEngineSales.update(supabaseClient);
+          await FloorEngineSales.update();
         } else {
           // Fallback to old implementation
           const sales = await getFloorEngineSales();
@@ -3852,7 +3736,7 @@
             return `
               <div class="sales-list-row">
                 <div class="sales-list-col-image">
-                  <img src="${sale.imageUrl}" alt="AdrianPunk #${sale.tokenId}" class="sales-list-image" onerror="this.src='/market/adrianpunksimages/1.png'">
+                  <img src="${sale.imageUrl}" alt="AdrianPunk #${sale.tokenId}" class="sales-list-image" onerror="this.src='./adrianpunksimages/1.png'">
                 </div>
                 <div class="sales-list-col-token">#${sale.tokenId}</div>
                 <div class="sales-list-col-paid">${paidFormatted} ${tokenLabel}</div>
@@ -3887,7 +3771,7 @@
           return `
             <div class="sales-card">
               <div class="sales-card-image-wrapper">
-                <img src="${sale.imageUrl}" alt="AdrianPunk #${sale.tokenId}" class="sales-card-image" onerror="this.src='/market/adrianpunksimages/1.png'">
+                <img src="${sale.imageUrl}" alt="AdrianPunk #${sale.tokenId}" class="sales-card-image" onerror="this.src='./adrianpunksimages/1.png'">
                 <div class="sales-card-token-badge">#${sale.tokenId}</div>
               </div>
               <div class="sales-card-info">
@@ -4325,28 +4209,36 @@
           // Cargar el JSON con la información de los tokens
           const response = await fetch('./adrianpunks.json');
           const data = await response.json();
-          const jsonCollection = data.collection;
+          const jsonCollection = data.rankedTokens || [];
 
         // Procesar cada tokenId obtenido con Multicall
         for (const tokenIdInt of tokenIds) {
           try {
-            const tokenInfo = jsonCollection.find(item => parseInt(item.name.split('#')[1]) === tokenIdInt);
+            const tokenInfo = jsonCollection.find(item => parseInt(item.tokenId) === tokenIdInt);
               
               // Crear un objeto nft con el formato necesario para getImageUrl
-            const nftObj = tokenInfo || { name: `AdrianPunk #${tokenIdInt}` };
+            const nftObj = tokenInfo ? {
+              name: `AdrianPunk#${tokenInfo.tokenId}`,
+              rarity: tokenInfo.rarity || tokenInfo.rarityScore || 0,
+              tokenId: tokenInfo.tokenId,
+              attributes: tokenInfo.attributes || []
+            } : { name: `AdrianPunk#${tokenIdInt}`, rarity: 0 };
             
             // Usar la misma función getImageUrl para mantener consistencia
             const imgUrl = getImageUrl(nftObj);
+            
+            // Obtener rarity de forma segura
+            const rarityValue = nftObj.rarity || (tokenInfo ? (tokenInfo.rarity || tokenInfo.rarityScore || 0) : 0);
+            const rarityDisplay = typeof rarityValue === 'number' ? rarityValue.toFixed(2) : 'N/A';
 
               tokensHtml += `
                 <div class="col">
-                <div class="card h-100" style="cursor: pointer;" onclick="closeAndShowNFTDetails('${tokenInfo ? tokenInfo.name : `AdrianPunk #${tokenIdInt}`}')">
+                <div class="card h-100" style="cursor: pointer;" onclick="closeAndShowNFTDetails('${nftObj.name}')">
                     <div class="ratio ratio-1x1">
                     <img src="${imgUrl}" class="card-img-top" alt="Token #${tokenIdInt}" style="object-fit: cover;">
                     </div>
                     <div class="card-body p-2">
                     <h6 class="card-title mb-0">#${tokenIdInt}</h6>
-                      ${tokenInfo ? `<small class="text-muted">Rarity: ${tokenInfo.rarity.toFixed(2)}</small>` : ''}
                     </div>
                   </div>
                 </div>
@@ -4373,7 +4265,7 @@
       console.log('✅ Cache: 30 segundos TTL');
       console.log('✅ Multicall3: Batch requests optimizadas');
       
-      initSupabase();
+      initDatabase();
       await initContracts();
       loadNFTs();
       
@@ -4485,18 +4377,6 @@
       }
     }
     
-    function getListingPriceForSort(listing) {
-      if (!listing) return Number.MAX_VALUE;
-      if (typeof listing.priceETH === 'number' && isFinite(listing.priceETH)) {
-        return listing.priceETH;
-      }
-      if (listing.price) {
-        const ethers5 = window.ethers5Backup || window.ethers;
-        return parseFloat(ethers5.utils.formatUnits(listing.price, 18));
-      }
-      return Number.MAX_VALUE;
-    }
-
     // Función auxiliar para aplicar sort sin hacer toggle (preserva el orden)
     function applySortByFloorPrice(order) {
       console.log(`🔧 applySortByFloorPrice llamado con orden: ${order}`);
@@ -4512,7 +4392,8 @@
       const priceMap = new Map();
       activeListingsData.forEach(listing => {
         const currentPrice = priceMap.get(listing.tokenId.toString());
-        const thisPrice = getListingPriceForSort(listing);
+        const ethers5 = window.ethers5Backup || window.ethers;
+        const thisPrice = parseFloat(ethers5.utils.formatUnits(listing.price, 18));
         if (!currentPrice || thisPrice < currentPrice) {
           priceMap.set(listing.tokenId.toString(), thisPrice);
         }
@@ -4633,6 +4514,14 @@
       filterAndDisplayNFTs();
     }
 
+    function getRankColor(rank) {
+      if (rank <= 10) return '#FFD700';      // Legendary
+      if (rank <= 50) return '#9B59B6';      // Epic
+      if (rank <= 100) return '#3498DB';      // Rare
+      if (rank <= 500) return '#2ECC71';     // Uncommon
+      return '#95A5A6';                       // Common
+    }
+
     function getImageUrl(nft) {
       const tokenId = nft.name.split('#')[1];
       const gifIds = ['1', '13', '221', '369', '420', '555', '69', '690', '777', '807', '911'];
@@ -4640,7 +4529,7 @@
       switch(currentImageCollection) {
         case 'halfxadrian':
           // Mantener intacta la lógica original para halfxadrian
-          return `/market/halfxadrianimages/${tokenId}.jpg`;
+          return `./halfxadrianimages/${tokenId}.jpg`;
           
         case 'vectoradrians':
           // Cargar directamente como JPG o GIF, similar a halfxadrian
@@ -4661,7 +4550,7 @@
         default: // adrianpunks
           // Mantener intacta la lógica original para adrianpunks
           const extension = gifIds.includes(tokenId) ? 'gif' : 'png';
-          return `/market/adrianpunksimages/${tokenId}.${extension}`;
+          return `./adrianpunksimages/${tokenId}.${extension}`;
       }
     }
     
@@ -4914,9 +4803,9 @@
       document.getElementById('marketplaceView').style.display = 'none';
       document.getElementById('activityView').style.display = 'block';
       
-      // Inicializar Supabase si no está inicializado
+      // Inicializar Database si no está inicializado
       if (!supabaseClient) {
-        initSupabase();
+        initDatabase();
       }
       
       // Resetear paginación
@@ -5153,7 +5042,7 @@
         <div class="card-body">
           <div class="d-flex align-items-start">
             <div class="me-3" style="flex-shrink: 0;">
-              <img src="${imgUrl}" alt="AdrianPunk #${tokenId}" class="rounded" style="width: 80px; height: 80px; object-fit: cover;" onerror="this.src='/market/adrianpunksimages/${tokenId}.png'; this.onerror=null;">
+              <img src="${imgUrl}" alt="AdrianPunk #${tokenId}" class="rounded" style="width: 80px; height: 80px; object-fit: cover;" onerror="this.src='./adrianpunksimages/${tokenId}.png'; this.onerror=null;">
             </div>
             <div class="flex-grow-1">
               <div class="d-flex justify-content-between align-items-start mb-2">
@@ -5402,9 +5291,6 @@
     }
   </script>
   
-  <!-- OpenSea Integration (solo marketosintegration) -->
-  <script src="modules/opensea-integration.js"></script>
-
   <!-- FloorENGINE Modules -->
   <script src="modules/floor-engine-header.js"></script>
   <script src="modules/floor-engine-holdings.js"></script>

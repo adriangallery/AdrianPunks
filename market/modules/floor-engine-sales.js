@@ -69,40 +69,33 @@ const FloorEngineSales = {
     return Math.round(numValue).toLocaleString('en-US');
   },
 
-  // Get FloorENGINE sales from Supabase
-  async getSales(supabaseClient) {
+  // Get FloorENGINE sales from SQLite
+  async getSales() {
     try {
-      if (!supabaseClient) {
-        console.error('Supabase not initialized');
+      if (!window.DatabaseManager) {
+        console.error('DatabaseManager not initialized');
         return [];
       }
 
       // Get all sales from FloorENGINE
-      const { data: salesData, error: salesError } = await supabaseClient
-        .from('trade_events')
-        .select('*')
-        .eq('seller', this.FLOOR_ENGINE_ADDRESS.toLowerCase())
-        .eq('is_contract_owned', true)
-        .order('created_at', { ascending: false });
-
-      if (salesError) {
-        console.error('Error fetching sales from Supabase:', salesError);
-        return [];
-      }
+      const salesData = await window.DatabaseManager.query(
+        `SELECT * FROM trade_events
+         WHERE seller = ?
+           AND is_contract_owned = 1
+         ORDER BY created_at DESC`,
+        [this.FLOOR_ENGINE_ADDRESS.toLowerCase()]
+      );
 
       if (!salesData || salesData.length === 0) {
         return [];
       }
 
       // Get all sweep_events to match with sales
-      const { data: sweepData, error: sweepError } = await supabaseClient
-        .from('sweep_events')
-        .select('token_id, buy_price_wei, created_at')
-        .order('created_at', { ascending: true });
-
-      if (sweepError) {
-        console.error('Error fetching sweep events from Supabase:', sweepError);
-      }
+      const sweepData = await window.DatabaseManager.query(
+        `SELECT token_id, buy_price_wei, created_at
+         FROM sweep_events
+         ORDER BY created_at ASC`
+      );
 
       // Match each sale with its corresponding sweep event
       const salesWithImages = salesData.map(sale => {
@@ -156,9 +149,9 @@ const FloorEngineSales = {
   },
 
   // Update sales section
-  async update(supabaseClient) {
+  async update() {
     try {
-      const sales = await this.getSales(supabaseClient);
+      const sales = await this.getSales();
       this.allSalesData = sales;
       
       const salesSection = document.getElementById('floorEngineSalesSection');

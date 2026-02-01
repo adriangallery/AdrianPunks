@@ -2,7 +2,6 @@
 // Fetches and displays global swap transactions from Supabase database
 
 const GlobalTransactionsManager = {
-  supabaseClient: null,
   swaps: [],
   isLoading: false,
   cache: {
@@ -11,44 +10,20 @@ const GlobalTransactionsManager = {
     ttl: 60000 // 60 seconds cache
   },
 
-  // Initialize Supabase client
+  // Initialize manager
   async init() {
     try {
       console.log('🔄 Initializing global transactions manager...');
-      
-      // Check if Supabase is available (from activity/supabase-config.js)
-      if (!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY) {
-        console.warn('⚠️ Supabase credentials not found. Global transactions will not be available.');
-        console.log('SUPABASE_URL:', window.SUPABASE_URL);
-        console.log('SUPABASE_ANON_KEY:', window.SUPABASE_ANON_KEY ? 'Found' : 'Missing');
+
+      if (!window.DatabaseManager) {
+        console.warn('⚠️ DatabaseManager not initialized. Global transactions will not be available.');
         return;
       }
 
-      // Wait for Supabase library to load (with retries)
-      let retries = 10;
-      while (typeof supabase === 'undefined' && retries > 0) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        retries--;
-      }
+      console.log('✅ Global transactions manager initialized');
 
-      // Initialize Supabase client
-      if (typeof supabase !== 'undefined' && window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
-        this.supabaseClient = supabase.createClient(
-          window.SUPABASE_URL,
-          window.SUPABASE_ANON_KEY
-        );
-        console.log('✅ Global transactions manager initialized');
-        console.log('📡 Supabase client created');
-        
-        // Load initial swaps
-        await this.loadGlobalSwaps();
-      } else {
-        if (typeof supabase === 'undefined') {
-          console.error('❌ Supabase library not loaded after retries. Please check @supabase/supabase-js script.');
-        } else {
-          console.error('❌ Supabase credentials not found. Global transactions will not be available.');
-        }
-      }
+      // Load initial swaps
+      await this.loadGlobalSwaps();
     } catch (error) {
       console.error('❌ Error initializing global transactions manager:', error);
     }
@@ -57,7 +32,7 @@ const GlobalTransactionsManager = {
   // Load global swaps from database
   async loadGlobalSwaps(limit = 20) {
     if (this.isLoading) return;
-    if (!this.supabaseClient) return;
+    if (!window.DatabaseManager) return;
 
     // Check cache
     const now = Date.now();
@@ -75,7 +50,7 @@ const GlobalTransactionsManager = {
       const adrianAddress = CONFIG.ADRIAN_ADDRESS.toLowerCase();
       const taxRecipients = CONFIG.TAX_RECIPIENT_ADDRESSES;
 
-      console.log('🔍 Querying Supabase for swaps...', {
+      console.log('🔍 Querying SQLite for swaps...', {
         swapperAddress,
         adrianAddress,
         limit: limit * 10
@@ -83,19 +58,13 @@ const GlobalTransactionsManager = {
 
       // Query transfers involving swapper contract
       // Get more results to account for filtering
-      // Note: We query all transfers and filter in JavaScript for better control
-      const { data: transfers, error } = await this.supabaseClient
-        .from('erc20_transfers')
-        .select('*')
-        .eq('contract_address', adrianAddress)
-        .order('block_number', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(limit * 10); // Get more to filter
-
-      if (error) {
-        console.error('❌ Supabase query error:', error);
-        throw error;
-      }
+      const transfers = await window.DatabaseManager.query(
+        `SELECT * FROM erc20_transfers
+         WHERE contract_address = ?
+         ORDER BY block_number DESC, created_at DESC
+         LIMIT ?`,
+        [adrianAddress, limit * 10]
+      );
 
       console.log(`📥 Received ${transfers?.length || 0} transfers from database`);
 

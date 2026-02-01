@@ -1,41 +1,81 @@
 // Admin Panel Module for index.html
 // Displays project announcements and ecosystem statistics
 
+// Helper function to convert scientific notation to string (same as in other modules)
+function scientificToFixed(num) {
+  if (typeof num === 'string') {
+    if (num.includes('e+') || num.includes('e-') || num.includes('E+') || num.includes('E-')) {
+      const [base, exponent] = num.toLowerCase().split('e');
+      const exp = parseInt(exponent);
+      const [intPart, decPart = ''] = base.split('.');
+      const fullDec = intPart + decPart;
+
+      if (exp > 0) {
+        const totalLength = fullDec.length;
+        const newDecPos = exp;
+        if (newDecPos >= totalLength) {
+          return fullDec + '0'.repeat(newDecPos - totalLength);
+        } else {
+          const newInt = fullDec.slice(0, newDecPos);
+          const newDec = fullDec.slice(newDecPos);
+          return newInt + (newDec ? '.' + newDec : '');
+        }
+      } else {
+        return '0.' + '0'.repeat(-exp - 1) + fullDec.replace(/^0+/, '');
+      }
+    }
+    return num;
+  }
+  if (typeof num === 'number') {
+    if (num > 1e15 || num < -1e15) {
+      const str = num.toString();
+      if (str.includes('e')) {
+        try {
+          return num.toLocaleString('fullwide', { useGrouping: false });
+        } catch (e) {
+          const [base, exp] = str.toLowerCase().split('e');
+          const exponent = parseInt(exp);
+          const [intPart, decPart = ''] = base.split('.');
+          const fullNum = intPart + (decPart || '');
+          if (exponent > 0) {
+            return fullNum + '0'.repeat(exponent - (decPart?.length || 0));
+          } else {
+            return '0.' + '0'.repeat(-exponent - 1) + fullNum;
+          }
+        }
+      }
+      return str;
+    }
+    return num.toString();
+  }
+  return String(num);
+}
+
 const AdminPanel = {
   isInitialized: false,
   updateInterval: null,
-  supabaseClient: null,
   FLOOR_ENGINE_ADDRESS: '0x0351F7cBA83277E891D4a85Da498A7eACD764D58',
-  TOKEN_ADDRESS: '0x7E99075Ce287F1cF8cBCAaa6A1C7894e404fD7Ea',
 
   // Initialize the admin panel
   async init() {
     if (this.isInitialized) return;
-    
+
     console.log('🔄 Initializing Admin Panel...');
-    
-    // Get Supabase client from global scope
-    if (window.supabaseClient) {
-      this.supabaseClient = window.supabaseClient;
-    } else {
-      // Try to initialize Supabase
-      try {
-        if (window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
-          const { createClient } = supabase;
-          this.supabaseClient = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-        }
-      } catch (error) {
-        console.warn('Supabase not available for admin panel:', error);
-      }
+
+    // Initialize database
+    try {
+      await window.Database.init();
+    } catch (error) {
+      console.warn('Database not available for admin panel:', error);
     }
-    
+
     this.isInitialized = true;
     console.log('✅ Admin Panel initialized');
-    
+
     // Load initial data
     await this.loadAnnouncements();
     await this.loadStats();
-    
+
     // Set up auto-update (every 30 seconds)
     this.updateInterval = setInterval(() => {
       this.loadAnnouncements();
@@ -49,23 +89,24 @@ const AdminPanel = {
       const container = document.getElementById('adminAnnouncements');
       if (!container) return;
 
-      if (!this.supabaseClient) {
+      if (!window.Database || !window.Database.isInitialized) {
         container.innerHTML = '<p style="font-size: 0.85rem; color: var(--text-color); opacity: 0.7;">Loading announcements...</p>';
         return;
       }
 
       // Get latest events from raw activity (listing_events and trade_events)
       const allEvents = [];
-      
+
       try {
         // Get latest listing events
-        const { data: listingEvents } = await this.supabaseClient
-          .from('listing_events')
-          .select('event_type, token_id, created_at')
-          .order('created_at', { ascending: false })
-          .limit(5);
-        
-        if (listingEvents) {
+        const listingEvents = await window.Database.query(
+          `SELECT event_type, token_id, created_at
+           FROM listing_events
+           ORDER BY created_at DESC
+           LIMIT 5`
+        );
+
+        if (listingEvents && listingEvents.length > 0) {
           listingEvents.forEach(event => {
             allEvents.push({
               type: event.event_type,
@@ -78,13 +119,14 @@ const AdminPanel = {
         }
 
         // Get latest trade events
-        const { data: tradeEvents } = await this.supabaseClient
-          .from('trade_events')
-          .select('token_id, price_wei, created_at, seller, buyer')
-          .order('created_at', { ascending: false })
-          .limit(5);
-        
-        if (tradeEvents) {
+        const tradeEvents = await window.Database.query(
+          `SELECT token_id, price_wei, created_at, seller, buyer
+           FROM trade_events
+           ORDER BY created_at DESC
+           LIMIT 5`
+        );
+
+        if (tradeEvents && tradeEvents.length > 0) {
           tradeEvents.forEach(event => {
             const ethers5 = window.ethers5Backup || window.ethers;
             let priceFormatted = '--';
@@ -92,16 +134,16 @@ const AdminPanel = {
               try {
                 const priceWeiStr = scientificToFixed(event.price_wei);
                 const priceEth = parseFloat(ethers5.utils.formatUnits(priceWeiStr, 18));
-                priceFormatted = priceEth >= 1000000 
+                priceFormatted = priceEth >= 1000000
                   ? (priceEth / 1000000).toFixed(1) + 'M'
-                  : priceEth >= 1000 
+                  : priceEth >= 1000
                   ? (priceEth / 1000).toFixed(1) + 'K'
                   : priceEth.toFixed(1);
               } catch (e) {
                 console.warn('Error formatting price:', e);
               }
             }
-            
+
             allEvents.push({
               type: 'Trade',
               tokenId: event.token_id,
@@ -125,7 +167,7 @@ const AdminPanel = {
         container.innerHTML = latestEvents.map(event => {
           const isNew = this.isNewAnnouncement(event.timestamp);
           // Get token image if it's a trade event
-          const tokenImage = event.type === 'Trade' && event.tokenId 
+          const tokenImage = event.type === 'Trade' && event.tokenId
             ? `<img src="../market/adrianpunksimages/${event.tokenId}.png" alt="Token #${event.tokenId}" style="height: 0.85rem; width: auto; border-radius: 4px; margin-left: 0.5rem; object-fit: cover; vertical-align: middle; display: inline-block;">`
             : '';
           return `
@@ -140,7 +182,7 @@ const AdminPanel = {
           `;
         }).join('');
       } catch (error) {
-        console.error('Error loading announcements from Supabase:', error);
+        console.error('Error loading announcements from Database:', error);
         container.innerHTML = '<p style="font-size: 0.85rem; color: var(--text-color); opacity: 0.7;">Error loading announcements</p>';
       }
     } catch (error) {
@@ -160,19 +202,19 @@ const AdminPanel = {
         floorPrice: '--'
       };
 
-      if (!this.supabaseClient) {
+      if (!window.Database || !window.Database.isInitialized) {
         container.innerHTML = '<p style="font-size: 0.85rem; color: var(--text-color); opacity: 0.7;">Loading stats...</p>';
         return;
       }
 
       try {
         const ethers5 = window.ethers5Backup || window.ethers;
-        
+
         // Get total volume from trade_events (sum of all prices)
-        const { data: trades } = await this.supabaseClient
-          .from('trade_events')
-          .select('price_wei');
-        
+        const trades = await window.Database.query(
+          `SELECT price_wei FROM trade_events`
+        );
+
         if (trades && trades.length > 0 && ethers5) {
           let totalWei = ethers5.BigNumber.from(0);
           trades.forEach(trade => {
@@ -191,73 +233,40 @@ const AdminPanel = {
         }
 
         // Get total transactions count
-        const { count: txCount } = await this.supabaseClient
-          .from('trade_events')
-          .select('*', { count: 'exact', head: true });
-        
+        const txCount = await window.Database.queryCount(
+          `SELECT COUNT(*) as count FROM trade_events`
+        );
+
         if (txCount !== null) {
           stats.totalTransactions = txCount;
         }
 
-        // Get floor price from cheapest listing (from user OR engine)
-        // Try active_punk_listings first (preferred)
+        // Get floor price from cheapest listing
+        // Try punk_listings first
         let cheapestListing = null;
         try {
-          const { data: activeListings } = await this.supabaseClient
-            .from('active_punk_listings')
-            .select('price_adrian_wei')
-            .order('price_adrian_wei', { ascending: true })
-            .limit(1);
-          
-          if (activeListings && activeListings.length > 0) {
-            cheapestListing = {
-              price_wei: activeListings[0].price_adrian_wei
-            };
+          const punkListings = await window.Database.query(
+            `SELECT price_wei
+             FROM punk_listings
+             WHERE is_listed = 1
+             ORDER BY price_wei ASC
+             LIMIT 1`
+          );
+
+          if (punkListings && punkListings.length > 0) {
+            cheapestListing = punkListings[0];
           }
         } catch (e) {
-          console.warn('Error fetching from active_punk_listings, trying punk_listings:', e);
+          console.warn('Error fetching floor price from punk_listings:', e);
         }
-        
-        // Fallback to punk_listings if active_punk_listings doesn't work
-        if (!cheapestListing) {
-          try {
-            const { data: punkListings } = await this.supabaseClient
-              .from('punk_listings')
-              .select('price_wei')
-              .eq('is_listed', true)
-              .order('price_wei', { ascending: true })
-              .limit(1);
-            
-            if (punkListings && punkListings.length > 0) {
-              cheapestListing = punkListings[0];
-            }
-          } catch (e) {
-            console.warn('Error fetching from punk_listings, trying listings:', e);
-            // Final fallback to listings table
-            try {
-              const { data: listings } = await this.supabaseClient
-                .from('listings')
-                .select('price_wei')
-                .eq('is_active', true)
-                .order('price_wei', { ascending: true })
-                .limit(1);
-              
-              if (listings && listings.length > 0) {
-                cheapestListing = listings[0];
-              }
-            } catch (e2) {
-              console.warn('Error fetching from listings:', e2);
-            }
-          }
-        }
-        
+
         if (cheapestListing && cheapestListing.price_wei && ethers5) {
           try {
             const priceWei = scientificToFixed(cheapestListing.price_wei);
             const priceEth = parseFloat(ethers5.utils.formatUnits(priceWei, 18));
-            stats.floorPrice = priceEth >= 1000000 
+            stats.floorPrice = priceEth >= 1000000
               ? (priceEth / 1000000).toFixed(1) + 'M'
-              : priceEth >= 1000 
+              : priceEth >= 1000
               ? (priceEth / 1000).toFixed(1) + 'K'
               : priceEth.toFixed(1);
             stats.floorPrice += ' $ADRIAN';
@@ -267,13 +276,13 @@ const AdminPanel = {
         }
 
       } catch (error) {
-        console.warn('Could not fetch all stats from Supabase:', error);
+        console.warn('Could not fetch all stats from Database:', error);
       }
 
       // Format volume
-      const formattedVolume = stats.totalVolume >= 1000000 
+      const formattedVolume = stats.totalVolume >= 1000000
         ? (stats.totalVolume / 1000000).toFixed(1) + 'M $ADRIAN'
-        : stats.totalVolume >= 1000 
+        : stats.totalVolume >= 1000
         ? (stats.totalVolume / 1000).toFixed(1) + 'K $ADRIAN'
         : stats.totalVolume.toFixed(2) + ' $ADRIAN';
 
@@ -308,10 +317,10 @@ const AdminPanel = {
   // Format date for display
   formatDate(dateString) {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
     });
   },
 
@@ -328,4 +337,3 @@ const AdminPanel = {
 if (typeof window !== 'undefined') {
   window.AdminPanel = AdminPanel;
 }
-
