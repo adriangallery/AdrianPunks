@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.2/dist/sql-wasm.js"></script>
-  <script src="../lib/database.js"></script>
+  <script src="/lib/database.js"></script>
   <!-- Instrumentación temporal retirada -->
   <style>
     /* Estilos base */
@@ -3455,7 +3455,6 @@
             activeListingsData: activeListingsData,
             nftData: nftData,
             getImageUrl: getImageUrl,
-            supabaseClient: supabaseClient,
             tokenReadContract: tokenReadContract
           });
         } else {
@@ -4804,8 +4803,8 @@
       document.getElementById('activityView').style.display = 'block';
       
       // Inicializar Database si no está inicializado
-      if (!supabaseClient) {
-        initDatabase();
+      if (!window.Database || !window.Database.isInitialized) {
+        await initDatabase();
       }
       
       // Resetear paginación
@@ -4834,7 +4833,11 @@
 
     // Función principal para cargar eventos
     async function loadActivityEvents() {
-      if (!supabaseClient || activityLoading || !activityHasMore) return;
+      // Activity feed temporalmente deshabilitado - requiere migración completa a SQL
+      console.warn('⚠️ Activity feed inline no migrado aún');
+      return;
+
+      if (!window.Database || !window.Database.isInitialized || activityLoading || !activityHasMore) return;
       
       activityLoading = true;
       document.getElementById('activityLoading').style.display = 'block';
@@ -5193,7 +5196,11 @@
 
     // Función para cargar estadísticas del FloorEngine
     async function loadEngineStats() {
-      if (!supabaseClient) return;
+      // Engine stats temporalmente deshabilitado - requiere migración completa a SQL
+      console.warn('⚠️ Engine stats inline no migrado aún');
+      return;
+
+      if (!window.Database || !window.Database.isInitialized) return;
       
       try {
         // 1. Total invertido (suma de buy_price_wei de sweep_events)
