@@ -98,12 +98,19 @@ const FloorEngineDashboard = {
   // Get sold count from SQLite
   async getSoldCount() {
     try {
-      if (!window.DatabaseManager) {
-        console.warn('DatabaseManager not initialized');
+      if (!window.Database) {
+        console.warn('Database not loaded');
         return 0;
       }
 
-      const count = await window.DatabaseManager.queryCount(
+      // Wait for Database to be ready (short timeout)
+      const ready = await window.Database.waitForReady(3000);
+      if (!ready) {
+        console.warn('Database timeout in getSoldCount');
+        return 0;
+      }
+
+      const count = await window.Database.queryCount(
         `SELECT COUNT(*) as count
          FROM trade_events
          WHERE seller = ?

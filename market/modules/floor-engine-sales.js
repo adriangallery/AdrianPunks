@@ -72,13 +72,20 @@ const FloorEngineSales = {
   // Get FloorENGINE sales from SQLite
   async getSales() {
     try {
-      if (!window.DatabaseManager) {
-        console.error('DatabaseManager not initialized');
+      if (!window.Database) {
+        console.error('Database not loaded');
+        return [];
+      }
+
+      // Wait for Database to be ready (short timeout)
+      const ready = await window.Database.waitForReady(3000);
+      if (!ready) {
+        console.warn('Database timeout in getSales');
         return [];
       }
 
       // Get all sales from FloorENGINE
-      const salesData = await window.DatabaseManager.query(
+      const salesData = await window.Database.query(
         `SELECT * FROM trade_events
          WHERE seller = ?
            AND is_contract_owned = 1
@@ -91,7 +98,7 @@ const FloorEngineSales = {
       }
 
       // Get all sweep_events to match with sales
-      const sweepData = await window.DatabaseManager.query(
+      const sweepData = await window.Database.query(
         `SELECT token_id, buy_price_wei, created_at
          FROM sweep_events
          ORDER BY created_at ASC`
