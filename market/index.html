@@ -2241,8 +2241,15 @@
 
     // Database Data Layer para NFTs
     async function loadListingsFromDatabase() {
-      if (!window.Database || !window.Database.isInitialized) {
-        console.warn('⚠️ Database not available');
+      if (!window.Database) {
+        console.warn('⚠️ Database not loaded');
+        return null;
+      }
+
+      // Esperar a que la Database esté lista
+      const ready = await window.Database.waitForReady();
+      if (!ready) {
+        console.warn('⚠️ Database timeout - usando blockchain');
         return null;
       }
 
@@ -2795,8 +2802,15 @@
     // Función auxiliar para obtener el seller original desde Database (respaldo)
     async function getOriginalSellerFromDatabase(tokenId) {
       try {
-        if (!window.Database || !window.Database.isInitialized) {
-          console.log('Database not available for seller lookup');
+        if (!window.Database) {
+          console.log('Database not loaded for seller lookup');
+          return null;
+        }
+
+        // Esperar a que la Database esté lista (timeout corto para no bloquear UI)
+        const ready = await window.Database.waitForReady(3000);
+        if (!ready) {
+          console.log('Database not ready for seller lookup');
           return null;
         }
 
@@ -3084,7 +3098,7 @@
               isSeller = tokenListing.seller.toLowerCase() === userAccount.toLowerCase();
 
               // Si no coincide, intentar obtener desde Database como respaldo
-              if (!isSeller && window.Database && window.Database.isInitialized) {
+              if (!isSeller && window.Database) {
                 const originalSeller = await getOriginalSellerFromDatabase(tokenId);
                 if (originalSeller) {
                   isSeller = originalSeller.toLowerCase() === userAccount.toLowerCase();
