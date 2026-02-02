@@ -94,8 +94,20 @@ jobs:
 
       - name: Prepare deploy folder with subpath /market
         run: |
+          echo "📦 Preparando carpeta de despliegue..."
           rm -rf site-dist
           mkdir -p site-dist/market
+
+          # Verificar que runtime-config.js existe ANTES de copiar
+          echo "🔍 Verificando runtime-config.js antes de copiar..."
+          if [ ! -f market/runtime-config.js ]; then
+            echo "❌ ERROR: market/runtime-config.js no existe!"
+            ls -la market/
+            exit 1
+          fi
+          echo "✅ runtime-config.js existe"
+          echo "Tamaño: $(wc -c < market/runtime-config.js) bytes"
+
           # Copiar raíz del sitio (index, favicon) para evitar 404 en /
           cp index.html site-dist/ || true
           cp favicon.ico site-dist/ || true
@@ -105,9 +117,26 @@ jobs:
           elif [ -f favicon.ico ]; then
             cp favicon.ico site-dist/adrian1.ico
           fi
+
           # Copiar market y swap
+          echo "📁 Copiando market..."
           cp -r market/* site-dist/market/
           cp -r swap site-dist/swap
+
+          # FORZAR copia de runtime-config.js explícitamente
+          echo "🔧 Copiando runtime-config.js explícitamente..."
+          cp market/runtime-config.js site-dist/market/runtime-config.js
+          cp market/runtime-config.js site-dist/swap/runtime-config.js
+
+          # Verificar que se copió correctamente
+          if [ ! -f site-dist/market/runtime-config.js ]; then
+            echo "❌ ERROR: runtime-config.js no se copió a site-dist/market/"
+            exit 1
+          fi
+          echo "✅ runtime-config.js copiado correctamente"
+          echo "Contenido en site-dist/market/runtime-config.js:"
+          cat site-dist/market/runtime-config.js
+
           # Copiar components para index.html
           if [ -d components ]; then
             cp -r components site-dist/components
@@ -128,17 +157,15 @@ jobs:
           if [ -d dump ]; then
             cp -r dump site-dist/dump
           fi
-          # Copiar lib para database.js (SQLite)
+          # Copiar lib para database.js
           if [ -d lib ]; then
             cp -r lib site-dist/lib
           fi
-          # Copiar config también a swap por seguridad (referencia relativa y redundancia)
-          if [ -f market/runtime-config.js ]; then
-            cp market/runtime-config.js site-dist/swap/runtime-config.js
-            # Copiar también a market para consistencia
-            cp market/runtime-config.js site-dist/market/runtime-config.js
-          fi
           echo "adrianpunks.com" > site-dist/CNAME
+
+          # Listado final para debug
+          echo "📋 Contenido final de site-dist/market:"
+          ls -la site-dist/market/ | head -20
 
       - name: Upload artifact for Pages
         uses: actions/upload-pages-artifact@v3
