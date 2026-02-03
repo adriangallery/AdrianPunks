@@ -38,30 +38,44 @@ jobs:
 
       - name: Inject Alchemy API key into HTML files
         run: |
+          echo "🔍 Verificando secret ALCHEMY_API_KEY..."
           if [ -z "${{ secrets.ALCHEMY_API_KEY }}" ]; then
-            echo "⚠️ Warning: ALCHEMY_API_KEY secret is not set"
+            echo "❌ ERROR: ALCHEMY_API_KEY secret is not set or is empty"
+            echo "   Go to: Settings → Secrets and variables → Actions"
+            echo "   Add secret named: ALCHEMY_API_KEY"
             exit 1
           fi
 
+          echo "✅ Secret encontrado (length: ${#ALCHEMY_API_KEY})"
           echo "🔧 Inyectando ALCHEMY_API_KEY directamente en archivos HTML..."
 
           # Create inline script with API key
           INLINE_SCRIPT="<script>window.ALCHEMY_API_KEY = '${{ secrets.ALCHEMY_API_KEY }}';</script>"
 
+          echo "📝 Script a inyectar:"
+          echo "   <script>window.ALCHEMY_API_KEY = '[REDACTED]';</script>"
+
           # Inject into market/index.html (before closing </head>)
+          echo "📄 Procesando market/index.html..."
           sed -i.bak "s|</head>|  ${INLINE_SCRIPT}\n</head>|" market/index.html
           echo "✅ Inyectado en market/index.html"
 
           # Inject into marketosintegration/index.html
+          echo "📄 Procesando marketosintegration/index.html..."
           sed -i.bak "s|</head>|  ${INLINE_SCRIPT}\n</head>|" marketosintegration/index.html
           echo "✅ Inyectado en marketosintegration/index.html"
 
           # Verify injection
+          echo "🔍 Verificando inyección..."
           if grep -q "window.ALCHEMY_API_KEY" market/index.html; then
-            echo "✅ Verificación exitosa"
-            echo "First 20 chars: ${{ secrets.ALCHEMY_API_KEY }}" | cut -c1-20
+            echo "✅ Verificación exitosa - API key encontrado en HTML"
+            KEY_LENGTH=$(echo -n "${{ secrets.ALCHEMY_API_KEY }}" | wc -c)
+            echo "   Secret length: ${KEY_LENGTH} chars"
+            echo "   First 10 chars: $(echo "${{ secrets.ALCHEMY_API_KEY }}" | cut -c1-10)..."
           else
-            echo "❌ Error: No se pudo inyectar el API key"
+            echo "❌ ERROR: No se pudo inyectar el API key"
+            echo "   Contenido cerca de </head>:"
+            grep -A 2 -B 2 "</head>" market/index.html || true
             exit 1
           fi
 
