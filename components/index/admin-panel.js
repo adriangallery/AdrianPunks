@@ -100,9 +100,9 @@ const AdminPanel = {
       try {
         // Get latest listing events
         const listingEvents = await window.Database.query(
-          `SELECT event_type, token_id, created_at
+          `SELECT event_type, token_id, timestamp
            FROM listing_events
-           ORDER BY created_at DESC
+           ORDER BY timestamp DESC
            LIMIT 5`
         );
 
@@ -111,7 +111,7 @@ const AdminPanel = {
             allEvents.push({
               type: event.event_type,
               tokenId: event.token_id,
-              timestamp: event.created_at,
+              timestamp: event.timestamp,
               title: `${event.event_type} #${event.token_id}`,
               content: `Token #${event.token_id} was ${event.event_type.toLowerCase()}`
             });
@@ -120,9 +120,9 @@ const AdminPanel = {
 
         // Get latest trade events
         const tradeEvents = await window.Database.query(
-          `SELECT token_id, price_wei, created_at, seller, buyer
+          `SELECT token_id, price_wei, timestamp, seller, buyer
            FROM trade_events
-           ORDER BY created_at DESC
+           ORDER BY timestamp DESC
            LIMIT 5`
         );
 
@@ -147,7 +147,7 @@ const AdminPanel = {
             allEvents.push({
               type: 'Trade',
               tokenId: event.token_id,
-              timestamp: event.created_at,
+              timestamp: event.timestamp,
               title: `Trade #${event.token_id}`,
               content: `Token #${event.token_id} sold for ${priceFormatted} $ADRIAN`
             });

@@ -89,7 +89,7 @@ const FloorEngineSales = {
         `SELECT * FROM trade_events
          WHERE seller = ?
            AND is_contract_owned = 1
-         ORDER BY created_at DESC`,
+         ORDER BY block_number DESC`,
         [this.FLOOR_ENGINE_ADDRESS.toLowerCase()]
       );
 
@@ -99,16 +99,16 @@ const FloorEngineSales = {
 
       // Get all sweep_events to match with sales
       const sweepData = await window.Database.query(
-        `SELECT token_id, buy_price_wei, created_at
+        `SELECT token_id, buy_price_wei, timestamp
          FROM sweep_events
-         ORDER BY created_at ASC`
+         ORDER BY timestamp ASC`
       );
 
       // Match each sale with its corresponding sweep event
       const salesWithImages = salesData.map(sale => {
         const tokenId = sale.token_id;
         const imageUrl = `./adrianpunksimages/${tokenId}.png`;
-        const saleTimestamp = new Date(sale.created_at);
+        const saleTimestamp = new Date(sale.timestamp);
         
         // Find the most recent sweep_event for this token_id that occurred BEFORE the sale
         let paidAmount = BigInt('0');
@@ -116,12 +116,12 @@ const FloorEngineSales = {
           const tokenSweeps = sweepData
             .filter(sweep => sweep.token_id === tokenId)
             .sort((a, b) => {
-              return new Date(b.created_at) - new Date(a.created_at);
+              return new Date(b.timestamp) - new Date(a.timestamp);
             });
           
           if (tokenSweeps.length > 0) {
             const sweepBeforeSale = tokenSweeps.find(sweep => {
-              const sweepTimestamp = new Date(sweep.created_at);
+              const sweepTimestamp = new Date(sweep.timestamp);
               return sweepTimestamp <= saleTimestamp;
             });
             
@@ -129,7 +129,7 @@ const FloorEngineSales = {
               paidAmount = BigInt(sweepBeforeSale.buy_price_wei || '0');
             } else {
               paidAmount = BigInt(tokenSweeps[0].buy_price_wei || '0');
-              console.warn(`Token #${tokenId}: Using sweep event after sale date as fallback. Sale: ${sale.created_at}, Sweep: ${tokenSweeps[0].created_at}`);
+              console.warn(`Token #${tokenId}: Using sweep event after sale date as fallback. Sale: ${sale.timestamp}, Sweep: ${tokenSweeps[0].timestamp}`);
             }
           }
         }
@@ -143,7 +143,7 @@ const FloorEngineSales = {
           paidAmount: paidAmount,
           soldAmount: soldAmount,
           profitAmount: profitAmount,
-          timestamp: sale.created_at,
+          timestamp: sale.timestamp,
           saleId: sale.id
         };
       });
