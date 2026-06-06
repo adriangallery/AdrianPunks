@@ -198,6 +198,8 @@
 <!-- Builder engine -->
 <script>
 const SIZE=1080, ACCENT=[255,107,43], DARK=[18,18,18], GKEY='tigerpunks_gallery';
+const VERSION='20260606c';                       // bump to bust CDN/browser cache on asset updates
+const bust=u=>u+(u.includes('?')?'&':'?')+'v='+VERSION;
 const $=s=>document.querySelector(s), ce=(t,c)=>{const e=document.createElement(t);if(c)e.className=c;return e;};
 let M=null, IMG={}, baseCache={}, state={bg:'tiger', d3:'50%.png', recolor:true, skin:'classic', sel:{}};
 
@@ -206,10 +208,10 @@ function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a
 let seed=0, rng=mulberry32(1);
 function reseed(s){seed=s>>>0;rng=mulberry32(seed);$('#seed').textContent='#'+seed;}
 
-function load(src){return new Promise(res=>{if(IMG[src])return res(IMG[src]);const im=new Image();im.onload=()=>{IMG[src]=im;res(im);};im.onerror=()=>res(null);im.src=src;});}
+function load(src){return new Promise(res=>{if(IMG[src])return res(IMG[src]);const im=new Image();im.onload=()=>{IMG[src]=im;res(im);};im.onerror=()=>res(null);im.src=bust(src);});}
 
 async function boot(){
-  M=await (await fetch('tigerpunks/manifest.json')).json();
+  M=await (await fetch(bust('tigerpunks/manifest.json'))).json();
   const all=[];M.base.options.forEach(o=>all.push(M.base.dir+'/'+o.file));
   M.categories.forEach(c=>c.options.forEach(o=>all.push(c.dir+'/'+o.file)));
   let done=0;
@@ -275,7 +277,7 @@ function buildUI(){
     head.innerHTML=`<span class="name"><i class="bi bi-chevron-right"></i> ${c.label}${c.multi?' <span class="text-muted-2" style="font-size:.7rem">(multi)</span>':''}</span><span class="pick" id="pick-${c.id}">${c.optional?'None':''}</span>`;
     const grid=ce('div','grid');
     if(c.optional&&!c.multi){const none=ce('div','thumb none active');none.textContent='None';none.dataset.file='';none.onclick=()=>selectThumb(c,none,'');grid.appendChild(none);}
-    c.options.forEach(o=>{const t=ce('div','thumb');t.dataset.file=o.file;const img=ce('img');img.src=c.dir+'/'+o.file;img.loading='lazy';t.appendChild(img);const lbl=ce('div','lbl');lbl.textContent=o.label;t.appendChild(lbl);t.onclick=()=>selectThumb(c,t,o.file);grid.appendChild(t);});
+    c.options.forEach(o=>{const t=ce('div','thumb');t.dataset.file=o.file;const img=ce('img');img.src=bust(c.dir+'/'+o.file);img.loading='lazy';t.appendChild(img);const lbl=ce('div','lbl');lbl.textContent=o.label;t.appendChild(lbl);t.onclick=()=>selectThumb(c,t,o.file);grid.appendChild(t);});
     head.onclick=()=>cat.classList.toggle('open');cat.appendChild(head);cat.appendChild(grid);wrap.appendChild(cat);if(idx<2)cat.classList.add('open');});
   $('#btnRand').onclick=()=>randomize();$('#btnDownload').onclick=download;$('#btnSVG').onclick=downloadSVG;$('#btnSave').onclick=saveToGallery;$('#btnShare').onclick=share;$('#btnCopy').onclick=copyTraits;
   renderGallery();
