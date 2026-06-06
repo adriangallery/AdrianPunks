@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TigerPunks Builder · AdrianPunks</title>
+<meta name="description" content="Crea tu propio TigerPunk — builder por capas de la colección AdrianPunks.">
+<link rel="icon" type="image/x-icon" href="adrian1.ico">
+<!-- Same stack as adrianpunks.com -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="market/styles.css">
+<style>
+  /* ---- AdrianPunks theme variables (mirrors index.html) ---- */
+  :root{
+    --bg-color:#f8f9fa; --text-color:#333333; --card-bg:#ffffff; --border-color:#dee2e6;
+    --muted:#6c757d; --accent:#ff6b2b; --accent-2:#ff8142; --accent-ink:#1a0f06;
+    --thumb-bg:#e9ecef;
+  }
+  [data-theme="dark"]{
+    --bg-color:#1a1a1a; --text-color:#ffffff; --card-bg:#2d2d2d; --border-color:#404040;
+    --muted:#9a9a9a; --thumb-bg:#3a3a3a;
+  }
+  body{background-color:var(--bg-color);color:var(--text-color);padding-top:70px;transition:background-color .2s,color .2s}
+  .card{background-color:var(--card-bg);border-color:var(--border-color);color:var(--text-color)}
+  .card-header{background-color:transparent;border-color:var(--border-color);font-weight:600;
+    display:flex;justify-content:space-between;align-items:center}
+  .card-header .val{color:var(--accent)}
+  .text-muted-2{color:var(--muted)!important}
+
+  .btn-tiger{background:var(--accent);border:1px solid var(--accent);color:var(--accent-ink);font-weight:600}
+  .btn-tiger:hover{background:var(--accent-2);border-color:var(--accent-2);color:var(--accent-ink)}
+
+  .pagehead{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+  .pagehead h1{font-size:1.6rem;margin:0}
+  .pagehead .tg{color:var(--accent)}
+
+  /* preview */
+  .stage{position:sticky;top:84px}
+  @media(max-width:991px){.stage{position:static}}
+  #view{width:100%;aspect-ratio:1/1;display:block;border-radius:8px;image-rendering:pixelated;background:#111}
+  .seedline{display:flex;justify-content:space-between;font-size:.8rem;color:var(--muted);margin-top:8px}
+  .seedline code{color:var(--accent)}
+
+  /* chips & segmented */
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{padding:6px 12px;border:1px solid var(--border-color);border-radius:20px;background:var(--card-bg);
+    color:var(--text-color);font-size:.8rem;cursor:pointer;transition:.12s}
+  .chip:hover{border-color:var(--accent)}
+  .chip.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+  .seg{display:flex;gap:6px}.seg .chip{flex:1;text-align:center}
+
+  /* category accordion */
+  .cat{border-bottom:1px solid var(--border-color)}.cat:last-child{border-bottom:none}
+  .cat .head{padding:10px 4px;display:flex;justify-content:space-between;align-items:center;cursor:pointer}
+  .cat .head .pick{color:var(--accent);font-size:.8rem;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+  .cat .head .name i{transition:.2s}.cat.open .head .name i{transform:rotate(90deg)}
+  .cat .grid{display:none;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:8px;padding:6px 0 12px}
+  .cat.open .grid{display:grid}
+  .thumb{aspect-ratio:1/1;border:2px solid var(--border-color);border-radius:6px;overflow:hidden;cursor:pointer;
+    background:var(--thumb-bg);position:relative}
+  .thumb img{width:100%;height:100%;image-rendering:pixelated;object-fit:cover}
+  .thumb.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(255,107,43,.35)}
+  .thumb.none{display:flex;align-items:center;justify-content:center;font-size:.62rem;color:var(--muted)}
+  .thumb .lbl{position:absolute;bottom:0;left:0;right:0;font-size:.52rem;background:rgba(0,0,0,.7);color:#fff;
+    padding:1px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* traits + gallery */
+  .traits .row{display:flex;justify-content:space-between;border-bottom:1px dashed var(--border-color);padding:3px 0;font-size:.82rem}
+  .traits .row span:last-child{color:var(--accent)}
+  .gallery{display:flex;gap:8px;overflow-x:auto;padding:2px 0}
+  .gallery .gi{position:relative;flex:0 0 auto}
+  .gallery img{width:70px;height:70px;border-radius:6px;border:1px solid var(--border-color);image-rendering:pixelated;cursor:pointer}
+  .gallery .del{position:absolute;top:-6px;right:-6px;background:#000;border:1px solid var(--border-color);color:#fff;
+    border-radius:50%;width:18px;height:18px;font-size:.7rem;line-height:15px;text-align:center;cursor:pointer}
+
+  .form-switch .form-check-input:checked{background-color:var(--accent);border-color:var(--accent)}
+  .toast-mini{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--accent);color:var(--accent-ink);
+    padding:10px 18px;border-radius:6px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;z-index:1100}
+  .toast-mini.show{opacity:1}
+  #loader{position:fixed;inset:0;background:var(--bg-color);display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:14px;z-index:1200;color:var(--text-color)}
+  #loader .bar{width:220px;height:6px;background:var(--border-color);border-radius:4px;overflow:hidden}
+  #loader .bar i{display:block;height:100%;width:0;background:var(--accent);transition:.2s}
+</style>
+</head>
+<body>
+<div id="loader"><div>🐯 Cargando trazos…</div><div class="bar"><i id="lbar"></i></div></div>
+
+<!-- Shared AdrianPunks menu -->
+<div id="menu-container"></div>
+
+<div class="container">
+  <div class="pagehead">
+    <h1><span class="tg">🐯 Tiger</span>Punks <span class="text-muted-2" style="font-size:1rem">Builder</span></h1>
+    <button class="btn btn-sm btn-secondary ms-auto" id="themeButton" onclick="toggleTheme()">
+      <i class="bi bi-moon-stars"></i> <span id="themeButtonText">DarkMode</span>
+    </button>
+  </div>
+
+  <div class="row g-4">
+    <!-- PREVIEW -->
+    <div class="col-lg-5">
+      <div class="stage">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <canvas id="view" width="1080" height="1080"></canvas>
+            <div class="seedline"><span>seed</span><code id="seed">—</code></div>
+            <div class="d-grid gap-2 mt-3">
+              <button class="btn btn-tiger" id="btnRand"><i class="bi bi-shuffle"></i> Surprise me</button>
+              <div class="row g-2">
+                <div class="col-6"><button class="btn btn-outline-secondary w-100" id="btnDownload"><i class="bi bi-download"></i> PNG</button></div>
+                <div class="col-6"><button class="btn btn-outline-secondary w-100" id="btnSave"><i class="bi bi-star"></i> Guardar</button></div>
+              </div>
+              <button class="btn btn-outline-secondary" id="btnShare"><i class="bi bi-share"></i> Compartir</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="col-lg-7">
+      <div class="card shadow-sm mb-3">
+        <div class="card-header">Fondo <span class="val" id="bgVal">Tiger</span></div>
+        <div class="card-body"><div class="chips" id="bgChips"></div></div>
+      </div>
+
+      <div class="card shadow-sm mb-3">
+        <div class="card-header">3D Glitch <span class="val" id="d3Val">50%</span></div>
+        <div class="card-body">
+          <div class="seg" id="d3Seg"></div>
+          <div class="form-check form-switch mt-3">
+            <input class="form-check-input" type="checkbox" id="recolor" checked>
+            <label class="form-check-label" for="recolor">Recolor tigre (naranja/negro)</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-3">
+        <div class="card-header">Trazos</div>
+        <div class="card-body py-1" id="cats"></div>
+      </div>
+
+      <div class="card shadow-sm mb-3">
+        <div class="card-header">Traits</div>
+        <div class="card-body">
+          <div class="traits" id="traits"></div>
+          <button class="btn btn-sm btn-outline-secondary w-100 mt-2" id="btnCopy"><i class="bi bi-clipboard"></i> Copiar traits (JSON)</button>
+        </div>
+      </div>
+
+      <div class="card shadow-sm mb-3">
+        <div class="card-header">Mi galería</div>
+        <div class="card-body"><div class="gallery" id="gallery"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="text-center text-muted-2 py-4" style="font-size:.8rem">
+    TigerPunks · by HalfxTiger · <a href="https://adrianpunks.com">adrianpunks.com</a> · v1 (off-chain)
+  </footer>
+</div>
+
+<div class="toast-mini" id="toast"></div>
+
+<!-- Bootstrap -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Shared menu loader (same pattern as index.html) -->
+<script>
+  fetch('components/menu.html')
+    .then(r=>r.text())
+    .then(html=>{
+      const c=document.getElementById('menu-container');c.innerHTML=html;
+      c.querySelectorAll('script[src="menu.js"]').forEach(s=>{
+        const n=document.createElement('script');n.src='components/menu.js';n.async=false;document.head.appendChild(n);s.remove();
+      });
+    }).catch(e=>console.error('menu load',e));
+
+  /* theme (same mechanism as adrianpunks.com) */
+  function toggleTheme(){
+    const html=document.documentElement,btn=document.getElementById('themeButton'),txt=document.getElementById('themeButtonText');
+    const isDark=html.getAttribute('data-theme')==='dark';
+    if(!isDark){html.setAttribute('data-theme','dark');localStorage.setItem('theme','dark');txt.textContent='LightMode';btn.classList.remove('btn-secondary');btn.classList.add('btn-dark');}
+    else{html.removeAttribute('data-theme');localStorage.setItem('theme','light');txt.textContent='DarkMode';btn.classList.remove('btn-dark');btn.classList.add('btn-secondary');}
+  }
+  (function(){const t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');
+    document.addEventListener('DOMContentLoaded',()=>{const b=document.getElementById('themeButton'),x=document.getElementById('themeButtonText');if(b){b.classList.remove('btn-secondary');b.classList.add('btn-dark');x.textContent='LightMode';}});}})();
+</script>
+
+<!-- Builder engine -->
+<script>
+const SIZE=1080, ACCENT=[255,107,43], DARK=[18,18,18], GKEY='tigerpunks_gallery';
+const $=s=>document.querySelector(s), ce=(t,c)=>{const e=document.createElement(t);if(c)e.className=c;return e;};
+let M=null, IMG={}, recolorCache={}, state={bg:'tiger', d3:'50%.png', recolor:true, sel:{}};
+
+/* PRNG */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+let seed=0, rng=mulberry32(1);
+function reseed(s){seed=s>>>0;rng=mulberry32(seed);$('#seed').textContent='#'+seed;}
+
+function load(src){return new Promise(res=>{if(IMG[src])return res(IMG[src]);const im=new Image();im.onload=()=>{IMG[src]=im;res(im);};im.onerror=()=>res(null);im.src=src;});}
+
+async function boot(){
+  M=await (await fetch('tigerpunks/manifest.json')).json();
+  const all=[];M.base.options.forEach(o=>all.push(M.base.dir+'/'+o.file));
+  M.categories.forEach(c=>c.options.forEach(o=>all.push(c.dir+'/'+o.file)));
+  let done=0;
+  await Promise.all(all.map(p=>load(p).then(()=>{done++;$('#lbar').style.width=(done/all.length*100)+'%';})));
+  buildUI();randomize();$('#loader').style.display='none';
+}
+
+/* backgrounds */
+function drawBg(ctx,id){
+  if(id==='dark'){ctx.fillStyle='#333333';ctx.fillRect(0,0,SIZE,SIZE);return;}
+  if(id==='light'){ctx.fillStyle='#cccccc';ctx.fillRect(0,0,SIZE,SIZE);return;}
+  if(id==='orange'){ctx.fillStyle='#ff8a3d';ctx.fillRect(0,0,SIZE,SIZE);return;}
+  if(id==='orange-grad'){const g=ctx.createLinearGradient(0,0,0,SIZE);g.addColorStop(0,'#ffb066');g.addColorStop(1,'#c64a00');ctx.fillStyle=g;ctx.fillRect(0,0,SIZE,SIZE);return;}
+  ctx.fillStyle='#f59e0b';ctx.fillRect(0,0,SIZE,SIZE);
+  ctx.fillStyle='rgba(20,12,4,.92)';const n=7;
+  for(let i=0;i<n;i++){const x=(i+0.5)*SIZE/n+(i%2?40:-40);const w=44+(i%3)*10;
+    ctx.beginPath();ctx.moveTo(x-w/2,0);ctx.quadraticCurveTo(x+w*0.9,SIZE*0.5,x-w/2,SIZE);
+    ctx.lineTo(x+w/2,SIZE);ctx.quadraticCurveTo(x+w*1.9,SIZE*0.5,x+w/2,0);ctx.closePath();ctx.fill();}
+}
+
+/* recolor anaglyph */
+function recolored(src){
+  if(recolorCache[src])return recolorCache[src];
+  const im=IMG[src],c=ce('canvas');c.width=c.height=SIZE;const x=c.getContext('2d');x.drawImage(im,0,0,SIZE,SIZE);
+  const d=x.getImageData(0,0,SIZE,SIZE),p=d.data;
+  for(let i=0;i<p.length;i+=4){if(p[i+3]<10)continue;const r=p[i],g=p[i+1],b=p[i+2];
+    if(r>150&&g<115&&b<115){p[i]=ACCENT[0];p[i+1]=ACCENT[1];p[i+2]=ACCENT[2];}
+    else if(r<115&&g>150&&b>150){p[i]=DARK[0];p[i+1]=DARK[1];p[i+2]=DARK[2];}}
+  x.putImageData(d,0,0);recolorCache[src]=c;return c;
+}
+
+function render(){
+  const ctx=$('#view').getContext('2d');ctx.clearRect(0,0,SIZE,SIZE);
+  drawBg(ctx,state.bg);
+  const baseSrc=M.base.dir+'/'+state.d3;
+  if(IMG[baseSrc])ctx.drawImage(state.recolor?recolored(baseSrc):IMG[baseSrc],0,0,SIZE,SIZE);
+  M.categories.forEach(c=>{const v=state.sel[c.id];if(!v)return;const arr=c.multi?v:[v];
+    arr.forEach(file=>{const im=IMG[c.dir+'/'+file];if(im)ctx.drawImage(im,0,0,SIZE,SIZE);});});
+  updateTraits();
+}
+
+function buildUI(){
+  const bc=$('#bgChips');
+  M.backgrounds.forEach(b=>{const el=ce('div','chip'+(b.id===state.bg?' active':''));el.textContent=b.label;
+    el.onclick=()=>{state.bg=b.id;$('#bgVal').textContent=b.label;[...bc.children].forEach(c=>c.classList.remove('active'));el.classList.add('active');render();};bc.appendChild(el);});
+  const seg=$('#d3Seg');
+  M.base.options.forEach(o=>{const el=ce('div','chip'+(o.file===state.d3?' active':''));el.textContent=o.label;
+    el.onclick=()=>{state.d3=o.file;$('#d3Val').textContent=o.label;[...seg.children].forEach(c=>c.classList.remove('active'));el.classList.add('active');render();};seg.appendChild(el);});
+  $('#recolor').onchange=e=>{state.recolor=e.target.checked;render();};
+  const wrap=$('#cats');
+  M.categories.forEach((c,idx)=>{
+    const cat=ce('div','cat');const head=ce('div','head');
+    head.innerHTML=`<span class="name"><i class="bi bi-chevron-right"></i> ${c.label}${c.multi?' <span class="text-muted-2" style="font-size:.7rem">(multi)</span>':''}</span><span class="pick" id="pick-${c.id}">${c.optional?'None':''}</span>`;
+    const grid=ce('div','grid');
+    if(c.optional&&!c.multi){const none=ce('div','thumb none active');none.textContent='None';none.dataset.file='';none.onclick=()=>selectThumb(c,none,'');grid.appendChild(none);}
+    c.options.forEach(o=>{const t=ce('div','thumb');t.dataset.file=o.file;const img=ce('img');img.src=c.dir+'/'+o.file;img.loading='lazy';t.appendChild(img);const lbl=ce('div','lbl');lbl.textContent=o.label;t.appendChild(lbl);t.onclick=()=>selectThumb(c,t,o.file);grid.appendChild(t);});
+    head.onclick=()=>cat.classList.toggle('open');cat.appendChild(head);cat.appendChild(grid);wrap.appendChild(cat);if(idx<2)cat.classList.add('open');});
+  $('#btnRand').onclick=()=>randomize();$('#btnDownload').onclick=download;$('#btnSave').onclick=saveToGallery;$('#btnShare').onclick=share;$('#btnCopy').onclick=copyTraits;
+  renderGallery();
+}
+
+function selectThumb(c,el,file){
+  const grid=el.parentElement;
+  if(c.multi){el.classList.toggle('active');const set=new Set(state.sel[c.id]||[]);if(set.has(file))set.delete(file);else set.add(file);state.sel[c.id]=[...set];
+    $('#pick-'+c.id).textContent=state.sel[c.id].length?state.sel[c.id].map(f=>lbl(c,f)).join(', '):'None';}
+  else{[...grid.children].forEach(x=>x.classList.remove('active'));el.classList.add('active');state.sel[c.id]=file||null;$('#pick-'+c.id).textContent=file?lbl(c,file):'None';}
+  render();
+}
+function lbl(c,file){const o=c.options.find(o=>o.file===file);return o?o.label:file;}
+
+function randomize(s){
+  reseed(s!==undefined?s:Math.floor(Math.random()*1e9));
+  state.bg=M.backgrounds[Math.floor(rng()*Math.min(3,M.backgrounds.length))].id;
+  state.d3=M.base.options[1+Math.floor(rng()*(M.base.options.length-1))].file;
+  state.sel={};
+  M.categories.forEach(c=>{
+    if(c.multi){state.sel[c.id]=c.options.filter(()=>rng()<0.18).map(o=>o.file);}
+    else if(c.optional&&rng()<0.25){state.sel[c.id]=null;}
+    else state.sel[c.id]=c.options[Math.floor(rng()*c.options.length)].file;});
+  syncUI();render();
+}
+function syncUI(){
+  $('#bgVal').textContent=(M.backgrounds.find(b=>b.id===state.bg)||{}).label||state.bg;
+  [...$('#bgChips').children].forEach(el=>el.classList.toggle('active',el.textContent===$('#bgVal').textContent));
+  $('#d3Val').textContent=(M.base.options.find(o=>o.file===state.d3)||{}).label||'';
+  [...$('#d3Seg').children].forEach(el=>el.classList.toggle('active',el.textContent===$('#d3Val').textContent));
+  $('#recolor').checked=state.recolor;
+  M.categories.forEach(c=>{const grid=document.querySelectorAll('#cats .cat')[M.categories.indexOf(c)].querySelector('.grid');const sel=state.sel[c.id];
+    [...grid.children].forEach(t=>{const f=t.dataset.file;if(c.multi)t.classList.toggle('active',(sel||[]).includes(f));else t.classList.toggle('active',(f||'')===(sel||''));});
+    $('#pick-'+c.id).textContent=c.multi?((sel&&sel.length)?sel.map(f=>lbl(c,f)).join(', '):'None'):(sel?lbl(c,sel):'None');});
+}
+
+function traitsObj(){
+  const o={Background:(M.backgrounds.find(b=>b.id===state.bg)||{}).label,'3D Glitch':(M.base.options.find(x=>x.file===state.d3)||{}).label+(state.recolor?' (tiger)':'')};
+  M.categories.forEach(c=>{const s=state.sel[c.id];o[c.label]=c.multi?((s&&s.length)?s.map(f=>lbl(c,f)).join(' + '):'None'):(s?lbl(c,s):'None');});return o;
+}
+function updateTraits(){const o=traitsObj(),el=$('#traits');el.innerHTML='';Object.entries(o).forEach(([k,v])=>{const r=ce('div','row');r.innerHTML=`<span>${k}</span><span>${v}</span>`;el.appendChild(r);});}
+function copyTraits(){navigator.clipboard.writeText(JSON.stringify({seed,name:'TigerPunk #'+seed,attributes:traitsObj()},null,2));toast('Traits copiados');}
+
+function exportCanvas(badge){
+  const c=ce('canvas');c.width=c.height=SIZE;const x=c.getContext('2d');x.drawImage($('#view'),0,0);
+  if(badge){x.font='bold 22px system-ui,Arial';x.textBaseline='bottom';const t='TigerPunks · HalfxTiger';const w=x.measureText(t).width;
+    x.fillStyle='rgba(0,0,0,.45)';x.fillRect(14,SIZE-40,w+22,30);x.fillStyle='#ff6b2b';x.fillText(t,24,SIZE-16);}
+  return c;
+}
+function download(){const c=exportCanvas(true),a=ce('a');a.download='TigerPunk-'+seed+'.png';a.href=c.toDataURL('image/png');a.click();toast('PNG descargado');}
+
+function thumbURL(){const c=ce('canvas');c.width=c.height=240;c.getContext('2d').drawImage($('#view'),0,0,240,240);return c.toDataURL('image/png');}
+function getGallery(){try{return JSON.parse(localStorage.getItem(GKEY)||'[]');}catch(e){return[];}}
+function saveToGallery(){const g=getGallery();g.unshift({seed,thumb:thumbURL(),state:JSON.parse(JSON.stringify(state))});localStorage.setItem(GKEY,JSON.stringify(g.slice(0,24)));renderGallery();toast('Guardado en galería');}
+function renderGallery(){
+  const g=getGallery(),el=$('#gallery');el.innerHTML='';
+  if(!g.length){el.innerHTML='<div class="text-muted-2" style="font-size:.82rem">Aún no has guardado ningún TigerPunk.</div>';return;}
+  g.forEach((it,i)=>{const wrap=ce('div','gi');const img=ce('img');img.src=it.thumb;img.title='#'+it.seed+' — click para cargar';
+    img.onclick=()=>{state=JSON.parse(JSON.stringify(it.state));seed=it.seed;$('#seed').textContent='#'+seed;syncUI();render();toast('Cargado #'+it.seed);};
+    const del=ce('div','del');del.textContent='×';del.onclick=ev=>{ev.stopPropagation();const gg=getGallery();gg.splice(i,1);localStorage.setItem(GKEY,JSON.stringify(gg));renderGallery();};
+    wrap.appendChild(img);wrap.appendChild(del);el.appendChild(wrap);});
+}
+
+async function share(){
+  const c=exportCanvas(true);
+  c.toBlob(async blob=>{
+    const file=new File([blob],'TigerPunk-'+seed+'.png',{type:'image/png'});
+    const text='Acabo de crear mi TigerPunk #'+seed+' 🐯 en adrianpunks.com';
+    if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],text,title:'TigerPunk #'+seed});}catch(e){}}
+    else{const a=ce('a');a.download=file.name;a.href=URL.createObjectURL(blob);a.click();
+      window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text+' #TigerPunks #AdrianPunks'),'_blank');toast('Imagen descargada — adjúntala al tweet');}
+  },'image/png');
+}
+
+let tt;function toast(m){const el=$('#toast');el.textContent=m;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),1800);}
+
+boot();
+</script>
+</body>
+</html>
