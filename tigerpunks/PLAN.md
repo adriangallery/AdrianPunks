@@ -31,15 +31,18 @@ Antes de diseñar el plan definitivo de minteo/colección hay que decidir:
 
 ## ✅ Estado actual (hecho y verificado)
 
-### Builder (LIVE, off-chain)
-- `tigerbuilder.html` en adrianpunks.com/tigerbuilder. Estética Bootstrap light/dark de adrianpunks.com + navbar compartido.
-- Capas: Fondo (Orange/Dark/Light) · **Skin** (8 tonos, recolor de la cara blanca) · **3D Glitch** 0/25/50/100% con recolor tigre (rojo→naranja `#ff6b2b` / cian→negro) · Top, Beard, Mouth, Eyes, Hair, Hat, Misc(multi).
-- Funciones: picker manual, randomizer seed-determinista (mulberry32), descarga PNG (badge HalfxTiger), **export SVG** (72×72, técnica svgmaker), compartir (Web Share/X), galería localStorage, panel de traits → JSON.
+### Builder (LIVE, off-chain) — simplificado 2026-06-07
+- `tigerbuilder.html` en adrianpunks.com/tigerbuilder. Estética Bootstrap de adrianpunks.com + navbar compartido. **Tema claro único** (dark mode eliminado). **UI en inglés.**
+- Capas: **Background** (Orange/Dark/Light) · **Skin** (Classic/Alien/Zombie/Tiger — recolor de la cara blanca) · **Traits**: Beard, Mouth, Eyes, Hair, Hat, Misc(multi).
+- Base = cara limpia (sin 3D Glitch/anaglifo; look CryptoPunk). `traits/Base/base.png`.
+- Funciones: picker manual, randomizer seed-determinista (mulberry32), descarga PNG (badge HalfxTiger), **export SVG** (72×72, técnica svgmaker), compartir (Web Share/X), galería localStorage, panel Attributes → JSON.
 - Data-driven vía `tigerpunks/manifest.json`. Cache-busting (`VERSION` + `?v=`) + meta no-cache.
+- **Eliminado 2026-06-07:** sección 3D Glitch + recolor, categoría Top (+archivos), skins Tan/Albino/Ape/Ghost, dark mode.
 
 ### On-chain PoC (VALIDADO end-to-end, NO desplegado)
 - `tigerpunks-onchain/` (Foundry). `TigerData.sol` (paleta+RLE) + `TigerRenderer.sol` (`renderSVG`→SVG 100% on-chain) + test forge PASS.
 - **Salida del contrato verificada visualmente = idéntica al builder.**
+- ⚠️ Los datos del PoC (`TigerData.sol`) se generaron ANTES de la simplificación (incluyen base 50% glitch + Top, ya no existentes). Regenerar al construir el renderer de producción con los traits actuales.
 
 ### Hallazgos clave
 - **Arte completo (90 traits) on-chain = 19.6 KB** (paleta 119 colores + RLE). Cabe en 1 chunk SSTORE2.
