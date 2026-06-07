@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>TigerPunks — Collection Preview (PoC)</title>
+<link rel="icon" type="image/x-icon" href="adrian1.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root{ --bg:#0e0e0e; --panel:#181818; --border:#2c2c2c; --accent:#ff6b2b; --muted:#8a8a8a; --text:#f2f2f2; }
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Share Tech Mono',monospace}
+  body{background:var(--bg);color:var(--text)}
+  header{padding:26px 20px 14px;text-align:center;border-bottom:1px solid var(--border)}
+  header h1{font-size:1.7rem;letter-spacing:1px}
+  header h1 .tg{color:var(--accent)}
+  header p{color:var(--muted);font-size:.85rem;margin-top:6px}
+  .bar{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:14px}
+  button{cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:#1a0f06;font-weight:bold;
+    font-family:inherit;padding:9px 16px;border-radius:6px;font-size:.85rem;letter-spacing:.5px}
+  button.ghost{background:transparent;color:var(--text);border-color:var(--border)}
+  button.ghost:hover{border-color:var(--accent);color:var(--accent)}
+  .count{color:var(--muted);font-size:.8rem}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;padding:22px;max-width:1400px;margin:0 auto}
+  .cell{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:.15s}
+  .cell:hover{border-color:var(--accent);transform:translateY(-3px)}
+  .cell canvas{width:100%;display:block;image-rendering:pixelated;aspect-ratio:1/1}
+  .cell .meta{padding:7px 9px;display:flex;justify-content:space-between;align-items:center;font-size:.72rem}
+  .cell .id{color:var(--accent)}
+  .cell .sk{color:var(--muted)}
+  footer{text-align:center;color:var(--muted);font-size:.75rem;padding:24px}
+  #loader{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:50}
+  #loader .b{width:220px;height:6px;background:var(--border);border-radius:4px;overflow:hidden}
+  #loader .b i{display:block;height:100%;width:0;background:var(--accent);transition:.2s}
+</style>
+</head>
+<body>
+<div id="loader"><div>🐯 Loading traits…</div><div class="b"><i id="lbar"></i></div></div>
+
+<header>
+  <h1><span class="tg">🐯 Tiger</span>Punks — Collection Preview</h1>
+  <p>Proof of concept · 100 randomly generated TigerPunks · rendered from the on-chain trait set</p>
+  <div class="bar">
+    <button id="regen">🎲 Regenerate 100</button>
+    <button class="ghost" id="dl">⬇ Download contact sheet</button>
+    <span class="count" id="count"></span>
+  </div>
+</header>
+
+<div class="grid" id="grid"></div>
+<footer>TigerPunks · HalfxTiger · temporary PoC preview (will be removed)</footer>
+
+<script>
+const SIZE=1080, CELL=300, GKEY=null;
+const $=s=>document.querySelector(s), ce=(t)=>document.createElement(t);
+const bust=u=>u+(u.includes('?')?'&':'?')+'v='+Date.now();
+let M=null, IMG={}, baseCache={};
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function load(src){return new Promise(res=>{if(IMG[src])return res(IMG[src]);const im=new Image();im.onload=()=>{IMG[src]=im;res(im);};im.onerror=()=>res(null);im.src=bust(src);});}
+
+async function boot(){
+  M=await (await fetch(bust('tigerpunks/manifest.json'))).json();
+  const all=[M.base.dir+'/'+M.base.file];
+  M.categories.forEach(c=>c.options.forEach(o=>all.push(c.dir+'/'+o.file)));
+  let done=0;
+  await Promise.all(all.map(p=>load(p).then(()=>{done++;$('#lbar').style.width=(done/all.length*100)+'%';})));
+  $('#loader').style.display='none';
+  build();
+}
+
+function skinColor(id){const s=(M.skins||[]).find(s=>s.id===id);return s?s.color:null;}
+function processBase(skin){
+  const sc=skinColor(skin); const src=M.base.dir+'/'+M.base.file;
+  if(!sc) return IMG[src];
+  if(baseCache[skin]) return baseCache[skin];
+  const c=ce('canvas');c.width=c.height=SIZE;const x=c.getContext('2d');x.drawImage(IMG[src],0,0,SIZE,SIZE);
+  const d=x.getImageData(0,0,SIZE,SIZE),p=d.data;
+  for(let i=0;i<p.length;i+=4){if(p[i+3]<10)continue;if(p[i]>238&&p[i+1]>238&&p[i+2]>238){p[i]=sc[0];p[i+1]=sc[1];p[i+2]=sc[2];}}
+  x.putImageData(d,0,0);baseCache[skin]=c;return c;
+}
+function bgFill(id){return id==='dark'?'#333333':id==='light'?'#cccccc':'#ff8a3d';}
+
+function genState(seed){
+  const rng=mulberry32(seed);
+  const st={bg:M.backgrounds[Math.floor(rng()*M.backgrounds.length)].id,
+            skin:M.skins[Math.floor(rng()*M.skins.length)].id, sel:{}};
+  M.categories.forEach(c=>{
+    if(c.multi){st.sel[c.id]=c.options.filter(()=>rng()<0.18).map(o=>o.file);}
+    else if(c.optional&&rng()<0.25){st.sel[c.id]=null;}
+    else st.sel[c.id]=c.options[Math.floor(rng()*c.options.length)].file;
+  });
+  return st;
+}
+function draw(ctx,st){
+  ctx.imageSmoothingEnabled=false;
+  ctx.fillStyle=bgFill(st.bg);ctx.fillRect(0,0,CELL,CELL);
+  ctx.drawImage(processBase(st.skin),0,0,CELL,CELL);
+  M.categories.forEach(c=>{const v=st.sel[c.id];if(!v)return;(c.multi?v:[v]).forEach(f=>{const im=IMG[c.dir+'/'+f];if(im)ctx.drawImage(im,0,0,CELL,CELL);});});
+}
+
+let current=[];
+function build(){
+  const grid=$('#grid');grid.innerHTML='';current=[];
+  for(let i=0;i<100;i++){
+    const seed=Math.floor(Math.random()*1e9);
+    const st=genState(seed);current.push({seed,st});
+    const cell=ce('div');cell.className='cell';
+    const cv=ce('canvas');cv.width=cv.height=CELL;
+    draw(cv.getContext('2d'),st);
+    const meta=ce('div');meta.className='meta';
+    meta.innerHTML=`<span class="id">#${String(i+1).padStart(3,'0')}</span><span class="sk">${(M.skins.find(s=>s.id===st.skin)||{}).label||''}</span>`;
+    cell.appendChild(cv);cell.appendChild(meta);grid.appendChild(cell);
+  }
+  $('#count').textContent='100 unique · click Regenerate for a new set';
+}
+
+function downloadSheet(){
+  const cols=10, rows=10, pad=6, cw=CELL/2;
+  const W=cols*cw+pad*(cols+1), H=rows*cw+pad*(rows+1);
+  const c=ce('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
+  x.fillStyle='#0e0e0e';x.fillRect(0,0,W,H);x.imageSmoothingEnabled=false;
+  current.forEach((it,i)=>{const col=i%cols,row=(i/cols)|0;
+    const px=pad+col*(cw+pad),py=pad+row*(cw+pad);
+    x.fillStyle=bgFill(it.st.bg);x.fillRect(px,py,cw,cw);
+    x.drawImage(processBase(it.st.skin),px,py,cw,cw);
+    M.categories.forEach(cat=>{const v=it.st.sel[cat.id];if(!v)return;(cat.multi?v:[v]).forEach(f=>{const im=IMG[cat.dir+'/'+f];if(im)x.drawImage(im,px,py,cw,cw);});});
+  });
+  const a=ce('a');a.download='TigerPunks-100-preview.png';a.href=c.toDataURL('image/png');a.click();
+}
+
+$('#regen').onclick=build;
+$('#dl').onclick=downloadSheet;
+boot();
+</script>
+</body>
+</html>
