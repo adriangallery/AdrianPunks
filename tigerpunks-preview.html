@@ -108,7 +108,7 @@
 const SIZE=1080, CELL=240;
 const $=s=>document.querySelector(s), ce=(t)=>document.createElement(t);
 const bust=u=>u+(u.includes('?')?'&':'?')+'v='+Date.now();
-let M=null, IMG={}, baseCache={}, cfg=null, current=[], pinned={};
+let M=null, IMG={}, baseCache={}, cfg=null, current=[], pinned={}, io=null;
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 function load(src){return new Promise(res=>{if(IMG[src])return res(IMG[src]);const im=new Image();im.onload=()=>{IMG[src]=im;res(im);};im.onerror=()=>res(null);im.src=bust(src);});}
@@ -182,17 +182,25 @@ function draw(ctx,st,W){
   M.categories.forEach(c=>{const v=st.sel[c.id];if(!v)return;(c.multi?v:[v]).forEach(f=>{const im=IMG[c.dir+'/'+f];if(im)ctx.drawImage(im,0,0,W,W);});});
 }
 function renderGrid(){
+  if(io)io.disconnect();
   const grid=$('#grid');grid.innerHTML='';
+  const N=current.length;
+  const res=N<=100?240:N<=250?200:N<=500?160:120;   // adaptive thumbnail resolution
+  io=new IntersectionObserver(ents=>{ents.forEach(en=>{ if(en.isIntersecting){const cell=en.target;
+    if(!cell._drawn){draw(cell.querySelector('canvas').getContext('2d'),cell._it.st,res);cell._drawn=true;} io.unobserve(cell);} });},{rootMargin:'400px'});
+  const frag=document.createDocumentFragment();
   current.forEach((it,i)=>{
-    const cell=ce('div');cell.className='cell'+(pinned[it.seed]?' pin':'');
-    const cv=ce('canvas');cv.width=cv.height=CELL;draw(cv.getContext('2d'),it.st,CELL);
+    const cell=ce('div');cell.className='cell'+(pinned[it.seed]?' pin':'');cell._it=it;
+    const cv=ce('canvas');cv.width=cv.height=res;
     const meta=ce('div');meta.className='meta';
-    meta.innerHTML=`<span class="id">#${String(i+1).padStart(3,'0')}</span><span class="sk">${(M.skins.find(s=>s.id===it.st.skin)||{}).label||''}</span>`;
+    meta.innerHTML=`<span class="id">#${String(i+1).padStart(N>999?4:3,'0')}</span><span class="sk">${(M.skins.find(s=>s.id===it.st.skin)||{}).label||''}</span>`;
     cell.appendChild(cv);cell.appendChild(meta);
     cell.title='click to pin/unpin · seed '+it.seed;
     cell.onclick=()=>{ if(pinned[it.seed])delete pinned[it.seed]; else pinned[it.seed]=it; cell.classList.toggle('pin'); renderStats(); };
-    grid.appendChild(cell);
+    frag.appendChild(cell);
   });
+  grid.appendChild(frag);
+  grid.querySelectorAll('.cell').forEach(c=>io.observe(c));
 }
 function renderStats(){
   const np=Object.keys(pinned).length;
@@ -230,10 +238,10 @@ function buildSettings(){
   const s=$('#side');s.innerHTML='';
   // general
   s.appendChild(htmlEl(`<h2>General</h2>`));
-  const sizeRow=htmlEl(`<div class="row"><label>Size</label><input type="number" id="cfgSize" min="1" max="500" value="${cfg.size}"></div>`);
-  sizeRow.querySelector('input').onchange=e=>{cfg.size=Math.max(1,Math.min(500,+e.target.value||100));};
+  const sizeRow=htmlEl(`<div class="row"><label>Size</label><select id="cfgSize">${[100,250,500,1000,2000].map(n=>`<option value="${n}"${n===cfg.size?' selected':''}>${n}</option>`).join('')}</select></div>`);
+  sizeRow.querySelector('select').onchange=e=>{cfg.size=+e.target.value;generate();};
   s.appendChild(sizeRow);
-  s.appendChild(htmlEl(`<div class="hint">Tip: click any punk to 📌 pin favourites. Save config stores weights + seed + pinned set so you can reproduce/curate later for minting.</div>`));
+  s.appendChild(htmlEl(`<div class="hint">Tip: click any punk to 📌 pin favourites. Save config stores weights + seed + pinned set so you can reproduce/curate later for minting. Distribution stats are exact over the FULL set; thumbnails render lazily on scroll, so big sets stay fast.</div>`));
   // skins
   s.appendChild(htmlEl(`<h2>Skin weights</h2>`));
   M.skins.forEach(sk=>s.appendChild(weightSlider(sk.label, cfg.skinW, sk.id, sk.color)));
