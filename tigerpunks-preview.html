@@ -43,6 +43,8 @@
   .titem img{width:100%;aspect-ratio:1/1;display:block;image-rendering:pixelated;object-fit:cover}
   .titem.off{opacity:.28}
   .titem .w{position:absolute;bottom:0;right:0;background:rgba(0,0,0,.8);color:var(--accent);font-size:.6rem;padding:0 3px;border-top-left-radius:4px}
+  .titem .tw{width:100%;border:none;border-top:1px solid var(--border);background:var(--panel);color:var(--accent);font-size:.62rem;text-align:center;font-family:inherit;padding:1px 0}
+  .titem .tw:focus{outline:1px solid var(--accent)}
   .hint{color:var(--muted);font-size:.68rem;margin:3px 0 8px;line-height:1.4}
   .main{padding:14px}
   .stats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
@@ -108,7 +110,7 @@
 const SIZE=1080, CELL=240;
 const $=s=>document.querySelector(s), ce=(t)=>document.createElement(t);
 const bust=u=>u+(u.includes('?')?'&':'?')+'v='+Date.now();
-let M=null, IMG={}, baseCache={}, cfg=null, current=[], pinned={}, io=null;
+let M=null, IMG={}, baseCache={}, cfg=null, current=[], pinned={}, io=null, pctRefreshers=[];
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 function load(src){return new Promise(res=>{if(IMG[src])return res(IMG[src]);const im=new Image();im.onload=()=>{IMG[src]=im;res(im);};im.onerror=()=>res(null);im.src=bust(src);});}
@@ -149,7 +151,7 @@ function genState(seed){
   M.categories.forEach(c=>{
     const enabled=c.options.filter(o=>(cfg.traitW[wkey(c.id,o.file)]??1)>0);
     const pres=cfg.presence[c.id]??1;
-    if(c.multi){ st.sel[c.id]=enabled.filter(()=>rng()<pres).map(o=>o.file); }
+    if(c.multi){ st.sel[c.id]=enabled.filter(o=>rng()<Math.min(1,pres*(cfg.traitW[wkey(c.id,o.file)]??1))).map(o=>o.file); }
     else if(c.optional && rng()>=pres){ st.sel[c.id]=null; }
     else if(enabled.length){ st.sel[c.id]=wpick(rng, enabled, o=>cfg.traitW[wkey(c.id,o.file)]??1).file; }
     else st.sel[c.id]=null;
@@ -210,6 +212,7 @@ function renderStats(){
     `<span class="pill">📌 pinned <b>${np}</b></span>`+
     M.skins.map(s=>`<span class="pill">${s.label} <b>${current.filter(c=>c.st.skin===s.id).length}</b></span>`).join('');
   renderDist();
+  if(pctRefreshers.length)refreshPct();
 }
 function renderDist(){
   const el=$('#dist');el.innerHTML='';const N=current.length||1;
@@ -235,7 +238,7 @@ function renderDist(){
 
 /* ---------- settings UI ---------- */
 function buildSettings(){
-  const s=$('#side');s.innerHTML='';
+  const s=$('#side');s.innerHTML='';pctRefreshers=[];
   // general
   s.appendChild(htmlEl(`<h2>General</h2>`));
   const sizeRow=htmlEl(`<div class="row"><label>Size</label><select id="cfgSize">${[100,250,500,1000,2000].map(n=>`<option value="${n}"${n===cfg.size?' selected':''}>${n}</option>`).join('')}</select></div>`);
@@ -243,23 +246,26 @@ function buildSettings(){
   s.appendChild(sizeRow);
   s.appendChild(htmlEl(`<div class="hint">Tip: click any punk to 📌 pin favourites. Save config stores weights + seed + pinned set so you can reproduce/curate later for minting. Distribution stats are exact over the FULL set; thumbnails render lazily on scroll, so big sets stay fast.</div>`));
   // skins
-  s.appendChild(htmlEl(`<h2>Skin weights</h2>`));
-  M.skins.forEach(sk=>s.appendChild(weightSlider(sk.label, cfg.skinW, sk.id, sk.color)));
+  s.appendChild(htmlEl(`<h2>Skin rarity</h2>`));
+  s.appendChild(htmlEl(`<div class="hint">Weight = relative chance (free value: 0.05 = very rare, 20 = common). % = expected share.</div>`));
+  const skinSum=()=>M.skins.reduce((a,sk)=>a+(cfg.skinW[sk.id]||0),0);
+  M.skins.forEach(sk=>s.appendChild(weightCtrl(sk.label, cfg.skinW, sk.id, skinSum, sk.color)));
   // backgrounds
-  s.appendChild(htmlEl(`<h2>Background weights</h2>`));
-  M.backgrounds.forEach(b=>s.appendChild(weightSlider(b.label, cfg.bgW, b.id)));
+  s.appendChild(htmlEl(`<h2>Background rarity</h2>`));
+  const bgSum=()=>M.backgrounds.reduce((a,b)=>a+(cfg.bgW[b.id]||0),0);
+  M.backgrounds.forEach(b=>s.appendChild(weightCtrl(b.label, cfg.bgW, b.id, bgSum)));
   // category presence
   s.appendChild(htmlEl(`<h2>Trait presence %</h2>`));
-  s.appendChild(htmlEl(`<div class="hint">Chance a category appears (Misc = per-item chance).</div>`));
+  s.appendChild(htmlEl(`<div class="hint">Chance a category appears (Misc = base per-item chance, scaled by each item's weight below).</div>`));
   M.categories.forEach(cat=>{
     const row=htmlEl(`<div class="row"><label>${cat.label}</label><input type="range" min="0" max="100" value="${Math.round((cfg.presence[cat.id]??1)*100)}"><span class="v">${Math.round((cfg.presence[cat.id]??1)*100)}%</span></div>`);
     const inp=row.querySelector('input'),v=row.querySelector('.v');
-    inp.oninput=e=>{cfg.presence[cat.id]=(+e.target.value)/100;v.textContent=e.target.value+'%';};
+    inp.oninput=e=>{cfg.presence[cat.id]=(+e.target.value)/100;v.textContent=e.target.value+'%';refreshPct();};
     s.appendChild(row);
   });
   // advanced per-trait
   s.appendChild(htmlEl(`<h2>Per-trait rarity</h2>`));
-  s.appendChild(htmlEl(`<div class="hint">Click a trait to cycle weight: 1→2→3→0(off). Off removes it from the collection.</div>`));
+  s.appendChild(htmlEl(`<div class="hint">Type each trait's weight (0 = off). % shows expected share within the set. Make some much rarer with e.g. 0.1 vs 5.</div>`));
   M.categories.forEach(cat=>{
     const det=ce('details');
     det.innerHTML=`<summary>${cat.label} (${cat.options.length})</summary><div class="body"><div class="twrap"></div></div>`;
@@ -267,18 +273,27 @@ function buildSettings(){
     cat.options.forEach(o=>{
       const k=wkey(cat.id,o.file);
       const it=ce('div');it.className='titem'+((cfg.traitW[k]??1)===0?' off':'');
-      it.innerHTML=`<img src="${bust(cat.dir+'/'+o.file)}" title="${o.label}"><span class="w">${cfg.traitW[k]??1}</span>`;
-      it.onclick=()=>{let w=(cfg.traitW[k]??1); w=w>=3?0:w+1; cfg.traitW[k]=w; it.querySelector('.w').textContent=w; it.classList.toggle('off',w===0);};
+      it.innerHTML=`<img src="${bust(cat.dir+'/'+o.file)}" title="${o.label}"><input class="tw" type="number" min="0" step="0.1" value="${cfg.traitW[k]??1}">`;
+      const inp=it.querySelector('input');
+      inp.onclick=e=>e.stopPropagation();
+      inp.oninput=e=>{const w=Math.max(0,+e.target.value||0);cfg.traitW[k]=w;it.classList.toggle('off',w===0);refreshPct();};
+      pctRefreshers.push(()=>{ const w=cfg.traitW[k]??1, pres=cfg.presence[cat.id]??1; let pct;
+        if(cat.multi){pct=Math.min(1,pres*w)*100;}
+        else{const sum=cat.options.reduce((a,oo)=>a+Math.max(0,cfg.traitW[wkey(cat.id,oo.file)]??1),0);pct=sum>0?pres*(w/sum)*100:0;}
+        it.title=o.label+' · ~'+pct.toFixed(pct<1?2:1)+'% of set'; });
       wrap.appendChild(it);
     });
     s.appendChild(det);
   });
+  refreshPct();
 }
-function weightSlider(label, obj, key, color){
+function refreshPct(){pctRefreshers.forEach(f=>f());}
+function weightCtrl(label, obj, key, sumFn, color){
   const sw=color?`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:rgb(${color.join(',')});margin-right:4px"></span>`:'';
-  const row=htmlEl(`<div class="row"><label>${sw}${label}</label><input type="range" min="0" max="5" step="1" value="${obj[key]??1}"><span class="v">${obj[key]??1}×</span></div>`);
+  const row=htmlEl(`<div class="row"><label>${sw}${label}</label><input type="number" min="0" step="0.1" value="${obj[key]??1}" style="width:62px;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:3px 5px;border-radius:5px;font-family:inherit;font-size:.72rem"><span class="v"></span></div>`);
   const inp=row.querySelector('input'),v=row.querySelector('.v');
-  inp.oninput=e=>{obj[key]=+e.target.value;v.textContent=e.target.value+'×';};
+  inp.oninput=e=>{obj[key]=Math.max(0,+e.target.value||0);refreshPct();};
+  pctRefreshers.push(()=>{const s=sumFn();v.textContent=s>0?((obj[key]??0)/s*100).toFixed(1)+'%':'—';});
   return row;
 }
 function htmlEl(h){const d=ce('div');d.innerHTML=h.trim();return d.firstChild;}
@@ -327,15 +342,18 @@ function loadConfig(file){
   }catch(e){toast('Invalid config');}};
   r.readAsText(file);
 }
+const SHEET_CAP=250;   // contact sheet is for sharing, not the whole collection
 function downloadSheet(){
-  const cols=10, rows=Math.ceil(current.length/cols), pad=6, cw=120;
+  const items=current.slice(0,SHEET_CAP);
+  const cols=10, rows=Math.ceil(items.length/cols), pad=6, cw=120;
   const W=cols*cw+pad*(cols+1), H=rows*cw+pad*(rows+1);
   const c=ce('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
   x.fillStyle='#0e0e0e';x.fillRect(0,0,W,H);x.imageSmoothingEnabled=false;
-  current.forEach((it,i)=>{const col=i%cols,row=(i/cols)|0;const px=pad+col*(cw+pad),py=pad+row*(cw+pad);
+  items.forEach((it,i)=>{const col=i%cols,row=(i/cols)|0;const px=pad+col*(cw+pad),py=pad+row*(cw+pad);
     x.fillStyle=bgFill(it.st.bg);x.fillRect(px,py,cw,cw);x.drawImage(processBase(it.st.skin),px,py,cw,cw);
     M.categories.forEach(cat=>{const v=it.st.sel[cat.id];if(!v)return;(cat.multi?v:[v]).forEach(f=>{const im=IMG[cat.dir+'/'+f];if(im)x.drawImage(im,px,py,cw,cw);});});});
-  const a=ce('a');a.download='TigerPunks-'+cfg.masterSeed+'-sheet.png';a.href=c.toDataURL('image/png');a.click();toast('Sheet downloaded');
+  const a=ce('a');a.download='TigerPunks-'+cfg.masterSeed+'-sheet.png';a.href=c.toDataURL('image/png');a.click();
+  toast(current.length>SHEET_CAP?('Sheet: first '+SHEET_CAP):'Sheet downloaded');
 }
 
 let tt;function toast(m){const el=$('#toast');el.textContent=m;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),1600);}
