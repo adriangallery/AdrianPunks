@@ -4,58 +4,111 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>TigerPunks — Collection Preview (PoC)</title>
+<title>TigerPunks — Collection Curation (PoC)</title>
 <link rel="icon" type="image/x-icon" href="adrian1.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
-  :root{ --bg:#0e0e0e; --panel:#181818; --border:#2c2c2c; --accent:#ff6b2b; --muted:#8a8a8a; --text:#f2f2f2; }
+  :root{ --bg:#0e0e0e; --panel:#181818; --panel2:#202020; --border:#2c2c2c; --accent:#ff6b2b; --muted:#8a8a8a; --text:#f2f2f2; --good:#3ddc84; }
   *{box-sizing:border-box;margin:0;padding:0;font-family:'Share Tech Mono',monospace}
   body{background:var(--bg);color:var(--text)}
-  header{padding:26px 20px 14px;text-align:center;border-bottom:1px solid var(--border)}
-  header h1{font-size:1.7rem;letter-spacing:1px}
+  a{color:var(--accent)}
+  header{padding:20px 20px 10px;text-align:center;border-bottom:1px solid var(--border)}
+  header h1{font-size:1.5rem;letter-spacing:1px}
   header h1 .tg{color:var(--accent)}
-  header p{color:var(--muted);font-size:.85rem;margin-top:6px}
-  .bar{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:14px}
-  button{cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:#1a0f06;font-weight:bold;
-    font-family:inherit;padding:9px 16px;border-radius:6px;font-size:.85rem;letter-spacing:.5px}
+  header p{color:var(--muted);font-size:.8rem;margin-top:5px}
+  .bar{display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:12px}
+  button{cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:#1a0f06;font-weight:bold;font-family:inherit;padding:8px 14px;border-radius:6px;font-size:.8rem;letter-spacing:.5px}
   button.ghost{background:transparent;color:var(--text);border-color:var(--border)}
   button.ghost:hover{border-color:var(--accent);color:var(--accent)}
-  .count{color:var(--muted);font-size:.8rem}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;padding:22px;max-width:1400px;margin:0 auto}
-  .cell{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:.15s}
-  .cell:hover{border-color:var(--accent);transform:translateY(-3px)}
+  .layout{display:grid;grid-template-columns:320px 1fr;gap:0;align-items:start}
+  @media(max-width:900px){.layout{grid-template-columns:1fr}}
+  .side{border-right:1px solid var(--border);padding:16px;position:sticky;top:0;max-height:100vh;overflow-y:auto}
+  @media(max-width:900px){.side{position:static;max-height:none;border-right:none;border-bottom:1px solid var(--border)}}
+  .side h2{font-size:.78rem;color:var(--accent);text-transform:uppercase;letter-spacing:1px;margin:18px 0 8px}
+  .side h2:first-child{margin-top:0}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0;font-size:.78rem}
+  .row label{color:var(--text);flex:0 0 auto;min-width:64px}
+  .row input[type=range]{flex:1;accent-color:var(--accent)}
+  .row .v{color:var(--accent);min-width:34px;text-align:right;font-size:.72rem}
+  .row input[type=number]{width:90px;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:4px 6px;border-radius:5px;font-family:inherit;font-size:.75rem}
+  details{border:1px solid var(--border);border-radius:7px;margin:6px 0;background:var(--panel)}
+  details summary{padding:7px 10px;cursor:pointer;font-size:.76rem;list-style:none}
+  details summary::-webkit-details-marker{display:none}
+  details summary:before{content:"▸ ";color:var(--accent)}
+  details[open] summary:before{content:"▾ "}
+  details .body{padding:6px 10px 10px}
+  .twrap{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:6px}
+  .titem{position:relative;border:1px solid var(--border);border-radius:5px;overflow:hidden;background:var(--panel2)}
+  .titem img{width:100%;aspect-ratio:1/1;display:block;image-rendering:pixelated;object-fit:cover}
+  .titem.off{opacity:.28}
+  .titem .w{position:absolute;bottom:0;right:0;background:rgba(0,0,0,.8);color:var(--accent);font-size:.6rem;padding:0 3px;border-top-left-radius:4px}
+  .hint{color:var(--muted);font-size:.68rem;margin:3px 0 8px;line-height:1.4}
+  .main{padding:14px}
+  .stats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+  .pill{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:3px 9px;font-size:.7rem}
+  .pill b{color:var(--accent)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px}
+  .cell{background:var(--panel);border:1px solid var(--border);border-radius:9px;overflow:hidden;transition:.12s;cursor:pointer}
+  .cell:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .cell.pin{border-color:var(--good);box-shadow:0 0 0 2px rgba(61,220,132,.3)}
   .cell canvas{width:100%;display:block;image-rendering:pixelated;aspect-ratio:1/1}
-  .cell .meta{padding:7px 9px;display:flex;justify-content:space-between;align-items:center;font-size:.72rem}
-  .cell .id{color:var(--accent)}
-  .cell .sk{color:var(--muted)}
-  footer{text-align:center;color:var(--muted);font-size:.75rem;padding:24px}
+  .cell .meta{padding:5px 7px;display:flex;justify-content:space-between;font-size:.66rem}
+  .cell .id{color:var(--accent)} .cell .sk{color:var(--muted)}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--accent);color:#1a0f06;padding:9px 16px;border-radius:6px;font-weight:bold;opacity:0;transition:.25s;pointer-events:none;z-index:60}
+  .toast.show{opacity:1}
   #loader{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;z-index:50}
   #loader .b{width:220px;height:6px;background:var(--border);border-radius:4px;overflow:hidden}
   #loader .b i{display:block;height:100%;width:0;background:var(--accent);transition:.2s}
+  details.statbox{margin-top:14px}
+  .dist{font-size:.72rem}
+  .dist .drow{display:flex;align-items:center;gap:8px;margin:2px 0}
+  .dist .dname{flex:0 0 150px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dist .dbar{flex:1;height:10px;background:var(--panel2);border-radius:5px;overflow:hidden}
+  .dist .dbar i{display:block;height:100%;background:var(--accent)}
+  .dist .dn{flex:0 0 56px;text-align:right;color:var(--accent)}
+  .dist h3{color:var(--text);font-size:.74rem;margin:10px 0 4px;border-bottom:1px solid var(--border);padding-bottom:3px}
 </style>
 </head>
 <body>
 <div id="loader"><div>🐯 Loading traits…</div><div class="b"><i id="lbar"></i></div></div>
 
 <header>
-  <h1><span class="tg">🐯 Tiger</span>Punks — Collection Preview</h1>
-  <p>Proof of concept · 100 randomly generated TigerPunks · rendered from the on-chain trait set</p>
+  <h1><span class="tg">🐯 Tiger</span>Punks — Collection Curation</h1>
+  <p>PoC curation tool · tune rarities, generate, pin favourites & save the config for minting decisions</p>
   <div class="bar">
-    <button id="regen">🎲 Regenerate 100</button>
-    <button class="ghost" id="dl">⬇ Download contact sheet</button>
-    <span class="count" id="count"></span>
+    <button id="regen">🎲 New seed</button>
+    <button class="ghost" id="rerun">↻ Re-generate</button>
+    <button class="ghost" id="save">💾 Save config</button>
+    <button class="ghost" id="load">📂 Load config</button>
+    <button class="ghost" id="sheet">⬇ Contact sheet</button>
+    <input type="file" id="file" accept="application/json" style="display:none">
   </div>
 </header>
 
-<div class="grid" id="grid"></div>
-<footer>TigerPunks · HalfxTiger · temporary PoC preview (will be removed)</footer>
+<div class="layout">
+  <!-- SETTINGS -->
+  <aside class="side" id="side"></aside>
+
+  <!-- COLLECTION -->
+  <main class="main">
+    <div class="stats" id="stats"></div>
+    <div class="grid" id="grid"></div>
+    <details class="statbox" id="statbox">
+      <summary>📊 Trait distribution (current set)</summary>
+      <div class="body dist" id="dist"></div>
+    </details>
+  </main>
+</div>
+
+<footer style="text-align:center;color:var(--muted);font-size:.72rem;padding:22px">TigerPunks · HalfxTiger · temporary curation PoC (will be removed)</footer>
+<div class="toast" id="toast"></div>
 
 <script>
-const SIZE=1080, CELL=300, GKEY=null;
+const SIZE=1080, CELL=240;
 const $=s=>document.querySelector(s), ce=(t)=>document.createElement(t);
 const bust=u=>u+(u.includes('?')?'&':'?')+'v='+Date.now();
-let M=null, IMG={}, baseCache={};
+let M=null, IMG={}, baseCache={}, cfg=null, current=[], pinned={};
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 function load(src){return new Promise(res=>{if(IMG[src])return res(IMG[src]);const im=new Image();im.onload=()=>{IMG[src]=im;res(im);};im.onerror=()=>res(null);im.src=bust(src);});}
@@ -67,10 +120,51 @@ async function boot(){
   let done=0;
   await Promise.all(all.map(p=>load(p).then(()=>{done++;$('#lbar').style.width=(done/all.length*100)+'%';})));
   $('#loader').style.display='none';
-  build();
+  cfg=defaultCfg();
+  buildSettings(); generate();
 }
 
-function skinColor(id){const s=(M.skins||[]).find(s=>s.id===id);return s?s.color:null;}
+function defaultCfg(){
+  const c={ size:100, masterSeed:(Math.random()*1e9)|0, skinW:{}, bgW:{}, presence:{}, traitW:{} };
+  M.skins.forEach(s=>c.skinW[s.id]=1);
+  M.backgrounds.forEach(b=>c.bgW[b.id]=1);
+  const def={Eyes:90,Hair:90,Beard:50,Mouth:60,Hat:70,Misc:40};
+  M.categories.forEach(cat=>{ c.presence[cat.id]=(def[cat.id]??70)/100; cat.options.forEach(o=>c.traitW[cat.id+'/'+o.file]=1); });
+  return c;
+}
+
+/* ---------- generation ---------- */
+function wkey(cat,file){return cat+'/'+file;}
+function wpick(rng, items, wf){
+  let tot=0; items.forEach(i=>tot+=Math.max(0,wf(i)));
+  if(tot<=0) return items[Math.floor(rng()*items.length)];
+  let r=rng()*tot;
+  for(const i of items){ r-=Math.max(0,wf(i)); if(r<=0) return i; }
+  return items[items.length-1];
+}
+function genState(seed){
+  const rng=mulberry32(seed); const st={sel:{}};
+  st.skin=wpick(rng, M.skins, s=>cfg.skinW[s.id]??1).id;
+  st.bg=wpick(rng, M.backgrounds, b=>cfg.bgW[b.id]??1).id;
+  M.categories.forEach(c=>{
+    const enabled=c.options.filter(o=>(cfg.traitW[wkey(c.id,o.file)]??1)>0);
+    const pres=cfg.presence[c.id]??1;
+    if(c.multi){ st.sel[c.id]=enabled.filter(()=>rng()<pres).map(o=>o.file); }
+    else if(c.optional && rng()>=pres){ st.sel[c.id]=null; }
+    else if(enabled.length){ st.sel[c.id]=wpick(rng, enabled, o=>cfg.traitW[wkey(c.id,o.file)]??1).file; }
+    else st.sel[c.id]=null;
+  });
+  return st;
+}
+function generate(){
+  const mr=mulberry32(cfg.masterSeed);
+  current=[];
+  for(let i=0;i<cfg.size;i++){ const seed=(mr()*1e9)|0; current.push({seed,st:genState(seed)}); }
+  renderGrid(); renderStats();
+}
+
+/* ---------- render ---------- */
+function skinColor(id){const s=M.skins.find(s=>s.id===id);return s?s.color:null;}
 function processBase(skin){
   const sc=skinColor(skin); const src=M.base.dir+'/'+M.base.file;
   if(!sc) return IMG[src];
@@ -81,57 +175,169 @@ function processBase(skin){
   x.putImageData(d,0,0);baseCache[skin]=c;return c;
 }
 function bgFill(id){return id==='dark'?'#333333':id==='light'?'#cccccc':'#ff8a3d';}
-
-function genState(seed){
-  const rng=mulberry32(seed);
-  const st={bg:M.backgrounds[Math.floor(rng()*M.backgrounds.length)].id,
-            skin:M.skins[Math.floor(rng()*M.skins.length)].id, sel:{}};
-  M.categories.forEach(c=>{
-    if(c.multi){st.sel[c.id]=c.options.filter(()=>rng()<0.18).map(o=>o.file);}
-    else if(c.optional&&rng()<0.25){st.sel[c.id]=null;}
-    else st.sel[c.id]=c.options[Math.floor(rng()*c.options.length)].file;
-  });
-  return st;
-}
-function draw(ctx,st){
+function draw(ctx,st,W){
   ctx.imageSmoothingEnabled=false;
-  ctx.fillStyle=bgFill(st.bg);ctx.fillRect(0,0,CELL,CELL);
-  ctx.drawImage(processBase(st.skin),0,0,CELL,CELL);
-  M.categories.forEach(c=>{const v=st.sel[c.id];if(!v)return;(c.multi?v:[v]).forEach(f=>{const im=IMG[c.dir+'/'+f];if(im)ctx.drawImage(im,0,0,CELL,CELL);});});
+  ctx.fillStyle=bgFill(st.bg);ctx.fillRect(0,0,W,W);
+  ctx.drawImage(processBase(st.skin),0,0,W,W);
+  M.categories.forEach(c=>{const v=st.sel[c.id];if(!v)return;(c.multi?v:[v]).forEach(f=>{const im=IMG[c.dir+'/'+f];if(im)ctx.drawImage(im,0,0,W,W);});});
 }
-
-let current=[];
-function build(){
-  const grid=$('#grid');grid.innerHTML='';current=[];
-  for(let i=0;i<100;i++){
-    const seed=Math.floor(Math.random()*1e9);
-    const st=genState(seed);current.push({seed,st});
-    const cell=ce('div');cell.className='cell';
-    const cv=ce('canvas');cv.width=cv.height=CELL;
-    draw(cv.getContext('2d'),st);
+function renderGrid(){
+  const grid=$('#grid');grid.innerHTML='';
+  current.forEach((it,i)=>{
+    const cell=ce('div');cell.className='cell'+(pinned[it.seed]?' pin':'');
+    const cv=ce('canvas');cv.width=cv.height=CELL;draw(cv.getContext('2d'),it.st,CELL);
     const meta=ce('div');meta.className='meta';
-    meta.innerHTML=`<span class="id">#${String(i+1).padStart(3,'0')}</span><span class="sk">${(M.skins.find(s=>s.id===st.skin)||{}).label||''}</span>`;
-    cell.appendChild(cv);cell.appendChild(meta);grid.appendChild(cell);
+    meta.innerHTML=`<span class="id">#${String(i+1).padStart(3,'0')}</span><span class="sk">${(M.skins.find(s=>s.id===it.st.skin)||{}).label||''}</span>`;
+    cell.appendChild(cv);cell.appendChild(meta);
+    cell.title='click to pin/unpin · seed '+it.seed;
+    cell.onclick=()=>{ if(pinned[it.seed])delete pinned[it.seed]; else pinned[it.seed]=it; cell.classList.toggle('pin'); renderStats(); };
+    grid.appendChild(cell);
+  });
+}
+function renderStats(){
+  const np=Object.keys(pinned).length;
+  $('#stats').innerHTML=
+    `<span class="pill">set <b>${current.length}</b></span>`+
+    `<span class="pill">seed <b>${cfg.masterSeed}</b></span>`+
+    `<span class="pill">📌 pinned <b>${np}</b></span>`+
+    M.skins.map(s=>`<span class="pill">${s.label} <b>${current.filter(c=>c.st.skin===s.id).length}</b></span>`).join('');
+  renderDist();
+}
+function renderDist(){
+  const el=$('#dist');el.innerHTML='';const N=current.length||1;
+  function block(title, counts){
+    const h=ce('h3');h.textContent=title;el.appendChild(h);
+    const entries=Object.entries(counts).sort((a,b)=>a[1]-b[1]); // rarest first
+    const max=Math.max(1,...entries.map(e=>e[1]));
+    entries.forEach(([name,n])=>{const r=ce('div');r.className='drow';
+      r.innerHTML=`<span class="dname">${name}</span><span class="dbar"><i style="width:${100*n/max}%"></i></span><span class="dn">${n} · ${(100*n/N).toFixed(0)}%</span>`;
+      el.appendChild(r);});
   }
-  $('#count').textContent='100 unique · click Regenerate for a new set';
+  const sk={};M.skins.forEach(s=>sk[s.label]=current.filter(c=>c.st.skin===s.id).length);block('Skin',sk);
+  const bg={};M.backgrounds.forEach(b=>bg[b.label]=current.filter(c=>c.st.bg===b.id).length);block('Background',bg);
+  M.categories.forEach(cat=>{
+    const counts={}; if(cat.optional)counts['(None)']=0;
+    cat.options.forEach(o=>counts[o.label]=0);
+    current.forEach(c=>{const v=c.st.sel[cat.id];
+      if(!v||(Array.isArray(v)&&!v.length)){ if(cat.optional)counts['(None)']++; return; }
+      (Array.isArray(v)?v:[v]).forEach(f=>{const o=cat.options.find(o=>o.file===f);if(o)counts[o.label]++;});});
+    block(cat.label,counts);
+  });
 }
 
+/* ---------- settings UI ---------- */
+function buildSettings(){
+  const s=$('#side');s.innerHTML='';
+  // general
+  s.appendChild(htmlEl(`<h2>General</h2>`));
+  const sizeRow=htmlEl(`<div class="row"><label>Size</label><input type="number" id="cfgSize" min="1" max="500" value="${cfg.size}"></div>`);
+  sizeRow.querySelector('input').onchange=e=>{cfg.size=Math.max(1,Math.min(500,+e.target.value||100));};
+  s.appendChild(sizeRow);
+  s.appendChild(htmlEl(`<div class="hint">Tip: click any punk to 📌 pin favourites. Save config stores weights + seed + pinned set so you can reproduce/curate later for minting.</div>`));
+  // skins
+  s.appendChild(htmlEl(`<h2>Skin weights</h2>`));
+  M.skins.forEach(sk=>s.appendChild(weightSlider(sk.label, cfg.skinW, sk.id, sk.color)));
+  // backgrounds
+  s.appendChild(htmlEl(`<h2>Background weights</h2>`));
+  M.backgrounds.forEach(b=>s.appendChild(weightSlider(b.label, cfg.bgW, b.id)));
+  // category presence
+  s.appendChild(htmlEl(`<h2>Trait presence %</h2>`));
+  s.appendChild(htmlEl(`<div class="hint">Chance a category appears (Misc = per-item chance).</div>`));
+  M.categories.forEach(cat=>{
+    const row=htmlEl(`<div class="row"><label>${cat.label}</label><input type="range" min="0" max="100" value="${Math.round((cfg.presence[cat.id]??1)*100)}"><span class="v">${Math.round((cfg.presence[cat.id]??1)*100)}%</span></div>`);
+    const inp=row.querySelector('input'),v=row.querySelector('.v');
+    inp.oninput=e=>{cfg.presence[cat.id]=(+e.target.value)/100;v.textContent=e.target.value+'%';};
+    s.appendChild(row);
+  });
+  // advanced per-trait
+  s.appendChild(htmlEl(`<h2>Per-trait rarity</h2>`));
+  s.appendChild(htmlEl(`<div class="hint">Click a trait to cycle weight: 1→2→3→0(off). Off removes it from the collection.</div>`));
+  M.categories.forEach(cat=>{
+    const det=ce('details');
+    det.innerHTML=`<summary>${cat.label} (${cat.options.length})</summary><div class="body"><div class="twrap"></div></div>`;
+    const wrap=det.querySelector('.twrap');
+    cat.options.forEach(o=>{
+      const k=wkey(cat.id,o.file);
+      const it=ce('div');it.className='titem'+((cfg.traitW[k]??1)===0?' off':'');
+      it.innerHTML=`<img src="${bust(cat.dir+'/'+o.file)}" title="${o.label}"><span class="w">${cfg.traitW[k]??1}</span>`;
+      it.onclick=()=>{let w=(cfg.traitW[k]??1); w=w>=3?0:w+1; cfg.traitW[k]=w; it.querySelector('.w').textContent=w; it.classList.toggle('off',w===0);};
+      wrap.appendChild(it);
+    });
+    s.appendChild(det);
+  });
+}
+function weightSlider(label, obj, key, color){
+  const sw=color?`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:rgb(${color.join(',')});margin-right:4px"></span>`:'';
+  const row=htmlEl(`<div class="row"><label>${sw}${label}</label><input type="range" min="0" max="5" step="1" value="${obj[key]??1}"><span class="v">${obj[key]??1}×</span></div>`);
+  const inp=row.querySelector('input'),v=row.querySelector('.v');
+  inp.oninput=e=>{obj[key]=+e.target.value;v.textContent=e.target.value+'×';};
+  return row;
+}
+function htmlEl(h){const d=ce('div');d.innerHTML=h.trim();return d.firstChild;}
+
+/* ---------- save / load / sheet ---------- */
+function snapshot(){
+  return {
+    collection:'TigerPunks', kind:'curation-config', size:cfg.size, masterSeed:cfg.masterSeed,
+    weights:{ skin:cfg.skinW, background:cfg.bgW }, presence:cfg.presence, traitWeights:cfg.traitW,
+    distribution:distObj(),
+    pinned:Object.values(pinned).map(p=>({seed:p.seed, attributes:attrs(p.st)})),
+    set:current.map((c,i)=>({index:i+1, seed:c.seed, attributes:attrs(c.st)}))
+  };
+}
+function attrs(st){
+  const o={Background:(M.backgrounds.find(b=>b.id===st.bg)||{}).label, Skin:(M.skins.find(s=>s.id===st.skin)||{}).label};
+  M.categories.forEach(c=>{const v=st.sel[c.id];o[c.label]=(!v||(Array.isArray(v)&&!v.length))?'None':(Array.isArray(v)?v:[v]).map(f=>(c.options.find(o=>o.file===f)||{}).label||f).join(' + ');});
+  return o;
+}
+function distObj(){const d={};const N=current.length||1;
+  d.Skin={};M.skins.forEach(s=>d.Skin[s.label]=current.filter(c=>c.st.skin===s.id).length);
+  d.Background={};M.backgrounds.forEach(b=>d.Background[b.label]=current.filter(c=>c.st.bg===b.id).length);
+  M.categories.forEach(cat=>{const cc={};if(cat.optional)cc['None']=0;cat.options.forEach(o=>cc[o.label]=0);
+    current.forEach(c=>{const v=c.st.sel[cat.id];if(!v||(Array.isArray(v)&&!v.length)){if(cat.optional)cc['None']++;return;}(Array.isArray(v)?v:[v]).forEach(f=>{const o=cat.options.find(o=>o.file===f);if(o)cc[o.label]++;});});
+    d[cat.label]=cc;});
+  return d;
+}
+function saveConfig(){
+  const blob=new Blob([JSON.stringify(snapshot(),null,2)],{type:'application/json'});
+  const a=ce('a');a.download='tigerpunks-config-'+cfg.masterSeed+'.json';a.href=URL.createObjectURL(blob);a.click();
+  toast('Config saved');
+}
+function loadConfig(file){
+  const r=new FileReader();
+  r.onload=()=>{try{
+    const j=JSON.parse(r.result);
+    cfg.size=j.size??cfg.size; cfg.masterSeed=j.masterSeed??cfg.masterSeed;
+    if(j.weights){cfg.skinW={...cfg.skinW,...j.weights.skin};cfg.bgW={...cfg.bgW,...j.weights.background};}
+    if(j.presence)cfg.presence={...cfg.presence,...j.presence};
+    if(j.traitWeights)cfg.traitW={...cfg.traitW,...j.traitWeights};
+    pinned={}; (j.pinned||[]).forEach(p=>{ /* re-pin by seed if present in regen */ });
+    buildSettings(); generate();
+    // re-pin saved seeds that appear
+    if(j.pinned){const ps=new Set(j.pinned.map(p=>p.seed));current.forEach(c=>{if(ps.has(c.seed))pinned[c.seed]=c;});renderGrid();renderStats();}
+    toast('Config loaded');
+  }catch(e){toast('Invalid config');}};
+  r.readAsText(file);
+}
 function downloadSheet(){
-  const cols=10, rows=10, pad=6, cw=CELL/2;
+  const cols=10, rows=Math.ceil(current.length/cols), pad=6, cw=120;
   const W=cols*cw+pad*(cols+1), H=rows*cw+pad*(rows+1);
   const c=ce('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
   x.fillStyle='#0e0e0e';x.fillRect(0,0,W,H);x.imageSmoothingEnabled=false;
-  current.forEach((it,i)=>{const col=i%cols,row=(i/cols)|0;
-    const px=pad+col*(cw+pad),py=pad+row*(cw+pad);
-    x.fillStyle=bgFill(it.st.bg);x.fillRect(px,py,cw,cw);
-    x.drawImage(processBase(it.st.skin),px,py,cw,cw);
-    M.categories.forEach(cat=>{const v=it.st.sel[cat.id];if(!v)return;(cat.multi?v:[v]).forEach(f=>{const im=IMG[cat.dir+'/'+f];if(im)x.drawImage(im,px,py,cw,cw);});});
-  });
-  const a=ce('a');a.download='TigerPunks-100-preview.png';a.href=c.toDataURL('image/png');a.click();
+  current.forEach((it,i)=>{const col=i%cols,row=(i/cols)|0;const px=pad+col*(cw+pad),py=pad+row*(cw+pad);
+    x.fillStyle=bgFill(it.st.bg);x.fillRect(px,py,cw,cw);x.drawImage(processBase(it.st.skin),px,py,cw,cw);
+    M.categories.forEach(cat=>{const v=it.st.sel[cat.id];if(!v)return;(cat.multi?v:[v]).forEach(f=>{const im=IMG[cat.dir+'/'+f];if(im)x.drawImage(im,px,py,cw,cw);});});});
+  const a=ce('a');a.download='TigerPunks-'+cfg.masterSeed+'-sheet.png';a.href=c.toDataURL('image/png');a.click();toast('Sheet downloaded');
 }
 
-$('#regen').onclick=build;
-$('#dl').onclick=downloadSheet;
+let tt;function toast(m){const el=$('#toast');el.textContent=m;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),1600);}
+
+$('#regen').onclick=()=>{cfg.masterSeed=(Math.random()*1e9)|0;pinned={};generate();};
+$('#rerun').onclick=()=>generate();
+$('#save').onclick=saveConfig;
+$('#load').onclick=()=>$('#file').click();
+$('#file').onchange=e=>{if(e.target.files[0])loadConfig(e.target.files[0]);};
+$('#sheet').onclick=downloadSheet;
 boot();
 </script>
 </body>
