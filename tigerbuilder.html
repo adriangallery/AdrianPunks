@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,7 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>TigerPunks Builder · AdrianPunks</title>
-<meta name="description" content="Crea tu propio TigerPunk — builder por capas de la colección AdrianPunks.">
+<meta name="description" content="Create your own TigerPunk — layered builder from the AdrianPunks collection.">
 <link rel="icon" type="image/x-icon" href="adrian1.ico">
 <!-- Same stack as adrianpunks.com -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -20,11 +20,7 @@
     --muted:#6c757d; --accent:#ff6b2b; --accent-2:#ff8142; --accent-ink:#1a0f06;
     --thumb-bg:#e9ecef;
   }
-  [data-theme="dark"]{
-    --bg-color:#1a1a1a; --text-color:#ffffff; --card-bg:#2d2d2d; --border-color:#404040;
-    --muted:#9a9a9a; --thumb-bg:#3a3a3a;
-  }
-  body{background-color:var(--bg-color);color:var(--text-color);padding-top:70px;transition:background-color .2s,color .2s}
+  body{background-color:var(--bg-color);color:var(--text-color);padding-top:70px}
   .card{background-color:var(--card-bg);border-color:var(--border-color);color:var(--text-color)}
   .card-header{background-color:transparent;border-color:var(--border-color);font-weight:600;
     display:flex;justify-content:space-between;align-items:center}
@@ -88,7 +84,7 @@
 </style>
 </head>
 <body>
-<div id="loader"><div>🐯 Cargando trazos…</div><div class="bar"><i id="lbar"></i></div></div>
+<div id="loader"><div>🐯 Loading traits…</div><div class="bar"><i id="lbar"></i></div></div>
 
 <!-- Shared AdrianPunks menu -->
 <div id="menu-container"></div>
@@ -96,9 +92,6 @@
 <div class="container">
   <div class="pagehead">
     <h1><span class="tg">🐯 Tiger</span>Punks <span class="text-muted-2" style="font-size:1rem">Builder</span></h1>
-    <button class="btn btn-sm btn-secondary ms-auto" id="themeButton" onclick="toggleTheme()">
-      <i class="bi bi-moon-stars"></i> <span id="themeButtonText">DarkMode</span>
-    </button>
   </div>
 
   <div class="row g-4">
@@ -114,8 +107,8 @@
               <div class="row g-2">
                 <div class="col-6"><button class="btn btn-outline-secondary w-100" id="btnDownload"><i class="bi bi-download"></i> PNG</button></div>
                 <div class="col-6"><button class="btn btn-outline-secondary w-100" id="btnSVG"><i class="bi bi-filetype-svg"></i> SVG</button></div>
-                <div class="col-6"><button class="btn btn-outline-secondary w-100" id="btnSave"><i class="bi bi-star"></i> Guardar</button></div>
-                <div class="col-6"><button class="btn btn-outline-secondary w-100" id="btnShare"><i class="bi bi-share"></i> Compartir</button></div>
+                <div class="col-6"><button class="btn btn-outline-secondary w-100" id="btnSave"><i class="bi bi-star"></i> Save</button></div>
+                <div class="col-6"><button class="btn btn-outline-secondary w-100" id="btnShare"><i class="bi bi-share"></i> Share</button></div>
               </div>
             </div>
           </div>
@@ -126,7 +119,7 @@
     <!-- CONTROLS -->
     <div class="col-lg-7">
       <div class="card shadow-sm mb-3">
-        <div class="card-header">Fondo <span class="val" id="bgVal">Tiger</span></div>
+        <div class="card-header">Background <span class="val" id="bgVal">Orange</span></div>
         <div class="card-body"><div class="chips" id="bgChips"></div></div>
       </div>
 
@@ -136,31 +129,20 @@
       </div>
 
       <div class="card shadow-sm mb-3">
-        <div class="card-header">3D Glitch <span class="val" id="d3Val">50%</span></div>
-        <div class="card-body">
-          <div class="seg" id="d3Seg"></div>
-          <div class="form-check form-switch mt-3">
-            <input class="form-check-input" type="checkbox" id="recolor" checked>
-            <label class="form-check-label" for="recolor">Recolor tigre (naranja/negro)</label>
-          </div>
-        </div>
-      </div>
-
-      <div class="card shadow-sm mb-3">
-        <div class="card-header">Trazos</div>
+        <div class="card-header">Traits</div>
         <div class="card-body py-1" id="cats"></div>
       </div>
 
       <div class="card shadow-sm mb-3">
-        <div class="card-header">Traits</div>
+        <div class="card-header">Attributes</div>
         <div class="card-body">
           <div class="traits" id="traits"></div>
-          <button class="btn btn-sm btn-outline-secondary w-100 mt-2" id="btnCopy"><i class="bi bi-clipboard"></i> Copiar traits (JSON)</button>
+          <button class="btn btn-sm btn-outline-secondary w-100 mt-2" id="btnCopy"><i class="bi bi-clipboard"></i> Copy attributes (JSON)</button>
         </div>
       </div>
 
       <div class="card shadow-sm mb-3">
-        <div class="card-header">Mi galería</div>
+        <div class="card-header">My Gallery</div>
         <div class="card-body"><div class="gallery" id="gallery"></div></div>
       </div>
     </div>
@@ -186,25 +168,15 @@
         const n=document.createElement('script');n.src='components/menu.js';n.async=false;document.head.appendChild(n);s.remove();
       });
     }).catch(e=>console.error('menu load',e));
-
-  /* theme (same mechanism as adrianpunks.com) */
-  function toggleTheme(){
-    const html=document.documentElement,btn=document.getElementById('themeButton'),txt=document.getElementById('themeButtonText');
-    const isDark=html.getAttribute('data-theme')==='dark';
-    if(!isDark){html.setAttribute('data-theme','dark');localStorage.setItem('theme','dark');txt.textContent='LightMode';btn.classList.remove('btn-secondary');btn.classList.add('btn-dark');}
-    else{html.removeAttribute('data-theme');localStorage.setItem('theme','light');txt.textContent='DarkMode';btn.classList.remove('btn-dark');btn.classList.add('btn-secondary');}
-  }
-  (function(){const t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');
-    document.addEventListener('DOMContentLoaded',()=>{const b=document.getElementById('themeButton'),x=document.getElementById('themeButtonText');if(b){b.classList.remove('btn-secondary');b.classList.add('btn-dark');x.textContent='LightMode';}});}})();
 </script>
 
 <!-- Builder engine -->
 <script>
-const SIZE=1080, ACCENT=[255,107,43], DARK=[18,18,18], GKEY='tigerpunks_gallery';
-const VERSION='20260606d';                       // bump to bust CDN/browser cache on asset updates
+const SIZE=1080, GKEY='tigerpunks_gallery';
+const VERSION='20260607a';                       // bump to bust CDN/browser cache on asset updates
 const bust=u=>u+(u.includes('?')?'&':'?')+'v='+VERSION;
 const $=s=>document.querySelector(s), ce=(t,c)=>{const e=document.createElement(t);if(c)e.className=c;return e;};
-let M=null, IMG={}, baseCache={}, state={bg:'orange', d3:'50.png', recolor:true, skin:'classic', sel:{}};
+let M=null, IMG={}, baseCache={}, state={bg:'orange', skin:'classic', sel:{}};
 
 /* PRNG */
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -215,7 +187,7 @@ function load(src){return new Promise(res=>{if(IMG[src])return res(IMG[src]);con
 
 async function boot(){
   M=await (await fetch(bust('tigerpunks/manifest.json'))).json();
-  const all=[];M.base.options.forEach(o=>all.push(M.base.dir+'/'+o.file));
+  const all=[M.base.dir+'/'+M.base.file];
   M.categories.forEach(c=>c.options.forEach(o=>all.push(c.dir+'/'+o.file)));
   let done=0;
   await Promise.all(all.map(p=>load(p).then(()=>{done++;$('#lbar').style.width=(done/all.length*100)+'%';})));
@@ -224,30 +196,23 @@ async function boot(){
 
 /* backgrounds */
 function drawBg(ctx,id){
-  if(id==='dark'){ctx.fillStyle='#333333';ctx.fillRect(0,0,SIZE,SIZE);return;}
-  if(id==='light'){ctx.fillStyle='#cccccc';ctx.fillRect(0,0,SIZE,SIZE);return;}
-  if(id==='orange'){ctx.fillStyle='#ff8a3d';ctx.fillRect(0,0,SIZE,SIZE);return;}
-  if(id==='orange-grad'){const g=ctx.createLinearGradient(0,0,0,SIZE);g.addColorStop(0,'#ffb066');g.addColorStop(1,'#c64a00');ctx.fillStyle=g;ctx.fillRect(0,0,SIZE,SIZE);return;}
-  ctx.fillStyle='#f59e0b';ctx.fillRect(0,0,SIZE,SIZE);
-  ctx.fillStyle='rgba(20,12,4,.92)';const n=7;
-  for(let i=0;i<n;i++){const x=(i+0.5)*SIZE/n+(i%2?40:-40);const w=44+(i%3)*10;
-    ctx.beginPath();ctx.moveTo(x-w/2,0);ctx.quadraticCurveTo(x+w*0.9,SIZE*0.5,x-w/2,SIZE);
-    ctx.lineTo(x+w/2,SIZE);ctx.quadraticCurveTo(x+w*1.9,SIZE*0.5,x+w/2,0);ctx.closePath();ctx.fill();}
+  if(id==='dark'){ctx.fillStyle='#333333';}
+  else if(id==='light'){ctx.fillStyle='#cccccc';}
+  else {ctx.fillStyle='#ff8a3d';}   // orange (default)
+  ctx.fillRect(0,0,SIZE,SIZE);
 }
 
-/* base processing: anaglyph recolor (red->orange, cyan->dark) + skin tint (white face -> tone) */
+/* base processing: skin tint (white face -> tone). Classic = no tint. */
 function skinColor(){const s=(M.skins||[]).find(s=>s.id===state.skin);return s?s.color:null;}
 function processBase(src){
   const sc=skinColor();
-  if(!state.recolor && !sc) return IMG[src];                 // nothing to do
-  const key=src+'|'+state.recolor+'|'+state.skin;
+  if(!sc) return IMG[src];                 // classic: no tint
+  const key=src+'|'+state.skin;
   if(baseCache[key])return baseCache[key];
   const im=IMG[src],c=ce('canvas');c.width=c.height=SIZE;const x=c.getContext('2d');x.drawImage(im,0,0,SIZE,SIZE);
   const d=x.getImageData(0,0,SIZE,SIZE),p=d.data;
   for(let i=0;i<p.length;i+=4){if(p[i+3]<10)continue;const r=p[i],g=p[i+1],b=p[i+2];
-    if(state.recolor && r>150&&g<115&&b<115){p[i]=ACCENT[0];p[i+1]=ACCENT[1];p[i+2]=ACCENT[2];}
-    else if(state.recolor && r<115&&g>150&&b>150){p[i]=DARK[0];p[i+1]=DARK[1];p[i+2]=DARK[2];}
-    else if(sc && r>238&&g>238&&b>238){p[i]=sc[0];p[i+1]=sc[1];p[i+2]=sc[2];}  // white face -> skin
+    if(r>238&&g>238&&b>238){p[i]=sc[0];p[i+1]=sc[1];p[i+2]=sc[2];}  // white face -> skin
   }
   x.putImageData(d,0,0);baseCache[key]=c;return c;
 }
@@ -255,7 +220,7 @@ function processBase(src){
 function render(){
   const ctx=$('#view').getContext('2d');ctx.clearRect(0,0,SIZE,SIZE);
   drawBg(ctx,state.bg);
-  const baseSrc=M.base.dir+'/'+state.d3;
+  const baseSrc=M.base.dir+'/'+M.base.file;
   if(IMG[baseSrc])ctx.drawImage(processBase(baseSrc),0,0,SIZE,SIZE);
   M.categories.forEach(c=>{const v=state.sel[c.id];if(!v)return;const arr=c.multi?v:[v];
     arr.forEach(file=>{const im=IMG[c.dir+'/'+file];if(im)ctx.drawImage(im,0,0,SIZE,SIZE);});});
@@ -270,10 +235,6 @@ function buildUI(){
   (M.skins||[]).forEach(s=>{const el=ce('div','chip'+(s.id===state.skin?' active':''));el.textContent=s.label;
     if(s.color)el.style.borderLeft='10px solid rgb('+s.color.join(',')+')';
     el.onclick=()=>{state.skin=s.id;$('#skinVal').textContent=s.label;[...sk.children].forEach(c=>c.classList.remove('active'));el.classList.add('active');render();};sk.appendChild(el);});
-  const seg=$('#d3Seg');
-  M.base.options.forEach(o=>{const el=ce('div','chip'+(o.file===state.d3?' active':''));el.textContent=o.label;
-    el.onclick=()=>{state.d3=o.file;$('#d3Val').textContent=o.label;[...seg.children].forEach(c=>c.classList.remove('active'));el.classList.add('active');render();};seg.appendChild(el);});
-  $('#recolor').onchange=e=>{state.recolor=e.target.checked;render();};
   const wrap=$('#cats');
   M.categories.forEach((c,idx)=>{
     const cat=ce('div','cat');const head=ce('div','head');
@@ -297,8 +258,7 @@ function lbl(c,file){const o=c.options.find(o=>o.file===file);return o?o.label:f
 
 function randomize(s){
   reseed(s!==undefined?s:Math.floor(Math.random()*1e9));
-  state.bg=M.backgrounds[Math.floor(rng()*Math.min(3,M.backgrounds.length))].id;
-  state.d3=M.base.options[1+Math.floor(rng()*(M.base.options.length-1))].file;
+  state.bg=M.backgrounds[Math.floor(rng()*M.backgrounds.length)].id;
   if(M.skins&&M.skins.length)state.skin=M.skins[Math.floor(rng()*M.skins.length)].id;
   state.sel={};
   M.categories.forEach(c=>{
@@ -312,9 +272,6 @@ function syncUI(){
   [...$('#bgChips').children].forEach(el=>el.classList.toggle('active',el.textContent===$('#bgVal').textContent));
   $('#skinVal').textContent=((M.skins||[]).find(s=>s.id===state.skin)||{}).label||'Classic';
   [...$('#skinChips').children].forEach(el=>el.classList.toggle('active',el.textContent===$('#skinVal').textContent));
-  $('#d3Val').textContent=(M.base.options.find(o=>o.file===state.d3)||{}).label||'';
-  [...$('#d3Seg').children].forEach(el=>el.classList.toggle('active',el.textContent===$('#d3Val').textContent));
-  $('#recolor').checked=state.recolor;
   M.categories.forEach(c=>{const grid=document.querySelectorAll('#cats .cat')[M.categories.indexOf(c)].querySelector('.grid');const sel=state.sel[c.id];
     [...grid.children].forEach(t=>{const f=t.dataset.file;if(c.multi)t.classList.toggle('active',(sel||[]).includes(f));else t.classList.toggle('active',(f||'')===(sel||''));});
     $('#pick-'+c.id).textContent=c.multi?((sel&&sel.length)?sel.map(f=>lbl(c,f)).join(', '):'None'):(sel?lbl(c,sel):'None');});
@@ -322,12 +279,11 @@ function syncUI(){
 
 function traitsObj(){
   const o={Background:(M.backgrounds.find(b=>b.id===state.bg)||{}).label,
-    Skin:((M.skins||[]).find(s=>s.id===state.skin)||{}).label||'Classic',
-    '3D Glitch':(M.base.options.find(x=>x.file===state.d3)||{}).label+(state.recolor?' (tiger)':'')};
+    Skin:((M.skins||[]).find(s=>s.id===state.skin)||{}).label||'Classic'};
   M.categories.forEach(c=>{const s=state.sel[c.id];o[c.label]=c.multi?((s&&s.length)?s.map(f=>lbl(c,f)).join(' + '):'None'):(s?lbl(c,s):'None');});return o;
 }
 function updateTraits(){const o=traitsObj(),el=$('#traits');el.innerHTML='';Object.entries(o).forEach(([k,v])=>{const r=ce('div','row');r.innerHTML=`<span>${k}</span><span>${v}</span>`;el.appendChild(r);});}
-function copyTraits(){navigator.clipboard.writeText(JSON.stringify({seed,name:'TigerPunk #'+seed,attributes:traitsObj()},null,2));toast('Traits copiados');}
+function copyTraits(){navigator.clipboard.writeText(JSON.stringify({seed,name:'TigerPunk #'+seed,attributes:traitsObj()},null,2));toast('Attributes copied');}
 
 function exportCanvas(badge){
   const c=ce('canvas');c.width=c.height=SIZE;const x=c.getContext('2d');x.drawImage($('#view'),0,0);
@@ -335,7 +291,7 @@ function exportCanvas(badge){
     x.fillStyle='rgba(0,0,0,.45)';x.fillRect(14,SIZE-40,w+22,30);x.fillStyle='#ff6b2b';x.fillText(t,24,SIZE-16);}
   return c;
 }
-function download(){const c=exportCanvas(true),a=ce('a');a.download='TigerPunk-'+seed+'.png';a.href=c.toDataURL('image/png');a.click();toast('PNG descargado');}
+function download(){const c=exportCanvas(true),a=ce('a');a.download='TigerPunk-'+seed+'.png';a.href=c.toDataURL('image/png');a.click();toast('PNG downloaded');}
 
 /* SVG export (svgmaker technique): downsample to GRID, one <rect> per opaque pixel — on-chain ready */
 const SVG_GRID=72;
@@ -353,17 +309,17 @@ function buildSVG(){
 }
 function downloadSVG(){
   const blob=new Blob([buildSVG()],{type:'image/svg+xml'});const a=ce('a');
-  a.download='TigerPunk-'+seed+'.svg';a.href=URL.createObjectURL(blob);a.click();toast('SVG descargado (on-chain ready)');
+  a.download='TigerPunk-'+seed+'.svg';a.href=URL.createObjectURL(blob);a.click();toast('SVG downloaded (on-chain ready)');
 }
 
 function thumbURL(){const c=ce('canvas');c.width=c.height=240;c.getContext('2d').drawImage($('#view'),0,0,240,240);return c.toDataURL('image/png');}
 function getGallery(){try{return JSON.parse(localStorage.getItem(GKEY)||'[]');}catch(e){return[];}}
-function saveToGallery(){const g=getGallery();g.unshift({seed,thumb:thumbURL(),state:JSON.parse(JSON.stringify(state))});localStorage.setItem(GKEY,JSON.stringify(g.slice(0,24)));renderGallery();toast('Guardado en galería');}
+function saveToGallery(){const g=getGallery();g.unshift({seed,thumb:thumbURL(),state:JSON.parse(JSON.stringify(state))});localStorage.setItem(GKEY,JSON.stringify(g.slice(0,24)));renderGallery();toast('Saved to gallery');}
 function renderGallery(){
   const g=getGallery(),el=$('#gallery');el.innerHTML='';
-  if(!g.length){el.innerHTML='<div class="text-muted-2" style="font-size:.82rem">Aún no has guardado ningún TigerPunk.</div>';return;}
-  g.forEach((it,i)=>{const wrap=ce('div','gi');const img=ce('img');img.src=it.thumb;img.title='#'+it.seed+' — click para cargar';
-    img.onclick=()=>{state=JSON.parse(JSON.stringify(it.state));seed=it.seed;$('#seed').textContent='#'+seed;syncUI();render();toast('Cargado #'+it.seed);};
+  if(!g.length){el.innerHTML='<div class="text-muted-2" style="font-size:.82rem">You haven\'t saved any TigerPunk yet.</div>';return;}
+  g.forEach((it,i)=>{const wrap=ce('div','gi');const img=ce('img');img.src=it.thumb;img.title='#'+it.seed+' — click to load';
+    img.onclick=()=>{state=JSON.parse(JSON.stringify(it.state));seed=it.seed;$('#seed').textContent='#'+seed;syncUI();render();toast('Loaded #'+it.seed);};
     const del=ce('div','del');del.textContent='×';del.onclick=ev=>{ev.stopPropagation();const gg=getGallery();gg.splice(i,1);localStorage.setItem(GKEY,JSON.stringify(gg));renderGallery();};
     wrap.appendChild(img);wrap.appendChild(del);el.appendChild(wrap);});
 }
@@ -372,10 +328,10 @@ async function share(){
   const c=exportCanvas(true);
   c.toBlob(async blob=>{
     const file=new File([blob],'TigerPunk-'+seed+'.png',{type:'image/png'});
-    const text='Acabo de crear mi TigerPunk #'+seed+' 🐯 en adrianpunks.com';
+    const text='Just created my TigerPunk #'+seed+' 🐯 at adrianpunks.com';
     if(navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],text,title:'TigerPunk #'+seed});}catch(e){}}
     else{const a=ce('a');a.download=file.name;a.href=URL.createObjectURL(blob);a.click();
-      window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text+' #TigerPunks #AdrianPunks'),'_blank');toast('Imagen descargada — adjúntala al tweet');}
+      window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(text+' #TigerPunks #AdrianPunks'),'_blank');toast('Image downloaded — attach it to the tweet');}
   },'image/png');
 }
 
