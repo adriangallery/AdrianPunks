@@ -77,6 +77,7 @@
         <button id="mint" disabled>Mint</button>
       </div>
       <div class="note">Punks show a mystery silhouette until <code>reveal()</code> after the sale (fair, anti-snipe). <b>Legendary 1/1 holders can claim right away</b> — open from day one in the panel on the right.</div>
+      <div id="allowlistBox" style="margin-top:14px;display:none"><h2>Your phases</h2><div id="allowlistList"></div></div>
     </div>
 
     <!-- RIGHT: preview + 1/1 claim -->
@@ -117,7 +118,8 @@ const CLAIMS = [{"tokenId": 1, "name": "Adrian", "owner": "0x4943407105999e3E97E
 // minimal ABIs
 const SEADROP_ABI = [
   "function mintPublic(address nft,address feeRecipient,address minterIfNotPayer,uint256 quantity) payable",
-  "function getPublicDrop(address nft) view returns (uint80 mintPrice,uint48 startTime,uint48 endTime,uint16 maxTotalMintableByWallet,uint16 feeBps,bool restrictFeeRecipients)"
+  "function getPublicDrop(address nft) view returns (uint80 mintPrice,uint48 startTime,uint48 endTime,uint16 maxTotalMintableByWallet,uint16 feeBps,bool restrictFeeRecipients)",
+  "function mintAllowList(address nft,address feeRecipient,address minterIfNotPayer,uint256 quantity,(uint256,uint256,uint256,uint256,uint256,uint256,uint256,bool) mintParams,bytes32[] proof) payable"
 ];
 const NFT_ABI = [
   "function totalSupply() view returns (uint256)",
@@ -129,6 +131,7 @@ const NFT_ABI = [
   "function specialName(uint256) view returns (string)"
 ];
 
+const ALLOWLIST = [{"address": "0xa41D5fAF7BA8B82E276125dE2a053216e91f4814", "phase": "Holders FREE", "mintParams": ["0", "3", "1700000000", "2000000000", "1", "10000", "0", false], "proof": ["0x2128d45e120aa7cca4b1e596daeb6e264ce19922482f27cf7708b701e8688102", "0x924fc47938a4c534010389df16fc4d7ec32d5bfaf27762b8953d5032cce2c6c7", "0xdf7fc79432b6bf22336445cb65f8453996a7bac1a2eae36bb7541c5f3cd51136"]}, {"address": "0xa41D5fAF7BA8B82E276125dE2a053216e91f4814", "phase": "Holders PAID", "mintParams": ["1000000000000000", "100", "1700000000", "2000000000", "2", "10000", "0", false], "proof": ["0x2813b314271f23e3530bbf56c473c56558d847593e3f6028a7875c9ad3989776", "0x924fc47938a4c534010389df16fc4d7ec32d5bfaf27762b8953d5032cce2c6c7", "0xdf7fc79432b6bf22336445cb65f8453996a7bac1a2eae36bb7541c5f3cd51136"]}, {"address": "0xa41D5fAF7BA8B82E276125dE2a053216e91f4814", "phase": "Allowlist PAID", "mintParams": ["1000000000000000", "100", "1700000000", "2000000000", "3", "10000", "0", false], "proof": ["0x47c527aa1008c65db4a589a58726e8404e103d56de886b435a3e1da197001077", "0x01f960b02bd753650a361d11fa883e85bc32e7a562304b5492cf31c071bb5364", "0xdf7fc79432b6bf22336445cb65f8453996a7bac1a2eae36bb7541c5f3cd51136"]}, {"address": "0x4943407105999e3E97EFA2035F5cbC64D72581C6", "phase": "Holders FREE", "mintParams": ["0", "3", "1700000000", "2000000000", "1", "10000", "0", false], "proof": ["0x7d5e06be36a74c7ba7a9461f0b4f06badff3a27192eca8f7fe6df44609dc5a14", "0x01f960b02bd753650a361d11fa883e85bc32e7a562304b5492cf31c071bb5364", "0xdf7fc79432b6bf22336445cb65f8453996a7bac1a2eae36bb7541c5f3cd51136"]}, {"address": "0x4943407105999e3E97EFA2035F5cbC64D72581C6", "phase": "Holders PAID", "mintParams": ["1000000000000000", "100", "1700000000", "2000000000", "2", "10000", "0", false], "proof": ["0x2e5c3f969464fa32102226e14503b06fc8f1708a10efbb625b5c829d842b54fd", "0xedbb8142c39c09639e704dfd94ad170c2ee8ad2456cc4f9c2b8224ef079b2b16"]}, {"address": "0x4943407105999e3E97EFA2035F5cbC64D72581C6", "phase": "Allowlist PAID", "mintParams": ["1000000000000000", "100", "1700000000", "2000000000", "3", "10000", "0", false], "proof": ["0xdb8259bfab7196470de488f7fe7bc785d080eb6391191d457db9489ca4c50801", "0xedbb8142c39c09639e704dfd94ad170c2ee8ad2456cc4f9c2b8224ef079b2b16"]}];
 let provider, signer, account;
 const $ = s => document.querySelector(s);
 const toast = m => { const t=$("#toast"); t.textContent=m; t.classList.add("show"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),3500); };
@@ -174,6 +177,7 @@ async function connect(){
   $("#connect").textContent = account.slice(0,6)+"…"+account.slice(-4);
   $("#mint").disabled = false;
   await renderClaims();
+  renderAllowlist();
 }
 
 async function mint(){
@@ -187,6 +191,33 @@ async function mint(){
     toast("Minting…"); await tx.wait();
     toast("Minted! 🐯"); await refresh(); showLatest();
   }catch(e){ toast(e.reason||e.message||"Mint failed"); }
+}
+
+function renderAllowlist(){
+  if(!account) return;
+  const mine = ALLOWLIST.filter(a=>a.address.toLowerCase()===account.toLowerCase());
+  const box=$("#allowlistBox"), list=$("#allowlistList"); list.innerHTML="";
+  if(!mine.length){ box.style.display="none"; return; }
+  box.style.display="block";
+  for(const e of mine){
+    const price=ethers.utils.formatEther(e.mintParams[0]);
+    const row=document.createElement("div"); row.className="row";
+    row.innerHTML=`<span>${e.phase} - ${price=="0.0"?"FREE":price+" ETH"} (max ${e.mintParams[1]})</span>`;
+    const b=document.createElement("button"); b.textContent="Mint"; b.onclick=()=>mintAllowListTx(e,b);
+    row.appendChild(b); list.appendChild(row);
+  }
+}
+async function mintAllowListTx(e,btn){
+  try{
+    btn.disabled=true;
+    const qty=Math.max(1,parseInt($("#qty").value||"1"));
+    const mp=e.mintParams;
+    const value=ethers.BigNumber.from(mp[0]).mul(qty);
+    toast("Confirm in wallet...");
+    const tx=await seadrop(signer).mintAllowList(CFG.CONTRACT,CFG.FEE_RECIPIENT,ethers.constants.AddressZero,qty,mp,e.proof,{value});
+    toast("Minting..."); await tx.wait(); toast(e.phase+" mint done!");
+    await refresh(); showLatest();
+  }catch(err){ btn.disabled=false; toast(err.reason||err.message||"Mint failed"); }
 }
 
 // list ALL of the connected wallet's unclaimed 1/1s, each with its own Claim button
