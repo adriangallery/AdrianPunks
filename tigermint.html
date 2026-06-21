@@ -59,6 +59,11 @@
   .pcard.upcoming{opacity:.5}
   .pcard.upcoming .mintbtn{border-style:dashed}
   #preview{width:100%;aspect-ratio:1;background:#000;border:1px solid var(--line);border-radius:8px;image-rendering:pixelated}
+  #myPunksGrid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:8px}
+  @media(max-width:720px){#myPunksGrid{grid-template-columns:repeat(4,1fr)}}
+  .punkthumb{aspect-ratio:1;border:1px solid var(--line);border-radius:6px;overflow:hidden;cursor:pointer;background:#000}
+  .punkthumb img{width:100%;height:100%;image-rendering:pixelated;display:block}
+  .punkthumb:hover{border-color:var(--green)}
   .note{color:var(--muted);font-size:11px;margin-top:10px;line-height:1.5}
   #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#000;border:1px solid var(--green);
     color:var(--green);padding:10px 18px;border-radius:6px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;max-width:90%}
@@ -106,6 +111,11 @@
         <h2>Legendary 1/1 claim</h2>
         <div id="claimList"></div>
         <div class="note">Eligible OG AdrianPunks 1/1 holders can claim each of their animated legendaries here.</div>
+      </div>
+      <div id="myPunksBox" style="margin-top:16px;display:none">
+        <h2>Your TigerPunks (<span id="myPunksCount">0</span>)</h2>
+        <div id="myPunksGrid"></div>
+        <div id="myPunksMore" class="note"></div>
       </div>
     </div>
   </div>
@@ -165,7 +175,9 @@ const NFT_ABI = [
   "function balanceOf(address) view returns (uint256)",
   "function claimSpecial(uint256 tokenId,bytes32[] proof)",
   "function specialName(uint256) view returns (string)",
-  "function getMintStats(address minter) view returns (uint256 minterNumMinted,uint256 currentTotalSupply,uint256 maxSupply)"
+  "function getMintStats(address minter) view returns (uint256 minterNumMinted,uint256 currentTotalSupply,uint256 maxSupply)",
+  "function tokensOfOwner(address owner) view returns (uint256[])",
+  "function revealed() view returns (bool)"
 ];
 
 const ALLOWLIST = [{"address": "0xa41D5fAF7BA8B82E276125dE2a053216e91f4814", "phase": "Holders FREE", "mintParams": ["0", "3", "1700000000", "2000000000", "1", "10000", "0", false], "proof": ["0x2128d45e120aa7cca4b1e596daeb6e264ce19922482f27cf7708b701e8688102", "0x924fc47938a4c534010389df16fc4d7ec32d5bfaf27762b8953d5032cce2c6c7", "0xdf7fc79432b6bf22336445cb65f8453996a7bac1a2eae36bb7541c5f3cd51136"]}, {"address": "0xa41D5fAF7BA8B82E276125dE2a053216e91f4814", "phase": "Holders PAID", "mintParams": ["1000000000000000", "100", "1700000000", "2000000000", "2", "10000", "0", false], "proof": ["0x2813b314271f23e3530bbf56c473c56558d847593e3f6028a7875c9ad3989776", "0x924fc47938a4c534010389df16fc4d7ec32d5bfaf27762b8953d5032cce2c6c7", "0xdf7fc79432b6bf22336445cb65f8453996a7bac1a2eae36bb7541c5f3cd51136"]}, {"address": "0xa41D5fAF7BA8B82E276125dE2a053216e91f4814", "phase": "Allowlist PAID", "mintParams": ["1000000000000000", "100", "1700000000", "2000000000", "3", "10000", "0", false], "proof": ["0x47c527aa1008c65db4a589a58726e8404e103d56de886b435a3e1da197001077", "0x01f960b02bd753650a361d11fa883e85bc32e7a562304b5492cf31c071bb5364", "0xdf7fc79432b6bf22336445cb65f8453996a7bac1a2eae36bb7541c5f3cd51136"]}, {"address": "0x4943407105999e3E97EFA2035F5cbC64D72581C6", "phase": "Holders FREE", "mintParams": ["0", "3", "1700000000", "2000000000", "1", "10000", "0", false], "proof": ["0x7d5e06be36a74c7ba7a9461f0b4f06badff3a27192eca8f7fe6df44609dc5a14", "0x01f960b02bd753650a361d11fa883e85bc32e7a562304b5492cf31c071bb5364", "0xdf7fc79432b6bf22336445cb65f8453996a7bac1a2eae36bb7541c5f3cd51136"]}, {"address": "0x4943407105999e3E97EFA2035F5cbC64D72581C6", "phase": "Holders PAID", "mintParams": ["1000000000000000", "100", "1700000000", "2000000000", "2", "10000", "0", false], "proof": ["0x2e5c3f969464fa32102226e14503b06fc8f1708a10efbb625b5c829d842b54fd", "0xedbb8142c39c09639e704dfd94ad170c2ee8ad2456cc4f9c2b8224ef079b2b16"]}, {"address": "0x4943407105999e3E97EFA2035F5cbC64D72581C6", "phase": "Allowlist PAID", "mintParams": ["1000000000000000", "100", "1700000000", "2000000000", "3", "10000", "0", false], "proof": ["0xdb8259bfab7196470de488f7fe7bc785d080eb6391191d457db9489ca4c50801", "0xedbb8142c39c09639e704dfd94ad170c2ee8ad2456cc4f9c2b8224ef079b2b16"]}];
@@ -236,6 +248,7 @@ async function connect(){
     signer = provider.getSigner(); account = await signer.getAddress();
     $("#connect").textContent = account.slice(0,6)+"…"+account.slice(-4);
     await renderClaims();
+    renderMyPunks();
     await renderPhases();
   }catch(e){ toast(friendlyErr(e)); }
 }
@@ -351,7 +364,7 @@ async function doMint(ph, qty, btn){
     if(ph.kind==="public") tx = await seadrop(signer).mintPublic(CFG.CONTRACT, CFG.FEE_RECIPIENT, ethers.constants.AddressZero, qty, {value});
     else tx = await seadrop(signer).mintAllowList(CFG.CONTRACT, CFG.FEE_RECIPIENT, ethers.constants.AddressZero, qty, ph.mintParams, ph.proof, {value});
     btn.textContent="Minting…"; await tx.wait();
-    toast(`Minted ${qty} 🐯`); await refresh(); showLatest();   // refresh() already re-renders phases
+    toast(`Minted ${qty} 🐯`); await refresh(); showLatest(); renderMyPunks();   // update gallery + stats
   }catch(e){ btn.disabled=false; btn.textContent=old; toast(friendlyErr(e)); }
 }
 
@@ -380,7 +393,7 @@ async function claimToken(id, proof, btn){
     btn.disabled=true; toast("Confirm claim in wallet…");
     const tx = await nft(signer).claimSpecial(id, proof);
     toast("Claiming…"); await tx.wait(); toast("Claimed #"+id+"! ✨");
-    showToken(id); await renderClaims();
+    showToken(id); await renderClaims(); renderMyPunks();
   }catch(e){ btn.disabled=false; toast(e.reason||e.message||"Claim failed"); }
 }
 
@@ -395,6 +408,41 @@ async function showToken(id){
   }catch(e){ console.warn(e); }
 }
 async function showLatest(){ try{ const ts=await nft(ro()).totalSupply(); showToken(ts.toString()); }catch{} }
+
+// ---- "Your TigerPunks" gallery (handles 2-3 up to 100+ owned) ------------
+const MY_PUNKS_CAP = 12;   // render at most this many thumbs; rest -> "+N more"
+async function renderMyPunks(){
+  const box=$("#myPunksBox"); if(!box) return;
+  if(!account){ box.style.display="none"; return; }
+  let ids=[];
+  try{ ids = (await nft(ro()).tokensOfOwner(account)).map(b=>Number(b.toString())); }
+  catch(e){ console.warn(e); box.style.display="none"; return; }
+  if(!ids.length){ box.style.display="none"; return; }
+  box.style.display="block";
+  $("#myPunksCount").textContent = ids.length;
+  const grid=$("#myPunksGrid"); grid.innerHTML="";
+  const show = ids.slice(0, MY_PUNKS_CAP);
+  // pre-reveal everything is the same silhouette -> fetch it ONCE and reuse (no N identical RPCs)
+  let revealed=false, silhouette=null;
+  try{ revealed = await nft(ro()).revealed(); }catch{}
+  if(!revealed){ try{ silhouette = JSON.parse(decodeDataURI(await renderer(ro()).unrevealedURI(0))).image; }catch{} }
+  // build thumbs (fetch per-token image only when revealed)
+  await Promise.all(show.map(async id=>{
+    const cell=document.createElement("div"); cell.className="punkthumb"; cell.title="#"+id;
+    const img=document.createElement("img"); img.alt="#"+id;
+    try{
+      img.src = (!revealed && silhouette) ? silhouette
+              : JSON.parse(decodeDataURI(await nft(ro()).tokenURI(id))).image;
+    }catch{}
+    cell.appendChild(img); cell.onclick=()=>showToken(id);
+    cell.dataset.id=id; grid.appendChild(cell);
+  }));
+  // keep DOM order = token order (Promise.all may resolve out of order)
+  [...grid.children].sort((a,b)=>a.dataset.id-b.dataset.id).forEach(c=>grid.appendChild(c));
+  $("#myPunksMore").innerHTML = ids.length>MY_PUNKS_CAP
+    ? `+${ids.length-MY_PUNKS_CAP} more · <a href="https://opensea.io/${account}" target="_blank">view all ↗</a>`
+    : (revealed ? "" : "Tap a punk to preview · all reveal after the sale");
+}
 
 $("#connect").onclick=connect;
 // on-chain pre-reveal art as default (disconnected / no-1/1 wallets)
