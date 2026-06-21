@@ -56,6 +56,8 @@
   .pcard .qty .stepbtn{padding:6px 12px;font-size:16px;line-height:1}
   .pcard .mintbtn{flex:1;min-width:150px;font-weight:600}
   .pcard.free .pcard-h b::after{content:" · FREE";color:var(--green);font-size:11px;font-weight:normal}
+  .pcard.upcoming{opacity:.5}
+  .pcard.upcoming .mintbtn{border-style:dashed}
   #preview{width:100%;aspect-ratio:1;background:#000;border:1px solid var(--line);border-radius:8px;image-rendering:pixelated}
   .note{color:var(--muted);font-size:11px;margin-top:10px;line-height:1.5}
   #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#000;border:1px solid var(--green);
@@ -130,8 +132,22 @@ const CFG = {
   SEADROP:  "0x00005EA00Ac477B1030CE78506496e8C2dE24bf5",  // canonical SeaDrop 1.0
   FEE_RECIPIENT: "0xcC897243c7e9aA460066162693fA05f6f20A4A6f", // FiftyFifty (creator/fee)
   CHAIN_ID: 8453,                        // Base mainnet (number, for WalletConnect)
-  WC_PROJECT_ID: "PASTE_YOUR_WALLETCONNECT_PROJECT_ID",  // <-- pega aquí tu NEXT_PUBLIC_WC_PROJECT_ID (Reown/WalletConnect). Público.
+  WC_PROJECT_ID: "6afed75f72df7cefde4d998c2da4b041",  // NEXT_PUBLIC_WC_PROJECT_ID (público)
+  PUBLIC_PRICE_WEI: "1000000000000000",  // 0.001 ETH — para pintar la tarjeta Public al instante (sin esperar RPC)
+  PUBLIC_MAX: 100,                       // max/wallet público (instant render)
 };
+// PREVIEW de fases solapadas por prioridad: minutos en que ABRE cada tier tras el
+// lanzamiento (una vez abierto, sigue abierto). Staggers de 10 min. launchTs=0 =>
+// usa la hora de carga (cuenta atrás visible en cada recarga). EN ETH: poner un
+// launchTs real y hornear las MISMAS ventanas en los mintParams (Merkle) + publicDrop.
+const SCHEDULE = {
+  launchTs: 0,
+  openMin: { "Holders FREE":0, "Holders PAID":0, "Allowlist PAID":10, "Public":20 },
+};
+const _launch = SCHEDULE.launchTs || Math.floor(Date.now()/1000);
+const phaseOpenTs = label => _launch + (SCHEDULE.openMin[label] ?? 0)*60;
+function fmtCountdown(s){ s=Math.max(0,Math.floor(s)); const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;
+  if(h>0) return h+"h "+m+"m"; if(m>0) return m+"m "+String(ss).padStart(2,"0")+"s"; return ss+"s"; }
 // 1/1 claim list (built from snapshot): { tokenId, name, owner, proof:[] }
 const CLAIMS = [{"tokenId": 1, "name": "Adrian", "owner": "0x4943407105999e3E97EFA2035F5cbC64D72581C6", "proof": ["0xf3291acbcdd50cfe7c6becce5ecb6b6f68b6b12e5a7179f9743db7c205efe3ea", "0x28a23761ef60a1848851e7985dfa52d27684f9259b5030efbde14e594decb265", "0x7b2fdc4dbd52b6691d5e1fa6fe6a33756cd6fb63a359982dc3c74e1f96addeac", "0x04839e09a557ea46e7889fad290705d384701ae71c76287f8dac07d38a9577b8"]}, {"tokenId": 2, "name": "Negative", "owner": "0x5d1f7101D680a5eB3FCCB57BD3F8d447486Ee1aA", "proof": ["0x52e786b71462b3096815872737f7299d3b90fa4410f6bbf1ba556dfac0d5757c", "0x28a23761ef60a1848851e7985dfa52d27684f9259b5030efbde14e594decb265", "0x7b2fdc4dbd52b6691d5e1fa6fe6a33756cd6fb63a359982dc3c74e1f96addeac", "0x04839e09a557ea46e7889fad290705d384701ae71c76287f8dac07d38a9577b8"]}, {"tokenId": 3, "name": "Checker", "owner": "0x5BE28b0257dD7CcB24588B9C4e18CB127928415E", "proof": ["0x8e469ccf028020ca487def5ba4cb67f278552227356ff5907b5b7aad459ff698", "0x415d94cf4cfba5e1402b17bd7d265a289533ce541d3d34081bba3e589c6f0c54", "0x7b2fdc4dbd52b6691d5e1fa6fe6a33756cd6fb63a359982dc3c74e1f96addeac", "0x04839e09a557ea46e7889fad290705d384701ae71c76287f8dac07d38a9577b8"]}, {"tokenId": 4, "name": "Idea", "owner": "0x466c949Ec9B8B26B59479129A81911759e77f1C3", "proof": ["0x76d8dcac34f6c73bbdf89b2884c0fbf1b04fd18b95d9e1aeb404b2e991c6f8c8", "0x415d94cf4cfba5e1402b17bd7d265a289533ce541d3d34081bba3e589c6f0c54", "0x7b2fdc4dbd52b6691d5e1fa6fe6a33756cd6fb63a359982dc3c74e1f96addeac", "0x04839e09a557ea46e7889fad290705d384701ae71c76287f8dac07d38a9577b8"]}, {"tokenId": 5, "name": "Laser", "owner": "0x9E83EB98C390cdaa8822e58f39516aa87Dc5d0c2", "proof": ["0xa07ed8f2a2b5b94fc20a25b542c8ffa2c1a6fec9f319e0c04a9f620ade782cd0", "0xf94098243a67df5b38a4d3014d89293acd20692668ceff67fa15e4ae4949d29c", "0xcdb597e8b2850885b2322d62a9fe1a50fc1d469aaa9dfaa8c6aea44461a89107", "0x04839e09a557ea46e7889fad290705d384701ae71c76287f8dac07d38a9577b8"]}, {"tokenId": 6, "name": "420", "owner": "0x9E83EB98C390cdaa8822e58f39516aa87Dc5d0c2", "proof": ["0x13b3c301af51de13de75f2ab0755f210c72182790c532b5ef928bde70136cbfc", "0xf94098243a67df5b38a4d3014d89293acd20692668ceff67fa15e4ae4949d29c", "0xcdb597e8b2850885b2322d62a9fe1a50fc1d469aaa9dfaa8c6aea44461a89107", "0x04839e09a557ea46e7889fad290705d384701ae71c76287f8dac07d38a9577b8"]}, {"tokenId": 7, "name": "$ADRIAN", "owner": "0x5BE28b0257dD7CcB24588B9C4e18CB127928415E", "proof": ["0x4e5ada1df1c97a856449a27be253d669537c6953f898829ac60ea1b4905ef2ed", "0x5288ae428d41455bd3843065605984ad7fe8f9ccc33013f6199211eb5b901703", "0xcdb597e8b2850885b2322d62a9fe1a50fc1d469aaa9dfaa8c6aea44461a89107", "0x04839e09a557ea46e7889fad290705d384701ae71c76287f8dac07d38a9577b8"]}, {"tokenId": 8, "name": "Mona Punk Lisa", "owner": "0x4943407105999e3E97EFA2035F5cbC64D72581C6", "proof": ["0x449664a370dc667a9569f8f129318cb21ccf7cdb8620304c34e602102cfafa9d", "0x5288ae428d41455bd3843065605984ad7fe8f9ccc33013f6199211eb5b901703", "0xcdb597e8b2850885b2322d62a9fe1a50fc1d469aaa9dfaa8c6aea44461a89107", "0x04839e09a557ea46e7889fad290705d384701ae71c76287f8dac07d38a9577b8"]}, {"tokenId": 9, "name": "Funk", "owner": "0x0351F7cBA83277E891D4a85Da498A7eACD764D58", "proof": ["0x3017c8bbdb0a00747687a08da907550946c890536f29a355e00886df7c4d6409", "0x0f75767218512d51b575e4b8e2031483b3a0cb70d2146ae6227d0d177cbe3aac", "0x05b603499e5ef2f6b44659efdf7e4b26acaa59e9af9d7b94ea5fa07e0c691308"]}, {"tokenId": 10, "name": "OI", "owner": "0x214f2646BcA546c489560C1309F57b2D6255F553", "proof": ["0xc7399b103202b8698e00f04a664077dadcc5e11c360a42e03435ccb028e5ad8c", "0x0f75767218512d51b575e4b8e2031483b3a0cb70d2146ae6227d0d177cbe3aac", "0x05b603499e5ef2f6b44659efdf7e4b26acaa59e9af9d7b94ea5fa07e0c691308"]}, {"tokenId": 11, "name": "FFS!", "owner": "0x3028d928654fe95424D6c74E7C8793aB84EE006a", "proof": ["0x86c841ffa8ba029bcfc51269bccddc947a75cca58dc9bc975b80e56278b6a62b", "0x05b603499e5ef2f6b44659efdf7e4b26acaa59e9af9d7b94ea5fa07e0c691308"]}];
 
@@ -183,7 +199,7 @@ async function refresh(){
     $("#perWallet").textContent = pd.maxTotalMintableByWallet.toString();
     $("#phaseName").textContent = live ? "Public" : "Not live";
     document.querySelectorAll(".dot").forEach(d=>d.classList.toggle("on", d.dataset.ph==="4" && live));
-    await renderPhases();
+    refreshPhaseStats();          // refine "X left" without re-rendering the cards
   }catch(e){ console.warn(e); }
 }
 
@@ -239,70 +255,89 @@ function friendlyErr(e){
 // ---- phase cards (one per mintable phase, each with its own qty + total) -
 function priceLabel(bn){ return bn.isZero() ? "FREE" : ethers.utils.formatEther(bn)+" ETH"; }
 
-function phasesFor(pd){
+function phasesFor(){
   const list = [];
   if(account){
     for(const e of ALLOWLIST.filter(a=>a.address.toLowerCase()===account.toLowerCase())){
       list.push({ kind:"allow", label:e.phase, price:ethers.BigNumber.from(e.mintParams[0]),
-                  max:parseInt(e.mintParams[1]), mintParams:e.mintParams, proof:e.proof });
+                  max:parseInt(e.mintParams[1]), mintParams:e.mintParams, proof:e.proof, openTs:phaseOpenTs(e.phase) });
     }
   }
-  list.push({ kind:"public", label:"Public", price:ethers.BigNumber.from(pd.mintPrice),
-              max:Number(pd.maxTotalMintableByWallet) });
+  list.push({ kind:"public", label:"Public", price:ethers.BigNumber.from(CFG.PUBLIC_PRICE_WEI),
+              max:CFG.PUBLIC_MAX, openTs:phaseOpenTs("Public") });
   return list;
 }
 
-let _phaseSeq = 0;
-async function renderPhases(){
+let phaseTickers = [], statUpdaters = [], _tickerOn = false;
+function startTicker(){ if(_tickerOn) return; _tickerOn=true; setInterval(()=>{ for(const t of phaseTickers){ try{t();}catch{} } }, 1000); }
+
+// INSTANT paint from static config (labels/prices/maxes are known) — no RPC wait.
+// "X left for you" + supply are refined a moment later by refreshPhaseStats().
+function renderPhases(){
   const cont = $("#phaseCards"); if(!cont) return;
-  const seq = ++_phaseSeq;                 // newest render wins
-  let pd, minted=0, supplyLeft=10000;
-  try{
-    pd = await seadrop(ro()).getPublicDrop(CFG.CONTRACT);
-    const c = nft(ro());
-    const [ts,ms] = await Promise.all([c.totalSupply(), c.maxSupply()]);
-    supplyLeft = ms.sub(ts).toNumber();
-    if(account){ const s=await c.getMintStats(account); minted = s.minterNumMinted.toNumber(); }
-  }catch(e){ console.warn(e); if(!pd) return; }
-  if(seq !== _phaseSeq) return;            // a newer render started — drop this stale one
+  phaseTickers = []; statUpdaters = [];
   const frag = document.createDocumentFragment();
-  for(const ph of phasesFor(pd)){
-    const remaining = Math.max(0, Math.min(ph.max - minted, supplyLeft));
-    frag.appendChild(mkPhaseCard(ph, remaining));
-  }
-  cont.replaceChildren(frag);              // atomic swap — never shows an empty box mid-load
+  for(const ph of phasesFor()) frag.appendChild(mkPhaseCard(ph));
+  cont.replaceChildren(frag);
+  startTicker();
+  refreshPhaseStats();        // async refine, doesn't block the paint
 }
 
-function mkPhaseCard(ph, remaining){
+async function refreshPhaseStats(){
+  try{
+    const c = nft(ro());
+    const [ts,ms] = await Promise.all([c.totalSupply(), c.maxSupply()]);
+    const supplyLeft = ms.sub(ts).toNumber();
+    let minted = 0;
+    if(account){ const s=await c.getMintStats(account); minted = s.minterNumMinted.toNumber(); }
+    for(const u of statUpdaters){ try{ u(minted, supplyLeft); }catch{} }
+  }catch(e){ console.warn(e); }
+}
+
+function mkPhaseCard(ph){
   const free = ph.price.isZero();
-  const card = document.createElement("div");
-  card.className = "pcard" + (free?" free":"");
+  const card = document.createElement("div"); card.className = "pcard" + (free?" free":"");
   const head = document.createElement("div"); head.className="pcard-h";
-  const right = account
-    ? `${priceLabel(ph.price)} each · ${remaining} left for you`
-    : `${priceLabel(ph.price)} each · max ${ph.max}`;
-  head.innerHTML = `<b>${ph.label}</b><span>${right}</span>`;
-  card.appendChild(head);
+  const nameEl=document.createElement("b"); nameEl.textContent=ph.label;
+  const metaEl=document.createElement("span"); head.append(nameEl, metaEl); card.appendChild(head);
 
   const ctl = document.createElement("div"); ctl.className="qty";
   const mk=(t,c)=>{ const b=document.createElement("button"); b.textContent=t; if(c)b.className=c; return b; };
   const minus=mk("–","ghost stepbtn"), plus=mk("+","ghost stepbtn"), maxb=mk("Max","ghost"), mint=mk("","mintbtn");
   const input=document.createElement("input"); input.type="number"; input.value="1"; input.min="1";
-  const cap = remaining>0 ? remaining : ph.max;
-  const upd=()=>{ let q=Math.max(1, Math.min(cap, parseInt(input.value||"1")||1)); input.value=q;
-    const total=ph.price.mul(q);
-    mint.textContent = account ? `Mint ${q} · ${total.isZero()?"FREE":ethers.utils.formatEther(total)+" ETH"}` : "Connect wallet";
-    mint.disabled = !account || remaining<=0;
-    if(account && remaining<=0) mint.textContent="Max reached";
-  };
-  minus.onclick=()=>{ input.value=(parseInt(input.value||"1")||1)-1; upd(); };
-  plus.onclick =()=>{ input.value=(parseInt(input.value||"1")||1)+1; upd(); };
-  maxb.onclick =()=>{ input.value=cap; upd(); };
-  input.oninput=upd;
-  mint.onclick =()=>doMint(ph, Math.max(1,parseInt(input.value||"1")||1), mint);
-  ctl.append(minus,input,plus,maxb,mint);
-  card.appendChild(ctl);
-  upd();
+  ctl.append(minus,input,plus,maxb,mint); card.appendChild(ctl);
+
+  let remaining = ph.max, statsKnown = false;
+  const cap = ()=> statsKnown ? Math.max(0,remaining) : ph.max;
+  const priceTxt = q => { const t=ph.price.mul(q); return t.isZero()?"FREE":ethers.utils.formatEther(t)+" ETH"; };
+
+  function draw(){
+    const now = Math.floor(Date.now()/1000), live = now >= ph.openTs;
+    card.classList.toggle("upcoming", !live);
+    card.classList.toggle("live", live);
+    metaEl.textContent = (account && statsKnown)
+      ? `${priceLabel(ph.price)} · ${Math.max(0,remaining)} left for you`
+      : `${priceLabel(ph.price)} · max ${ph.max}`;
+    if(!live){
+      mint.textContent = "Opens in " + fmtCountdown(ph.openTs - now);
+      [minus,plus,maxb,mint].forEach(b=>b.disabled=true); input.disabled=true;
+      return;
+    }
+    [minus,plus,maxb].forEach(b=>b.disabled=false); input.disabled=false;
+    let q=Math.max(1, Math.min(cap()||1, parseInt(input.value||"1")||1)); input.value=q;
+    if(!account){ mint.textContent="Connect wallet"; mint.disabled=true; }
+    else if(statsKnown && remaining<=0){ mint.textContent="Max reached"; mint.disabled=true; }
+    else { mint.textContent=`Mint ${q} · ${priceTxt(q)}`; mint.disabled=false; }
+  }
+  minus.onclick=()=>{ input.value=(parseInt(input.value||"1")||1)-1; draw(); };
+  plus.onclick =()=>{ input.value=(parseInt(input.value||"1")||1)+1; draw(); };
+  maxb.onclick =()=>{ input.value=cap(); draw(); };
+  input.oninput=draw;
+  mint.onclick =()=>doMint(ph, Math.max(1,Math.min(cap()||1,parseInt(input.value||"1")||1)), mint);
+
+  statUpdaters.push((minted, supplyLeft)=>{ remaining=Math.max(0,Math.min(ph.max-minted, supplyLeft)); statsKnown=true; draw(); });
+  phaseTickers.push(draw);
+  draw();
   return card;
 }
 
@@ -364,6 +399,7 @@ async function showLatest(){ try{ const ts=await nft(ro()).totalSupply(); showTo
 $("#connect").onclick=connect;
 // on-chain pre-reveal art as default (disconnected / no-1/1 wallets)
 showSilhouette();
+renderPhases();   // paint phase cards instantly (static), then stats/counters refine
 refresh();
 </script>
 </body>
