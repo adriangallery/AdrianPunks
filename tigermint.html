@@ -22,7 +22,19 @@
   button:disabled{opacity:.4;cursor:not-allowed;border-color:var(--line);color:var(--muted)}
   button.ghost{border-color:var(--line);color:var(--fg)}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:24px}
-  @media(max-width:720px){.grid{grid-template-columns:1fr}}
+  @media(max-width:720px){
+    .grid{grid-template-columns:1fr}
+    .wrap{padding:14px}
+    .banner{height:80px}
+    header{flex-direction:column;align-items:stretch;gap:10px}
+    #connect{width:100%;padding:14px}
+    .big{font-size:28px}
+    .pcard .qty{gap:8px}
+    .pcard .qty input{width:60px;font-size:18px;padding:10px}
+    .pcard .qty .stepbtn{padding:10px 14px}
+    .pcard .mintbtn{flex:1 1 100%;order:5;padding:14px}
+    button{min-height:44px}
+  }
   .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px}
   .card h2{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:0 0 12px}
   .row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px;border-bottom:1px dashed var(--line)}
@@ -105,6 +117,8 @@
 <div id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<!-- WalletConnect v2 (mobile + QR), same stack as zerothetoken/adrianzero -->
+<script src="https://unpkg.com/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js"></script>
 <script>
 // ---------- CONFIG (fill CONTRACT after the Base deploy) -------------------
 const CFG = {
@@ -115,6 +129,8 @@ const CFG = {
   RENDERER: "0x7dAd2b87218827F80b7C2E75165F0579346a4370",  // TigerRenderer (Base, base64)
   SEADROP:  "0x00005EA00Ac477B1030CE78506496e8C2dE24bf5",  // canonical SeaDrop 1.0
   FEE_RECIPIENT: "0xcC897243c7e9aA460066162693fA05f6f20A4A6f", // FiftyFifty (creator/fee)
+  CHAIN_ID: 8453,                        // Base mainnet (number, for WalletConnect)
+  WC_PROJECT_ID: "PASTE_YOUR_WALLETCONNECT_PROJECT_ID",  // <-- pega aquí tu NEXT_PUBLIC_WC_PROJECT_ID (Reown/WalletConnect). Público.
 };
 // 1/1 claim list (built from snapshot): { tokenId, name, owner, proof:[] }
 const CLAIMS = [{"tokenId": 1, "name": "Adrian", "owner": "0x4943407105999e3E97EFA2035F5cbC64D72581C6", "proof": ["0xf3291acbcdd50cfe7c6becce5ecb6b6f68b6b12e5a7179f9743db7c205efe3ea", "0x28a23761ef60a1848851e7985dfa52d27684f9259b5030efbde14e594decb265", "0x7b2fdc4dbd52b6691d5e1fa6fe6a33756cd6fb63a359982dc3c74e1f96addeac", "0x04839e09a557ea46e7889fad290705d384701ae71c76287f8dac07d38a9577b8"]}, {"tokenId": 2, "name": "Negative", "owner": "0x5d1f7101D680a5eB3FCCB57BD3F8d447486Ee1aA", "proof": ["0x52e786b71462b3096815872737f7299d3b90fa4410f6bbf1ba556dfac0d5757c", "0x28a23761ef60a1848851e7985dfa52d27684f9259b5030efbde14e594decb265", "0x7b2fdc4dbd52b6691d5e1fa6fe6a33756cd6fb63a359982dc3c74e1f96addeac", "0x04839e09a557ea46e7889fad290705d384701ae71c76287f8dac07d38a9577b8"]}, {"tokenId": 3, "name": "Checker", "owner": "0x5BE28b0257dD7CcB24588B9C4e18CB127928415E", "proof": ["0x8e469ccf028020ca487def5ba4cb67f278552227356ff5907b5b7aad459ff698", "0x415d94cf4cfba5e1402b17bd7d265a289533ce541d3d34081bba3e589c6f0c54", "0x7b2fdc4dbd52b6691d5e1fa6fe6a33756cd6fb63a359982dc3c74e1f96addeac", "0x04839e09a557ea46e7889fad290705d384701ae71c76287f8dac07d38a9577b8"]}, {"tokenId": 4, "name": "Idea", "owner": "0x466c949Ec9B8B26B59479129A81911759e77f1C3", "proof": ["0x76d8dcac34f6c73bbdf89b2884c0fbf1b04fd18b95d9e1aeb404b2e991c6f8c8", "0x415d94cf4cfba5e1402b17bd7d265a289533ce541d3d34081bba3e589c6f0c54", "0x7b2fdc4dbd52b6691d5e1fa6fe6a33756cd6fb63a359982dc3c74e1f96addeac", "0x04839e09a557ea46e7889fad290705d384701ae71c76287f8dac07d38a9577b8"]}, {"tokenId": 5, "name": "Laser", "owner": "0x9E83EB98C390cdaa8822e58f39516aa87Dc5d0c2", "proof": ["0xa07ed8f2a2b5b94fc20a25b542c8ffa2c1a6fec9f319e0c04a9f620ade782cd0", "0xf94098243a67df5b38a4d3014d89293acd20692668ceff67fa15e4ae4949d29c", "0xcdb597e8b2850885b2322d62a9fe1a50fc1d469aaa9dfaa8c6aea44461a89107", "0x04839e09a557ea46e7889fad290705d384701ae71c76287f8dac07d38a9577b8"]}, {"tokenId": 6, "name": "420", "owner": "0x9E83EB98C390cdaa8822e58f39516aa87Dc5d0c2", "proof": ["0x13b3c301af51de13de75f2ab0755f210c72182790c532b5ef928bde70136cbfc", "0xf94098243a67df5b38a4d3014d89293acd20692668ceff67fa15e4ae4949d29c", "0xcdb597e8b2850885b2322d62a9fe1a50fc1d469aaa9dfaa8c6aea44461a89107", "0x04839e09a557ea46e7889fad290705d384701ae71c76287f8dac07d38a9577b8"]}, {"tokenId": 7, "name": "$ADRIAN", "owner": "0x5BE28b0257dD7CcB24588B9C4e18CB127928415E", "proof": ["0x4e5ada1df1c97a856449a27be253d669537c6953f898829ac60ea1b4905ef2ed", "0x5288ae428d41455bd3843065605984ad7fe8f9ccc33013f6199211eb5b901703", "0xcdb597e8b2850885b2322d62a9fe1a50fc1d469aaa9dfaa8c6aea44461a89107", "0x04839e09a557ea46e7889fad290705d384701ae71c76287f8dac07d38a9577b8"]}, {"tokenId": 8, "name": "Mona Punk Lisa", "owner": "0x4943407105999e3E97EFA2035F5cbC64D72581C6", "proof": ["0x449664a370dc667a9569f8f129318cb21ccf7cdb8620304c34e602102cfafa9d", "0x5288ae428d41455bd3843065605984ad7fe8f9ccc33013f6199211eb5b901703", "0xcdb597e8b2850885b2322d62a9fe1a50fc1d469aaa9dfaa8c6aea44461a89107", "0x04839e09a557ea46e7889fad290705d384701ae71c76287f8dac07d38a9577b8"]}, {"tokenId": 9, "name": "Funk", "owner": "0x0351F7cBA83277E891D4a85Da498A7eACD764D58", "proof": ["0x3017c8bbdb0a00747687a08da907550946c890536f29a355e00886df7c4d6409", "0x0f75767218512d51b575e4b8e2031483b3a0cb70d2146ae6227d0d177cbe3aac", "0x05b603499e5ef2f6b44659efdf7e4b26acaa59e9af9d7b94ea5fa07e0c691308"]}, {"tokenId": 10, "name": "OI", "owner": "0x214f2646BcA546c489560C1309F57b2D6255F553", "proof": ["0xc7399b103202b8698e00f04a664077dadcc5e11c360a42e03435ccb028e5ad8c", "0x0f75767218512d51b575e4b8e2031483b3a0cb70d2146ae6227d0d177cbe3aac", "0x05b603499e5ef2f6b44659efdf7e4b26acaa59e9af9d7b94ea5fa07e0c691308"]}, {"tokenId": 11, "name": "FFS!", "owner": "0x3028d928654fe95424D6c74E7C8793aB84EE006a", "proof": ["0x86c841ffa8ba029bcfc51269bccddc947a75cca58dc9bc975b80e56278b6a62b", "0x05b603499e5ef2f6b44659efdf7e4b26acaa59e9af9d7b94ea5fa07e0c691308"]}];
@@ -171,20 +187,41 @@ async function refresh(){
   }catch(e){ console.warn(e); }
 }
 
+let wcProvider;   // WalletConnect EIP-1193 provider (mobile / QR)
+
+// Desktop with an injected wallet -> use it. Otherwise (mobile browser, no
+// extension) -> WalletConnect v2 QR / deeplink, same as zerothetoken/adrianzero.
 async function connect(){
-  if(!window.ethereum){ toast("Install MetaMask"); return; }
-  provider = new ethers.providers.Web3Provider(window.ethereum);
-  await provider.send("eth_requestAccounts",[]);
-  const net = await provider.getNetwork();
-  if(("0x"+net.chainId.toString(16))!==CFG.chainIdHex){
-    try{ await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:CFG.chainIdHex}]}); }
-    catch{ toast("Switch to "+CFG.chainName); return; }
-    provider = new ethers.providers.Web3Provider(window.ethereum);
-  }
-  signer = provider.getSigner(); account = await signer.getAddress();
-  $("#connect").textContent = account.slice(0,6)+"…"+account.slice(-4);
-  await renderClaims();
-  await renderPhases();
+  try{
+    let eip1193;
+    if(window.ethereum){
+      eip1193 = window.ethereum;
+      provider = new ethers.providers.Web3Provider(eip1193);
+      await provider.send("eth_requestAccounts",[]);
+      try{ await eip1193.request({method:"wallet_switchEthereumChain",params:[{chainId:CFG.chainIdHex}]}); }catch{}
+      provider = new ethers.providers.Web3Provider(eip1193);
+    } else {
+      if(typeof EthereumProvider==="undefined"){ toast("WalletConnect failed to load — retry"); return; }
+      if(CFG.WC_PROJECT_ID.startsWith("PASTE")){ toast("WalletConnect projectId not set yet"); return; }
+      toast("Open your wallet app…");
+      wcProvider = await EthereumProvider.init({
+        projectId: CFG.WC_PROJECT_ID,
+        chains: [CFG.CHAIN_ID],
+        showQrModal: true,
+        metadata: { name:"TigerPunks", description:"10,000 fully on-chain pixel punks",
+          url:"https://adrianpunks.com", icons:["https://adrianpunks.com/favicon.ico"] }
+      });
+      await wcProvider.enable();                 // shows the QR / opens wallet
+      eip1193 = wcProvider;
+      provider = new ethers.providers.Web3Provider(wcProvider);
+      wcProvider.on("disconnect", ()=>location.reload());
+      wcProvider.on("accountsChanged", ()=>location.reload());
+    }
+    signer = provider.getSigner(); account = await signer.getAddress();
+    $("#connect").textContent = account.slice(0,6)+"…"+account.slice(-4);
+    await renderClaims();
+    await renderPhases();
+  }catch(e){ toast(friendlyErr(e)); }
 }
 
 // ---- friendly errors ----------------------------------------------------
