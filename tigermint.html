@@ -215,8 +215,10 @@ function phasesFor(pd){
   return list;
 }
 
+let _phaseSeq = 0;
 async function renderPhases(){
-  const cont = $("#phaseCards"); if(!cont) return; cont.innerHTML="";
+  const cont = $("#phaseCards"); if(!cont) return;
+  const seq = ++_phaseSeq;                 // newest render wins
   let pd, minted=0, supplyLeft=10000;
   try{
     pd = await seadrop(ro()).getPublicDrop(CFG.CONTRACT);
@@ -225,10 +227,13 @@ async function renderPhases(){
     supplyLeft = ms.sub(ts).toNumber();
     if(account){ const s=await c.getMintStats(account); minted = s.minterNumMinted.toNumber(); }
   }catch(e){ console.warn(e); if(!pd) return; }
+  if(seq !== _phaseSeq) return;            // a newer render started — drop this stale one
+  const frag = document.createDocumentFragment();
   for(const ph of phasesFor(pd)){
     const remaining = Math.max(0, Math.min(ph.max - minted, supplyLeft));
-    cont.appendChild(mkPhaseCard(ph, remaining));
+    frag.appendChild(mkPhaseCard(ph, remaining));
   }
+  cont.replaceChildren(frag);              // atomic swap — never shows an empty box mid-load
 }
 
 function mkPhaseCard(ph, remaining){
@@ -274,7 +279,7 @@ async function doMint(ph, qty, btn){
     if(ph.kind==="public") tx = await seadrop(signer).mintPublic(CFG.CONTRACT, CFG.FEE_RECIPIENT, ethers.constants.AddressZero, qty, {value});
     else tx = await seadrop(signer).mintAllowList(CFG.CONTRACT, CFG.FEE_RECIPIENT, ethers.constants.AddressZero, qty, ph.mintParams, ph.proof, {value});
     btn.textContent="Minting…"; await tx.wait();
-    toast(`Minted ${qty} 🐯`); await refresh(); await renderPhases(); showLatest();
+    toast(`Minted ${qty} 🐯`); await refresh(); showLatest();   // refresh() already re-renders phases
   }catch(e){ btn.disabled=false; btn.textContent=old; toast(friendlyErr(e)); }
 }
 
