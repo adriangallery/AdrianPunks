@@ -65,6 +65,12 @@
   .punkthumb img{width:100%;height:100%;image-rendering:pixelated;display:block}
   .punkthumb:hover{border-color:var(--green)}
   .note{color:var(--muted);font-size:11px;margin-top:10px;line-height:1.5}
+  #wpick{position:fixed;inset:0;background:rgba(0,0,0,.72);display:flex;align-items:flex-end;justify-content:center;z-index:200}
+  .wpick-box{background:var(--card);border:1px solid var(--green);border-radius:14px 14px 0 0;padding:18px;width:100%;max-width:480px;display:flex;flex-direction:column;gap:10px}
+  .wpick-h{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+  .wpick-btn{display:block;text-align:center;border:1px solid var(--green);color:var(--green);padding:15px;border-radius:8px;font-weight:600;font-family:inherit}
+  .wpick-btn:hover{background:var(--green);color:#000}
+  .wpick-x{margin-top:6px}
   #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#000;border:1px solid var(--green);
     color:var(--green);padding:10px 18px;border-radius:6px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;max-width:90%}
   #toast.show{opacity:1}
@@ -230,6 +236,29 @@ let wcProvider;   // WalletConnect EIP-1193 provider (mobile / QR)
 
 // Desktop with an injected wallet -> use it. Otherwise (mobile browser, no
 // extension) -> WalletConnect v2 QR / deeplink, same as zerothetoken/adrianzero.
+
+// Mobile, no injected wallet: deep-link into a wallet's in-app browser (where
+// window.ethereum IS injected and the normal flow works — same idea as opening
+// adrianzero inside MetaMask). More reliable than the WC modal on mobile Safari.
+function openMobileWalletPicker(){
+  const dapp = "adrianpunks.com/tigermint";
+  const full = "https://"+dapp;
+  const wallets = [
+    { n:"MetaMask",        u:"https://metamask.app.link/dapp/"+dapp },
+    { n:"Rainbow",         u:"https://rnbwapp.com/dapp/"+dapp },
+    { n:"Coinbase Wallet", u:"https://go.cb-w.com/dapp?cb_url="+encodeURIComponent(full) },
+    { n:"Trust Wallet",    u:"https://link.trustwallet.com/open_url?coin_id=60&url="+encodeURIComponent(full) },
+  ];
+  document.getElementById("wpick")?.remove();
+  const ov = document.createElement("div"); ov.id = "wpick";
+  ov.innerHTML = '<div class="wpick-box"><div class="wpick-h">Open in your wallet app</div>'
+    + wallets.map(w => '<a class="wpick-btn" href="'+w.u+'">'+w.n+'</a>').join('')
+    + '<button class="wpick-x ghost">Cancel</button></div>';
+  ov.addEventListener("click", e => { if(e.target===ov) ov.remove(); });
+  ov.querySelector(".wpick-x").onclick = () => ov.remove();
+  document.body.appendChild(ov);
+}
+
 async function connect(){
   try{
     let eip1193;
@@ -239,9 +268,14 @@ async function connect(){
       await provider.send("eth_requestAccounts",[]);
       try{ await eip1193.request({method:"wallet_switchEthereumChain",params:[{chainId:CFG.chainIdHex}]}); }catch{}
       provider = new ethers.providers.Web3Provider(eip1193);
+    } else if(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)){
+      // Mobile browser, no injected wallet: the WalletConnect modal is unreliable
+      // on mobile Safari, so deep-link straight into a wallet's in-app browser
+      // (where window.ethereum IS injected and the normal flow works).
+      openMobileWalletPicker();
+      return;
     } else {
-      // The standalone UMD of WC fails in-browser (empty exports). Load the ESM
-      // build on-demand from esm.sh (verified: exposes EthereumProvider.init).
+      // Desktop, no extension -> WalletConnect QR (ESM build; the UMD is broken).
       let EP = window.__WC_EP;
       if(!EP || !EP.init){
         try {
