@@ -136,7 +136,8 @@
 const CFG = {
   chainIdHex: "0x2105",                 // Base mainnet (8453). Sepolia test: "0xaa36a7"
   chainName: "Base",
-  rpc: "https://mainnet.base.org",
+  rpc: "https://base-rpc.publicnode.com",    // RPC público rápido (sin key). Para Alchemy: poner tu URL Base aquí + whitelistear adrianpunks.com en el dashboard.
+  rpcFallback: "https://mainnet.base.org",   // fallback si el primario falla
   CONTRACT: "0x598dAf568f5639Dd5d79d229F23B1C1714d842A3",  // TigerPunks (Base test v3: 1/1 hidden until reveal)
   RENDERER: "0x7dAd2b87218827F80b7C2E75165F0579346a4370",  // TigerRenderer (Base, base64)
   SEADROP:  "0x00005EA00Ac477B1030CE78506496e8C2dE24bf5",  // canonical SeaDrop 1.0
@@ -186,7 +187,18 @@ const $ = s => document.querySelector(s);
 const toast = m => { const t=$("#toast"); t.textContent=m; t.classList.add("show"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),3500); };
 
 const RENDERER_ABI=["function unrevealedURI(uint256) view returns (string)"];
-function ro(){ return new ethers.providers.JsonRpcProvider(CFG.rpc); }
+let _ro;   // cached read provider: Alchemy first, public fallback, no per-call network detect
+function ro(){
+  if(_ro) return _ro;
+  const mk = u => new ethers.providers.StaticJsonRpcProvider(u, CFG.CHAIN_ID);
+  try{
+    _ro = new ethers.providers.FallbackProvider([
+      { provider: mk(CFG.rpc),         priority:1, stallTimeout:1500, weight:1 },
+      { provider: mk(CFG.rpcFallback), priority:2, stallTimeout:2500, weight:1 }
+    ], 1);
+  }catch(e){ _ro = mk(CFG.rpcFallback); }
+  return _ro;
+}
 function renderer(p){ return new ethers.Contract(CFG.RENDERER,RENDERER_ABI,p); }
 // decode a data: URI body (handles both ;base64, and legacy ;utf8,)
 function decodeDataURI(uri){ const i=uri.indexOf(","); const body=uri.slice(i+1); return uri.slice(0,i).includes("base64") ? atob(body) : decodeURIComponent(body); }
@@ -247,9 +259,9 @@ async function connect(){
     }
     signer = provider.getSigner(); account = await signer.getAddress();
     $("#connect").textContent = account.slice(0,6)+"…"+account.slice(-4);
-    await renderClaims();
-    renderMyPunks();
-    await renderPhases();
+    renderPhases();          // instant: holder cards appear immediately
+    renderClaims();          // async, fills the claim panel
+    renderMyPunks();         // async, fills the gallery
   }catch(e){ toast(friendlyErr(e)); }
 }
 
