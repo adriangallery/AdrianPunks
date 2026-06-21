@@ -136,8 +136,8 @@
 const CFG = {
   chainIdHex: "0x2105",                 // Base mainnet (8453). Sepolia test: "0xaa36a7"
   chainName: "Base",
-  rpc: "https://base-rpc.publicnode.com",    // RPC público keyless (rápido). NUNCA poner una API key aquí: es un repo público. Para Alchemy -> proxy en Dokku (key server-side).
-  rpcFallback: "https://mainnet.base.org",   // fallback si el primario falla
+  rpc: "https://tigerpunks-rpc.zerothetoken.com",  // proxy Dokku -> Alchemy Base (key server-side, NUNCA en el frontend). Sin key en esta URL.
+  rpcFallback: "https://base-rpc.publicnode.com",  // fallback público keyless si el proxy/Alchemy falla
   CONTRACT: "0x598dAf568f5639Dd5d79d229F23B1C1714d842A3",  // TigerPunks (Base test v3: 1/1 hidden until reveal)
   RENDERER: "0x7dAd2b87218827F80b7C2E75165F0579346a4370",  // TigerRenderer (Base, base64)
   SEADROP:  "0x00005EA00Ac477B1030CE78506496e8C2dE24bf5",  // canonical SeaDrop 1.0
@@ -241,10 +241,14 @@ async function connect(){
       try{ await eip1193.request({method:"wallet_switchEthereumChain",params:[{chainId:CFG.chainIdHex}]}); }catch{}
       provider = new ethers.providers.Web3Provider(eip1193);
     } else {
-      if(typeof EthereumProvider==="undefined"){ toast("WalletConnect failed to load — retry"); return; }
+      // The UMD build exposes the namespaced global window["@walletconnect/ethereum-provider"]
+      // (NOT a bare `EthereumProvider`); the class is its .EthereumProvider export.
+      const _wcMod = window["@walletconnect/ethereum-provider"] || window.EthereumProvider;
+      const EP = _wcMod && (_wcMod.EthereumProvider || _wcMod.default || (_wcMod.init ? _wcMod : null));
+      if(!EP || !EP.init){ toast("WalletConnect failed to load — retry"); return; }
       if(CFG.WC_PROJECT_ID.startsWith("PASTE")){ toast("WalletConnect projectId not set yet"); return; }
       toast("Open your wallet app…");
-      wcProvider = await EthereumProvider.init({
+      wcProvider = await EP.init({
         projectId: CFG.WC_PROJECT_ID,
         chains: [CFG.CHAIN_ID],
         showQrModal: true,
