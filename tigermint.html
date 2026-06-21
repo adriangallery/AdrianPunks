@@ -139,7 +139,9 @@ const toast = m => { const t=$("#toast"); t.textContent=m; t.classList.add("show
 const RENDERER_ABI=["function unrevealedURI(uint256) view returns (string)"];
 function ro(){ return new ethers.providers.JsonRpcProvider(CFG.rpc); }
 function renderer(p){ return new ethers.Contract(CFG.RENDERER,RENDERER_ABI,p); }
-async function showSilhouette(){ try{ const uri=await renderer(ro()).unrevealedURI(0); const j=JSON.parse(uri.replace(/^data:application\/json;utf8,/,"")); const svg=decodeURIComponent(j.image.replace(/^data:image\/svg\+xml;utf8,/,"")); $("#preview").srcdoc=svg; $("#logoImg").src="data:image/svg+xml;utf8,"+encodeURIComponent(svg); $("#punkTitle").textContent="Pre-reveal preview"; }catch(e){ console.warn(e); } }
+// decode a data: URI body (handles both ;base64, and legacy ;utf8,)
+function decodeDataURI(uri){ const i=uri.indexOf(","); const body=uri.slice(i+1); return uri.slice(0,i).includes("base64") ? atob(body) : decodeURIComponent(body); }
+async function showSilhouette(){ try{ const uri=await renderer(ro()).unrevealedURI(0); const j=JSON.parse(decodeDataURI(uri)); $("#preview").srcdoc=decodeDataURI(j.image); $("#logoImg").src=j.image; $("#punkTitle").textContent="Pre-reveal preview"; }catch(e){ console.warn(e); } }
 function nft(p){ return new ethers.Contract(CFG.CONTRACT,NFT_ABI,p); }
 function seadrop(p){ return new ethers.Contract(CFG.SEADROP,SEADROP_ABI,p); }
 
@@ -253,9 +255,9 @@ async function claimToken(id, proof, btn){
 async function showToken(id){
   try{
     const uri = await nft(ro()).tokenURI(id);
-    const json = JSON.parse(uri.replace(/^data:application\/json;utf8,/,""));
+    const json = JSON.parse(decodeDataURI(uri));
     const img = json.animation_url || json.image;
-    $("#preview").srcdoc = decodeURIComponent(img.replace(/^data:image\/svg\+xml;utf8,/,""));
+    $("#preview").srcdoc = decodeDataURI(img);
     $("#punkTitle").textContent = "Your punk — #"+id;
   }catch(e){ console.warn(e); }
 }
