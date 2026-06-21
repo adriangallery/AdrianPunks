@@ -129,8 +129,7 @@
 <div id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-<!-- WalletConnect v2 (mobile + QR), same stack as zerothetoken/adrianzero -->
-<script src="https://unpkg.com/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js"></script>
+<!-- WalletConnect v2 (mobile + QR): loaded on-demand as ESM in connect() (the UMD build fails standalone in-browser) -->
 <script>
 // ---------- CONFIG (fill CONTRACT after the Base deploy) -------------------
 const CFG = {
@@ -241,11 +240,16 @@ async function connect(){
       try{ await eip1193.request({method:"wallet_switchEthereumChain",params:[{chainId:CFG.chainIdHex}]}); }catch{}
       provider = new ethers.providers.Web3Provider(eip1193);
     } else {
-      // The UMD build exposes the namespaced global window["@walletconnect/ethereum-provider"]
-      // (NOT a bare `EthereumProvider`); the class is its .EthereumProvider export.
-      const _wcMod = window["@walletconnect/ethereum-provider"] || window.EthereumProvider;
-      const EP = _wcMod && (_wcMod.EthereumProvider || _wcMod.default || (_wcMod.init ? _wcMod : null));
-      if(!EP || !EP.init){ toast("WalletConnect failed to load — retry"); return; }
+      // The standalone UMD of WC fails in-browser (empty exports). Load the ESM
+      // build on-demand from esm.sh (verified: exposes EthereumProvider.init).
+      let EP = window.__WC_EP;
+      if(!EP || !EP.init){
+        try {
+          toast("Loading WalletConnect…");
+          EP = (await import("https://esm.sh/@walletconnect/ethereum-provider@2.13.0")).EthereumProvider;
+          window.__WC_EP = EP;
+        } catch(e){ toast("WalletConnect no cargó — revisa tu conexión y reintenta"); return; }
+      }
       if(CFG.WC_PROJECT_ID.startsWith("PASTE")){ toast("WalletConnect projectId not set yet"); return; }
       toast("Open your wallet app…");
       wcProvider = await EP.init({
