@@ -173,7 +173,7 @@
 <!-- Builder engine -->
 <script>
 const SIZE=1080, GKEY='tigerpunks_gallery';
-const VERSION='20260623a';                       // bump to bust CDN/browser cache on asset updates
+const VERSION='20260623b';                       // bump to bust CDN/browser cache on asset updates
 const bust=u=>u+(u.includes('?')?'&':'?')+'v='+VERSION;
 const $=s=>document.querySelector(s), ce=(t,c)=>{const e=document.createElement(t);if(c)e.className=c;return e;};
 let M=null, IMG={}, state={mode:'dark', punk:'adrian', sel:{}};
@@ -213,7 +213,7 @@ function drawBg(ctx,id){const m=M.modes.find(m=>m.id===id)||M.modes[0];ctx.fillS
 /* z-order: Mode(bg) > Punk > Beard > Mouth > Hair > Hat > Eye > Top > Misc.
    Tiger/White-Tiger punks pull Beard/Hair/Hat/Eye/Misc from the Tiger-* art. */
 function render(){
-  const ctx=$('#view').getContext('2d');ctx.clearRect(0,0,SIZE,SIZE);
+  const ctx=$('#view').getContext('2d');ctx.imageSmoothingEnabled=false;ctx.clearRect(0,0,SIZE,SIZE);
   drawBg(ctx,state.mode);
   const pim=IMG[M.punk.dir+'/'+punkOpt(state.punk).file];if(pim)ctx.drawImage(pim,0,0,SIZE,SIZE);
   M.categories.forEach(c=>{
@@ -307,7 +307,7 @@ function updateTraits(){const o=traitsObj(),el=$('#traits');el.innerHTML='';Obje
 function copyTraits(){navigator.clipboard.writeText(JSON.stringify({seed,name:'TigerPunk #'+seed,attributes:traitsObj()},null,2));toast('Attributes copied');}
 
 function exportCanvas(badge){
-  const c=ce('canvas');c.width=c.height=SIZE;const x=c.getContext('2d');x.drawImage($('#view'),0,0);
+  const c=ce('canvas');c.width=c.height=SIZE;const x=c.getContext('2d');x.imageSmoothingEnabled=false;x.drawImage($('#view'),0,0);
   if(badge){x.font='bold 22px system-ui,Arial';x.textBaseline='bottom';const t='TigerPunks · HalfxTiger';const w=x.measureText(t).width;
     x.fillStyle='rgba(0,0,0,.45)';x.fillRect(14,SIZE-40,w+22,30);x.fillStyle='#ff6b2b';x.fillText(t,24,SIZE-16);}
   return c;
@@ -333,7 +333,7 @@ function downloadSVG(){
   a.download='TigerPunk-'+seed+'.svg';a.href=URL.createObjectURL(blob);a.click();toast('SVG downloaded (on-chain ready)');
 }
 
-function thumbURL(){const c=ce('canvas');c.width=c.height=240;c.getContext('2d').drawImage($('#view'),0,0,240,240);return c.toDataURL('image/png');}
+function thumbURL(){const c=ce('canvas');c.width=c.height=240;const x=c.getContext('2d');x.imageSmoothingEnabled=false;x.drawImage($('#view'),0,0,240,240);return c.toDataURL('image/png');}
 function getGallery(){try{return JSON.parse(localStorage.getItem(GKEY)||'[]');}catch(e){return[];}}
 function saveToGallery(){const g=getGallery();g.unshift({seed,thumb:thumbURL(),state:JSON.parse(JSON.stringify(state))});localStorage.setItem(GKEY,JSON.stringify(g.slice(0,24)));renderGallery();toast('Saved to gallery');}
 function renderGallery(){
