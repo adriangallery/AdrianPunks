@@ -45,6 +45,7 @@
   .titem .w{position:absolute;bottom:0;right:0;background:rgba(0,0,0,.8);color:var(--accent);font-size:.6rem;padding:0 3px;border-top-left-radius:4px}
   .titem .tw{width:100%;border:none;border-top:1px solid var(--border);background:var(--panel);color:var(--accent);font-size:.62rem;text-align:center;font-family:inherit;padding:1px 0}
   .titem .tw:focus{outline:1px solid var(--accent)}
+  .titem input[type=range]{display:block;width:96%;margin:2px auto 3px;accent-color:var(--accent);height:12px}
   .hint{color:var(--muted);font-size:.68rem;margin:3px 0 8px;line-height:1.4}
   .main{padding:14px}
   .stats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
@@ -432,7 +433,7 @@ function buildSettings(){
   });
   // advanced per-trait
   s.appendChild(htmlEl(`<h2>Per-trait rarity</h2>`));
-  s.appendChild(htmlEl(`<div class="hint">Type each trait's weight (0 = off). % shows expected share within the set. Make some much rarer with e.g. 0.1 vs 5.</div>`));
+  s.appendChild(htmlEl(`<div class="hint">Drag each trait's weight (0 = off). The badge shows the weight ×; the tooltip shows expected % of the set. Make some much rarer with e.g. 0.1 vs 5.</div>`));
   M.categories.forEach(cat=>{
     const det=ce('details');
     det.innerHTML=`<summary>${cat.label} (${cat.options.length})</summary><div class="body"><div class="twrap"></div></div>`;
@@ -440,10 +441,10 @@ function buildSettings(){
     cat.options.forEach(o=>{
       const k=wkey(cat.id,o.file);
       const it=ce('div');it.className='titem'+((cfg.traitW[k]??1)===0?' off':'');
-      it.innerHTML=`<img src="${bust(cat.dir+'/'+o.file)}" title="${o.label}"><input class="tw" type="number" min="0" step="0.1" value="${cfg.traitW[k]??1}">`;
-      const inp=it.querySelector('input');
+      it.innerHTML=`<img src="${bust(cat.dir+'/'+o.file)}" title="${o.label}"><div class="w">${cfg.traitW[k]??1}×</div><input class="tw" type="range" min="0" max="10" step="0.1" value="${cfg.traitW[k]??1}">`;
+      const inp=it.querySelector('input'), badge=it.querySelector('.w');
       inp.onclick=e=>e.stopPropagation();
-      inp.oninput=e=>{const w=Math.max(0,+e.target.value||0);cfg.traitW[k]=w;it.classList.toggle('off',w===0);refreshPct();};
+      inp.oninput=e=>{const w=Math.max(0,+e.target.value||0);cfg.traitW[k]=w;badge.textContent=w+'×';it.classList.toggle('off',w===0);refreshPct();};
       pctRefreshers.push(()=>{ const w=cfg.traitW[k]??1, pres=cfg.presence[cat.id]??1; let pct;
         if(cat.multi){pct=Math.min(1,pres*w)*100;}
         else{const sum=cat.options.reduce((a,oo)=>a+Math.max(0,cfg.traitW[wkey(cat.id,oo.file)]??1),0);pct=sum>0?pres*(w/sum)*100:0;}
@@ -458,10 +459,10 @@ function refreshPct(){pctRefreshers.forEach(f=>f());}
 function weightCtrl(label, obj, key, sumFn, color){
   const swc=Array.isArray(color)?('rgb('+color.join(',')+')'):color;
   const sw=color?`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${swc};margin-right:4px"></span>`:'';
-  const row=htmlEl(`<div class="row"><label>${sw}${label}</label><input type="number" min="0" step="0.1" value="${obj[key]??1}" style="width:62px;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:3px 5px;border-radius:5px;font-family:inherit;font-size:.72rem"><span class="v"></span></div>`);
+  const row=htmlEl(`<div class="row"><label>${sw}${label}</label><input type="range" min="0" max="10" step="0.1" value="${obj[key]??1}"><span class="v" style="min-width:80px;text-align:right"></span></div>`);
   const inp=row.querySelector('input'),v=row.querySelector('.v');
   inp.oninput=e=>{obj[key]=Math.max(0,+e.target.value||0);refreshPct();};
-  pctRefreshers.push(()=>{const s=sumFn();v.textContent=s>0?((obj[key]??0)/s*100).toFixed(1)+'%':'—';});
+  pctRefreshers.push(()=>{const s=sumFn();const w=obj[key]??0;v.textContent=(s>0?((w/s*100).toFixed(1)+'%'):'—')+' · '+w+'×';});
   return row;
 }
 function htmlEl(h){const d=ce('div');d.innerHTML=h.trim();return d.firstChild;}
