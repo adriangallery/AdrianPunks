@@ -137,12 +137,58 @@ async function boot(){
 }
 
 function defaultCfg(){
-  const c={ size:100, masterSeed:(Math.random()*1e9)|0, punkW:{}, modeW:{}, presence:{}, traitW:{} };
+  const c={ size:100, masterSeed:(Math.random()*1e9)|0, punkW:{}, modeW:{}, presence:{}, traitW:{}, countTargets:{} };
   M.punk.options.forEach(p=>c.punkW[p.id]=1);
   M.modes.forEach(m=>c.modeW[m.id]=1);
   const def={Eye:90,Hair:90,Beard:50,Mouth:60,Hat:70,Top:65,Misc:40};
   M.categories.forEach(cat=>{ c.presence[cat.id]=(def[cat.id]??70)/100; cat.options.forEach(o=>c.traitW[cat.id+'/'+o.file]=1); });
   return c;
+}
+
+/* ---- trait-count helpers (optional count targets) ----
+   "traits" = filled optional accessory categories + each selected Misc (each counts 1).
+   Mode & Punk are the base and do NOT count. Rules (Hoodie => no Misc) always hold. */
+function nonMiscCats(){return M.categories.filter(c=>!c.multi);}
+function miscCat(){return M.categories.find(c=>c.multi);}
+function enabledOpts(c){return c.options.filter(o=>(cfg.traitW[wkey(c.id,o.file)]??1)>0);}
+function traitCount(st){
+  let n=0;
+  M.categories.forEach(c=>{ const v=st.sel[c.id];
+    if(c.multi){ if(!hatIsHoodie(st)) n+=(v||[]).length; }   // each misc counts 1; none under Hoodie
+    else if(v) n++; });
+  return n;
+}
+/* weighted sampling without replacement */
+function sampleNoRepl(rng, tickets, k){
+  const pool=tickets.slice(), out=[];
+  for(let p=0;p<k && pool.length;p++){
+    let tot=0; pool.forEach(t=>tot+=Math.max(0,t.w)); let idx;
+    if(tot>0){ let r=rng()*tot; for(idx=0; idx<pool.length; idx++){ r-=Math.max(0,pool[idx].w); if(r<=0) break; } if(idx>=pool.length) idx=pool.length-1; }
+    else idx=Math.floor(rng()*pool.length);
+    out.push(pool[idx]); pool.splice(idx,1);
+  }
+  return out;
+}
+/* generate a token with EXACTLY K traits (rule-safe), weights still steer which traits */
+function genStateCount(seed, K){
+  const rng=mulberry32(seed); const st={sel:{}};
+  st.punk=wpick(rng, M.punk.options, p=>cfg.punkW[p.id]??1).id;
+  st.mode=wpick(rng, M.modes, m=>cfg.modeW[m.id]??1).id;
+  const nm=nonMiscCats(), mc=miscCat();
+  const tickets=[];
+  nm.forEach(c=>{ if(enabledOpts(c).length) tickets.push({type:'cat', c, w:((cfg.presence[c.id]??1)||0.001)}); });
+  mc.options.forEach(o=>{ const w=cfg.traitW[wkey(mc.id,o.file)]??1; if(w>0) tickets.push({type:'misc', file:o.file, w:(((cfg.presence[mc.id]??1)*w)||0.001)}); });
+  const chosen=sampleNoRepl(rng, tickets, Math.min(K, tickets.length));
+  const miscChosen=chosen.filter(t=>t.type==='misc').map(t=>t.file);
+  const hasMisc=miscChosen.length>0;
+  nm.forEach(c=>st.sel[c.id]=null); st.sel[mc.id]=miscChosen;
+  const hr=hoodieRule();
+  chosen.filter(t=>t.type==='cat').forEach(t=>{
+    const c=t.c; let opts=enabledOpts(c);
+    if(hr && c.id===hr.cat && hasMisc) opts=opts.filter(o=>o.label!==hr.value);  // no Hoodie hat when misc present
+    st.sel[c.id]= opts.length ? wpick(rng, opts, o=>cfg.traitW[wkey(c.id,o.file)]??1).file : null;
+  });
+  return st;
 }
 
 /* ---------- generation ---------- */
@@ -171,8 +217,29 @@ function genState(seed){
 }
 function generate(){
   const mr=mulberry32(cfg.masterSeed);
+  const size=cfg.size;
+  const targets=cfg.countTargets||{};
+  const targetedSet=new Set(Object.keys(targets).filter(k=>(+targets[k]||0)>0).map(Number));
+  // forced-count list: N tokens get exactly count c
+  let forced=[];
+  [...targetedSet].forEach(c=>{ const n=Math.floor(+targets[c]||0); for(let k=0;k<n;k++) forced.push(c); });
+  if(forced.length>size) forced=forced.slice(0,size);              // cap, never break
+  // shuffle token positions, assign forced counts to the first slots
+  const idx=[...Array(size).keys()];
+  for(let i=idx.length-1;i>0;i--){const j=Math.floor(mr()*(i+1));const t=idx[i];idx[i]=idx[j];idx[j]=t;}
+  const forcedFor={}; forced.forEach((c,k)=>{forcedFor[idx[k]]=c;});
   current=[];
-  for(let i=0;i<cfg.size;i++){ const seed=(mr()*1e9)|0; current.push({seed,st:genState(seed)}); }
+  for(let i=0;i<size;i++){
+    const K=forcedFor[i];
+    if(K!==undefined){ const seed=(mr()*1e9)|0; current.push({seed, st:genStateCount(seed,K)}); }
+    else {
+      // natural; when targets exist, nudge off targeted counts so targets stay ~exact totals
+      let seed, st, tries=0;
+      do{ seed=(mr()*1e9)|0; st=genState(seed); tries++; }
+      while(targetedSet.size && targetedSet.has(traitCount(st)) && tries<8);
+      current.push({seed, st});
+    }
+  }
   renderGrid(); renderStats();
 }
 
@@ -217,7 +284,18 @@ function renderStats(){
     `<span class="pill">📌 pinned <b>${np}</b></span>`+
     M.punk.options.map(p=>`<span class="pill">${p.label} <b>${current.filter(c=>c.st.punk===p.id).length}</b></span>`).join('');
   renderDist();
+  updateCountReadout();
   if(pctRefreshers.length)refreshPct();
+}
+/* live "actual punks with N traits" next to the count-target inputs */
+function countHist(){const h={};current.forEach(c=>{const n=traitCount(c.st);h[n]=(h[n]||0)+1;});return h;}
+function updateCountReadout(){
+  const h=countHist(), CMAX=8;
+  for(let k=0;k<=CMAX;k++){
+    const el=$('#cntv-'+k); if(!el)continue;
+    let n = k<CMAX ? (h[k]||0) : Object.entries(h).reduce((a,[c,v])=>a+(+c>=CMAX?v:0),0);
+    el.textContent = n;
+  }
 }
 function renderDist(){
   const el=$('#dist');el.innerHTML='';const N=current.length||1;
@@ -231,6 +309,14 @@ function renderDist(){
   }
   const pk={};M.punk.options.forEach(p=>pk[p.label]=current.filter(c=>c.st.punk===p.id).length);block('Punk',pk);
   const md={};M.modes.forEach(m=>md[m.label]=current.filter(c=>c.st.mode===m.id).length);block('Mode',md);
+  // trait-count histogram (numeric order)
+  { const h=countHist(); const maxK=Math.max(0,...Object.keys(h).map(Number));
+    const cc={}; for(let k=0;k<=maxK;k++) cc[k+(k===1?' trait':' traits')]=h[k]||0;
+    const hh=ce('h3');hh.textContent='Trait count';el.appendChild(hh);
+    const mx=Math.max(1,...Object.values(cc));
+    Object.entries(cc).forEach(([name,n])=>{const r=ce('div');r.className='drow';
+      r.innerHTML=`<span class="dname">${name}</span><span class="dbar"><i style="width:${100*n/mx}%"></i></span><span class="dn">${n} · ${(100*n/N).toFixed(0)}%</span>`;
+      el.appendChild(r);}); }
   M.categories.forEach(cat=>{
     const counts={}; if(cat.optional)counts['(None)']=0;
     cat.options.forEach(o=>counts[o.label]=0);
@@ -250,6 +336,16 @@ function buildSettings(){
   sizeRow.querySelector('select').onchange=e=>{cfg.size=+e.target.value;generate();};
   s.appendChild(sizeRow);
   s.appendChild(htmlEl(`<div class="hint">Tip: click any punk to 📌 pin favourites. Save config stores weights + seed + pinned set so you can reproduce/curate later for minting. Distribution stats are exact over the FULL set; thumbnails render lazily on scroll, so big sets stay fast.</div>`));
+  // trait-count targets (optional)
+  s.appendChild(htmlEl(`<h2>Trait count <span style="font-weight:400;color:var(--muted);font-size:.7rem">(optional)</span></h2>`));
+  s.appendChild(htmlEl(`<div class="hint">Approx number of punks that have exactly N traits. Mode &amp; Punk don't count; each Misc counts 1. Blank = natural. Rules always respected (Hoodie ⇒ no Misc). Live count on the right; press ↻ Re-generate to apply.</div>`));
+  const CMAX=8;
+  for(let k=0;k<=CMAX;k++){
+    const row=htmlEl(`<div class="row"><label>${k} trait${k===1?'':'s'}${k===CMAX?'+':''}</label><input type="number" min="0" step="1" placeholder="—" value="${cfg.countTargets[k]??''}" style="width:62px;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:3px 5px;border-radius:5px;font-family:inherit;font-size:.72rem"><span class="v" id="cntv-${k}"></span></div>`);
+    const inp=row.querySelector('input');
+    inp.oninput=e=>{const val=e.target.value.trim(); if(val==='')delete cfg.countTargets[k]; else cfg.countTargets[k]=Math.max(0,Math.floor(+val||0)); updateCountReadout();};
+    s.appendChild(row);
+  }
   // punks
   s.appendChild(htmlEl(`<h2>Punk rarity</h2>`));
   s.appendChild(htmlEl(`<div class="hint">Weight = relative chance (free value: 0.05 = very rare, 20 = common). % = expected share. Tiger & White Tiger punks pull Beard/Hair/Hat/Eye/Misc from the Tiger-* art.</div>`));
@@ -308,7 +404,7 @@ function htmlEl(h){const d=ce('div');d.innerHTML=h.trim();return d.firstChild;}
 function snapshot(){
   return {
     collection:'TigerPunks', kind:'curation-config', size:cfg.size, masterSeed:cfg.masterSeed,
-    weights:{ punk:cfg.punkW, mode:cfg.modeW }, presence:cfg.presence, traitWeights:cfg.traitW,
+    weights:{ punk:cfg.punkW, mode:cfg.modeW }, presence:cfg.presence, traitWeights:cfg.traitW, countTargets:cfg.countTargets,
     distribution:distObj(),
     pinned:Object.values(pinned).map(p=>({seed:p.seed, attributes:attrs(p.st)})),
     set:current.map((c,i)=>({index:i+1, seed:c.seed, attributes:attrs(c.st)}))
@@ -338,6 +434,7 @@ function loadConfig(file){
     const j=JSON.parse(r.result);
     cfg.size=j.size??cfg.size; cfg.masterSeed=j.masterSeed??cfg.masterSeed;
     if(j.weights){cfg.punkW={...cfg.punkW,...(j.weights.punk||{})};cfg.modeW={...cfg.modeW,...(j.weights.mode||{})};}
+    if(j.countTargets)cfg.countTargets={...j.countTargets};
     if(j.presence)cfg.presence={...cfg.presence,...j.presence};
     if(j.traitWeights)cfg.traitW={...cfg.traitW,...j.traitWeights};
     pinned={}; (j.pinned||[]).forEach(p=>{ /* re-pin by seed if present in regen */ });
