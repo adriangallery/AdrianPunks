@@ -110,15 +110,25 @@
 const SIZE=1080, CELL=240, RENDER_CAP=2000;   // generation+stats use full set; grid renders up to this many
 const $=s=>document.querySelector(s), ce=(t)=>document.createElement(t);
 const bust=u=>u+(u.includes('?')?'&':'?')+'v='+Date.now();
-let M=null, IMG={}, baseCache={}, cfg=null, current=[], pinned={}, io=null, pctRefreshers=[];
+let M=null, IMG={}, cfg=null, current=[], pinned={}, io=null, pctRefreshers=[];
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
 function load(src){return new Promise(res=>{if(IMG[src])return res(IMG[src]);const im=new Image();im.onload=()=>{IMG[src]=im;res(im);};im.onerror=()=>res(null);im.src=bust(src);});}
 
+/* ---- new-model helpers (Mode / Punk / Tiger-variant / Hoodie rule) ---- */
+function punkOpt(id){return (M.punk.options.find(p=>p.id===id))||M.punk.options[0];}
+function isTiger(id){return (M.punk.tigerIds||[]).includes(id);}
+function catDir(c,punkId){return (isTiger(punkId)&&c.tigerDir)?c.tigerDir:c.dir;}
+function catCfg(id){return M.categories.find(c=>c.id===id);}
+function hoodieRule(){return (M.rules&&M.rules.hoodieNoMisc)||null;}
+function labelOf(catId,file){const c=catCfg(catId);const o=c&&c.options.find(o=>o.file===file);return o?o.label:file;}
+function hatIsHoodie(st){const r=hoodieRule();if(!r)return false;const f=st.sel[r.cat];return !!f&&labelOf(r.cat,f)===r.value;}
+
 async function boot(){
   M=await (await fetch(bust('tigerpunks/manifest.json'))).json();
-  const all=[M.base.dir+'/'+M.base.file];
-  M.categories.forEach(c=>c.options.forEach(o=>all.push(c.dir+'/'+o.file)));
+  const all=[];
+  M.punk.options.forEach(o=>all.push(M.punk.dir+'/'+o.file));
+  M.categories.forEach(c=>c.options.forEach(o=>{all.push(c.dir+'/'+o.file);if(c.tigerDir)all.push(c.tigerDir+'/'+o.file);}));
   let done=0;
   await Promise.all(all.map(p=>load(p).then(()=>{done++;$('#lbar').style.width=(done/all.length*100)+'%';})));
   $('#loader').style.display='none';
@@ -127,10 +137,10 @@ async function boot(){
 }
 
 function defaultCfg(){
-  const c={ size:100, masterSeed:(Math.random()*1e9)|0, skinW:{}, bgW:{}, presence:{}, traitW:{} };
-  M.skins.forEach(s=>c.skinW[s.id]=1);
-  M.backgrounds.forEach(b=>c.bgW[b.id]=1);
-  const def={Eyes:90,Hair:90,Beard:50,Mouth:60,Hat:70,Misc:40};
+  const c={ size:100, masterSeed:(Math.random()*1e9)|0, punkW:{}, modeW:{}, presence:{}, traitW:{} };
+  M.punk.options.forEach(p=>c.punkW[p.id]=1);
+  M.modes.forEach(m=>c.modeW[m.id]=1);
+  const def={Eye:90,Hair:90,Beard:50,Mouth:60,Hat:70,Top:65,Misc:40};
   M.categories.forEach(cat=>{ c.presence[cat.id]=(def[cat.id]??70)/100; cat.options.forEach(o=>c.traitW[cat.id+'/'+o.file]=1); });
   return c;
 }
@@ -146,8 +156,8 @@ function wpick(rng, items, wf){
 }
 function genState(seed){
   const rng=mulberry32(seed); const st={sel:{}};
-  st.skin=wpick(rng, M.skins, s=>cfg.skinW[s.id]??1).id;
-  st.bg=wpick(rng, M.backgrounds, b=>cfg.bgW[b.id]??1).id;
+  st.punk=wpick(rng, M.punk.options, p=>cfg.punkW[p.id]??1).id;
+  st.mode=wpick(rng, M.modes, m=>cfg.modeW[m.id]??1).id;
   M.categories.forEach(c=>{
     const enabled=c.options.filter(o=>(cfg.traitW[wkey(c.id,o.file)]??1)>0);
     const pres=cfg.presence[c.id]??1;
@@ -156,6 +166,7 @@ function genState(seed){
     else if(enabled.length){ st.sel[c.id]=wpick(rng, enabled, o=>cfg.traitW[wkey(c.id,o.file)]??1).file; }
     else st.sel[c.id]=null;
   });
+  if(hatIsHoodie(st)) st.sel.Misc=[];                                   // Rule: Hoodie hat -> no Misc
   return st;
 }
 function generate(){
@@ -166,22 +177,15 @@ function generate(){
 }
 
 /* ---------- render ---------- */
-function skinColor(id){const s=M.skins.find(s=>s.id===id);return s?s.color:null;}
-function processBase(skin){
-  const sc=skinColor(skin); const src=M.base.dir+'/'+M.base.file;
-  if(!sc) return IMG[src];
-  if(baseCache[skin]) return baseCache[skin];
-  const c=ce('canvas');c.width=c.height=SIZE;const x=c.getContext('2d');x.drawImage(IMG[src],0,0,SIZE,SIZE);
-  const d=x.getImageData(0,0,SIZE,SIZE),p=d.data;
-  for(let i=0;i<p.length;i+=4){if(p[i+3]<10)continue;if(p[i]>238&&p[i+1]>238&&p[i+2]>238){p[i]=sc[0];p[i+1]=sc[1];p[i+2]=sc[2];}}
-  x.putImageData(d,0,0);baseCache[skin]=c;return c;
-}
-function bgFill(id){return id==='dark'?'#333333':id==='light'?'#cccccc':'#ff8a3d';}
+function bgFill(id){const m=M.modes.find(m=>m.id===id);return m?m.color:'#333333';}
 function draw(ctx,st,W){
   ctx.imageSmoothingEnabled=false;
-  ctx.fillStyle=bgFill(st.bg);ctx.fillRect(0,0,W,W);
-  ctx.drawImage(processBase(st.skin),0,0,W,W);
-  M.categories.forEach(c=>{const v=st.sel[c.id];if(!v)return;(c.multi?v:[v]).forEach(f=>{const im=IMG[c.dir+'/'+f];if(im)ctx.drawImage(im,0,0,W,W);});});
+  ctx.fillStyle=bgFill(st.mode);ctx.fillRect(0,0,W,W);
+  const pim=IMG[M.punk.dir+'/'+punkOpt(st.punk).file];if(pim)ctx.drawImage(pim,0,0,W,W);
+  M.categories.forEach(c=>{
+    if(c.id==='Misc'&&hatIsHoodie(st))return;
+    const v=st.sel[c.id];if(!v)return;const dir=catDir(c,st.punk);
+    (c.multi?v:[v]).forEach(f=>{const im=IMG[dir+'/'+f];if(im)ctx.drawImage(im,0,0,W,W);});});
 }
 function renderGrid(){
   if(io)io.disconnect();
@@ -195,7 +199,7 @@ function renderGrid(){
     const cell=ce('div');cell.className='cell'+(pinned[it.seed]?' pin':'');cell._it=it;
     const cv=ce('canvas');cv.width=cv.height=1;   // tiny until visible -> low memory for big sets
     const meta=ce('div');meta.className='meta';
-    meta.innerHTML=`<span class="id">#${String(i+1).padStart(N>999?5:3,'0')}</span><span class="sk">${(M.skins.find(s=>s.id===it.st.skin)||{}).label||''}</span>`;
+    meta.innerHTML=`<span class="id">#${String(i+1).padStart(N>999?5:3,'0')}</span><span class="sk">${punkOpt(it.st.punk).label||''}</span>`;
     cell.appendChild(cv);cell.appendChild(meta);
     cell.title='click to pin/unpin · seed '+it.seed;
     cell.onclick=()=>{ if(pinned[it.seed])delete pinned[it.seed]; else pinned[it.seed]=it; cell.classList.toggle('pin'); renderStats(); };
@@ -211,7 +215,7 @@ function renderStats(){
     (current.length>RENDER_CAP?`<span class="pill">showing first <b>${RENDER_CAP.toLocaleString()}</b> · stats cover all</span>`:'')+
     `<span class="pill">seed <b>${cfg.masterSeed}</b></span>`+
     `<span class="pill">📌 pinned <b>${np}</b></span>`+
-    M.skins.map(s=>`<span class="pill">${s.label} <b>${current.filter(c=>c.st.skin===s.id).length}</b></span>`).join('');
+    M.punk.options.map(p=>`<span class="pill">${p.label} <b>${current.filter(c=>c.st.punk===p.id).length}</b></span>`).join('');
   renderDist();
   if(pctRefreshers.length)refreshPct();
 }
@@ -225,8 +229,8 @@ function renderDist(){
       r.innerHTML=`<span class="dname">${name}</span><span class="dbar"><i style="width:${100*n/max}%"></i></span><span class="dn">${n} · ${(100*n/N).toFixed(0)}%</span>`;
       el.appendChild(r);});
   }
-  const sk={};M.skins.forEach(s=>sk[s.label]=current.filter(c=>c.st.skin===s.id).length);block('Skin',sk);
-  const bg={};M.backgrounds.forEach(b=>bg[b.label]=current.filter(c=>c.st.bg===b.id).length);block('Background',bg);
+  const pk={};M.punk.options.forEach(p=>pk[p.label]=current.filter(c=>c.st.punk===p.id).length);block('Punk',pk);
+  const md={};M.modes.forEach(m=>md[m.label]=current.filter(c=>c.st.mode===m.id).length);block('Mode',md);
   M.categories.forEach(cat=>{
     const counts={}; if(cat.optional)counts['(None)']=0;
     cat.options.forEach(o=>counts[o.label]=0);
@@ -246,15 +250,15 @@ function buildSettings(){
   sizeRow.querySelector('select').onchange=e=>{cfg.size=+e.target.value;generate();};
   s.appendChild(sizeRow);
   s.appendChild(htmlEl(`<div class="hint">Tip: click any punk to 📌 pin favourites. Save config stores weights + seed + pinned set so you can reproduce/curate later for minting. Distribution stats are exact over the FULL set; thumbnails render lazily on scroll, so big sets stay fast.</div>`));
-  // skins
-  s.appendChild(htmlEl(`<h2>Skin rarity</h2>`));
-  s.appendChild(htmlEl(`<div class="hint">Weight = relative chance (free value: 0.05 = very rare, 20 = common). % = expected share.</div>`));
-  const skinSum=()=>M.skins.reduce((a,sk)=>a+(cfg.skinW[sk.id]||0),0);
-  M.skins.forEach(sk=>s.appendChild(weightCtrl(sk.label, cfg.skinW, sk.id, skinSum, sk.color)));
-  // backgrounds
-  s.appendChild(htmlEl(`<h2>Background rarity</h2>`));
-  const bgSum=()=>M.backgrounds.reduce((a,b)=>a+(cfg.bgW[b.id]||0),0);
-  M.backgrounds.forEach(b=>s.appendChild(weightCtrl(b.label, cfg.bgW, b.id, bgSum)));
+  // punks
+  s.appendChild(htmlEl(`<h2>Punk rarity</h2>`));
+  s.appendChild(htmlEl(`<div class="hint">Weight = relative chance (free value: 0.05 = very rare, 20 = common). % = expected share. Tiger & White Tiger punks pull Beard/Hair/Hat/Eye/Misc from the Tiger-* art.</div>`));
+  const punkSum=()=>M.punk.options.reduce((a,p)=>a+(cfg.punkW[p.id]||0),0);
+  M.punk.options.forEach(p=>s.appendChild(weightCtrl(p.label, cfg.punkW, p.id, punkSum)));
+  // modes
+  s.appendChild(htmlEl(`<h2>Mode rarity</h2>`));
+  const modeSum=()=>M.modes.reduce((a,m)=>a+(cfg.modeW[m.id]||0),0);
+  M.modes.forEach(m=>s.appendChild(weightCtrl(m.label, cfg.modeW, m.id, modeSum, m.color)));
   // category presence
   s.appendChild(htmlEl(`<h2>Trait presence %</h2>`));
   s.appendChild(htmlEl(`<div class="hint">Chance a category appears (Misc = base per-item chance, scaled by each item's weight below).</div>`));
@@ -290,7 +294,8 @@ function buildSettings(){
 }
 function refreshPct(){pctRefreshers.forEach(f=>f());}
 function weightCtrl(label, obj, key, sumFn, color){
-  const sw=color?`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:rgb(${color.join(',')});margin-right:4px"></span>`:'';
+  const swc=Array.isArray(color)?('rgb('+color.join(',')+')'):color;
+  const sw=color?`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${swc};margin-right:4px"></span>`:'';
   const row=htmlEl(`<div class="row"><label>${sw}${label}</label><input type="number" min="0" step="0.1" value="${obj[key]??1}" style="width:62px;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:3px 5px;border-radius:5px;font-family:inherit;font-size:.72rem"><span class="v"></span></div>`);
   const inp=row.querySelector('input'),v=row.querySelector('.v');
   inp.oninput=e=>{obj[key]=Math.max(0,+e.target.value||0);refreshPct();};
@@ -303,20 +308,20 @@ function htmlEl(h){const d=ce('div');d.innerHTML=h.trim();return d.firstChild;}
 function snapshot(){
   return {
     collection:'TigerPunks', kind:'curation-config', size:cfg.size, masterSeed:cfg.masterSeed,
-    weights:{ skin:cfg.skinW, background:cfg.bgW }, presence:cfg.presence, traitWeights:cfg.traitW,
+    weights:{ punk:cfg.punkW, mode:cfg.modeW }, presence:cfg.presence, traitWeights:cfg.traitW,
     distribution:distObj(),
     pinned:Object.values(pinned).map(p=>({seed:p.seed, attributes:attrs(p.st)})),
     set:current.map((c,i)=>({index:i+1, seed:c.seed, attributes:attrs(c.st)}))
   };
 }
 function attrs(st){
-  const o={Background:(M.backgrounds.find(b=>b.id===st.bg)||{}).label, Skin:(M.skins.find(s=>s.id===st.skin)||{}).label};
+  const o={Mode:(M.modes.find(m=>m.id===st.mode)||{}).label, Punk:punkOpt(st.punk).label};
   M.categories.forEach(c=>{const v=st.sel[c.id];o[c.label]=(!v||(Array.isArray(v)&&!v.length))?'None':(Array.isArray(v)?v:[v]).map(f=>(c.options.find(o=>o.file===f)||{}).label||f).join(' + ');});
   return o;
 }
 function distObj(){const d={};const N=current.length||1;
-  d.Skin={};M.skins.forEach(s=>d.Skin[s.label]=current.filter(c=>c.st.skin===s.id).length);
-  d.Background={};M.backgrounds.forEach(b=>d.Background[b.label]=current.filter(c=>c.st.bg===b.id).length);
+  d.Punk={};M.punk.options.forEach(p=>d.Punk[p.label]=current.filter(c=>c.st.punk===p.id).length);
+  d.Mode={};M.modes.forEach(m=>d.Mode[m.label]=current.filter(c=>c.st.mode===m.id).length);
   M.categories.forEach(cat=>{const cc={};if(cat.optional)cc['None']=0;cat.options.forEach(o=>cc[o.label]=0);
     current.forEach(c=>{const v=c.st.sel[cat.id];if(!v||(Array.isArray(v)&&!v.length)){if(cat.optional)cc['None']++;return;}(Array.isArray(v)?v:[v]).forEach(f=>{const o=cat.options.find(o=>o.file===f);if(o)cc[o.label]++;});});
     d[cat.label]=cc;});
@@ -332,7 +337,7 @@ function loadConfig(file){
   r.onload=()=>{try{
     const j=JSON.parse(r.result);
     cfg.size=j.size??cfg.size; cfg.masterSeed=j.masterSeed??cfg.masterSeed;
-    if(j.weights){cfg.skinW={...cfg.skinW,...j.weights.skin};cfg.bgW={...cfg.bgW,...j.weights.background};}
+    if(j.weights){cfg.punkW={...cfg.punkW,...(j.weights.punk||{})};cfg.modeW={...cfg.modeW,...(j.weights.mode||{})};}
     if(j.presence)cfg.presence={...cfg.presence,...j.presence};
     if(j.traitWeights)cfg.traitW={...cfg.traitW,...j.traitWeights};
     pinned={}; (j.pinned||[]).forEach(p=>{ /* re-pin by seed if present in regen */ });
@@ -351,8 +356,9 @@ function downloadSheet(){
   const c=ce('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
   x.fillStyle='#0e0e0e';x.fillRect(0,0,W,H);x.imageSmoothingEnabled=false;
   items.forEach((it,i)=>{const col=i%cols,row=(i/cols)|0;const px=pad+col*(cw+pad),py=pad+row*(cw+pad);
-    x.fillStyle=bgFill(it.st.bg);x.fillRect(px,py,cw,cw);x.drawImage(processBase(it.st.skin),px,py,cw,cw);
-    M.categories.forEach(cat=>{const v=it.st.sel[cat.id];if(!v)return;(cat.multi?v:[v]).forEach(f=>{const im=IMG[cat.dir+'/'+f];if(im)x.drawImage(im,px,py,cw,cw);});});});
+    x.fillStyle=bgFill(it.st.mode);x.fillRect(px,py,cw,cw);
+    const pim=IMG[M.punk.dir+'/'+punkOpt(it.st.punk).file];if(pim)x.drawImage(pim,px,py,cw,cw);
+    M.categories.forEach(cat=>{if(cat.id==='Misc'&&hatIsHoodie(it.st))return;const v=it.st.sel[cat.id];if(!v)return;const dir=catDir(cat,it.st.punk);(cat.multi?v:[v]).forEach(f=>{const im=IMG[dir+'/'+f];if(im)x.drawImage(im,px,py,cw,cw);});});});
   const a=ce('a');a.download='TigerPunks-'+cfg.masterSeed+'-sheet.png';a.href=c.toDataURL('image/png');a.click();
   toast(current.length>SHEET_CAP?('Sheet: first '+SHEET_CAP):'Sheet downloaded');
 }

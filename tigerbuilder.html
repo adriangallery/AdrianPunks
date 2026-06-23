@@ -119,13 +119,13 @@
     <!-- CONTROLS -->
     <div class="col-lg-7">
       <div class="card shadow-sm mb-3">
-        <div class="card-header">Background <span class="val" id="bgVal">Orange</span></div>
-        <div class="card-body"><div class="chips" id="bgChips"></div></div>
+        <div class="card-header">Mode <span class="val" id="modeVal">Dark</span></div>
+        <div class="card-body"><div class="chips" id="modeChips"></div></div>
       </div>
 
       <div class="card shadow-sm mb-3">
-        <div class="card-header">Skin <span class="val" id="skinVal">Classic</span></div>
-        <div class="card-body"><div class="chips" id="skinChips"></div></div>
+        <div class="card-header">Punk <span class="val" id="punkVal">Adrian</span></div>
+        <div class="card-body"><div class="cat"><div class="grid" id="punkGrid" style="display:grid"></div></div></div>
       </div>
 
       <div class="card shadow-sm mb-3">
@@ -149,7 +149,7 @@
   </div>
 
   <footer class="text-center text-muted-2 py-4" style="font-size:.8rem">
-    TigerPunks · by HalfxTiger · <a href="https://adrianpunks.com">adrianpunks.com</a> · v1 (off-chain)
+    TigerPunks · by HalfxTiger · <a href="https://adrianpunks.com">adrianpunks.com</a> · v2 (new model · off-chain)
   </footer>
 </div>
 
@@ -173,10 +173,19 @@
 <!-- Builder engine -->
 <script>
 const SIZE=1080, GKEY='tigerpunks_gallery';
-const VERSION='20260607a';                       // bump to bust CDN/browser cache on asset updates
+const VERSION='20260623a';                       // bump to bust CDN/browser cache on asset updates
 const bust=u=>u+(u.includes('?')?'&':'?')+'v='+VERSION;
 const $=s=>document.querySelector(s), ce=(t,c)=>{const e=document.createElement(t);if(c)e.className=c;return e;};
-let M=null, IMG={}, baseCache={}, state={bg:'orange', skin:'classic', sel:{}};
+let M=null, IMG={}, state={mode:'dark', punk:'adrian', sel:{}};
+
+/* ---- new-model helpers (Mode / Punk / Tiger-variant / Hoodie rule) ---- */
+function punkOpt(id){return (M.punk.options.find(p=>p.id===id))||M.punk.options[0];}
+function isTigerPunk(){return (M.punk.tigerIds||[]).includes(state.punk);}
+function catDir(c){return (isTigerPunk()&&c.tigerDir)?c.tigerDir:c.dir;}      // art folder for current punk
+function catCfg(id){return M.categories.find(c=>c.id===id);}
+function hoodieRule(){return (M.rules&&M.rules.hoodieNoMisc)||null;}
+function hatIsHoodie(){const r=hoodieRule();if(!r)return false;const f=state.sel[r.cat];if(!f)return false;return lbl(catCfg(r.cat),f)===r.value;}
+function miscDisabled(){const r=hoodieRule();return !!(r&&hatIsHoodie());}    // Misc blocked while Hat=Hoodie
 
 /* PRNG */
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -187,99 +196,111 @@ function load(src){return new Promise(res=>{if(IMG[src])return res(IMG[src]);con
 
 async function boot(){
   M=await (await fetch(bust('tigerpunks/manifest.json'))).json();
-  const all=[M.base.dir+'/'+M.base.file];
-  M.categories.forEach(c=>c.options.forEach(o=>all.push(c.dir+'/'+o.file)));
+  const all=[];
+  M.punk.options.forEach(o=>all.push(M.punk.dir+'/'+o.file));            // 7 full-art punk faces
+  M.categories.forEach(c=>c.options.forEach(o=>{
+    all.push(c.dir+'/'+o.file);
+    if(c.tigerDir)all.push(c.tigerDir+'/'+o.file);                       // tiger-variant art
+  }));
   let done=0;
   await Promise.all(all.map(p=>load(p).then(()=>{done++;$('#lbar').style.width=(done/all.length*100)+'%';})));
   buildUI();randomize();$('#loader').style.display='none';
 }
 
-/* backgrounds */
-function drawBg(ctx,id){
-  if(id==='dark'){ctx.fillStyle='#333333';}
-  else if(id==='light'){ctx.fillStyle='#cccccc';}
-  else {ctx.fillStyle='#ff8a3d';}   // orange (default)
-  ctx.fillRect(0,0,SIZE,SIZE);
-}
+/* Mode = solid background colour */
+function drawBg(ctx,id){const m=M.modes.find(m=>m.id===id)||M.modes[0];ctx.fillStyle=m.color;ctx.fillRect(0,0,SIZE,SIZE);}
 
-/* base processing: skin tint (white face -> tone). Classic = no tint. */
-function skinColor(){const s=(M.skins||[]).find(s=>s.id===state.skin);return s?s.color:null;}
-function processBase(src){
-  const sc=skinColor();
-  if(!sc) return IMG[src];                 // classic: no tint
-  const key=src+'|'+state.skin;
-  if(baseCache[key])return baseCache[key];
-  const im=IMG[src],c=ce('canvas');c.width=c.height=SIZE;const x=c.getContext('2d');x.drawImage(im,0,0,SIZE,SIZE);
-  const d=x.getImageData(0,0,SIZE,SIZE),p=d.data;
-  for(let i=0;i<p.length;i+=4){if(p[i+3]<10)continue;const r=p[i],g=p[i+1],b=p[i+2];
-    if(r>238&&g>238&&b>238){p[i]=sc[0];p[i+1]=sc[1];p[i+2]=sc[2];}  // white face -> skin
-  }
-  x.putImageData(d,0,0);baseCache[key]=c;return c;
-}
-
+/* z-order: Mode(bg) > Punk > Beard > Mouth > Hair > Hat > Eye > Top > Misc.
+   Tiger/White-Tiger punks pull Beard/Hair/Hat/Eye/Misc from the Tiger-* art. */
 function render(){
   const ctx=$('#view').getContext('2d');ctx.clearRect(0,0,SIZE,SIZE);
-  drawBg(ctx,state.bg);
-  const baseSrc=M.base.dir+'/'+M.base.file;
-  if(IMG[baseSrc])ctx.drawImage(processBase(baseSrc),0,0,SIZE,SIZE);
-  M.categories.forEach(c=>{const v=state.sel[c.id];if(!v)return;const arr=c.multi?v:[v];
-    arr.forEach(file=>{const im=IMG[c.dir+'/'+file];if(im)ctx.drawImage(im,0,0,SIZE,SIZE);});});
+  drawBg(ctx,state.mode);
+  const pim=IMG[M.punk.dir+'/'+punkOpt(state.punk).file];if(pim)ctx.drawImage(pim,0,0,SIZE,SIZE);
+  M.categories.forEach(c=>{
+    if(c.id==='Misc'&&miscDisabled())return;                            // Hoodie hat -> no misc
+    const v=state.sel[c.id];if(!v)return;const dir=catDir(c);
+    (c.multi?v:[v]).forEach(file=>{const im=IMG[dir+'/'+file];if(im)ctx.drawImage(im,0,0,SIZE,SIZE);});
+  });
   updateTraits();
 }
 
 function buildUI(){
-  const bc=$('#bgChips');
-  M.backgrounds.forEach(b=>{const el=ce('div','chip'+(b.id===state.bg?' active':''));el.textContent=b.label;
-    el.onclick=()=>{state.bg=b.id;$('#bgVal').textContent=b.label;[...bc.children].forEach(c=>c.classList.remove('active'));el.classList.add('active');render();};bc.appendChild(el);});
-  const sk=$('#skinChips');
-  (M.skins||[]).forEach(s=>{const el=ce('div','chip'+(s.id===state.skin?' active':''));el.textContent=s.label;
-    if(s.color)el.style.borderLeft='10px solid rgb('+s.color.join(',')+')';
-    el.onclick=()=>{state.skin=s.id;$('#skinVal').textContent=s.label;[...sk.children].forEach(c=>c.classList.remove('active'));el.classList.add('active');render();};sk.appendChild(el);});
+  // Mode chips (solid colour swatch)
+  const mc=$('#modeChips');
+  M.modes.forEach(m=>{const el=ce('div','chip'+(m.id===state.mode?' active':''));el.textContent=m.label;
+    el.style.borderLeft='10px solid '+m.color;
+    el.onclick=()=>{state.mode=m.id;$('#modeVal').textContent=m.label;[...mc.children].forEach(c=>c.classList.remove('active'));el.classList.add('active');render();};mc.appendChild(el);});
+  // Punk grid (full-art faces, required single-select)
+  const pg=$('#punkGrid');
+  M.punk.options.forEach(o=>{const t=ce('div','thumb'+(o.id===state.punk?' active':''));t.dataset.id=o.id;
+    const img=ce('img');img.src=bust(M.punk.dir+'/'+o.file);img.loading='lazy';t.appendChild(img);
+    const l=ce('div','lbl');l.textContent=o.label;t.appendChild(l);
+    t.onclick=()=>{state.punk=o.id;$('#punkVal').textContent=o.label;[...pg.children].forEach(x=>x.classList.remove('active'));t.classList.add('active');render();};
+    pg.appendChild(t);});
+  // Categories
   const wrap=$('#cats');
   M.categories.forEach((c,idx)=>{
-    const cat=ce('div','cat');const head=ce('div','head');
+    const cat=ce('div','cat');cat.dataset.cid=c.id;const head=ce('div','head');
     head.innerHTML=`<span class="name"><i class="bi bi-chevron-right"></i> ${c.label}${c.multi?' <span class="text-muted-2" style="font-size:.7rem">(multi)</span>':''}</span><span class="pick" id="pick-${c.id}">${c.optional?'None':''}</span>`;
     const grid=ce('div','grid');
     if(c.optional&&!c.multi){const none=ce('div','thumb none active');none.textContent='None';none.dataset.file='';none.onclick=()=>selectThumb(c,none,'');grid.appendChild(none);}
     c.options.forEach(o=>{const t=ce('div','thumb');t.dataset.file=o.file;const img=ce('img');img.src=bust(c.dir+'/'+o.file);img.loading='lazy';t.appendChild(img);const lbl=ce('div','lbl');lbl.textContent=o.label;t.appendChild(lbl);t.onclick=()=>selectThumb(c,t,o.file);grid.appendChild(t);});
-    head.onclick=()=>cat.classList.toggle('open');cat.appendChild(head);cat.appendChild(grid);wrap.appendChild(cat);if(idx<2)cat.classList.add('open');});
+    head.onclick=()=>{if(cat.classList.contains('disabled'))return;cat.classList.toggle('open');};cat.appendChild(head);cat.appendChild(grid);wrap.appendChild(cat);if(idx<2)cat.classList.add('open');});
   $('#btnRand').onclick=()=>randomize();$('#btnDownload').onclick=download;$('#btnSVG').onclick=downloadSVG;$('#btnSave').onclick=saveToGallery;$('#btnShare').onclick=share;$('#btnCopy').onclick=copyTraits;
   renderGallery();
 }
 
+/* Hoodie rule: when Hat=Hoodie, clear+disable the Misc category in the UI */
+function refreshHoodie(){
+  const cat=document.querySelector('#cats .cat[data-cid="Misc"]');if(!cat)return;
+  if(miscDisabled()){
+    state.sel.Misc=[];
+    cat.classList.add('disabled','o-50');cat.classList.remove('open');
+    cat.style.opacity='.45';cat.style.pointerEvents='none';
+    const pick=cat.querySelector('.pick');if(pick)pick.textContent='Disabled (Hoodie)';
+    [...cat.querySelectorAll('.thumb')].forEach(t=>t.classList.remove('active'));
+  }else{
+    cat.classList.remove('disabled');cat.style.opacity='';cat.style.pointerEvents='';
+    const pick=cat.querySelector('.pick');if(pick&&pick.textContent==='Disabled (Hoodie)')pick.textContent='None';
+  }
+}
+
 function selectThumb(c,el,file){
+  if(c.id==='Misc'&&miscDisabled())return;                              // blocked by Hoodie rule
   const grid=el.parentElement;
   if(c.multi){el.classList.toggle('active');const set=new Set(state.sel[c.id]||[]);if(set.has(file))set.delete(file);else set.add(file);state.sel[c.id]=[...set];
     $('#pick-'+c.id).textContent=state.sel[c.id].length?state.sel[c.id].map(f=>lbl(c,f)).join(', '):'None';}
   else{[...grid.children].forEach(x=>x.classList.remove('active'));el.classList.add('active');state.sel[c.id]=file||null;$('#pick-'+c.id).textContent=file?lbl(c,file):'None';}
+  if(c.id===((hoodieRule()||{}).cat))refreshHoodie();                   // Hat changed -> re-eval Misc lock
   render();
 }
 function lbl(c,file){const o=c.options.find(o=>o.file===file);return o?o.label:file;}
 
 function randomize(s){
   reseed(s!==undefined?s:Math.floor(Math.random()*1e9));
-  state.bg=M.backgrounds[Math.floor(rng()*M.backgrounds.length)].id;
-  if(M.skins&&M.skins.length)state.skin=M.skins[Math.floor(rng()*M.skins.length)].id;
+  state.mode=M.modes[Math.floor(rng()*M.modes.length)].id;
+  state.punk=M.punk.options[Math.floor(rng()*M.punk.options.length)].id;
   state.sel={};
-  M.categories.forEach(c=>{
-    if(c.multi){state.sel[c.id]=c.options.filter(()=>rng()<0.18).map(o=>o.file);}
+  M.categories.forEach(c=>{                                             // Hat precedes Misc in z-order, so Hoodie is known by the Misc step
+    if(c.id==='Misc'){state.sel.Misc=miscDisabled()?[]:c.options.filter(()=>rng()<0.18).map(o=>o.file);}
+    else if(c.multi){state.sel[c.id]=c.options.filter(()=>rng()<0.18).map(o=>o.file);}
     else if(c.optional&&rng()<0.25){state.sel[c.id]=null;}
     else state.sel[c.id]=c.options[Math.floor(rng()*c.options.length)].file;});
   syncUI();render();
 }
 function syncUI(){
-  $('#bgVal').textContent=(M.backgrounds.find(b=>b.id===state.bg)||{}).label||state.bg;
-  [...$('#bgChips').children].forEach(el=>el.classList.toggle('active',el.textContent===$('#bgVal').textContent));
-  $('#skinVal').textContent=((M.skins||[]).find(s=>s.id===state.skin)||{}).label||'Classic';
-  [...$('#skinChips').children].forEach(el=>el.classList.toggle('active',el.textContent===$('#skinVal').textContent));
+  $('#modeVal').textContent=(M.modes.find(m=>m.id===state.mode)||{}).label||state.mode;
+  [...$('#modeChips').children].forEach(el=>el.classList.toggle('active',el.textContent===$('#modeVal').textContent));
+  $('#punkVal').textContent=punkOpt(state.punk).label||'';
+  [...$('#punkGrid').children].forEach(el=>el.classList.toggle('active',el.dataset.id===state.punk));
   M.categories.forEach(c=>{const grid=document.querySelectorAll('#cats .cat')[M.categories.indexOf(c)].querySelector('.grid');const sel=state.sel[c.id];
     [...grid.children].forEach(t=>{const f=t.dataset.file;if(c.multi)t.classList.toggle('active',(sel||[]).includes(f));else t.classList.toggle('active',(f||'')===(sel||''));});
     $('#pick-'+c.id).textContent=c.multi?((sel&&sel.length)?sel.map(f=>lbl(c,f)).join(', '):'None'):(sel?lbl(c,sel):'None');});
+  refreshHoodie();
 }
 
 function traitsObj(){
-  const o={Background:(M.backgrounds.find(b=>b.id===state.bg)||{}).label,
-    Skin:((M.skins||[]).find(s=>s.id===state.skin)||{}).label||'Classic'};
+  const o={Mode:(M.modes.find(m=>m.id===state.mode)||{}).label, Punk:punkOpt(state.punk).label};
   M.categories.forEach(c=>{const s=state.sel[c.id];o[c.label]=c.multi?((s&&s.length)?s.map(f=>lbl(c,f)).join(' + '):'None'):(s?lbl(c,s):'None');});return o;
 }
 function updateTraits(){const o=traitsObj(),el=$('#traits');el.innerHTML='';Object.entries(o).forEach(([k,v])=>{const r=ce('div','row');r.innerHTML=`<span>${k}</span><span>${v}</span>`;el.appendChild(r);});}
