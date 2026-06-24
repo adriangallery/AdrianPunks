@@ -297,27 +297,36 @@ function selectThumb(c,el,file){
 }
 function lbl(c,file){const o=c.options.find(o=>o.file===file);return o?o.label:file;}
 
-/* rule-aware random punk (mirrors curator genState ordering) */
+/* rule-aware random punk — RANDOM trait quantity (not always maxed). */
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function randomize(s){
   reseed(s!==undefined?s:Math.floor(Math.random()*1e9));
   state.mode=M.modes[Math.floor(rng()*M.modes.length)].id;
   state.punk=M.punk.options[Math.floor(rng()*M.punk.options.length)].id;
   state.sel={};
-  const pick=(cid,prob,filter)=>{
-    if(rng()>=prob) return null;
+  const pickOne=(cid,filter)=>{
     let opts=catCfg(cid).options.filter(o=>TPRULES.punkOptionAllowed(state.punk,cid,o.label));
     if(filter) opts=opts.filter(filter);
     return opts.length?opts[Math.floor(rng()*opts.length)].file:null;
   };
-  state.sel.Hat=pick('Hat',0.75);
+  // 1) random HOW MANY single-select categories to fill (0..all, flat) then WHICH ones
+  const singles=['Hat','Hair','Beard','Mouth','Eye','Top']; // Hat first: gates Hair/Top/Misc
+  const n=Math.floor(rng()*(singles.length+1));
+  const chosen=new Set(shuffle(singles.slice()).slice(0,n));
+  if(chosen.has('Hat')) state.sel.Hat=pickOne('Hat');
   const h=state.sel.Hat?lbl(catCfg('Hat'),state.sel.Hat):null;
-  state.sel.Hair=pick('Hair',0.85,o=>TPRULES.hairHatOK(o.label,h));
-  state.sel.Beard=pick('Beard',0.5);
-  state.sel.Mouth=pick('Mouth',0.6);
-  state.sel.Eye=pick('Eye',0.85);
-  state.sel.Top=TPRULES.topSuppressed(h)?null:pick('Top',0.7);
-  state.sel.Misc=TPRULES.miscSuppressed(h)?[]:catCfg('Misc').options
-    .filter(o=>TPRULES.miscOptionAllowed(o.label,h)&&TPRULES.punkOptionAllowed(state.punk,'Misc',o.label)&&rng()<0.18).map(o=>o.file);
+  if(chosen.has('Hair')) state.sel.Hair=pickOne('Hair',o=>TPRULES.hairHatOK(o.label,h));
+  if(chosen.has('Beard')) state.sel.Beard=pickOne('Beard');
+  if(chosen.has('Mouth')) state.sel.Mouth=pickOne('Mouth');
+  if(chosen.has('Eye')) state.sel.Eye=pickOne('Eye');
+  if(chosen.has('Top')&&!TPRULES.topSuppressed(h)) state.sel.Top=pickOne('Top');
+  // 2) Misc (multi): random 0..3 items, respecting suppression / allowed
+  state.sel.Misc=[];
+  if(!TPRULES.miscSuppressed(h)){
+    const pool=shuffle(catCfg('Misc').options.filter(o=>TPRULES.miscOptionAllowed(o.label,h)&&TPRULES.punkOptionAllowed(state.punk,'Misc',o.label)));
+    const mn=Math.floor(rng()*Math.min(4,pool.length+1)); // 0..3
+    state.sel.Misc=pool.slice(0,mn).map(o=>o.file);
+  }
   syncUI();render();
 }
 /* Clean = base skin (Adrian punk, no traits); keeps current background mode */
