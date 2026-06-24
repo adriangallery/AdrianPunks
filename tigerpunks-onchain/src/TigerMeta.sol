@@ -5,12 +5,12 @@ pragma solidity >=0.8.17;
 /// Combo row (ROW_BYTES = 10): [mode][punk][top][beard][hair][hat][mouth][eye][miscLo][miscHi]
 /// mode & punk are 0-based; top..eye are 1-based (0=None); misc is a 12-bit mask.
 library TigerMeta {
-    uint256 internal constant SUPPLY = 80;
+    uint256 internal constant SUPPLY = 10000;
     uint256 internal constant ROW_BYTES = 10;
-    bytes32 internal constant PROVENANCE = 0xa6225b6317727509bd786060e471c459017cb3ebbd3461e0422702b3bee87275;
+    bytes32 internal constant PROVENANCE = 0x9fa2a02518b29e53663ce684b57e527f5772ba5606fd38f11083bc97222e173d;
 
     function labels_Mode() internal pure returns (string[5] memory) { string[5] memory a = ["Dark", "Light", "OG", "OG 107", "Tiger"]; return a; }
-    function labels_Punk() internal pure returns (string[7] memory) { string[7] memory a = ["Adrian", "Alien", "Ape", "NPC", "Tiger", "White Tiger", "Zombie"]; return a; }
+    function labels_Punk() internal pure returns (string[8] memory) { string[8] memory a = ["Adrian", "Alien", "Ape", "NPC", "Tiger", "White Tiger", "Zombie", "Lama"]; return a; }
     function labels_Top() internal pure returns (string[18] memory) { string[18] memory a = ["Black Polo", "Black Swearshirt", "Black T Shirt", "Blue Polo", "Bomber", "Bruce Lee", "Grand Master Flash", "Hoodie Blue", "Hoodie Red", "Hoodie", "MCD Polo", "Mankini", "Pink Polo", "Swearshirt", "Uniform", "White Polo", "White T Shirt", "Worker Vest"]; return a; }
     function labels_Beard() internal pure returns (string[10] memory) { string[10] memory a = ["Chinstrap", "Front Beard Dark", "Front Beard", "Goaty", "Handelbar", "Moustage", "Mutton Chops", "Normal Beard Black", "Normal Beard", "Shadow Beard"]; return a; }
     function labels_Hair() internal pure returns (string[14] memory) { string[14] memory a = ["Bob", "Crazy Hair", "Flat Top", "Long Hair", "Longer Hair Dark", "Longer Hair", "Mid", "Mohawk", "Normal Popper", "Popper", "Short", "Spike", "Tonsure", "Wild"]; return a; }

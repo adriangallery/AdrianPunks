@@ -24,6 +24,7 @@ contract TigerPunks is ERC721SeaDrop, ERC721AQueryable {
     bytes32 public constant PROVENANCE = TigerMeta.PROVENANCE;
 
     TigerRenderer public renderer;
+    bool public rendererFrozen;                              // one-way lock for the renderer
     address[] public comboChunks;                            // SSTORE2 pointers, in order
     bool public comboDataFrozen;
 
@@ -37,6 +38,9 @@ contract TigerPunks is ERC721SeaDrop, ERC721AQueryable {
     error ChunkMisaligned();
     error TraitsNotLoaded();
     error AlreadyRevealed();
+    error RendererFrozen();
+
+    event RendererFrozenEvent(address renderer);
 
     constructor(address[] memory allowedSeaDrop, address renderer_)
         ERC721SeaDrop("TigerPunks", "TPUNKS", allowedSeaDrop)
@@ -84,8 +88,12 @@ contract TigerPunks is ERC721SeaDrop, ERC721AQueryable {
     ///         after minting, so no one can snipe rare combos during the sale.
     function reveal() external onlyOwner {
         if (revealed) revert AlreadyRevealed();
+        // block.prevrandao carries L1 beacon entropy on the OP stack (Base), which the
+        // owner/sequencer cannot grind as cheaply as blockhash+timestamp alone.
         uint256 o = uint256(
-            keccak256(abi.encodePacked(blockhash(block.number - 1), block.timestamp, _totalMinted(), address(this)))
+            keccak256(abi.encodePacked(
+                blockhash(block.number - 1), block.prevrandao, block.timestamp, _totalMinted(), address(this)
+            ))
         ) % TigerMeta.SUPPLY;
         revealOffset = o == 0 ? 1 : o;          // guarantee a real shuffle
         revealed = true;
@@ -197,10 +205,18 @@ contract TigerPunks is ERC721SeaDrop, ERC721AQueryable {
         comboDataFrozen = true;
     }
 
-    /// @notice Swap the renderer (e.g. a bug-fix). Kept open per launch spec
+    /// @notice Swap the renderer (e.g. a bug-fix). Open until freezeRenderer() is called
     ///         (renderer is upgradeable; combo data can still be frozen separately).
     function setRenderer(address renderer_) external onlyOwner {
+        if (rendererFrozen) revert RendererFrozen();
         renderer = TigerRenderer(renderer_);
+    }
+
+    /// @notice Permanently lock the renderer once the final art is verified, so the
+    ///         collection is genuinely immutable ("frozen on-chain"). One-way.
+    function freezeRenderer() external onlyOwner {
+        rendererFrozen = true;
+        emit RendererFrozenEvent(address(renderer));
     }
 
     // ---- reads --------------------------------------------------------------

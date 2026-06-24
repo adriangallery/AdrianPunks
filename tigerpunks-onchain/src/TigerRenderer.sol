@@ -22,6 +22,40 @@ contract TigerRenderer {
     constructor(address artStore) { owner = msg.sender; art = TigerArt(artStore); }
     function setArt(address artStore) external { if (msg.sender != owner) revert NotOwner(); art = TigerArt(artStore); }
 
+    // ---- collection metadata (contractURI, 100% on-chain) -------------------
+    // PLACEHOLDER copy/showcase — pending Adrian's final review. Owner-settable until
+    // the renderer is frozen; the token bakes contractURI() into its stored _contractURI
+    // at deploy, so OpenSea serves a fully self-contained data: URI (no server / IPFS).
+    string internal _collName = "TigerPunks";
+    string internal _collDesc = "TigerPunks is a collection of 10,000 hand-drawn pixel punks that live 100% on-chain. Every punk's art, traits and metadata are stored and rendered entirely by this Ethereum contract - no servers, no IPFS, no API. The 10k set is pre-committed by an on-chain provenance hash and shuffled by a one-time on-chain reveal, so the rarity is provably fair. Once frozen, art and renderer are immutable forever. By HalfxTiger.";
+    string internal _collLink = "https://adrianpunks.com/tigermint";
+    bytes  internal _showcase = hex"03040000000000000000";   // Tiger punk on OG-107 (green) bg - collection logo
+
+    function setCollectionMeta(string calldata n, string calldata d, string calldata link) external {
+        if (msg.sender != owner) revert NotOwner();
+        _collName = n; _collDesc = d; _collLink = link;
+    }
+    function setShowcase(bytes calldata row) external {
+        if (msg.sender != owner) revert NotOwner();
+        require(row.length == TigerMeta.ROW_BYTES, "row");
+        _showcase = row;
+    }
+
+    /// @notice Fully on-chain collection metadata. The logo is a real TigerPunk rendered
+    ///         on-chain, so the whole collection — items AND collection card — is serverless.
+    function contractURI() external view returns (string memory) {
+        string memory image = string(abi.encodePacked(
+            "data:image/svg+xml;base64,", Base64.encode(bytes(imageSVG(_showcase)))
+        ));
+        bytes memory json = abi.encodePacked(
+            "{\"name\":\"", _collName,
+            "\",\"description\":\"", _collDesc,
+            "\",\"image\":\"", image,
+            "\",\"external_link\":\"", _collLink, "\"}"
+        );
+        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(json)));
+    }
+
     // ---- buffer helpers -----------------------------------------------------
     function _app(bytes memory buf, uint256 len, bytes memory s) internal pure returns (uint256) {
         uint256 n = s.length;

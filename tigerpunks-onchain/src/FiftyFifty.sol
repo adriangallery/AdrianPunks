@@ -91,12 +91,14 @@ contract FiftyFifty {
         
         address recipient = (msg.sender == artist) ? dev : artist;
         
-        // INTERACTIONS: Transferencias externas al final
-        // Usar call con límite de gas para prevenir ataques
-        (bool successRecipient, ) = payable(recipient).call{value: halfAmount, gas: 2300}("");
+        // INTERACTIONS: Transferencias externas al final.
+        // Sin límite de gas (el patrón CEI + nonReentrant ya protegen contra reentrancy);
+        // un stipend de 2300 gas haría fallar el envío a wallets de contrato (Safe, etc.)
+        // y dejaría los ingresos atascados, ya que artist/dev pueden ser multisigs.
+        (bool successRecipient, ) = payable(recipient).call{value: halfAmount}("");
         require(successRecipient, "Transfer to recipient failed");
-        
-        (bool successInitiator, ) = payable(msg.sender).call{value: remainingAmount, gas: 2300}("");
+
+        (bool successInitiator, ) = payable(msg.sender).call{value: remainingAmount}("");
         require(successInitiator, "Transfer to initiator failed");
         
         // Emitir evento después de transferencias exitosas

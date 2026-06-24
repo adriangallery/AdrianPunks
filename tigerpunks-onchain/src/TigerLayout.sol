@@ -5,15 +5,15 @@ pragma solidity >=0.8.17;
 /// 0-based flat-blob trait bases & counts (z-order), tiger-variant bases, tiger-punk test.
 library TigerLayout {
     uint256 internal constant N_MODE = 5;
-    uint256 internal constant N_PUNK = 7;
+    uint256 internal constant N_PUNK = 8;
     uint256 internal constant P_PUNK = 0;
-    uint256 internal constant P_TOP   = 7;    uint256 internal constant N_TOP   = 18;
-    uint256 internal constant P_BEARD = 25;  uint256 internal constant P_BEARD_T = 35; uint256 internal constant N_BEARD = 10;
-    uint256 internal constant P_HAIR  = 45;   uint256 internal constant P_HAIR_T  = 59;  uint256 internal constant N_HAIR  = 14;
-    uint256 internal constant P_HAT   = 73;    uint256 internal constant P_HAT_T   = 96;   uint256 internal constant N_HAT   = 23;
-    uint256 internal constant P_MOUTH = 119;  uint256 internal constant N_MOUTH = 8;
-    uint256 internal constant P_EYE   = 127;    uint256 internal constant P_EYE_T   = 155;   uint256 internal constant N_EYE   = 28;
-    uint256 internal constant P_MISC  = 183;   uint256 internal constant P_MISC_T  = 195;  uint256 internal constant N_MISC  = 12;
+    uint256 internal constant P_TOP   = 8;    uint256 internal constant N_TOP   = 18;
+    uint256 internal constant P_BEARD = 26;  uint256 internal constant P_BEARD_T = 36; uint256 internal constant N_BEARD = 10;
+    uint256 internal constant P_HAIR  = 46;   uint256 internal constant P_HAIR_T  = 60;  uint256 internal constant N_HAIR  = 14;
+    uint256 internal constant P_HAT   = 74;    uint256 internal constant P_HAT_T   = 97;   uint256 internal constant N_HAT   = 23;
+    uint256 internal constant P_MOUTH = 120;  uint256 internal constant N_MOUTH = 8;
+    uint256 internal constant P_EYE   = 128;    uint256 internal constant P_EYE_T   = 156;   uint256 internal constant N_EYE   = 28;
+    uint256 internal constant P_MISC  = 184;   uint256 internal constant P_MISC_T  = 196;  uint256 internal constant N_MISC  = 12;
 
-    function isTigerPunk(uint8 p) internal pure returns (bool) { return p == 4 || p == 5; }
+    function isTigerPunk(uint8 p) internal pure returns (bool) { return p == 4 || p == 5 || p == 7; }
 }

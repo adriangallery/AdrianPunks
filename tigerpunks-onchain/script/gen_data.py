@@ -121,20 +121,67 @@ def attr_local(cid, val):
     if not val or val == "None": return 0
     return maps[cid].get(val, 0)
 
-# ---- combos (trust the curator config; rules already applied there) ----------
+# ---- STRICT validation (fail loud; this data is immutable once on-chain) ------
+# A typo / stale label must ABORT the bake, never silently default to index 0 (which
+# would render a valid-but-WRONG punk that mismatches the curated preview).
+import re as _re
+errs = []
+if N_MISC > 16:
+    errs.append(f"Misc has {N_MISC} options but the on-chain mask is 16 bits (uint16); cannot exceed 16.")
+for m in MODES:
+    if not _re.match(r'^#[0-9a-fA-F]{6}$', m.get("color", "")):
+        errs.append(f"Mode '{m['label']}' has invalid color '{m.get('color')}' (want #RRGGBB).")
+
+cat_ids = ["Top", "Beard", "Hair", "Hat", "Mouth", "Eye"]
+the_set = config["set"]
+SUPPLY  = config.get("size", len(the_set))
+seen_idx = set()
+for tok in the_set:
+    i = tok.get("index")
+    if not isinstance(i, int) or i < 1 or i > SUPPLY:
+        errs.append(f"token index {i!r} out of range 1..{SUPPLY}.")
+    elif i in seen_idx:
+        errs.append(f"duplicate token index {i}.")
+    else:
+        seen_idx.add(i)
+    a = tok.get("attributes", {})
+    if a.get("Mode") not in mode_idx:
+        errs.append(f"token {i}: Mode '{a.get('Mode')}' not in manifest.")
+    if a.get("Punk") not in punk_idx:
+        errs.append(f"token {i}: Punk '{a.get('Punk')}' not in manifest.")
+    for cid in cat_ids:
+        v = a.get(cid)
+        if v and v != "None" and v not in maps[cid]:
+            errs.append(f"token {i}: {cid} '{v}' not in manifest.")
+    mv = a.get("Misc")
+    if mv and mv != "None":
+        for part in [p.strip() for p in mv.split("+")]:
+            if part not in misc_opts:
+                errs.append(f"token {i}: Misc '{part}' not in manifest.")
+if len(the_set) != SUPPLY:
+    errs.append(f"set has {len(the_set)} tokens but size/SUPPLY is {SUPPLY}.")
+if len(seen_idx) == SUPPLY and sorted(seen_idx) != list(range(1, SUPPLY + 1)):
+    errs.append("token indices are not the contiguous range 1..SUPPLY.")
+if errs:
+    print("\n".join("  ✗ " + e for e in errs[:50]), file=sys.stderr)
+    if len(errs) > 50: print(f"  … and {len(errs)-50} more", file=sys.stderr)
+    raise SystemExit(f"gen_data: {len(errs)} validation error(s) — NOT baking.")
+
+# ---- combos (rules already applied by the curator; labels validated above) ---
 combos = bytearray()
+rows_seen = {}                      # row bytes -> first token index (uniqueness check)
+dupes = []
 prov = hashlib.sha256(); prov.update(str(config.get("masterSeed", 0)).encode())
-for tok in sorted(config["set"], key=lambda t: t["index"]):
+for tok in sorted(the_set, key=lambda t: t["index"]):
     a = tok["attributes"]
     misc_mask = 0
     mval = a.get("Misc")
     if mval and mval != "None":
         for part in [p.strip() for p in mval.split("+")]:
-            if part in misc_opts:
-                misc_mask |= (1 << misc_opts.index(part))
+            misc_mask |= (1 << misc_opts.index(part))     # part guaranteed valid by validation
     row = bytes([
-        mode_idx.get(a.get("Mode"), 0),
-        punk_idx.get(a.get("Punk"), 0),
+        mode_idx[a["Mode"]],
+        punk_idx[a["Punk"]],
         attr_local("Top",   a.get("Top")),
         attr_local("Beard", a.get("Beard")),
         attr_local("Hair",  a.get("Hair")),
@@ -143,7 +190,18 @@ for tok in sorted(config["set"], key=lambda t: t["index"]):
         attr_local("Eye",   a.get("Eye")),
         misc_mask & 0xFF, (misc_mask >> 8) & 0xFF,
     ])
+    if row in rows_seen:
+        dupes.append((rows_seen[row], tok["index"]))
+    else:
+        rows_seen[row] = tok["index"]
     combos += row; prov.update(row)
+
+if dupes:
+    for (first, dup) in dupes[:20]:
+        print(f"  ✗ token {dup} is an EXACT duplicate of token {first}", file=sys.stderr)
+    if len(dupes) > 20: print(f"  … and {len(dupes)-20} more", file=sys.stderr)
+    raise SystemExit(f"gen_data: {len(dupes)} duplicate combo row(s) — collection not unique, NOT baking. "
+                     f"Re-curate (raise the dedupe retries / change masterSeed) or set maxDupes intentionally.")
 
 provenance = "0x" + prov.hexdigest()
 DATA = os.path.join(ROOT, "data"); os.makedirs(DATA, exist_ok=True)
@@ -228,6 +286,32 @@ for _f in ("TigerCombos.sol",):
     p = os.path.join(SRC, _f)
     if os.path.exists(p): os.remove(p)
 
+# ---- rarity report (so published rarity == what's actually on-chain) --------
+def _count(key_fn):
+    d = {}
+    for tok in the_set:
+        for label in key_fn(tok["attributes"]):
+            d[label] = d.get(label, 0) + 1
+    return dict(sorted(d.items(), key=lambda kv: kv[1]))   # rarest first
+
+def _one(cid):    return lambda a: [a.get(cid)] if a.get(cid) and a.get(cid) != "None" else ["None"]
+def _misc(a):
+    mv = a.get("Misc")
+    return [p.strip() for p in mv.split("+")] if mv and mv != "None" else ["None"]
+def _tcount(a):
+    n = sum(1 for cid in ["Top","Beard","Hair","Hat","Mouth","Eye"] if a.get(cid) and a.get(cid) != "None")
+    n += len(_misc(a)) if _misc(a) != ["None"] else 0
+    return [f"{n} traits"]
+
+rarity = {
+    "supply": N, "masterSeed": config.get("masterSeed"), "provenance": provenance,
+    "Mode": _count(_one("Mode")), "Punk": _count(_one("Punk")),
+    "Top": _count(_one("Top")), "Beard": _count(_one("Beard")), "Hair": _count(_one("Hair")),
+    "Hat": _count(_one("Hat")), "Mouth": _count(_one("Mouth")), "Eye": _count(_one("Eye")),
+    "Misc": _count(_misc), "TraitCount": _count(_tcount),
+}
+open(os.path.join(DATA, "rarity-report.json"), "w").write(json.dumps(rarity, indent=2, ensure_ascii=False))
+
 art = len(pal_bytes) + len(blob) + len(offs) * 4
 print(f"palette colours    : {len(palette)} (2-byte index)")
 print(f"traits             : {TRAIT_COUNT}")
@@ -236,5 +320,7 @@ print(f"palette+offs inline: {len(pal_bytes)+len(offs)*4} B")
 print(f"ART total          : {art} B ({art/1024:.1f} KB)")
 print(f"combos             : {len(combos)} B ({N} tokens) -> data/combos.bin")
 print(f"tiger punks        : {tiger_punk_indices}")
+print(f"unique combos      : {len(rows_seen)}/{N} (0 duplicates)")
 print(f"provenance         : {provenance}")
+print(f"rarity report      : data/rarity-report.json")
 print("wrote TigerData.sol, TigerLayout.sol, TigerMeta.sol, data/blob.bin, data/combos.bin")

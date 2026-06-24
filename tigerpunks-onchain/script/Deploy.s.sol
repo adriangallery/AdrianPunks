@@ -7,7 +7,10 @@ import { TigerArt } from "../src/TigerArt.sol";
 import { TigerPunks } from "../src/TigerPunks.sol";
 import { TigerMeta } from "../src/TigerMeta.sol";
 
-/// @notice Deploys the renderer + token and uploads the curated combo table.
+/// @notice ⚠️ TEST / DEV deploy ONLY. Sets maxSupply to however many combo rows were
+///         uploaded (possibly a partial chunk) and does NOT configure royalties, specials,
+///         claim root or the paid public drop. For the real launch use DeployFull.s.sol,
+///         which asserts maxSupply == TigerMeta.SUPPLY and that combos cover the full supply.
 /// Env:
 ///   SEADROP   (default: canonical SeaDrop 1.0, same address on Sepolia & mainnet)
 /// Run:

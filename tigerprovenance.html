@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TigerPunks · Provenance</title>
+<style>
+  :root{--bg:#0e0e10;--panel:#17171b;--border:#2a2a30;--text:#e8e8ea;--muted:#9a9aa2;--ok:#36d399;--bad:#f87272;--accent:#ff8a3d}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.5}
+  .wrap{max-width:780px;margin:0 auto;padding:32px 20px 64px}
+  h1{font-size:1.5rem;margin:0 0 4px}h1 .tg{color:var(--accent)}
+  p.lede{color:var(--muted);margin:0 0 24px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;margin:14px 0}
+  label{display:block;color:var(--muted);font-size:.8rem;margin-bottom:6px}
+  input[type=text]{width:100%;background:#0c0c0e;border:1px solid var(--border);color:var(--text);
+    padding:9px 10px;border-radius:8px;font-family:inherit;font-size:.82rem}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  button{background:var(--accent);color:#1a1207;border:0;border-radius:8px;padding:10px 16px;
+    font-family:inherit;font-weight:700;font-size:.85rem;cursor:pointer}
+  button.ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+  .hash{word-break:break-all;font-size:.8rem;background:#0c0c0e;border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:8px}
+  .verdict{font-size:1.05rem;font-weight:700;margin-top:10px}
+  .verdict.ok{color:var(--ok)}.verdict.bad{color:var(--bad)}
+  .muted{color:var(--muted)}.small{font-size:.78rem}
+  code{background:#0c0c0e;border:1px solid var(--border);border-radius:5px;padding:1px 5px}
+  a{color:var(--accent)}
+</style></head>
+<body><div class="wrap">
+  <h1><span class="tg">Tiger</span>Punks · Provenance</h1>
+  <p class="lede">Prove the 10,000 set is exactly what was minted — recomputed in your browser, checked against the chain. No trust required.</p>
+
+  <div class="card">
+    <p class="small muted" style="margin-top:0">The on-chain <code>PROVENANCE</code> is <code>sha256( masterSeed · row₁ · row₂ · … )</code> over every token's 10-byte trait row. This page rebuilds those rows from the published config + manifest, hashes them, and compares to <code>TigerPunks.PROVENANCE()</code> read live from Ethereum. A match means no trait was swapped after the fact.</p>
+  </div>
+
+  <div class="card">
+    <label>1 · Curated config JSON (the published 10k set)</label>
+    <div class="row">
+      <input type="file" id="cfg" accept="application/json">
+      <span class="small muted">or it auto-loads <code>tigerpunks-config.json</code> from this site if present</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <label>2 · Manifest (trait order — must be the launch manifest)</label>
+    <div class="row"><input type="text" id="manifestUrl" value="tigerpunks/manifest.json"></div>
+  </div>
+
+  <div class="card">
+    <label>3 · On-chain check (optional)</label>
+    <div class="row">
+      <input type="text" id="contract" placeholder="TigerPunks contract 0x…" style="flex:1;min-width:240px">
+      <input type="text" id="rpc" value="https://tigerpunks-rpc.zerothetoken.com" style="flex:1;min-width:240px">
+    </div>
+    <p class="small muted" style="margin:8px 0 0">Reads <code>PROVENANCE()</code> (selector <code>0x9f86dd1b</code>) via <code>eth_call</code>. Leave blank to just compute the hash.</p>
+  </div>
+
+  <div class="row">
+    <button id="go">Verify</button>
+    <button class="ghost" id="copy">Copy computed hash</button>
+  </div>
+
+  <div class="card" id="out" style="display:none">
+    <div><span class="muted small">tokens</span> <b id="nTok">—</b> &nbsp; <span class="muted small">masterSeed</span> <b id="seed">—</b></div>
+    <div class="muted small" style="margin-top:10px">computed</div><div class="hash" id="computed">—</div>
+    <div class="muted small" style="margin-top:10px">on-chain</div><div class="hash" id="onchain">—</div>
+    <div class="verdict" id="verdict"></div>
+  </div>
+
+<script>
+const $=s=>document.querySelector(s);
+let cfgData=null;
+
+$('#cfg').addEventListener('change', e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader(); r.onload=()=>{ try{cfgData=JSON.parse(r.result); toast('Config loaded: '+(cfgData.set?.length||0)+' tokens');}catch{toast('Invalid JSON');} };
+  r.readAsText(f);
+});
+function toast(m){ const o=$('#out'); o.style.display='block'; }
+
+// Rebuild a token's 10-byte row exactly like gen_data.py / the contract.
+function buildHashInput(cfg, manifest){
+  const modes=manifest.modes, punk=manifest.punk, cats=manifest.categories;
+  const modeIdx=Object.fromEntries(modes.map((m,i)=>[m.label,i]));
+  const punkIdx=Object.fromEntries(punk.options.map((p,i)=>[p.label,i]));
+  const local={}; cats.forEach(c=>{ local[c.id]=Object.fromEntries(c.options.map((o,i)=>[o.label,i+1])); });
+  const miscOpts=cats.find(c=>c.id==='Misc').options.map(o=>o.label);
+  const at=(cid,v)=>(!v||v==='None')?0:(local[cid][v]||0);
+  const enc=new TextEncoder();
+  const seedBytes=enc.encode(String(cfg.masterSeed??0));
+  const set=[...cfg.set].sort((a,b)=>a.index-b.index);
+  const buf=new Uint8Array(seedBytes.length+set.length*10);
+  buf.set(seedBytes,0); let p=seedBytes.length;
+  for(const tok of set){
+    const a=tok.attributes; let mask=0;
+    if(a.Misc && a.Misc!=='None') a.Misc.split('+').map(s=>s.trim()).forEach(part=>{const i=miscOpts.indexOf(part); if(i>=0) mask|=(1<<i);});
+    buf[p++]=modeIdx[a.Mode]??0; buf[p++]=punkIdx[a.Punk]??0;
+    buf[p++]=at('Top',a.Top); buf[p++]=at('Beard',a.Beard); buf[p++]=at('Hair',a.Hair);
+    buf[p++]=at('Hat',a.Hat); buf[p++]=at('Mouth',a.Mouth); buf[p++]=at('Eye',a.Eye);
+    buf[p++]=mask&0xFF; buf[p++]=(mask>>8)&0xFF;
+  }
+  return buf;
+}
+async function sha256hex(bytes){
+  const d=await crypto.subtle.digest('SHA-256', bytes);
+  return '0x'+[...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function readOnchain(contract, rpc){
+  const body={jsonrpc:'2.0',id:1,method:'eth_call',params:[{to:contract,data:'0x9f86dd1b'},'latest']};
+  const r=await fetch(rpc,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json(); if(j.error||!j.result||j.result==='0x') throw new Error('PROVENANCE() call failed');
+  return j.result.toLowerCase();
+}
+let lastHash='';
+$('#go').onclick=async()=>{
+  try{
+    if(!cfgData){ try{ cfgData=await (await fetch('tigerpunks-config.json')).json(); }catch{ alert('Load the config JSON first'); return; } }
+    const manifest=await (await fetch($('#manifestUrl').value)).json();
+    const input=buildHashInput(cfgData, manifest);
+    lastHash=await sha256hex(input);
+    $('#out').style.display='block';
+    $('#nTok').textContent=cfgData.set.length;
+    $('#seed').textContent=cfgData.masterSeed;
+    $('#computed').textContent=lastHash;
+    const v=$('#verdict'); v.className='verdict'; v.textContent='';
+    const c=$('#contract').value.trim();
+    if(/^0x[0-9a-fA-F]{40}$/.test(c)){
+      try{
+        const oc=await readOnchain(c, $('#rpc').value.trim());
+        $('#onchain').textContent=oc;
+        const ok=oc===lastHash;
+        v.className='verdict '+(ok?'ok':'bad');
+        v.textContent=ok?'✅ MATCH — the published set is exactly what is on-chain.':'❌ MISMATCH — this config does not match the on-chain provenance.';
+      }catch(e){ $('#onchain').textContent='(could not read on-chain: '+e.message+')'; }
+    } else { $('#onchain').textContent='(no contract — computed hash only)'; }
+  }catch(e){ alert('Error: '+e.message); }
+};
+$('#copy').onclick=()=>{ if(lastHash){ navigator.clipboard.writeText(lastHash); } };
+</script>
+</div></body></html>

@@ -287,20 +287,24 @@ function sigOf(st){
   return st.mode+'|'+st.punk+'|'+M.categories.map(c=>{const v=st.sel[c.id];
     return c.multi?((v||[]).slice().sort().join(',')):(v||'');}).join('|');
 }
-/* enforce at most cfg.maxDupes EXACT duplicate punks; re-roll surplus (keeps count target) */
+/* enforce at most cfg.maxDupes EXACT duplicate punks; re-roll surplus (keeps count target).
+   The combo space is astronomically large, so 2000 retries clears any realistic collision;
+   if any survive (e.g. an over-constrained set), saveConfig() blocks the export and the
+   on-chain gen_data.py also refuses to bake a non-unique collection. */
 function dedupe(mr){
   const max=Math.max(0,Math.floor(cfg.maxDupes||0));
-  const seen=new Set(); let allowance=max;
+  const seen=new Set(); let allowance=max, stuck=0;
   for(let i=0;i<current.length;i++){
     let tok=current[i], sig=sigOf(tok.st), tries=0;
-    while(seen.has(sig) && allowance<=0 && tries<60){
+    while(seen.has(sig) && allowance<=0 && tries<2000){
       const seed=(mr()*1e9)|0;
       tok = (tok.K!==undefined) ? {seed, K:tok.K, st:genStateCount(seed,tok.K)} : {seed, st:genState(seed)};
       sig=sigOf(tok.st); tries++;
     }
-    if(seen.has(sig) && allowance>0) allowance--;   // an allowed duplicate
+    if(seen.has(sig)){ if(allowance>0) allowance--; else stuck++; }   // allowed dupe, or gave up
     seen.add(sig); current[i]=tok;
   }
+  if(stuck>0) console.warn(`dedupe: ${stuck} token(s) could not be made unique (set may be over-constrained)`);
 }
 function dupeCount(){const s=new Set();let d=0;current.forEach(c=>{const k=sigOf(c.st);if(s.has(k))d++;else s.add(k);});return d;}
 
@@ -491,9 +495,17 @@ function distObj(){const d={};const N=current.length||1;
   return d;
 }
 function saveConfig(){
+  // Guard: with maxDupes=0 the export MUST be fully unique (gen_data.py refuses to bake
+  // a collection with duplicate combo rows). Block the download and tell the curator how
+  // to fix it rather than silently shipping duplicates on-chain.
+  const dl=dupeCount(), maxD=Math.max(0,Math.floor(cfg.maxDupes||0));
+  if(dl>0 && maxD===0){
+    toast(`✋ ${dl} exact duplicate${dl===1?'':'s'} — change the master seed or loosen constraints, then re-generate. Not exporting.`);
+    return;
+  }
   const blob=new Blob([JSON.stringify(snapshot(),null,2)],{type:'application/json'});
   const a=ce('a');a.download='tigerpunks-config-'+cfg.masterSeed+'.json';a.href=URL.createObjectURL(blob);a.click();
-  toast('Config saved');
+  toast(maxD>0 && dl>0 ? `Config saved (${dl} intentional dupe${dl===1?'':'s'})` : 'Config saved');
 }
 function loadConfig(file){
   const r=new FileReader();

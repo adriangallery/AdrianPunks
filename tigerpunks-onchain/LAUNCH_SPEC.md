@@ -55,8 +55,16 @@ NOTA: metadata original AdrianPunks = IPFS (off-chain); la nuestra = 100% on-cha
 - **Descripción definitiva: TBD** (actual provisional: "TigerPunks - fully on-chain, hand-drawn pixel punks by HalfxTiger.").
 
 ## Inmutabilidad
-- **Renderer ACTUALIZABLE** (setRenderer abierto, NO congelar) — por si hay que corregir bugs.
-- Combos sí se pueden congelar (freezeComboData) — decisión aparte, recomendable tras verificar.
+- **Renderer actualizable HASTA `freezeRenderer()`** (one-way). Mantenerlo abierto durante el
+  lanzamiento por si hay que corregir un bug de render; **congelarlo tras verificar el arte final**
+  para poder vender la colección como genuinamente *frozen on-chain* (arte + renderer inmutables).
+- Combos se congelan con `freezeComboData()` — `DeployFull.s.sol` ya lo llama tras subir los chunks
+  y comprueba que cubren `SUPPLY`.
+
+## Operativa de emergencia (kill-switch del mint)
+No hay pausa on-chain dedicada, pero el owner puede **detener el drop público al instante** llamando
+`updatePublicDrop` en SeaDrop con la config actual y `maxTotalMintableByWallet = 0` (o `endTime` en el
+pasado). Reanudar = volver a poner los valores. Útil si aparece un bug a mitad de venta.
 
 ## PENDIENTE de Adrian (no bloquea el código, sí el lanzamiento real)
 1. Dirección wallet **fiftyfifty** (ingresos + royalties).
@@ -65,6 +73,27 @@ NOTA: metadata original AdrianPunks = IPFS (off-chain); la nuestra = 100% on-cha
 4. **Copy** definitivo (descripción token + colección + logo).
 5. **JSON definitivo** de los 10k (ahora usamos el de prueba seed 935799516).
 
+## Orden de lanzamiento (red FINAL = Ethereum mainnet; ensayo final en Base antes)
+1. **Generar datos**: `python3 script/gen_data.py <config-10k-DEFINITIVO>.json` → valida labels,
+   unicidad y `SUPPLY=10000`, escribe `TigerData/Meta/Layout.sol` + `blob.bin` + `combos.bin` +
+   `data/rarity-report.json`. Si hay un error de label/duplicado, **aborta** (no hornea).
+2. **Tests**: `forge test` en verde (incluye invariante `maxSupply==SUPPLY` y round-trip de combos).
+3. **Deploy**: `FIFTYFIFTY=… FEE_RECIPIENT=… CLAIM_ROOT=… MINT_PRICE_WEI=… forge script
+   script/DeployFull.s.sol --rpc-url <RED> --account <key> --broadcast --slow`. El script:
+   sube arte+combos, `freezeComboData()`, asserts de supply, specials+claimRoot, royalties+drop,
+   y **baked `contractURI()` on-chain** (logo = un TigerPunk renderizado en cadena).
+4. **Verificar render**: mintea unos pocos, `reveal()`, compara ~20 `tokenURI` contra el preview del
+   curator (deben coincidir pixel a pixel). Comprobar `contractURI()` en OpenSea.
+5. **Publicar provenance**: subir el config definitivo + `manifest.json` + `data/rarity-report.json`
+   y enlazar `tigerprovenance.html` / `tigerrarity.html`. Confirmar con `verify_provenance.py` que el
+   hash coincide con `PROVENANCE()` on-chain.
+6. **🔒 Congelar (badge "frozen on-chain")** SOLO tras validar el arte final:
+   `cast send <TigerPunks> "freezeRenderer()" …` (renderer ya inmutable; combos ya congelados en el paso 3).
+   Tras esto, arte + traits + metadata + colección = 100% on-chain e inmutables.
+
 ## Estado técnico
 - Contrato test desplegado en Base: TigerPunks `0xd603dcdcdea73f0a96a145ea85090ce32ed6633a`, renderer `0xA34D938201C1b82eA1cE8195dF6Ac52175b0C5d8`.
-- Falta implementar en contrato: random offset + reveal + placeholder, ERC2981 5%, operator filter enforce, contractURI on-chain, allowlist Merkle, maxPerWallet 100, setRenderer sin gate de freeze.
+- ✅ Implementado: random offset + reveal (con prevrandao) + placeholder, ERC2981 5%, operator filter
+  (vía ERC721SeaDrop), **contractURI on-chain**, allowlist Merkle, maxPerWallet 100,
+  **`freezeRenderer()`** (gate one-way), asserts de supply en deploy, validación estricta en gen_data,
+  provenance verificable (CLI+web), página de rareza.

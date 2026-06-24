@@ -30,7 +30,7 @@ contract RenderTest is TigerBase {
     }
 
     function test_render_tokens() public {
-        // 1 = Tiger punk, 2 = White-Tiger, 3 = Hoodie hat, 4 = Tiger+Hoodie (test-config forced)
+        // sample a spread of token ids (first few + middle + last) — config-agnostic.
         uint256 N = TigerMeta.SUPPLY;
         uint256 mid = N / 2 == 0 ? 1 : N / 2;
         uint256[6] memory ids = [uint256(1), 2, 3, 4, mid, N];
@@ -47,17 +47,55 @@ contract RenderTest is TigerBase {
     }
 
     /// New-model rules: tiger punks render, Hoodie hat strips Misc.
+    /// Config-agnostic: locate a representative token for each rule by decoding the
+    /// baked combo rows (row[1]=punk 0-based, row[5]=hat 1-based), then assert the
+    /// rendered metadata. Skips a check only if the curated set contains no such token.
     function test_rules() public view {
-        string memory u1 = B64.decodeDataURI(r.tokenURI(1, _row(1)));
-        assertTrue(_has(u1, "\"Punk\",\"value\":\"Tiger\""), "t1 punk=Tiger");
+        int256 ti = _labelIdx(TigerMeta.labels_Punk(), "Tiger");
+        if (ti >= 0) {
+            uint256 t = _firstWithByte(1, uint8(uint256(ti)));   // punk byte is 0-based
+            if (t != 0) {
+                string memory u = B64.decodeDataURI(r.tokenURI(t, _row(t)));
+                assertTrue(_has(u, "\"Punk\",\"value\":\"Tiger\""), "tiger renders");
+            }
+        }
+        int256 wti = _labelIdx(TigerMeta.labels_Punk(), "White Tiger");
+        if (wti >= 0) {
+            uint256 t = _firstWithByte(1, uint8(uint256(wti)));
+            if (t != 0) {
+                string memory u = B64.decodeDataURI(r.tokenURI(t, _row(t)));
+                assertTrue(_has(u, "\"Punk\",\"value\":\"White Tiger\""), "white tiger renders");
+            }
+        }
+        int256 hi = _labelIdx(TigerMeta.labels_Hat(), "Hoodie");
+        if (hi >= 0) {
+            uint256 t = _firstWithByte(5, uint8(uint256(hi) + 1));   // hat byte is 1-based (0=None)
+            if (t != 0) {
+                string memory u = B64.decodeDataURI(r.tokenURI(t, _row(t)));
+                assertTrue(_has(u, "\"Hat\",\"value\":\"Hoodie\""), "hoodie hat");
+                assertTrue(!_has(u, "\"trait_type\":\"Misc\""), "no misc under hoodie");
+            }
+        }
+    }
 
-        string memory u2 = B64.decodeDataURI(r.tokenURI(2, _row(2)));
-        assertTrue(_has(u2, "\"Punk\",\"value\":\"White Tiger\""), "t2 punk=White Tiger");
-
-        // token 3: Hat = Hoodie -> NO Misc trait may appear
-        string memory u3 = B64.decodeDataURI(r.tokenURI(3, _row(3)));
-        assertTrue(_has(u3, "\"Hat\",\"value\":\"Hoodie\""), "t3 hat=Hoodie");
-        assertTrue(!_has(u3, "\"trait_type\":\"Misc\""), "t3 no misc under hoodie");
+    /// index of `label` in a fixed-size string array, or -1 if absent.
+    function _labelIdx(string[8] memory a, string memory label) internal pure returns (int256) {
+        for (uint256 i = 0; i < a.length; i++) if (_streq(a[i], label)) return int256(i);
+        return -1;
+    }
+    function _labelIdx(string[23] memory a, string memory label) internal pure returns (int256) {
+        for (uint256 i = 0; i < a.length; i++) if (_streq(a[i], label)) return int256(i);
+        return -1;
+    }
+    /// first tokenId (1..SUPPLY) whose combo row byte `b` equals `val`, else 0.
+    function _firstWithByte(uint256 b, uint8 val) internal view returns (uint256) {
+        for (uint256 t = 1; t <= TigerMeta.SUPPLY; t++) {
+            if (uint8(combos[(t - 1) * TigerMeta.ROW_BYTES + b]) == val) return t;
+        }
+        return 0;
+    }
+    function _streq(string memory x, string memory y) internal pure returns (bool) {
+        return keccak256(bytes(x)) == keccak256(bytes(y));
     }
 
     function test_gas_render() public {

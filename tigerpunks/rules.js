@@ -25,6 +25,7 @@
     "ape":         { "Hair": ["Long Hair","Longer Hair Dark","Longer Hair"] },
     "tiger":       { "Hat":  ["Tassle Hat"] },
     "white-tiger": { "Hat":  ["Tassle Hat"] },
+    "lama":        { "Hat":  ["Tassle Hat"] },   // Lama uses Tiger's logic (tiger-variant art + same exclusions)
     "npc":         { "Mouth":["Smirk"] },   // "Smile" referenced in spec has no matching mouth (pending)
   };
 

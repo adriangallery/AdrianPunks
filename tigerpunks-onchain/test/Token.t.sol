@@ -89,6 +89,46 @@ contract TokenTest is TigerBase {
         token.reveal();
     }
 
+    function test_maxSupply_equals_baked_supply() public view {
+        // invariant the DeployFull script enforces: comboOf()/reveal() index `% SUPPLY`,
+        // so maxSupply must match the baked SUPPLY or the collection is broken.
+        assertEq(token.maxSupply(), TigerMeta.SUPPLY);
+        assertTrue(token.chunkCount() * token.ROWS_PER_CHUNK() >= TigerMeta.SUPPLY);
+    }
+
+    function test_comboOf_full_roundtrip_post_reveal() public {
+        token.reveal();
+        uint256 w = token.ROW();
+        uint256 off = token.revealOffset();
+        uint256 N = TigerMeta.SUPPLY;
+        // every tokenId maps to its offset-shuffled row, and the mapping is a bijection.
+        for (uint256 id = 1; id <= N; id++) {
+            uint256 srcRow = (id - 1 + off) % N;
+            bytes memory c = token.comboOf(id);
+            for (uint256 i = 0; i < w; i++) assertEq(c[i], combos[srcRow * w + i]);
+        }
+    }
+
+    function test_contractURI_onchain() public {
+        token.setContractURI(renderer.contractURI());           // as DeployFull does
+        string memory enc = token.contractURI();
+        assertTrue(_has(enc, "data:application/json;base64,"), "json b64 prefix");
+        string memory j = B64.decodeDataURI(enc);
+        assertTrue(_has(j, "\"name\":\"TigerPunks\""), "name");
+        assertTrue(_has(j, "data:image/svg+xml;base64,"), "on-chain logo image");
+        assertTrue(_has(j, "\"external_link\""), "external link");
+    }
+
+    function test_freezeRenderer_locks_setRenderer() public {
+        TigerRenderer r2 = new TigerRenderer(address(deployArt()));
+        token.setRenderer(address(r2));                 // allowed before freeze
+        assertEq(address(token.renderer()), address(r2));
+        token.freezeRenderer();
+        assertTrue(token.rendererFrozen());
+        vm.expectRevert(TigerPunks.RendererFrozen.selector);
+        token.setRenderer(address(renderer));
+    }
+
     function _has(string memory hay, string memory needle) internal pure returns (bool) {
         bytes memory h = bytes(hay); bytes memory n = bytes(needle);
         if (n.length > h.length) return false;

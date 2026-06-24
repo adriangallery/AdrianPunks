@@ -228,8 +228,9 @@ async function refresh(){
     $("#perWallet").textContent = pd.maxTotalMintableByWallet.toString();
     $("#phaseName").textContent = live ? "Public" : "Not live";
     document.querySelectorAll(".dot").forEach(d=>d.classList.toggle("on", d.dataset.ph==="4" && live));
+    if(ms.gt(0) && ts.gte(ms)){ $("#phaseName").textContent = "Sold out"; }   // collection fully minted
     refreshPhaseStats();          // refine "X left" without re-rendering the cards
-  }catch(e){ console.warn(e); }
+  }catch(e){ console.warn(e); toast("Couldn't load mint status (RPC) — refresh the page if it persists."); }
 }
 
 let wcProvider;   // WalletConnect EIP-1193 provider (mobile / QR)
@@ -317,6 +318,40 @@ function friendlyErr(e){
   if(m.includes("user rejected")||m.includes("denied")||m.includes("rejected")) return "Cancelled in wallet.";
   if(m.includes("incorrect payment")||m.includes("value")) return "Payment amount mismatch — try again.";
   return (e&&e.reason) || "Mint failed — make sure you're on Base with enough ETH.";
+}
+
+// ---- network guard: NEVER let a mint go out on the wrong chain --------------
+// The connect flow asks the wallet to switch to Base, but a rejected/unsupported
+// switch was previously swallowed silently, so a user could fire mintPublic() on
+// e.g. Ethereum mainnet and lose gas to a guaranteed revert. ensureBase() verifies
+// the live chainId right before sending, attempts a switch (adding Base if absent),
+// and aborts the mint with a clear message if it can't get there.
+async function ensureBase(){
+  try{
+    const net = await provider.getNetwork();
+    if(net && net.chainId === CFG.CHAIN_ID) return true;
+  }catch{}
+  const eip = (wcProvider || window.ethereum);
+  if(!eip || !eip.request){ toast("Switch your wallet to Base, then try again."); return false; }
+  try{
+    await eip.request({ method:"wallet_switchEthereumChain", params:[{ chainId:CFG.chainIdHex }] });
+  }catch(err){
+    if(err && (err.code===4902 || (""+err.message).includes("Unrecognized chain"))){
+      try{
+        await eip.request({ method:"wallet_addEthereumChain", params:[{
+          chainId:CFG.chainIdHex, chainName:CFG.chainName, nativeCurrency:{name:"Ether",symbol:"ETH",decimals:18},
+          rpcUrls:[CFG.rpcFallback], blockExplorerUrls:["https://basescan.org"] }] });
+      }catch{ toast("Add the Base network in your wallet to mint."); return false; }
+    } else { toast("Switch to Base to mint (your wallet declined the switch)."); return false; }
+  }
+  // re-read after the switch; rebuild the signer on the new chain
+  provider = new ethers.providers.Web3Provider(eip);
+  signer = provider.getSigner();
+  try{
+    const net = await provider.getNetwork();
+    if(net.chainId !== CFG.CHAIN_ID){ toast("Still not on Base — switch networks and retry."); return false; }
+  }catch{ return false; }
+  return true;
 }
 
 // ---- phase cards (one per mintable phase, each with its own qty + total) -
@@ -408,11 +443,15 @@ function mkPhaseCard(ph){
   return card;
 }
 
+let _minting=false;   // guard against double-submission (double-click / direct calls)
 async function doMint(ph, qty, btn){
   if(!signer){ toast("Connect your wallet first"); return; }
+  if(_minting){ return; }
+  _minting=true;
   const old = btn.textContent;
   try{
     btn.disabled=true; btn.textContent="Confirm in wallet…";
+    if(!(await ensureBase())){ btn.disabled=false; btn.textContent=old; _minting=false; return; }
     const value = ph.price.mul(qty);
     let tx;
     if(ph.kind==="public") tx = await seadrop(signer).mintPublic(CFG.CONTRACT, CFG.FEE_RECIPIENT, ethers.constants.AddressZero, qty, {value});
@@ -420,6 +459,7 @@ async function doMint(ph, qty, btn){
     btn.textContent="Minting…"; await tx.wait();
     toast(`Minted ${qty} 🐯`); await refresh(); showLatest(); renderMyPunks();   // update gallery + stats
   }catch(e){ btn.disabled=false; btn.textContent=old; toast(friendlyErr(e)); }
+  finally{ _minting=false; }
 }
 
 // list ALL of the connected wallet's unclaimed 1/1s, each with its own Claim button
@@ -434,7 +474,8 @@ async function renderClaims(){
     let owner; try{ owner=await nft(ro()).ownerOf(c.tokenId); }catch(e){ continue; }
     const claimed = owner.toLowerCase()!==CFG.CONTRACT.toLowerCase();
     const row=document.createElement("div"); row.className="row";
-    row.innerHTML=`<span>#${c.tokenId} · ${c.name}</span>`;
+    const span=document.createElement("span"); span.textContent=`#${c.tokenId} · ${c.name}`;  // textContent: no HTML injection from CLAIMS
+    row.appendChild(span);
     const b=document.createElement("button");
     if(claimed){ b.textContent="Owned ✓"; b.disabled=true; b.className="ghost"; }
     else { any=true; b.textContent="Claim"; b.onclick=()=>claimToken(c.tokenId,c.proof,b); }

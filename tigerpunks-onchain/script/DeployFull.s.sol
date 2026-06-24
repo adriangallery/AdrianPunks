@@ -27,13 +27,25 @@ contract DeployFull is Script {
         TigerRenderer renderer = new TigerRenderer(art);
         address[] memory allowed = new address[](1); allowed[0] = SEADROP;
         TigerPunks token = new TigerPunks(allowed, address(renderer));
-        token.setMaxSupply(10000);
+        // maxSupply MUST equal the baked SUPPLY: comboOf()/reveal() index `% TigerMeta.SUPPLY`,
+        // so any divergence (e.g. the old hardcoded 10000 vs a test-baked 80) silently breaks
+        // the collection (combos repeat, offset wraps the wrong modulus).
+        token.setMaxSupply(TigerMeta.SUPPLY);
+        require(token.maxSupply() == TigerMeta.SUPPLY, "maxSupply != baked SUPPLY");
 
         _uploadCombos(token);   // 1) curated combos
+        // Every tokenId must resolve to a loaded combo row before any mint can happen.
+        require(token.chunkCount() * token.ROWS_PER_CHUNK() >= TigerMeta.SUPPLY, "combos do not cover SUPPLY");
+        token.freezeComboData();   // lock combos before the sale opens
+
         _loadSpecials(token);   // 2) animated 1/1s (tokenIds 1..11) + names
         token.seedSpecials();   // mint tokenIds 1..11 to escrow
         token.setClaimRoot(root);
         _configDrop(token, fifty, feeRec, price);   // 3) royalties + 4) public drop
+
+        // 5) bake the 100% on-chain collection metadata (data: URI w/ on-chain logo) into
+        //    the token's contractURI. Re-run this if you update copy/showcase before freezing.
+        token.setContractURI(renderer.contractURI());
 
         vm.stopBroadcast();
 
