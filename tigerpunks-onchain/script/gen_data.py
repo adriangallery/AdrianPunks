@@ -133,6 +133,9 @@ for m in MODES:
         errs.append(f"Mode '{m['label']}' has invalid color '{m.get('color')}' (want #RRGGBB).")
 
 cat_ids = ["Top", "Beard", "Hair", "Hat", "Mouth", "Eye"]
+# tiger-only colourways (e.g. fur-toned hairs) may only appear on tiger-type punks
+tigeronly = {cid: {o["label"] for o in cat(cid)["options"] if o.get("tigerOnly")} for cid in cat_ids}
+tiger_punk_labels = {p["label"] for p in PUNK["options"] if p["id"] in PUNK.get("tigerIds", [])}
 the_set = config["set"]
 SUPPLY  = config.get("size", len(the_set))
 seen_idx = set()
@@ -149,10 +152,13 @@ for tok in the_set:
         errs.append(f"token {i}: Mode '{a.get('Mode')}' not in manifest.")
     if a.get("Punk") not in punk_idx:
         errs.append(f"token {i}: Punk '{a.get('Punk')}' not in manifest.")
+    is_tiger_punk = a.get("Punk") in tiger_punk_labels
     for cid in cat_ids:
         v = a.get(cid)
         if v and v != "None" and v not in maps[cid]:
             errs.append(f"token {i}: {cid} '{v}' not in manifest.")
+        elif v and v in tigeronly[cid] and not is_tiger_punk:
+            errs.append(f"token {i}: tiger-only {cid} '{v}' on non-tiger punk '{a.get('Punk')}'.")
     mv = a.get("Misc")
     if mv and mv != "None":
         for part in [p.strip() for p in mv.split("+")]:

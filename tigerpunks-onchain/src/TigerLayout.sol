@@ -9,11 +9,11 @@ library TigerLayout {
     uint256 internal constant P_PUNK = 0;
     uint256 internal constant P_TOP   = 8;    uint256 internal constant N_TOP   = 18;
     uint256 internal constant P_BEARD = 26;  uint256 internal constant P_BEARD_T = 36; uint256 internal constant N_BEARD = 10;
-    uint256 internal constant P_HAIR  = 46;   uint256 internal constant P_HAIR_T  = 60;  uint256 internal constant N_HAIR  = 14;
-    uint256 internal constant P_HAT   = 74;    uint256 internal constant P_HAT_T   = 97;   uint256 internal constant N_HAT   = 23;
-    uint256 internal constant P_MOUTH = 120;  uint256 internal constant N_MOUTH = 8;
-    uint256 internal constant P_EYE   = 128;    uint256 internal constant P_EYE_T   = 156;   uint256 internal constant N_EYE   = 28;
-    uint256 internal constant P_MISC  = 184;   uint256 internal constant P_MISC_T  = 196;  uint256 internal constant N_MISC  = 12;
+    uint256 internal constant P_HAIR  = 46;   uint256 internal constant P_HAIR_T  = 76;  uint256 internal constant N_HAIR  = 30;
+    uint256 internal constant P_HAT   = 106;    uint256 internal constant P_HAT_T   = 129;   uint256 internal constant N_HAT   = 23;
+    uint256 internal constant P_MOUTH = 152;  uint256 internal constant N_MOUTH = 8;
+    uint256 internal constant P_EYE   = 160;    uint256 internal constant P_EYE_T   = 188;   uint256 internal constant N_EYE   = 28;
+    uint256 internal constant P_MISC  = 216;   uint256 internal constant P_MISC_T  = 228;  uint256 internal constant N_MISC  = 12;
 
     function isTigerPunk(uint8 p) internal pure returns (bool) { return p == 4 || p == 5 || p == 7; }
 }

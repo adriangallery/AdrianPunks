@@ -190,6 +190,8 @@ function hatLabel(){return state.sel.Hat?lbl(catCfg('Hat'),state.sel.Hat):null;}
 /* a single option valid in the current state? (punk exclusions + hair/hat compat + suppressions) */
 function optAllowed(catId, optLabel){
   if(!TPRULES.punkOptionAllowed(state.punk, catId, optLabel)) return false;
+  const opt=catCfg(catId).options.find(o=>o.label===optLabel);
+  if(opt && opt.tigerOnly && !isTigerPunk()) return false;     // tiger-only colourways: tiger/white-tiger/lama only
   const h=hatLabel();
   if(catId==='Hair') return TPRULES.hairHatOK(optLabel, h);
   if(catId==='Hat'){ const hr=state.sel.Hair?lbl(catCfg('Hair'),state.sel.Hair):null; return !hr||TPRULES.hairHatOK(hr, optLabel); }
@@ -277,7 +279,10 @@ function refreshConstraints(){
     [...cat.querySelectorAll('.thumb')].forEach(t=>{
       if(t.classList.contains('none')) return;
       const f=t.dataset.file; if(!f) return;
-      const ok=optAllowed(cid, lbl(c,f));
+      const opt=c.options.find(o=>o.file===f);
+      const hide=opt && opt.tigerOnly && !isTigerPunk();        // tiger-only: hidden entirely on normal punks
+      t.style.display=hide?'none':'';
+      const ok=!hide && optAllowed(cid, lbl(c,f));
       t.style.opacity=ok?'':'.25'; t.style.pointerEvents=ok?'':'none';
       if(!ok) t.classList.remove('active');
     });
@@ -305,7 +310,7 @@ function randomize(s){
   state.punk=M.punk.options[Math.floor(rng()*M.punk.options.length)].id;
   state.sel={};
   const pickOne=(cid,filter)=>{
-    let opts=catCfg(cid).options.filter(o=>TPRULES.punkOptionAllowed(state.punk,cid,o.label));
+    let opts=catCfg(cid).options.filter(o=>TPRULES.punkOptionAllowed(state.punk,cid,o.label) && (!o.tigerOnly||isTigerPunk()));
     if(filter) opts=opts.filter(filter);
     return opts.length?opts[Math.floor(rng()*opts.length)].file:null;
   };
