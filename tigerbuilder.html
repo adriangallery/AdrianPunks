@@ -104,6 +104,7 @@
             <div class="seedline"><span>seed</span><code id="seed">—</code></div>
             <div class="d-grid gap-2 mt-3">
               <button class="btn btn-tiger" id="btnRand"><i class="bi bi-shuffle"></i> Surprise me</button>
+              <button class="btn btn-outline-secondary" id="btnClean"><i class="bi bi-eraser"></i> Clean</button>
               <div class="row g-2">
                 <div class="col-6"><button class="btn btn-outline-secondary w-100" id="btnDownload"><i class="bi bi-download"></i> PNG</button></div>
                 <div class="col-6"><button class="btn btn-outline-secondary w-100" id="btnSVG"><i class="bi bi-filetype-svg"></i> SVG</button></div>
@@ -257,7 +258,7 @@ function buildUI(){
     if(c.optional&&!c.multi){const none=ce('div','thumb none active');none.textContent='None';none.dataset.file='';none.onclick=()=>selectThumb(c,none,'');grid.appendChild(none);}
     c.options.forEach(o=>{const t=ce('div','thumb');t.dataset.file=o.file;const img=ce('img');img.src=bust(c.dir+'/'+o.file);img.loading='lazy';t.appendChild(img);const lbl=ce('div','lbl');lbl.textContent=o.label;t.appendChild(lbl);t.onclick=()=>selectThumb(c,t,o.file);grid.appendChild(t);});
     head.onclick=()=>{if(cat.classList.contains('disabled'))return;cat.classList.toggle('open');};cat.appendChild(head);cat.appendChild(grid);wrap.appendChild(cat);if(idx<2)cat.classList.add('open');});
-  $('#btnRand').onclick=()=>randomize();$('#btnDownload').onclick=download;$('#btnSVG').onclick=downloadSVG;$('#btnSave').onclick=saveToGallery;$('#btnShare').onclick=share;$('#btnCopy').onclick=copyTraits;
+  $('#btnRand').onclick=()=>randomize();$('#btnClean').onclick=()=>clean();$('#btnDownload').onclick=download;$('#btnSVG').onclick=downloadSVG;$('#btnSave').onclick=saveToGallery;$('#btnShare').onclick=share;$('#btnCopy').onclick=copyTraits;
   renderGallery();
 }
 
@@ -318,6 +319,13 @@ function randomize(s){
   state.sel.Misc=TPRULES.miscSuppressed(h)?[]:catCfg('Misc').options
     .filter(o=>TPRULES.miscOptionAllowed(o.label,h)&&TPRULES.punkOptionAllowed(state.punk,'Misc',o.label)&&rng()<0.18).map(o=>o.file);
   syncUI();render();
+}
+/* Clean = base skin (Adrian punk, no traits); keeps current background mode */
+function clean(){
+  state.punk='adrian';
+  state.sel={};
+  seed=0;$('#seed').textContent='—';
+  syncUI();render();toast('Cleaned');
 }
 function syncUI(){
   $('#modeVal').textContent=(M.modes.find(m=>m.id===state.mode)||{}).label||state.mode;
