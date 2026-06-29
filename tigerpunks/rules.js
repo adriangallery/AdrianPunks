@@ -34,6 +34,14 @@
     "Popper Brown":     ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat"],
   };
 
+  // Misc groups: AT MOST ONE Misc per group may be worn together (ears / face / neck).
+  // Jason Mask is worn ALONE (no other Misc) and also conflicts with any hat (see miscOptionAllowed).
+  const MISC_GROUPS = {
+    ears: ["AirPod","Gold Earring","Diamond Earring"],
+    face: ["Clown Nose","Drool","Nose Bleed","Snot"],
+    neck: ["Choker","Gold Chain","Tiger Tattoo","Neck Tattoo"],
+  };
+
   // Punk-specific option exclusions (by punk id -> {catId: [forbidden labels]})
   const PUNK_EXCLUDE = {
     "ape":         { "Hair": ["Long Hair","Longer Hair Dark","Longer Hair"] },
@@ -57,6 +65,27 @@
     miscSuppressed(hat) { return hat === "Hoodie" || hat === "Bunny"; },
     // any hat present -> Jason Mask not allowed
     miscOptionAllowed(miscLabel, hat) { return !(hat && miscLabel === "Jason Mask"); },
+    // which group a Misc label belongs to (or null if ungrouped)
+    miscGroupOf(label) {
+      for (const g in MISC_GROUPS) if (MISC_GROUPS[g].includes(label)) return g;
+      return null;
+    },
+    // is a chosen Misc set valid? (<=1 per group, Jason Mask worn alone)
+    miscSetValid(labels) {
+      if (labels.includes("Jason Mask")) return labels.length === 1;
+      const seen = {};
+      for (const l of labels) { const g = this.miscGroupOf(l); if (g) { if (seen[g]) return false; seen[g] = 1; } }
+      return true;
+    },
+    // reduce a candidate Misc label list to a VALID set: Jason alone wins; else keep
+    // one per group (random via rng if given, else first). Returns a label array.
+    miscReduce(labels, rng) {
+      if (labels.includes("Jason Mask")) return ["Jason Mask"];
+      const byGroup = {}, out = [];
+      for (const l of labels) { const g = this.miscGroupOf(l); if (g) (byGroup[g] = byGroup[g] || []).push(l); else out.push(l); }
+      for (const g in byGroup) { const a = byGroup[g]; out.push(rng ? a[Math.floor(rng() * a.length)] : a[0]); }
+      return out;
+    },
     // punk-based exclusion for a single option
     punkOptionAllowed(punkId, catId, optLabel) {
       const ex = PUNK_EXCLUDE[punkId];
@@ -69,6 +98,7 @@
       if (st.Top && this.topSuppressed(st.Hat)) return false;
       if ((st.Misc||[]).length && this.miscSuppressed(st.Hat)) return false;
       for (const m of (st.Misc||[])) if (!this.miscOptionAllowed(m, st.Hat)) return false;
+      if (!this.miscSetValid(st.Misc||[])) return false;   // <=1 per group; Jason Mask alone
       for (const [cat, val] of Object.entries(st)) {
         if (cat === "punkId" || cat === "Misc") continue;
         if (val && !this.punkOptionAllowed(st.punkId, cat, val)) return false;
@@ -76,7 +106,7 @@
       for (const m of (st.Misc||[])) if (!this.punkOptionAllowed(st.punkId, "Misc", m)) return false;
       return true;
     },
-    ONLY_WITH, NOT_WITH, PUNK_EXCLUDE,
+    ONLY_WITH, NOT_WITH, PUNK_EXCLUDE, MISC_GROUPS,
   };
 
   g.TPRULES = TP;

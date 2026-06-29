@@ -7,7 +7,7 @@ pragma solidity >=0.8.17;
 library TigerMeta {
     uint256 internal constant SUPPLY = 10000;
     uint256 internal constant ROW_BYTES = 10;
-    bytes32 internal constant PROVENANCE = 0x9fa2a02518b29e53663ce684b57e527f5772ba5606fd38f11083bc97222e173d;
+    bytes32 internal constant PROVENANCE = 0xccb9ada6ffc01e7b1c6027751a006773fec395880e735b03550222a898432ea5;
 
     function labels_Mode() internal pure returns (string[5] memory) { string[5] memory a = ["Dark", "Light", "OG", "OG 107", "Tiger"]; return a; }
     function labels_Punk() internal pure returns (string[8] memory) { string[8] memory a = ["Adrian", "Alien", "Ape", "NPC", "Tiger", "White Tiger", "Zombie", "Lama"]; return a; }

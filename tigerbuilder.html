@@ -295,7 +295,19 @@ function refreshConstraints(){
 function selectThumb(c,el,file){
   if(el.style.pointerEvents==='none'||el.style.opacity==='0.25') return;  // blocked option
   const grid=el.parentElement;
-  if(c.multi){el.classList.toggle('active');const set=new Set(state.sel[c.id]||[]);if(set.has(file))set.delete(file);else set.add(file);state.sel[c.id]=[...set];}
+  if(c.multi){
+    let set=new Set(state.sel[c.id]||[]);
+    if(set.has(file)){ set.delete(file); }
+    else if(c.id==='Misc'){
+      const lab=lbl(c,file);
+      if(lab==='Jason Mask'){ set=new Set([file]); }                                  // Jason worn alone
+      else { const g=TPRULES.miscGroupOf(lab);
+        set=new Set([...set].filter(f=>{const L=lbl(c,f); return L!=='Jason Mask' && (!g||TPRULES.miscGroupOf(L)!==g);}));  // drop Jason + same-group
+        set.add(file); }
+    } else { set.add(file); }
+    state.sel[c.id]=[...set];
+    [...grid.children].forEach(t=>{ if(t.dataset.file) t.classList.toggle('active', set.has(t.dataset.file)); });  // resync actives
+  }
   else{[...grid.children].forEach(x=>x.classList.remove('active'));el.classList.add('active');state.sel[c.id]=file||null;}
   refreshConstraints();                                                  // re-eval cross-trait rules
   render();
@@ -330,7 +342,9 @@ function randomize(s){
   if(!TPRULES.miscSuppressed(h)){
     const pool=shuffle(catCfg('Misc').options.filter(o=>TPRULES.miscOptionAllowed(o.label,h)&&TPRULES.punkOptionAllowed(state.punk,'Misc',o.label)));
     const mn=Math.floor(rng()*Math.min(4,pool.length+1)); // 0..3
-    state.sel.Misc=pool.slice(0,mn).map(o=>o.file);
+    const chosen=pool.slice(0,mn);
+    const keepM=new Set(TPRULES.miscReduce(chosen.map(o=>o.label), rng));   // <=1 per group; Jason alone
+    state.sel.Misc=chosen.filter(o=>keepM.has(o.label)).map(o=>o.file);
   }
   syncUI();render();
 }

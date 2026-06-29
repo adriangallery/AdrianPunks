@@ -192,6 +192,8 @@ function genStateCount(seed, K){
   const hatChosen=catSet.has("Hat"), topChosen=catSet.has("Top");
   // any hat present -> drop Jason Mask from misc
   if(hatChosen) miscChosen=miscChosen.filter(o=>TPRULES.miscOptionAllowed(o.label,"hat"));
+  // enforce Misc groups (<=1 per group; Jason Mask alone)
+  { const keepM=new Set(TPRULES.miscReduce(miscChosen.map(o=>o.label), rng)); miscChosen=miscChosen.filter(o=>keepM.has(o.label)); }
   const hasMisc=miscChosen.length>0;
   // 1) Hat first, excluding values that would conflict with chosen Top/Misc
   let hatL=null;
@@ -247,13 +249,15 @@ function genState(seed){
   st.sel.Eye  = pick("Eye");
   st.sel.Top  = TPRULES.topSuppressed(hatL) ? null : pick("Top");
   const mc=catCfg("Misc"), mpres=cfg.presence.Misc??1;
-  st.sel.Misc = TPRULES.miscSuppressed(hatL) ? [] : mc.options.filter(o=>{
+  const mcand = TPRULES.miscSuppressed(hatL) ? [] : mc.options.filter(o=>{
       const w=cfg.traitW[wkey("Misc",o.file)]??1;
       if(w<=0) return false;
       if(!TPRULES.miscOptionAllowed(o.label, hatL)) return false;       // any hat -> no Jason Mask
       if(!TPRULES.punkOptionAllowed(st.punk,"Misc",o.label)) return false;
       return rng()<Math.min(1, mpres*w);
-    }).map(o=>o.file);
+    });
+  const keepM=new Set(TPRULES.miscReduce(mcand.map(o=>o.label), rng));  // <=1 per group; Jason alone
+  st.sel.Misc = mcand.filter(o=>keepM.has(o.label)).map(o=>o.file);
   return st;
 }
 function generate(){

@@ -133,6 +133,25 @@ for m in MODES:
         errs.append(f"Mode '{m['label']}' has invalid color '{m.get('color')}' (want #RRGGBB).")
 
 cat_ids = ["Top", "Beard", "Hair", "Hat", "Mouth", "Eye"]
+# Misc groups: at most one per group; Jason Mask worn alone (mirror of rules.js MISC_GROUPS)
+MISC_GROUPS = {
+    "ears": {"AirPod", "Gold Earring", "Diamond Earring"},
+    "face": {"Clown Nose", "Drool", "Nose Bleed", "Snot"},
+    "neck": {"Choker", "Gold Chain", "Tiger Tattoo", "Neck Tattoo"},
+}
+def _misc_group(lbl):
+    for g, s in MISC_GROUPS.items():
+        if lbl in s: return g
+    return None
+def _misc_set_valid(labels):
+    if "Jason Mask" in labels: return len(labels) == 1
+    seen = set()
+    for l in labels:
+        g = _misc_group(l)
+        if g:
+            if g in seen: return False
+            seen.add(g)
+    return True
 # tiger-only colourways (e.g. fur-toned hairs) may only appear on tiger-type punks
 tigeronly = {cid: {o["label"] for o in cat(cid)["options"] if o.get("tigerOnly")} for cid in cat_ids}
 tiger_punk_labels = {p["label"] for p in PUNK["options"] if p["id"] in PUNK.get("tigerIds", [])}
@@ -161,9 +180,12 @@ for tok in the_set:
             errs.append(f"token {i}: tiger-only {cid} '{v}' on non-tiger punk '{a.get('Punk')}'.")
     mv = a.get("Misc")
     if mv and mv != "None":
-        for part in [p.strip() for p in mv.split("+")]:
+        parts = [p.strip() for p in mv.split("+")]
+        for part in parts:
             if part not in misc_opts:
                 errs.append(f"token {i}: Misc '{part}' not in manifest.")
+        if not _misc_set_valid(parts):
+            errs.append(f"token {i}: invalid Misc set {parts} (>1 per group, or Jason Mask not alone).")
 if len(the_set) != SUPPLY:
     errs.append(f"set has {len(the_set)} tokens but size/SUPPLY is {SUPPLY}.")
 if len(seen_idx) == SUPPLY and sorted(seen_idx) != list(range(1, SUPPLY + 1)):
