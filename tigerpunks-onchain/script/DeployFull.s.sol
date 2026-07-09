@@ -6,11 +6,20 @@ import { TigerPunks } from "../src/TigerPunks.sol";
 import { TigerRenderer } from "../src/TigerRenderer.sol";
 import { TigerArt } from "../src/TigerArt.sol";
 import { TigerMeta } from "../src/TigerMeta.sol";
-import { PublicDrop } from "seadrop/lib/SeaDropStructs.sol";
+import { PublicDrop, AllowListData } from "seadrop/lib/SeaDropStructs.sol";
 import { ISeaDropTokenContractMetadata } from "seadrop/interfaces/ISeaDropTokenContractMetadata.sol";
 
 /// @notice Full integral deploy + config on one --slow run.
-/// Env: FIFTYFIFTY, FEE_RECIPIENT, CLAIM_ROOT (bytes32), MINT_PRICE_WEI (default 1e15 = 0.001)
+/// Env:
+///   FIFTYFIFTY      creator payout + royalty receiver (SeaDrop)
+///   FEE_RECIPIENT   allowed fee recipient (default FIFTYFIFTY)
+///   CLAIM_ROOT      (bytes32) Merkle root of the 11 animated 1/1s
+///                   (leaf = keccak(tokenId, claimer)). NOT the holders allowlist.
+///   ALLOWLIST_ROOT  (bytes32, optional) Merkle root of the holders/allowlist mint
+///                   phases 1-3 (leaf = keccak(abi.encode(minter, MintParams))).
+///                   Produced by script/build_allowlist.py. If 0x0 (default) only
+///                   the public drop (phase 4) is configured.
+///   MINT_PRICE_WEI  public mint price (default 1e15 = 0.001 ETH)
 contract DeployFull is Script {
     address constant SEADROP = 0x00005EA00Ac477B1030CE78506496e8C2dE24bf5;
 
@@ -18,6 +27,7 @@ contract DeployFull is Script {
         address fifty   = vm.envAddress("FIFTYFIFTY");
         address feeRec  = vm.envOr("FEE_RECIPIENT", fifty);
         bytes32 root    = vm.envBytes32("CLAIM_ROOT");
+        bytes32 alRoot  = vm.envOr("ALLOWLIST_ROOT", bytes32(0)); // holders/allowlist phases
         uint256 price   = vm.envOr("MINT_PRICE_WEI", uint256(1e15)); // 0.001 ETH
 
         vm.startBroadcast();
@@ -41,7 +51,7 @@ contract DeployFull is Script {
         _loadSpecials(token);   // 2) animated 1/1s (tokenIds 1..11) + names
         token.seedSpecials();   // mint tokenIds 1..11 to escrow
         token.setClaimRoot(root);
-        _configDrop(token, fifty, feeRec, price);   // 3) royalties + 4) public drop
+        _configDrop(token, fifty, feeRec, price, alRoot);   // 3) royalties + allowlist phases + public drop
 
         // 5) bake the 100% on-chain collection metadata (data: URI w/ on-chain logo) into
         //    the token's contractURI. Re-run this if you update copy/showcase before freezing.
@@ -95,10 +105,27 @@ contract DeployFull is Script {
         }
     }
 
-    function _configDrop(TigerPunks token, address fifty, address feeRec, uint256 price) internal {
+    function _configDrop(TigerPunks token, address fifty, address feeRec, uint256 price, bytes32 alRoot) internal {
         token.setRoyaltyInfo(ISeaDropTokenContractMetadata.RoyaltyInfo({ royaltyAddress: fifty, royaltyBps: 500 }));
         token.updateCreatorPayoutAddress(SEADROP, fifty);
         token.updateAllowedFeeRecipient(SEADROP, feeRec, true);
+
+        // Phases 1-3 (Holders FREE / Holders PAID / Allowlist PAID): a single SeaDrop
+        // allow list. The per-phase (price, maxQty, window, dropStageIndex) live INSIDE
+        // each Merkle leaf (keccak(abi.encode(minter, MintParams))) and are supplied by
+        // the minter at mint time, so only the root is stored on-chain. Build the tree +
+        // proofs with script/build_allowlist.py and pass its root as ALLOWLIST_ROOT.
+        // (publicKeyURIs/allowListURI stay empty: our own mint page embeds the proofs, so
+        // SeaDrop needs no off-chain URI. Set allowListURI only if using OpenSea's hosted UI.)
+        if (alRoot != bytes32(0)) {
+            token.updateAllowList(SEADROP, AllowListData({
+                merkleRoot: alRoot,
+                publicKeyURIs: new string[](0),
+                allowListURI: ""
+            }));
+        }
+
+        // Phase 4 (Public PAID): open drop until sold out.
         token.updatePublicDrop(SEADROP, PublicDrop({
             mintPrice: uint80(price), startTime: uint48(block.timestamp),
             endTime: uint48(block.timestamp + 365 days),
