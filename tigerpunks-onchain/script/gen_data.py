@@ -32,7 +32,14 @@ PUNKS    = os.path.normpath(os.path.join(ROOT, "..", "tigerpunks"))
 MANIFEST = os.path.join(PUNKS, "manifest.json")
 SRC      = os.path.join(ROOT, "src")
 GRID     = 24
-CONFIG   = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "data", "test-config.json")
+if len(sys.argv) < 2:
+    raise SystemExit(
+        "usage: python3 script/gen_data.py <curation-config>.json\n"
+        "  No silent default: pass the curator's config explicitly so provenance\n"
+        "  reflects exactly what you bake (and you never re-bake a stale test set).\n"
+        "  For a throwaway local fixture run: python3 script/gen_test_config.py [N] [seed]"
+    )
+CONFIG   = sys.argv[1]
 
 manifest = json.load(open(MANIFEST))
 config   = json.load(open(CONFIG))
