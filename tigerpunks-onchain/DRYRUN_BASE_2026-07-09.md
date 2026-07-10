@@ -134,3 +134,62 @@ que quedan son de DATOS/ARTE, no de código:
 
 `freezeRenderer()` **NO** ejecutado (correcto). Ningún contrato de otras colecciones
 fue tocado; deploy nuevo y aislado.
+
+---
+
+# REDEPLOY del ensayo con arte 1/1 OG — 2026-07-10
+
+El bloqueante #1 quedó **RESUELTO**: los 11 SVG se regeneraron desde el arte OG
+(`market/adrianpunksimages/<og>.gif`) con el driver committeado `script/build_anim.sh`
+(commit `0f2a7974`; los frame counts del OG casan 1:1 con LAUNCH_SPEC, los de omega no).
+Se re-desplegó el ensayo COMPLETO en Base con `DeployFull` y los **mismos params** del
+dry-run original (FIFTYFIFTY test `0xcC89…4A6f`, `CLAIM_ROOT=0x0`,
+`ALLOWLIST_ROOT=0x8bea5ceff…dbe38`, precio 0.001 ETH).
+
+## Direcciones NUEVAS del ensayo (Base mainnet) — estas SUPERSEDEN a las de arriba
+
+| Contrato | Dirección |
+|---|---|
+| **TigerPunks** (redeploy OG) | `0xADA976aEC6584ae773bF7747c3b675916e1c24e2` |
+| **TigerRenderer** | `0x2852B38652944308d15bD38a6372C84ef8A2261f` |
+| **TigerArt** (SSTORE2) | `0xB37F5BF64583c9582356D74076ed88a482FAA262` |
+| FiftyFifty (test, reutilizado) | `0xcC897243c7e9aA460066162693fA05f6f20A4A6f` |
+
+El deploy del 9-jul (`0x0A6D8CE3…D0c6`) queda como ensayo obsoleto con arte incorrecto.
+
+- **58 txs, 0 fallos** (antes 66: los SVG OG son más compactos → menos `addSpecialChunk`).
+  Gas total del redeploy: **~0.0009 ETH** + `reveal()` (`0x04673b25…039f5b`, offset **2508**).
+- Estado verificado on-chain: maxSupply 10000, specialsSeeded (1-11 en escrow),
+  comboDataFrozen true, `rendererFrozen` **false** (NO congelado), mismo
+  PROVENANCE `0xccb9ada6…432ea5` (misma data seed de prueba — T4 sigue aparcado).
+
+## Verificación on-chain de los 11 1/1 (tokenURI → SVG decodificado, sin OpenSea)
+
+Para cada tokenId 1-11: `tokenURI` → JSON base64 → `animation_url` SVG → frame 0
+reconstruido píxel a píxel y comparado (histograma de color exacto, cuantizado //8)
+contra `market/adrianpunksimages/<og>.gif` frame 0. **11/11 MATCH**:
+
+| tokenId | OG # | nombre | frames | SVG KB | arte confirmado |
+|---|---|---|---|---|---|
+| 1 | 1 | Adrian | 4 | 8.0 | ✅ punk blanco clásico, pelo negro, fondo blanco |
+| 2 | 13 | Negative | 2 | 27.7 | ✅ fondo negro (negativo) |
+| 3 | 69 | Checker | 20 | 114.0 | ✅ damero B/N |
+| 4 | 221 | Idea | 23 | 64.6 | ✅ punk BLANCO, gafas arcoíris, cigarro, fondo cian (frame 0) — ya NO el gris/morado/bigote de PocketAdrians |
+| 5 | 369 | Laser | 12 | 37.1 | ✅ fondo negro, láser |
+| 6 | 420 | 420 | 5 | 71.0 | ✅ fondo blanco |
+| 7 | 555 | $ADRIAN | 4 | 26.7 | ✅ ojos "$A", fondo verde con monedas |
+| 8 | 690 | Mona Punk Lisa | 2 | 17.0 | ✅ fondo negro |
+| 9 | 777 | Funk | 6 | 38.3 | ✅ fondo amarillo |
+| 10 | 807 | OI | 2 | 28.0 | ✅ fondo blanco |
+| 11 | 911 | FFS! | 3 | 34.8 | ✅ fondo rojo |
+
+Además #221, #1 y #555 se decodificaron y compararon **visualmente** contra el PNG/GIF
+fuente: idénticos al OG. Todos con trait "Animated 1/1", SMIL `<animate>` presente y
+frame counts == LAUNCH_SPEC.
+
+## Veredicto actualizado
+
+- ✅ Bloqueante #1 (arte 1/1) **CERRADO**: on-chain renderiza el OG.
+- ⏳ Bloqueante #2 sigue: data del set = seed de PRUEBA 153074185 (T4 aparcado por Adrian).
+- `freezeRenderer()` NO llamado. Para ETH (T7): correr `bash script/build_anim.sh` antes
+  del deploy (out/ es regenerable y gitignored) — el driver ya pina la fuente OG.
