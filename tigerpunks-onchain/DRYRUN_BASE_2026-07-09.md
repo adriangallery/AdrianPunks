@@ -193,3 +193,83 @@ frame counts == LAUNCH_SPEC.
 - ⏳ Bloqueante #2 sigue: data del set = seed de PRUEBA 153074185 (T4 aparcado por Adrian).
 - `freezeRenderer()` NO llamado. Para ETH (T7): correr `bash script/build_anim.sh` antes
   del deploy (out/ es regenerable y gitignored) — el driver ya pina la fuente OG.
+
+---
+
+# ENSAYO 3 — data DEFINITIVA (T4/G1 resueltos) — 2026-07-10
+
+El bloqueante #2 quedó **RESUELTO**: G1 desbloqueado por Adrian con el config curado
+definitivo `tigerpunks-config-368572463.json` (masterSeed **368572463**). Re-horneado (T4,
+commit `708abf02`): `gen_data.py` 0 errores de validación, **10000/10000 combos únicos, 0
+duplicados**, usa los 4 hats nuevos (Beret Green/Red/Black 46-227, Wobbler 135) + skin **Lama**
+(345). **PROVENANCE nuevo = `0x9983c254de9c…bcaf9`** (verify_provenance MATCH). `forge test` 25/25.
+Ensayo COMPLETO re-desplegado en Base con `DeployFull` (mismos params: FIFTYFIFTY test
+`0xcC89…4A6f`, `CLAIM_ROOT=0x0`, `ALLOWLIST_ROOT=0x8bea5ceff…dbe38`, precio 0.001 ETH; SIN
+freezeRenderer).
+
+## Direcciones NUEVAS del ensayo 3 (Base mainnet) — SUPERSEDEN a todas las anteriores
+
+| Contrato | Dirección |
+|---|---|
+| **TigerPunks** (data definitiva) | `0x9669c7898Eb214d3Dba8b02B4d42a8a98e68805a` |
+| **TigerRenderer** | `0xA4DF62432d036aA81C5D8Bd4FAdF05755D8f4A2D` |
+| **TigerArt** (SSTORE2) | `0xC6f33325a1Ca07A70503f0cf304c5d0F151c8FF0` |
+| FiftyFifty (test, reutilizado) | `0xcC897243c7e9aA460066162693fA05f6f20A4A6f` |
+
+Los deploys previos (`0x0A6D8CE3…D0c6` seed prueba, `0xADA976aE…24e2` seed prueba+OG) quedan
+OBSOLETOS (data no definitiva).
+
+## Estado on-chain verificado
+
+- `maxSupply` = 10000 == `TigerMeta.SUPPLY` ✓
+- **`PROVENANCE` = `0x9983c254de9c…bcaf9`** (== config definitivo; `verify_provenance.py
+  tigerpunks-config-368572463.json <onchain>` = **MATCH ✅**)
+- `comboDataFrozen` = true ✓, `rendererFrozen` = **false** ✓ (NO congelado)
+- `specialsSeeded` = true (1..11 en escrow) ✓, `chunkCount` = 5 ✓
+- SeaDrop `getAllowListMerkleRoot` = `0x8bea5ceff…dbe38` ✓; `creatorPayout` = FiftyFifty ✓
+
+## Fases de mint ejercitadas + reveal
+
+| Fase | Método | qty | precio | tokenIds | resultado |
+|---|---|---|---|---|---|
+| 1 Holders FREE | `mintAllowList` stage1 (proof del deployer-holder) | 3 | 0 | 12,13,14 | ✓ gratis |
+| 4 Public PAID | `mintPublic` | 1 | 0.001 | 15 | ✓ +0.001 → FiftyFifty |
+| ownerMint (sample render) | `ownerMint` | 16 | — | 16-31 | ✓ |
+| `reveal()` | — | — | — | — | ✓ **revealOffset = 6363** |
+
+`totalSupply` final = **31** (11 specials en escrow + 20 minteados). **Pago verificado**:
+FiftyFifty 0.007 → **0.008 ETH** = +0.001 (el único mint de pago; el FREE no cobra). Gotchas del
+RPC público (mismo patrón DRYRUN): "replacement transaction underpriced" y "in-flight tx limit
+for delegated accounts" (EOA 7702) → se resuelve con `--nonce` explícito + envíos de uno en uno.
+
+## Verificación de render — PÍXEL A PÍXEL vs curator (no solo atributos)
+
+`pixel_verify.py`: rasteriza el SVG on-chain del `tokenURI` a 24×24 y lo compara **píxel a píxel**
+contra un composite local INDEPENDIENTE de los PNG fuente del curator (`tigerpunks/traits/*`) en
+el z-order del renderer (Mode>Punk>Top>Beard>Hair>Hat>Mouth>Eye>Misc, variante Tiger donde aplica).
+
+- **20 generativos (tokenIds 12-31)**: `comboOf` on-chain == `combos.bin` horneado (índice
+  `(id-1+6363)%10000`) ✓ **Y 0 diferencias de píxel** en los 20 (incluye 4 Tiger punks → arte
+  tiger-variante correcto). **0 discrepancias.**
+- **Traits nuevos (vía `Renderer.imageSVG(bytes)` sobre combos reales del config, sin mintear)**:
+  Lama, White Tiger, Beret Green/Red/Black, Wobbler, y **Lama+Wobbler** (hat nuevo en variante
+  tiger) → **7/7 pixel-match, 0 diffs**. Confirma que los hats 24-27 y el Lama rinden on-chain.
+- **11 animados 1/1**: `verify_onchain_11.py` → **11/11 == arte OG** (frame 0 histograma exacto vs
+  `market/adrianpunksimages/<og>.gif`; #221 "Idea" bg cian, NO PocketAdrians). Trait "Animated 1/1"
+  y frame counts == LAUNCH_SPEC en todos.
+- **`contractURI()`**: JSON válido, name "TigerPunks", desc 416 chars (menciona HalfxTiger),
+  external_link OK, logo = TigerPunk renderizado on-chain (SVG 6440 B). ✓
+
+## Gas / presupuesto
+
+- Total del ensayo 3: **~0.0019 ETH** = **~0.0009 ETH de gas** (deploy 58 txs + 5 mints + reveal +
+  ownerMint) + 0.001 ETH de valor de mint (fue a FiftyFifty, recuperable). Muy por debajo del tope
+  0.005. Gas price Base ~0.006-0.011 gwei.
+
+## Veredicto ensayo 3
+
+**Flujo end-to-end verde con la DATA DEFINITIVA**: deploy íntegro, allowlist wiring, mint (free+
+paid), pago, reveal, render generativo **pixel-perfect vs curator**, traits nuevos (Lama+hats)
+correctos, 1/1 OG correctos, contractURI on-chain. `PROVENANCE()` on-chain casa con el config
+commiteado. `freezeRenderer()` NO llamado. **Ya no queda bloqueante de datos ni de arte para ETH**
+— lo pendiente es solo red/config: T6 (dapp→ETH) y T7 (FiftyFifty ETH + DeployFull ETH, OK de Adrian).
