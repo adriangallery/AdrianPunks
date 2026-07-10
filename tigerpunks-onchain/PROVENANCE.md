@@ -59,6 +59,13 @@ TokenIds **1–11** are the migrated OG **animated 1/1s** (`SPECIAL_COUNT = 11`)
 returns the hand-made animated SVG held in escrow and **skips `comboOf`** entirely
 (`TigerPunks.tokenURI` → `isSpecial(tokenId)` → `_specialURI`). They are *not* generative punks.
 
+The animated SVGs are regenerated deterministically from the **ORIGINAL AdrianPunks** art
+(`../market/adrianpunksimages/<ogId>.gif`, OG ids 1,13,69,221,369,420,555,690,777,807,911) by
+`script/build_anim.sh` → `out/anim/final/`. ⚠️ They must NOT be built from `market/omega/` or
+`market/alpha/` — those are *PocketAdrians* and were used by mistake in the first pass (caught in
+the Base dry-run, risk R6; see `DRYRUN_BASE_2026-07-09.md`). Run `bash script/build_anim.sh` before
+any deploy so the on-chain art is the OG.
+
 The provenance hash still covers **all 10,000 rows** of the published config (the commitment must be
 complete and tamper-evident for the whole set). But because tokenIds 1–11 render their animated art
 instead of a combo, the 11 config rows that the reveal offset happens to map onto positions 1–11 are
