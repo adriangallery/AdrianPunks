@@ -5,33 +5,33 @@
   // ---- Hair x Hat compatibility (only applies when BOTH present) ----
   // For a hair in ONLY_WITH: that hair may co-occur ONLY with the listed hats.
   const ONLY_WITH = {
-    "Bob": ["Cap Backward","Cap Foreward Blue","Cap Foreward","Cap Purple","Crown","Fedora","G.I","Head Band","Police Cap","Tiara"],
-    "Crazy Hair": ["Crown","Head Band","Tiara"],
-    "Wild":       ["Crown","Head Band","Tiara"],
-    "Flat Top":   ["Crown","Head Band","Tiara"],
+    "Bob": ["Cap Backward","Cap Foreward Blue","Cap Foreward","Cap Purple","Crown","Fedora","G.I","Head Band","Police Cap","Tiara","Wobbler"],
+    "Crazy Hair": ["Crown","Head Band","Tiara","Wobbler"],
+    "Wild":       ["Crown","Head Band","Tiara","Wobbler"],
+    "Flat Top":   ["Crown","Head Band","Tiara","Wobbler"],
     // tiger-only colourways inherit their base style's hat rule
-    "Crazy Blond": ["Crown","Head Band","Tiara"],
-    "Crazy Brown": ["Crown","Head Band","Tiara"],
-    "Crazy Green": ["Crown","Head Band","Tiara"],
-    "Wild Blond":  ["Crown","Head Band","Tiara"],
-    "Wild Brown":  ["Crown","Head Band","Tiara"],
+    "Crazy Blond": ["Crown","Head Band","Tiara","Wobbler"],
+    "Crazy Brown": ["Crown","Head Band","Tiara","Wobbler"],
+    "Crazy Green": ["Crown","Head Band","Tiara","Wobbler"],
+    "Wild Blond":  ["Crown","Head Band","Tiara","Wobbler"],
+    "Wild Brown":  ["Crown","Head Band","Tiara","Wobbler"],
   };
   // For a hair in NOT_WITH: that hair may co-occur with any hat EXCEPT the listed ones.
   const NOT_WITH = {
-    "Long Hair":        ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat"],
-    "Longer Hair Dark": ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat"],
-    "Longer Hair":      ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat"],
-    "Mohawk":           ["Bandana","Bunny","Cap Backward","Cap Foreward Blue","Cap Foreward","Cap Purple","Do rag","Pilot Helmet","Tassle Hat","Propeller Hat"],
-    "Normal Popper":    ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat"],
-    "Popper":           ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat"],
+    "Long Hair":        ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat","Beret Green","Beret Red","Beret Black"],
+    "Longer Hair Dark": ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat","Beret Green","Beret Red","Beret Black"],
+    "Longer Hair":      ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat","Beret Green","Beret Red","Beret Black"],
+    "Mohawk":           ["Bandana","Bunny","Cap Backward","Cap Foreward Blue","Cap Foreward","Cap Purple","Do rag","Pilot Helmet","Tassle Hat","Propeller Hat","Beret Green","Beret Red","Beret Black"],
+    "Normal Popper":    ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat","Beret Green","Beret Red","Beret Black"],
+    "Popper":           ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat","Beret Green","Beret Red","Beret Black"],
     // tiger-only colourways inherit their base style's hat rule
-    "Long Brown":       ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat"],
-    "Longer Blond":     ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat"],
-    "Longer Brown":     ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat"],
-    "Mohawk Green":     ["Bandana","Bunny","Cap Backward","Cap Foreward Blue","Cap Foreward","Cap Purple","Do rag","Pilot Helmet","Tassle Hat","Propeller Hat"],
-    "Mohawk Red":       ["Bandana","Bunny","Cap Backward","Cap Foreward Blue","Cap Foreward","Cap Purple","Do rag","Pilot Helmet","Tassle Hat","Propeller Hat"],
-    "Popper Blond":     ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat"],
-    "Popper Brown":     ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat"],
+    "Long Brown":       ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat","Beret Green","Beret Red","Beret Black"],
+    "Longer Blond":     ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat","Beret Green","Beret Red","Beret Black"],
+    "Longer Brown":     ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat","Beret Green","Beret Red","Beret Black"],
+    "Mohawk Green":     ["Bandana","Bunny","Cap Backward","Cap Foreward Blue","Cap Foreward","Cap Purple","Do rag","Pilot Helmet","Tassle Hat","Propeller Hat","Beret Green","Beret Red","Beret Black"],
+    "Mohawk Red":       ["Bandana","Bunny","Cap Backward","Cap Foreward Blue","Cap Foreward","Cap Purple","Do rag","Pilot Helmet","Tassle Hat","Propeller Hat","Beret Green","Beret Red","Beret Black"],
+    "Popper Blond":     ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat","Beret Green","Beret Red","Beret Black"],
+    "Popper Brown":     ["Bandana","Bunny","Do rag","Pilot Helmet","Tassle Hat","Beret Green","Beret Red","Beret Black"],
   };
 
   // Misc groups: AT MOST ONE Misc per group may be worn together (ears / face / neck).
