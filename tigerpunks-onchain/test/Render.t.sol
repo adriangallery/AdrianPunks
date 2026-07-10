@@ -83,7 +83,7 @@ contract RenderTest is TigerBase {
         for (uint256 i = 0; i < a.length; i++) if (_streq(a[i], label)) return int256(i);
         return -1;
     }
-    function _labelIdx(string[23] memory a, string memory label) internal pure returns (int256) {
+    function _labelIdx(string[27] memory a, string memory label) internal pure returns (int256) {
         for (uint256 i = 0; i < a.length; i++) if (_streq(a[i], label)) return int256(i);
         return -1;
     }
