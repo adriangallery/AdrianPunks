@@ -120,7 +120,7 @@
     <!-- CONTROLS -->
     <div class="col-lg-7">
       <div class="card shadow-sm mb-3">
-        <div class="card-header">Mode <span class="val" id="modeVal">Electric Lime</span></div>
+        <div class="card-header">Mode <span class="val" id="modeVal">Screen</span></div>
         <div class="card-body"><div class="chips" id="modeChips"></div></div>
       </div>
 
@@ -179,7 +179,7 @@ const SIZE=1080, GKEY='tigerpunks_gallery';
 const VERSION='20260623c';                       // bump to bust CDN/browser cache on asset updates
 const bust=u=>u+(u.includes('?')?'&':'?')+'v='+VERSION;
 const $=s=>document.querySelector(s), ce=(t,c)=>{const e=document.createElement(t);if(c)e.className=c;return e;};
-let M=null, IMG={}, state={mode:'electric-lime', punk:'adrian', sel:{}};
+let M=null, IMG={}, state={mode:'screen', punk:'adrian', sel:{}};
 
 /* ---- new-model helpers (Mode / Punk / Tiger-variant) + rule layer (TPRULES) ---- */
 function punkOpt(id){return (M.punk.options.find(p=>p.id===id))||M.punk.options[0];}
@@ -212,6 +212,7 @@ function load(src){return new Promise(res=>{if(IMG[src])return res(IMG[src]);con
 async function boot(){
   M=await (await fetch(bust('tigerpunks/manifest.json'))).json();
   const all=[];
+  M.modes.forEach(m=>{if(m.file)all.push(m.dir+'/'+m.file);});           // image backgrounds (e.g. Screen)
   M.punk.options.forEach(o=>all.push(M.punk.dir+'/'+o.file));            // 7 full-art punk faces
   M.categories.forEach(c=>c.options.forEach(o=>{
     all.push(c.dir+'/'+o.file);
@@ -222,8 +223,10 @@ async function boot(){
   buildUI();randomize();$('#loader').style.display='none';
 }
 
-/* Mode = solid background colour */
-function drawBg(ctx,id){const m=M.modes.find(m=>m.id===id)||M.modes[0];ctx.fillStyle=m.color;ctx.fillRect(0,0,SIZE,SIZE);}
+/* Mode = solid background colour, or a 24x24 pattern when the mode carries art */
+function drawBg(ctx,id){const m=M.modes.find(m=>m.id===id)||M.modes[0];
+  ctx.fillStyle=m.color;ctx.fillRect(0,0,SIZE,SIZE);
+  if(m.file){const im=IMG[m.dir+'/'+m.file];if(im)ctx.drawImage(im,0,0,SIZE,SIZE);}}
 
 /* z-order = manifest category order: Mode(bg) > Punk > Top > Beard > Hair > Hat > Mouth > Eye > Misc.
    Tiger/White-Tiger punks pull Beard/Hair/Hat/Eye/Misc from the Tiger-* art. Rules enforced via refreshConstraints. */

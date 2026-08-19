@@ -129,6 +129,7 @@ function hatIsHoodie(st){const r=hoodieRule();if(!r)return false;const f=st.sel[
 async function boot(){
   M=await (await fetch(bust('tigerpunks/manifest.json'))).json();
   const all=[];
+  M.modes.forEach(m=>{if(m.file)all.push(m.dir+'/'+m.file);});
   M.punk.options.forEach(o=>all.push(M.punk.dir+'/'+o.file));
   M.categories.forEach(c=>c.options.forEach(o=>{all.push(c.dir+'/'+o.file);if(c.tigerDir)all.push(c.tigerDir+'/'+o.file);}));
   let done=0;
@@ -316,9 +317,12 @@ function dupeCount(){const s=new Set();let d=0;current.forEach(c=>{const k=sigOf
 
 /* ---------- render ---------- */
 function bgFill(id){const m=M.modes.find(m=>m.id===id);return m?m.color:'#333333';}
+/* modes may carry 24x24 art (e.g. Screen); colour stays as the fallback/swatch */
+function bgArt(id){const m=M.modes.find(m=>m.id===id);return m&&m.file?IMG[m.dir+'/'+m.file]:null;}
 function draw(ctx,st,W){
   ctx.imageSmoothingEnabled=false;
   ctx.fillStyle=bgFill(st.mode);ctx.fillRect(0,0,W,W);
+  const bim=bgArt(st.mode);if(bim)ctx.drawImage(bim,0,0,W,W);
   const pim=IMG[M.punk.dir+'/'+punkOpt(st.punk).file];if(pim)ctx.drawImage(pim,0,0,W,W);
   // z-order = manifest category order (Top first, directly over Punk). Rules already applied at generation.
   M.categories.forEach(c=>{
@@ -480,7 +484,7 @@ function htmlEl(h){const d=ce('div');d.innerHTML=h.trim();return d.firstChild;}
 /* ---------- save / load / sheet ---------- */
 function snapshot(){
   return {
-    collection:'TigerPunks', kind:'curation-config', size:cfg.size, masterSeed:cfg.masterSeed,
+    collection:"Robbin'Tigers", kind:'curation-config', size:cfg.size, masterSeed:cfg.masterSeed,
     weights:{ punk:cfg.punkW, mode:cfg.modeW }, presence:cfg.presence, traitWeights:cfg.traitW, countTargets:cfg.countTargets, maxDupes:cfg.maxDupes,
     distribution:distObj(),
     pinned:Object.values(pinned).map(p=>({seed:p.seed, attributes:attrs(p.st)})),
@@ -510,7 +514,7 @@ function saveConfig(){
     return;
   }
   const blob=new Blob([JSON.stringify(snapshot(),null,2)],{type:'application/json'});
-  const a=ce('a');a.download='tigerpunks-config-'+cfg.masterSeed+'.json';a.href=URL.createObjectURL(blob);a.click();
+  const a=ce('a');a.download='robbintigers-config-'+cfg.masterSeed+'.json';a.href=URL.createObjectURL(blob);a.click();
   toast(maxD>0 && dl>0 ? `Config saved (${dl} intentional dupe${dl===1?'':'s'})` : 'Config saved');
 }
 function loadConfig(file){
@@ -540,9 +544,10 @@ function downloadSheet(){
   x.fillStyle='#0e0e0e';x.fillRect(0,0,W,H);x.imageSmoothingEnabled=false;
   items.forEach((it,i)=>{const col=i%cols,row=(i/cols)|0;const px=pad+col*(cw+pad),py=pad+row*(cw+pad);
     x.fillStyle=bgFill(it.st.mode);x.fillRect(px,py,cw,cw);
+    const bim=bgArt(it.st.mode);if(bim)x.drawImage(bim,px,py,cw,cw);
     const pim=IMG[M.punk.dir+'/'+punkOpt(it.st.punk).file];if(pim)x.drawImage(pim,px,py,cw,cw);
     M.categories.forEach(cat=>{const v=it.st.sel[cat.id];if(!v||(Array.isArray(v)&&!v.length))return;const dir=catDir(cat,it.st.punk);(cat.multi?v:[v]).forEach(f=>{const im=IMG[dir+'/'+f];if(im)x.drawImage(im,px,py,cw,cw);});});});
-  const a=ce('a');a.download='TigerPunks-'+cfg.masterSeed+'-sheet.png';a.href=c.toDataURL('image/png');a.click();
+  const a=ce('a');a.download='RobbinTigers-'+cfg.masterSeed+'-sheet.png';a.href=c.toDataURL('image/png');a.click();
   toast(current.length>SHEET_CAP?('Sheet: first '+SHEET_CAP):'Sheet downloaded');
 }
 
